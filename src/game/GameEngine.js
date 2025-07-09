@@ -390,7 +390,7 @@ class GrenadeDefender extends DefenderUnit {
       );
       if (target) {
         if (this.gameEngine) {
-          this.gameEngine.addExplosion(
+          this.gameEngine.handleExplosion(
             target.x,
             target.y,
             this.grenadeDamage,
@@ -485,7 +485,7 @@ export class GameEngine {
     // Backend Placeholder: In a full game, these level configurations
     // would be loaded from a backend API when the player selects a level.
     this.levelConfigs.set(1, {
-      zombieSpawnInterval: 2500,
+      enermySpawnInterval: 2500,
       maxActiveEnermy: 5,
       totalEnermyToSpawn: 15,
       availableEnermyType: ["Basic Zombie", "Fast Zombie"],
@@ -513,8 +513,33 @@ export class GameEngine {
     this.imagesLoadedCount = 0;
   }
 
-  //placeholder for backend
-  preloadedImage() {}
+  //placeholder for backend： Image URLs for units/enemies should come from the backend
+  // as part of card data or level data.
+  preloadedImage(imagePaths) {
+    this.imagesToLoadCount = Object.keys(imagePaths).length;
+    this.imagesLoadedCount = 0;
+    const promises = [];
+
+    for (const name in imagePaths) {
+      const path = imagePaths[name];
+      const img = new Image();
+      img.src = path;
+      this.loadedImages[name] = img; // Store image object for later use
+
+      const promise = new Promise((resolve, reject) => {
+        img.onload = () => {
+          this.imagesLoadedCount++;
+          resolve();
+        };
+        img.onerror = () => {
+          console.error(`Failed to load image: ${path}`);
+          reject(new Error(`Failed to load image: ${path}`));
+        };
+      });
+      promises.push(promise);
+    }
+    return Promise.push(promises); // Return a promise that resolves when all images are loaded
+  }
 
   isImageLoaded() {
     return this.imagesLoadedCount === this.imagesToLoadCount;
@@ -530,9 +555,10 @@ export class GameEngine {
     this.canvasHeight = height;
     this.defenseLineX = this.canvasWidth - 100;
 
-    this.ctx.canvas.removeEventListener("click", this.handleClickBound); // Remove old listener
-    this.handleClickBound = this.handleClick.bind(this);
-    this.ctx.canvas.addEventListener("click", this.handleClickBound);
+    if (!this.handleClickBound) {
+      this.handleClickBound = this.handleClick.bind(this);
+      this.ctx.canvas.addEventListener("click", this.handleClickBound);
+    }
 
     // Load the configuration for the selected level
     this.currentLevelConfig = this.levelConfigs.get(levelNumber);
@@ -540,11 +566,27 @@ export class GameEngine {
       console.error();
       this.currentLevelConfig = this.levelConfigs.get(1);
     }
+
+    // Preload all necessary images for the current level
+    const allImagesToLoad = {
+      ...this.currentLevelConfig.enemyAssets,
+      ...this.currentLevelConfig.defenderAssets,
+    };
+    this.preloadedImage(allImagesToLoad)
+      .then(() => {
+        console.log("All game assets loaded.");
+        this.resetGame(); // Only reset and start game once assets are ready
+      })
+      .catch((error) => {
+        console.error("Error preloading game assets:", error);
+      });
+
     //reset game? with new state
     this.resetGame();
   }
 
   resetGame() {
+    this.stopLoop();
     this.enermy = [];
     this.defender = [];
     this.explosions = [];
@@ -552,26 +594,252 @@ export class GameEngine {
     this.inGameScore = 0;
     this.gameOver = false;
     this.lastEnermySpawnTime = Date.now();
-    this.totalEnermyToSpawn = 0; //reset for new level
+    this.enemiesSpawnedThisLevel = 0; // Reset count for the new level
+
+    //this.totalEnermyToSpawn = 0; //reset for new level
     this.updateEnergyCb(this.inGameEnergy);
     this.updateScoreCb(this.inGameScore);
-    this.startLoop();
+
+    if (this.isImageLoaded) {
+      this.startLoop();
+    } else {
+      console.warn(
+        "Images not yet loaded. Game loop will start after preload."
+      );
+    }
   }
 
-  handleClick(event) {}
+  handleClick(event) {
+    //TODO: handle later because require card usage
+  }
 
   //Method to be called by React UI when a card is deployed
-  deployDefenderUnit(cardData) {}
+  deployDefenderUnit(cardData, x, y) {
+    if (this.gameOver) return;
 
-  update() {}
+    //Backend Placeholder: Card deployment validation
+    //whether you have this card
+    //whether you have enough resource to deploy this card
 
-  draw() {}
+    //now only handles energy amount calculations
+    const UnitClass = this.defenderUnitClasses[cardData.name];
+    if (!UnitClass) {
+      console.error(`Unknown defender unit type: ${cardData.name}`);
+      return;
+    }
 
-  addExplosion() {}
+    if (this.inGameEnergy >= cardData.cost) {
+      const newUnit = new UnitClass(
+        x - cardData.width / 2,
+        y - cardData.height / 2,
+        {
+          ...cardData,
+          image: this.getImage(cardData.name),
+        }
+      );
 
-  gameLoop = () => {};
+      if (newUnit.setGameEngine) {
+        newUnit.setGameEngine(this); // Pass GameEngine reference for units like Grenadier
+      }
+      this.defender.push(newUnit);
+      this.inGameEnergy -= cardData.cost;
+      this.updateEnergyCb(this.inGameEnergy);
+      console.log(
+        `Deployed ${cardData.name}. Current energy: ${this.inGameEnergy}`
+      );
+    } else {
+      console.log(
+        `Insufficient energy (${this.inGameEnergy}) to deploy ${cardData.name} (cost: ${cardData.cost}).`
+      );
+    }
+  }
 
-  startLoop() {}
+  //update the gamestate
+  update() {
+    if (this.gameOver || !this.isImageLoaded) return;
 
-  stopLoop() {}
+    const currentTime = Date.now();
+
+    //Spawn new enermies
+    if (
+      this.enemiesSpawnedThisLevel <
+        this.currentLevelConfig.totalEnermyToSpawn &&
+      currentTime - this.lastEnermySpawnTime >
+        this.currentLevelConfig.enermySpawnInterval &&
+      this.enermy.length < this.currentLevelConfig.maxActiveEnermy
+    ) {
+      const availableTypes = this.currentLevelConfig.availableEnermyType;
+      const randomTypeName =
+        availableTypes[Math.floor(Math.random() * availableTypes.length)];
+      const EnermyClass = this.eneryClasses[randomTypeName];
+
+      if (EnermyClass) {
+        const image = this.getImage(randomTypeName);
+        this.enermies.push(new EnermyClass(0, this.canvasHeight / 2, image)); // Spawn at left edge
+        this.lastEnermySpawnTime = currentTime;
+        this.enemiesSpawnedThisLevel++;
+      } else {
+        console.warn(
+          `Attempted to spawn unknown enemy type: ${randomTypeName}`
+        );
+      }
+    }
+
+    //Update enermies
+    this.enermy.forEach((enermy) => {
+      enermy.update(this.defender);
+
+      //Activate special ability
+      if (enermy instanceof BombEnermy) {
+        enermy.activateSpecialAbility(this.defender);
+      }
+    });
+    this.enermy = this.enermy.filter((enermy) => {
+      if (!enermy.isAlive) {
+        if (enermy.shouldExplode) {
+          this.handleExplosion(
+            enermy.x,
+            enermy.y,
+            enermy.explosionDamage,
+            enermy.explosionRadius
+          );
+          enermy.shouldExplode = false;
+        }
+        this.inGameScore += enermy.bounty;
+        this.updateScoreCb(this.inGameScore);
+        return false; //remove dead enermy
+      }
+      //check if enermy cross defend line
+      if (enermy.x > this.defenseLineX) {
+        console.log("Enemy crossed defense line! Game Over.");
+        this.gameOver = true;
+        //pass detail abt the game
+        //GameContext will use it to determine resources loss
+        this.onLoseCb({
+          score: this.inGameScore,
+          level: this.currentLevelConfig.levelNumber,
+          reason: "defenseBreached",
+        });
+        this.stopLoop();
+        return false;
+      }
+      return true;
+    });
+
+    //Update defenders
+    this.defender.forEach((defender) =>
+      defender.update(this.enermy, this.defender)
+    );
+    this.defender.filter((defender) => defender.isAlive); //only alive
+
+    //remove visual effects (explosions)
+    this.explosions = this.explosions.filter((exp) => {
+      exp.timer--;
+      return exp.timer > 0;
+    });
+
+    //check win conditions: all enermy spawned and all active enermy are dead
+    const allEnermySpawn =
+      this.enemiesSpawnedThisLevel >=
+      this.currentLevelConfig.totalEnermyToSpawn;
+    const noActiveEnermies = this.enermy.length === 0;
+
+    if (!this.gameOver && allEnermySpawn && noActiveEnermies) {
+      console.log("All enemies cleared! Game Won.");
+      this.gameOver = true;
+      this.onWinCb();
+      this.stopLoop();
+    }
+  }
+
+  //temperary drwing
+  draw(ctx) {
+    if (!this.ctx) return;
+
+    this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+
+    //Draw Background
+    this.ctx.fillStyle = "#4CAF50"; // Green grass
+    this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+
+    //Draw Road/Path for enermies
+    this.ctx.fillStyle = "#8B4513"; // Brown road
+    this.ctx.fillRect(0, this.canvasHeight / 2 - 25, this.canvasWidth, 50);
+
+    //Draw Defense Line
+    this.ctx.fillStyle = "blue";
+    this.ctx.fillRect(this.defenseLineX - 5, 0, 10, this.canvasHeight); // Thinner line
+
+    //Draw Game Object
+    this.defender.forEach((defender) => defender.draw(ctx));
+    this.enermy.forEach((enermy) => enermy.draw(ctx));
+
+    //Draw Explosion Effect
+    this.explosions.forEach((exp) => {
+      this.ctx.beginPath();
+      this.ctx.arc(
+        exp.x,
+        exp.y,
+        exp.radius * (1 - exp.timer / 30),
+        0,
+        Math.PI * 2
+      );
+      this.ctx.fillStyle = `rgba(255, 165, 0, ${exp.timer / 30})`; // Fading orange
+      this.ctx.fill();
+    });
+
+    //display gameover win message
+    if (this.gameOver) {
+      this.ctx.fillStyle = "rgba(0,0,0,0.7)";
+      this.ctx.fillRect(0, this.canvasHeight / 2 - 50, this.canvasWidth, 100);
+      this.ctx.fillStyle = "white";
+      this.ctx.font = "40px Arial";
+      this.ctx.textAlign = "center";
+      this.ctx.fillText(
+        this.onWinCb.name.includes("win") ? "YOU WON!" : "GAME OVER",
+        this.canvasWidth / 2,
+        this.canvasHeight / 2 + 15
+      );
+    }
+  }
+
+  handleExplosion(x, y, damage, radius) {
+    this.explosions.push({ x, y, damage, radius, timer: 30 }); //timer for visual effect
+
+    //Apply damage to enermy
+    this.enermy.forEach((enermy) => {
+      if (enermy.isAlive && Math.hypot(x - enermy.x, y - enermy.y) <= radius) {
+        enermy.takeDamage(damage);
+      }
+    });
+
+    //Apply damage to defender
+    this.defender.forEach((defender) => {
+      if (
+        defender.isAlive &&
+        Math.hypot(x - defender.x, y - defender.y) <= radius
+      ) {
+        defender.takeDamage(damage * 0.3); //friendly damage reduction
+      }
+    });
+  }
+
+  gameLoop = () => {
+    this.update();
+    this.draw();
+    this.animationFrameId = requestAnimationFrame(this.gameLoop);
+  };
+
+  startLoop() {
+    if (!this.animationFrameId) {
+        this.gameLoop();
+    }
+  }
+
+  stopLoop() {
+    if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+    }
+  }
 }
