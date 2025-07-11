@@ -54,14 +54,14 @@ export class GameEngine {
       initialEnergy: 100,
       enemyAssets: {
         // Corrected: enermyAssets -> enemyAssets
-        "Basic Zombie": "/assets/images/enemies/basic_zombie.png", // Example path
-        "Fast Zombie": "/assets/images/enemies/fast_zombie.png", // Example path
+        "Basic Zombie": "link",
+        "Fast Zombie": "link", // Example path
       },
       defenderAssets: {
-        "Basic Cop": "/assets/images/defenders/basic_cop.png", // Example path
-        "Healer Cop": "/assets/images/defenders/healer_cop.png",
-        Grenadier: "/assets/images/defenders/grenadier.png",
-        Barricade: "/assets/images/defenders/barricade.png",
+        "Basic Cop": "link", // Example path
+        "Healer Cop": "link",
+        "Grenadier": "link",
+        "Barricade": "link",
       },
     });
     this.levelConfigs.set(2, {
@@ -72,15 +72,15 @@ export class GameEngine {
       availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie"],
       initialEnergy: 120,
       enemyAssets: {
-        "Basic Zombie": "/assets/images/enemies/basic_zombie.png",
-        "Fast Zombie": "/assets/images/enemies/fast_zombie.png",
-        "Tank Zombie": "/assets/images/enemies/tank_zombie.png",
+        "Basic Zombie": "link",
+        "Fast Zombie": "link",
+        "Tank Zombie": "link",
       },
       defenderAssets: {
-        "Basic Cop": "/assets/images/defenders/basic_cop.png",
-        "Healer Cop": "/assets/images/defenders/healer_cop.png",
-        Grenadier: "/assets/images/defenders/grenadier.png",
-        Barricade: "/assets/images/defenders/barricade.png",
+        "Basic Cop": "link",
+        "Healer Cop":"link",
+        "Grenadier": "link",
+        "Barricade": "link",
       },
     });
     // Add more levels here, ensuring each has a 'levelNumber' property
