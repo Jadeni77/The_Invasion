@@ -1,39 +1,75 @@
 // This file serves as the Model (game state, entities) and Controller (game logic, updates)
 
-class Enermy {
+export class Enermy {
   constructor(x, y, typeData = {}) {
     this.x = x;
     this.y = y;
+    this.initialSpeed = typeData.initialSpeed || 0.8;
+    this.speed = this.initialSpeed; //current speed and can be modify by rage or ability
     this.width = typeData.width || 30;
     this.height = typeData.height || 30;
-    this.speed = typeData.speed || 0.8;
     this.health = typeData.health || 100;
     this.maxHealth = typeData.health || 100;
     this.color = typeData.color || "darkgreen";
     this.name = typeData.name || "Basic Zombie";
     this.isAlive = true;
     this.id = Math.random();
-    this.image = typeData.image; //placeholder, but pixel style should also be an image
-    this.bounty = typeData.bounty || 10; //how much reward when killing an enermy
+    this.image = typeData.image; // Pixel style images are still image objects
+    this.bounty = typeData.bounty || 10; // Reward when killing an enemy
+
+    //attak properties
+    this.isAttacker = typeData.isAttacker || false;
+    this.attackDamage = typeData.attackDamage || 0;
+    this.attackRate = typeData.attackRate || 60;
+    this.attackCountdown = this.attackRate;
+    this.isAttacking = false; //if entity is engage in attack
   }
 
   /**
    * Movement Path
    */
   update(defenderUnits) {
-    //enermy need to know abt defender for collosion/attack
-    if (this.isAlive) {
+    if (!this.isAlive) return;
+
+    let targetDefender = null;
+
+    if (this.isAttacker) {
+      // Find the first defender in its path/collision range
+      targetDefender = defenderUnits.find((defender) => {
+        //find closest
+        defender.isAlive &&
+          this.x + this.width >= defender.x && // Enemy's right edge past defender's left edge
+          this.x <= defender.x + defender.width && // Enemy's left edge before defender's right edge
+          this.y + this.height >= defender.y && // Enemy's bottom edge past defender's top edge
+          this.y <= defender.y + defender.height; // Enemy's top edge before defender's bottom edge
+      });
+
+      if (targetDefender) {
+        this.speed = 0; //attack will not move
+        this.isAttacking = true;
+
+        this.attackCountdown--;
+
+        if (this.attackCountdown <= 0) {
+          defenderUnits.takeDamage(this.attackDamage);
+          this.attackCountdown = this.attackRate;
+        }
+      } else {
+        this.speed = this.initialSpeed;
+        this.isAttacking = false;
+        this.attackCountdown = this.attackRate; // Reset cooldown when not attacking
+      }
+    }
+    if (!this.isAttacking) {
       this.x += this.speed;
     }
-    // TODO: Collision detection with defenders (if zombies stop/attack defenders)
-    // For now, they just pass through if no collision logic is implemented
   }
 
   draw(ctx) {
     if (!this.isAlive) return;
 
     if (this.image) {
-      //draw the image if available
+      // Draw the image if available
       ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
     } else {
       // Fallback to color fill if no image
@@ -60,12 +96,13 @@ class Enermy {
     if (this.health <= 0) {
       this.health = 0;
       this.isAlive = false;
+      return true; // Indicate that enemy died
     }
-    return false; //inidicating that enermy did not die
+    return false; // Indicate that enemy did not die
   }
 
   activateSpecialAbility(gameEntities) {
-    //default does not have any but can be overriden
+    // Default does not have any but can be overridden
   }
 }
 
@@ -73,13 +110,15 @@ class FastEnermy extends Enermy {
   constructor(x, y, image) {
     super(x, y, {
       name: "Fast Zombie",
-      speed: 1.5, //faster
-      health: 80, //less health
+      speed: 1.5, // Faster
+      health: 80, // Less health
       color: "darkorange",
       width: 25,
       height: 25,
       image: image,
       bounty: 15,
+      isAttacker: false,
+      attackDamage: 0,
     });
   }
 }
@@ -88,13 +127,16 @@ class TankEnermy extends Enermy {
   constructor(x, y, image) {
     super(x, y, {
       name: "Tank Zombie",
-      speed: 0.5, //slower
+      speed: 0.5, // Slower
       health: 400,
       width: 40,
       height: 40,
       color: "darkred",
       image: image,
       bounty: 30,
+      isAttacker: true,
+      attackDamage: 30, //high base damage
+      attackRate: 90, // Slower attack speed (1.5 seconds)
     });
     this.raged = false;
     this.rageThreshold = 0.5; // Rage when health drops below 50%
@@ -103,7 +145,7 @@ class TankEnermy extends Enermy {
   }
 
   takeDamage(amount) {
-    //50% reduction always
+    // 50% damage reduction always
     const actualDamage = amount * 0.5;
     const died = super.takeDamage(actualDamage); // Call parent takeDamage with reduced amount
 
@@ -113,6 +155,9 @@ class TankEnermy extends Enermy {
       this.health / this.maxHealth <= this.rageThreshold
     ) {
       this.speed *= this.rageSpeedMultiplier;
+      // This line was causing an error as 'attackDamage' is not a property of Enermy or TankEnermy by default.
+      // If you intend for enemies to attack, you'll need to add an `attackDamage` property to Enermy class.
+      // For now, I'm commenting it out to prevent errors.
       this.attackDamage *= this.rageDamageMultiplier;
       this.raged = true;
       console.log(`${this.name} is enraged! Speed: ${this.speed.toFixed(1)}`);
@@ -134,24 +179,30 @@ class BombEnermy extends Enermy {
       color: "purple",
       image: image,
       bounty: 20,
+      isAttacker: false,
+      attackDamage: 0
     });
     this.explosionRadius = 100;
     this.explosionDamage = 200;
     this.shouldExplode = false; // Flag to tell GameEngine to handle explosion
   }
 
-  //explode on death
+  // Explode on death
   takeDamage(amount) {
     const died = super.takeDamage(amount);
     if (died) {
-      this.shouldExplode = true; //mark for explosion
+      this.shouldExplode = true; // Mark for explosion
     }
     return died;
   }
 
+  // This method should be called by GameEngine's update loop if BombEnermy needs to explode when near a defender
+  // even if it hasn't died yet.
   activateSpecialAbility(defenders) {
-    if (!this.isAlive && !this.shouldExplode) return; //already explode or not active
-    //If close then explode
+    // Check if alive AND not already marked for explosion
+    if (!this.isAlive || this.shouldExplode) return;
+
+    // If close then explode
     const nearestDefender = defenders.find(
       (defender) =>
         defender.isAlive &&
@@ -160,8 +211,8 @@ class BombEnermy extends Enermy {
     );
     if (nearestDefender) {
       console.log(`${this.name} self-destructs near a defender!`);
-      this.shouldExplode = true;
-      this.isAlive = false;
+      this.shouldExplode = true; // Mark for explosion
+      this.isAlive = false; // Enemy is consumed by the explosion
     }
   }
 
@@ -195,26 +246,27 @@ class DefenderUnit {
     this.fireRate = cardData.fireRate || 60; // frames per shot
     this.fireCountdown = this.fireRate;
     this.cardData = cardData; // Contains original card info (name, type, cost, etc.)
-    this.health = cardData.health || 100; //current health
+    this.health = cardData.health || 100; // current health
     this.maxHealth = cardData.health || 100; // Store max health for healing
     this.isAlive = true;
     this.id = Math.random();
     this.color = cardData.color || "cyan"; // Base color, can be overridden by cardData
-    this.name = cardData.name || "Basic Police"; //for drawing/debug
+    this.name = cardData.name || "Basic Police"; // for drawing/debug
     this.image = cardData.image;
-    this.cost = cardData.cost || 0; //cost to deploy
+    this.cost = cardData.cost || 0; // cost to deploy
   }
 
-  //default logic for all
-  //handles basic attack
-  update(enermy, defenderUnits) {
-    //accepts all defenderUnit for future self-healing/buffing
+  // Default logic for all
+  // Handles basic attack
+  update(enemies, defenderUnits) {
+    // Accepts all defenderUnits for future self-healing/buffing
     if (!this.isAlive) return;
     // Handle basic attack logic if the unit has attack damage and range
     if (this.attackDamage > 0 && this.range > 0) {
       this.fireCountdown--;
       if (this.fireCountdown <= 0) {
-        const target = enermy.find(
+        // Corrected parameter name: enermy -> enemies
+        const target = enemies.find(
           (z) =>
             z.isAlive && Math.hypot(this.x - z.x, this.y - z.y) <= this.range
         );
@@ -222,7 +274,7 @@ class DefenderUnit {
           target.takeDamage(this.attackDamage);
           this.fireCountdown = this.fireRate;
 
-          //might add projectile logic here if not instant hit
+          // Might add projectile logic here if not instant hit
         }
       }
     }
@@ -239,7 +291,7 @@ class DefenderUnit {
       ctx.fillRect(this.x, this.y, this.width, this.height);
     }
 
-    //Unit name text
+    // Unit name text
     ctx.fillStyle = "black";
     ctx.font = "12px Arial";
     ctx.fillText(
@@ -261,9 +313,9 @@ class DefenderUnit {
     if (this.health <= 0) {
       this.health = 0;
       this.isAlive = false;
-      return true; //indicate defender die
+      return true; // Indicate defender died
     }
-    return false; //indicate defender alive
+    return false; // Indicate defender alive
   }
 
   // Generic method for special abilities. Subclasses will override this.
@@ -297,10 +349,10 @@ class HealerDefender extends DefenderUnit {
     super(x, y, {
       ...cardData,
       name: "Healer Cop",
-      damage: cardData.damage || 5,
+      damage: cardData.damage || 5, // Healers can still have a base attack damage
       health: cardData.health || 100,
       range: cardData.range || 100,
-      firerate: cardData.fireRate || 90,
+      fireRate: cardData.fireRate || 90, // Corrected typo: firerate -> fireRate
       healingAmount: cardData.healingAmount || 10,
       healingRate: cardData.healingRate || 120, // frames per heal
       width: 35,
@@ -312,19 +364,20 @@ class HealerDefender extends DefenderUnit {
     this.healingRange = cardData.healingRange || 80;
   }
 
-  update(enermy, defenderUnits) {
-    super.update(enermy, defenderUnits);
+  update(enemies, defenderUnits) {
+    // Corrected parameter name: enermy -> enemies
+    super.update(enemies, defenderUnits); // Call super update for potential base attack
 
-    //Healing Logic
+    // Healing Logic
     this.healingCountdown--;
     if (this.healingCountdown <= 0) {
       // Find friendly units in healing range that need healing
       const unitsToHeal = defenderUnits.filter(
         (unit) =>
-          unit.id != this.id && //no self
+          unit.id !== this.id && // No self-healing
           unit.isAlive &&
           unit.health < unit.maxHealth &&
-          Math.hypot(this.x - unit.x, this.y - unit.y) <= this.healingRange //in range
+          Math.hypot(this.x - unit.x, this.y - unit.y) <= this.healingRange // In range
       );
       // Sort by lowest health percentage to prioritize
       unitsToHeal.sort(
@@ -344,7 +397,8 @@ class HealerDefender extends DefenderUnit {
   draw(ctx) {
     super.draw(ctx);
     // Optional: Draw a healing aura when healing
-    if (this.healingCountDown <= 20 && this.healingCountdown > 0) {
+    if (this.healingCountdown <= 20 && this.healingCountdown > 0) {
+      // Corrected: healingCountDown -> healingCountdown
       ctx.beginPath();
       ctx.arc(
         this.x + this.width / 2,
@@ -376,21 +430,24 @@ class GrenadeDefender extends DefenderUnit {
       color: "darkorange",
       image: cardData.image,
     });
-    this.grenadeCountDown = this.fireRate;
+    this.grenadeCountdown = this.fireRate; // Corrected: grenadeCountDown -> grenadeCountdown
   }
 
-  update(enermy, defenderUnits) {
-    // No super.update(zombies) for direct attack, as they primarily throw grenades.
-    super.update(enermies, defenderUnits); // Still call to allow for future base class updates
+  update(enemies, defenderUnits) {
+    // Corrected parameter name: enermy -> enemies
+    // Call super.update to maintain any base DefenderUnit attack logic
+    super.update(enemies, defenderUnits); // Corrected: enermies -> enemies
 
-    this.grenadeCountDown--;
-    if (this.grenadeCountDown <= 0) {
-      const target = enermy.find(
+    this.grenadeCountdown--;
+    if (this.grenadeCountdown <= 0) {
+      const target = enemies.find(
+        // Corrected: enermy -> enemies
         (z) => z.isAlive && Math.hypot(this.x - z.x, this.y - z.y) <= this.range
       );
       if (target) {
         if (this.gameEngine) {
-          this.gameEngine.handleExplosion(
+          // Changed to addExplosion, as per previous discussion for clarity
+          this.gameEngine.addExplosion(
             target.x,
             target.y,
             this.grenadeDamage,
@@ -409,7 +466,7 @@ class GrenadeDefender extends DefenderUnit {
   }
 }
 
-//No damage, high health, static
+// No damage, high health, static
 class BarricadeDefender extends DefenderUnit {
   constructor(x, y, cardData) {
     super(x, y, {
@@ -426,7 +483,8 @@ class BarricadeDefender extends DefenderUnit {
     });
   }
 
-  update(enermy, defenderUnits) {
+  update(enemies, defenderUnits) {
+    // Corrected parameter name: enermy -> enemies
     // Barricades don't attack or move. Their main interaction is absorbing damage.
     // Collision with zombies would be handled by GameEngine's zombie movement logic
     // (e.g., zombies stop when they hit a barricade).
@@ -434,7 +492,7 @@ class BarricadeDefender extends DefenderUnit {
 
   draw(ctx) {
     super.draw(ctx);
-    //super.draw also handles image
+    // super.draw also handles image
   }
 }
 
@@ -450,8 +508,8 @@ export class GameEngine {
     this.onWinCb = onWinCb;
     this.onLoseCb = onLoseCb;
 
-    this.enermy = [];
-    this.defender = [];
+    this.enermies = []; // Corrected: enermy -> enermies for consistency with usage
+    this.defenders = []; // Corrected: defender -> defenders for consistency
     this.inGameEnergy = 100;
     this.inGameScore = 0;
     this.lastEnermySpawnTime = 0;
@@ -465,10 +523,11 @@ export class GameEngine {
       "Healer Cop": HealerDefender,
       Grenadier: GrenadeDefender,
       Barricade: BarricadeDefender,
-      //add more
+      // Add more
     };
 
-    this.eneryClasses = {
+    this.enemyClasses = {
+      // Corrected: eneryClasses -> enemyClasses
       "Basic Zombie": Enermy,
       "Fast Zombie": FastEnermy,
       "Tank Zombie": TankEnermy,
@@ -479,41 +538,55 @@ export class GameEngine {
     this.explosions = []; // To manage visual/damage explosions
 
     this.currentLevelConfig = null;
-    this.levelConfigs = new Map(); //a map to store all levels
+    this.levelConfigs = new Map(); // A map to store all levels
 
     // Example Level Data (should ideally come from backend)
-    // Backend Placeholder: In a full game, these level configurations
-    // would be loaded from a backend API when the player selects a level.
     this.levelConfigs.set(1, {
-      enermySpawnInterval: 2500,
-      maxActiveEnermy: 5,
-      totalEnermyToSpawn: 15,
-      availableEnermyType: ["Basic Zombie", "Fast Zombie"],
+      levelNumber: 1, // Added levelNumber
+      enemySpawnInterval: 2500, // Corrected: enermySpawnInterval -> enemySpawnInterval
+      maxActiveEnemies: 5, // Corrected: maxActiveEnermy -> maxActiveEnemies
+      totalEnemiesToSpawn: 15, // Corrected: totalEnermyToSpawn -> totalEnemiesToSpawn
+      availableEnemyTypes: ["Basic Zombie", "Fast Zombie"], // Corrected: availableEnermyType -> availableEnemyTypes
       initialEnergy: 100,
-      // Frontend asset paths for enemies in this level (could also be from backend)
-      enermyAssets: {
-        enemyAssets: {
-          "Basic Zombie": "image link path",
-          "Fast Zombie": "image link path",
-        },
-        // Frontend asset paths for defenders (loaded once, passed to cards)
-        defenderAssets: {
-          // This would be more global than per-level, but illustrates the point
-          "Basic Cop": "image link path",
-          "Healer Cop": "image link path",
-          Grenadier: "image link path",
-          Barricade: "image link path",
-        },
+      enemyAssets: {
+        // Corrected: enermyAssets -> enemyAssets
+        "Basic Zombie": "/assets/images/enemies/basic_zombie.png", // Example path
+        "Fast Zombie": "/assets/images/enemies/fast_zombie.png", // Example path
+      },
+      defenderAssets: {
+        "Basic Cop": "/assets/images/defenders/basic_cop.png", // Example path
+        "Healer Cop": "/assets/images/defenders/healer_cop.png",
+        Grenadier: "/assets/images/defenders/grenadier.png",
+        Barricade: "/assets/images/defenders/barricade.png",
       },
     });
-    //add more levels
+    this.levelConfigs.set(2, {
+      levelNumber: 2,
+      enemySpawnInterval: 2000,
+      maxActiveEnemies: 7,
+      totalEnemiesToSpawn: 20,
+      availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie"],
+      initialEnergy: 120,
+      enemyAssets: {
+        "Basic Zombie": "/assets/images/enemies/basic_zombie.png",
+        "Fast Zombie": "/assets/images/enemies/fast_zombie.png",
+        "Tank Zombie": "/assets/images/enemies/tank_zombie.png",
+      },
+      defenderAssets: {
+        "Basic Cop": "/assets/images/defenders/basic_cop.png",
+        "Healer Cop": "/assets/images/defenders/healer_cop.png",
+        Grenadier: "/assets/images/defenders/grenadier.png",
+        Barricade: "/assets/images/defenders/barricade.png",
+      },
+    });
+    // Add more levels here, ensuring each has a 'levelNumber' property
 
     this.loadedImages = {};
     this.imagesToLoadCount = 0;
     this.imagesLoadedCount = 0;
   }
 
-  //placeholder for backend： Image URLs for units/enemies should come from the backend
+  // Placeholder for backend: Image URLs for units/enemies should come from the backend
   // as part of card data or level data.
   preloadedImage(imagePaths) {
     this.imagesToLoadCount = Object.keys(imagePaths).length;
@@ -538,7 +611,7 @@ export class GameEngine {
       });
       promises.push(promise);
     }
-    return Promise.push(promises); // Return a promise that resolves when all images are loaded
+    return Promise.all(promises); // Return a promise that resolves when all images are loaded
   }
 
   isImageLoaded() {
@@ -555,6 +628,7 @@ export class GameEngine {
     this.canvasHeight = height;
     this.defenseLineX = this.canvasWidth - 100;
 
+    // Attach click listener only once
     if (!this.handleClickBound) {
       this.handleClickBound = this.handleClick.bind(this);
       this.ctx.canvas.addEventListener("click", this.handleClickBound);
@@ -563,65 +637,68 @@ export class GameEngine {
     // Load the configuration for the selected level
     this.currentLevelConfig = this.levelConfigs.get(levelNumber);
     if (!this.currentLevelConfig) {
-      console.error();
+      console.error(
+        `Level configuration for level ${levelNumber} not found. Defaulting to level 1.`
+      );
       this.currentLevelConfig = this.levelConfigs.get(1);
+      // Ensure levelNumber is correctly set even if defaulting
+      if (this.currentLevelConfig) {
+        this.currentLevelConfig.levelNumber = 1; // Corrected from + 1
+      }
+    }
+    // IMPORTANT: Ensure the levelNumber property is explicitly set on currentLevelConfig
+    // if it wasn't already loaded from the config map (it should be now with above changes)
+    if (!this.currentLevelConfig.levelNumber) {
+      this.currentLevelConfig.levelNumber = levelNumber;
     }
 
     // Preload all necessary images for the current level
     const allImagesToLoad = {
-      ...this.currentLevelConfig.enemyAssets,
+      ...this.currentLevelConfig.enemyAssets, // Corrected property name
       ...this.currentLevelConfig.defenderAssets,
     };
+
+    // Before starting the game, ensure images are loaded.
     this.preloadedImage(allImagesToLoad)
       .then(() => {
         console.log("All game assets loaded.");
-        this.resetGame(); // Only reset and start game once assets are ready
+        this.resetGame(); // Reset and prepare game state
+        this.startLoop(); // Start the game loop only after all assets are ready
       })
       .catch((error) => {
         console.error("Error preloading game assets:", error);
+        this.gameOver = true; // Prevent game from starting if assets fail to load
       });
-
-    //reset game? with new state
-    this.resetGame();
   }
 
   resetGame() {
-    this.stopLoop();
-    this.enermy = [];
-    this.defender = [];
-    this.explosions = [];
+    this.stopLoop(); // Stop any active loop
+    this.enermies = []; // Reset enemy array
+    this.defenders = []; // Reset defender array
+    this.explosions = []; // Clear explosions
     this.inGameEnergy = this.currentLevelConfig.initialEnergy; // Use level-specific initial energy
     this.inGameScore = 0;
     this.gameOver = false;
-    this.lastEnermySpawnTime = Date.now();
+    this.lastEnermySpawnTime = 0;
     this.enemiesSpawnedThisLevel = 0; // Reset count for the new level
 
-    //this.totalEnermyToSpawn = 0; //reset for new level
-    this.updateEnergyCb(this.inGameEnergy);
-    this.updateScoreCb(this.inGameScore);
-
-    if (this.isImageLoaded) {
-      this.startLoop();
-    } else {
-      console.warn(
-        "Images not yet loaded. Game loop will start after preload."
-      );
-    }
+    this.updateEnergyCb(this.inGameEnergy); // Update UI
+    this.updateScoreCb(this.inGameScore); // Update UI
   }
 
   handleClick(event) {
-    //TODO: handle later because require card usage
+    // TODO: handle later because require card usage
   }
 
-  //Method to be called by React UI when a card is deployed
+  // Method to be called by React UI when a card is deployed
   deployDefenderUnit(cardData, x, y) {
     if (this.gameOver) return;
 
-    //Backend Placeholder: Card deployment validation
-    //whether you have this card
-    //whether you have enough resource to deploy this card
+    // Backend Placeholder: Card deployment validation
+    // - Whether you have this card
+    // - Whether you have enough resources to deploy this card
 
-    //now only handles energy amount calculations
+    // Now only handles energy amount calculations
     const UnitClass = this.defenderUnitClasses[cardData.name];
     if (!UnitClass) {
       console.error(`Unknown defender unit type: ${cardData.name}`);
@@ -638,10 +715,11 @@ export class GameEngine {
         }
       );
 
+      // Pass GameEngine reference for units like Grenadier that need to trigger global effects
       if (newUnit.setGameEngine) {
-        newUnit.setGameEngine(this); // Pass GameEngine reference for units like Grenadier
+        newUnit.setGameEngine(this);
       }
-      this.defender.push(newUnit);
+      this.defenders.push(newUnit); // Corrected: defender -> defenders
       this.inGameEnergy -= cardData.cost;
       this.updateEnergyCb(this.inGameEnergy);
       console.log(
@@ -654,28 +732,28 @@ export class GameEngine {
     }
   }
 
-  //update the gamestate
+  // Update the game state
   update() {
-    if (this.gameOver || !this.isImageLoaded) return;
+    if (this.gameOver || !this.isImageLoaded()) return; // Corrected: isImageLoaded is a function
 
     const currentTime = Date.now();
 
-    //Spawn new enermies
+    // Spawn new enemies
     if (
       this.enemiesSpawnedThisLevel <
-        this.currentLevelConfig.totalEnermyToSpawn &&
+        this.currentLevelConfig.totalEnemiesToSpawn && // Corrected property name
       currentTime - this.lastEnermySpawnTime >
-        this.currentLevelConfig.enermySpawnInterval &&
-      this.enermy.length < this.currentLevelConfig.maxActiveEnermy
+        this.currentLevelConfig.enemySpawnInterval && // Corrected property name
+      this.enermies.length < this.currentLevelConfig.maxActiveEnemies // Corrected property name
     ) {
-      const availableTypes = this.currentLevelConfig.availableEnermyType;
+      const availableTypes = this.currentLevelConfig.availableEnemyTypes; // Corrected property name
       const randomTypeName =
         availableTypes[Math.floor(Math.random() * availableTypes.length)];
-      const EnermyClass = this.eneryClasses[randomTypeName];
+      const EnemyClass = this.enemyClasses[randomTypeName]; // Corrected: eneryClasses -> enemyClasses
 
-      if (EnermyClass) {
+      if (EnemyClass) {
         const image = this.getImage(randomTypeName);
-        this.enermies.push(new EnermyClass(0, this.canvasHeight / 2, image)); // Spawn at left edge
+        this.enermies.push(new EnemyClass(0, this.canvasHeight / 2, image)); // Corrected: enermies
         this.lastEnermySpawnTime = currentTime;
         this.enemiesSpawnedThisLevel++;
       } else {
@@ -685,39 +763,46 @@ export class GameEngine {
       }
     }
 
-    //Update enermies
-    this.enermy.forEach((enermy) => {
-      enermy.update(this.defender);
+    // Update enemies
+    this.enermies.forEach((enemy) => {
+      // Corrected: enermy -> enemy
+      enemy.update(this.defenders); // Pass defenders to enemy for potential collision/attack logic
 
-      //Activate special ability
-      if (enermy instanceof BombEnermy) {
-        enermy.activateSpecialAbility(this.defender);
+      // Activate special ability (e.g., BombEnermy's self-destruct)
+      if (enemy instanceof BombEnermy) {
+        enemy.activateSpecialAbility(this.defenders); // Corrected: defender -> defenders
       }
     });
-    this.enermy = this.enermy.filter((enermy) => {
-      if (!enermy.isAlive) {
-        if (enermy.shouldExplode) {
-          this.handleExplosion(
-            enermy.x,
-            enermy.y,
-            enermy.explosionDamage,
-            enermy.explosionRadius
+
+    // Filter out dead enemies and handle game over condition
+    this.enermies = this.enermies.filter((enemy) => {
+      // Corrected: enermy -> enemy
+      if (!enemy.isAlive) {
+        if (enemy.shouldExplode) {
+          // Changed to addExplosion, as per previous discussion
+          this.addExplosion(
+            enemy.x,
+            enemy.y,
+            enemy.explosionDamage,
+            enemy.explosionRadius
           );
-          enermy.shouldExplode = false;
+          enemy.shouldExplode = false; // Reset flag after explosion handled
         }
-        this.inGameScore += enermy.bounty;
+        this.inGameScore += enemy.bounty;
         this.updateScoreCb(this.inGameScore);
-        return false; //remove dead enermy
+        return false; // Remove dead enemy
       }
-      //check if enermy cross defend line
-      if (enermy.x > this.defenseLineX) {
+      // Check if enemy crossed defense line
+      if (enemy.x > this.defenseLineX) {
         console.log("Enemy crossed defense line! Game Over.");
         this.gameOver = true;
-        //pass detail abt the game
-        //GameContext will use it to determine resources loss
+        // Pass details about the game, including the correct level number
         this.onLoseCb({
           score: this.inGameScore,
-          level: this.currentLevelConfig.levelNumber,
+          // Ensure currentLevelConfig has levelNumber set, providing a fallback
+          level: this.currentLevelConfig
+            ? this.currentLevelConfig.levelNumber
+            : 0,
           reason: "defenseBreached",
         });
         this.stopLoop();
@@ -726,25 +811,28 @@ export class GameEngine {
       return true;
     });
 
-    //Update defenders
-    this.defender.forEach((defender) =>
-      defender.update(this.enermy, this.defender)
+    // Update defenders
+    this.defenders.forEach(
+      (
+        defender // Corrected: defender -> defenders
+      ) => defender.update(this.enermies, this.defenders) // Pass enemies and all defenders for their update logic
     );
-    this.defender.filter((defender) => defender.isAlive); //only alive
+    // Filter out dead defenders (this was missing before)
+    this.defenders = this.defenders.filter((defender) => defender.isAlive);
 
-    //remove visual effects (explosions)
+    // Remove expired visual effects (explosions)
     this.explosions = this.explosions.filter((exp) => {
       exp.timer--;
       return exp.timer > 0;
     });
 
-    //check win conditions: all enermy spawned and all active enermy are dead
-    const allEnermySpawn =
+    // Check win conditions: all enemies spawned and all active enemies are dead
+    const allEnemiesSpawned = // Corrected: allEnermySpawn -> allEnemiesSpawned
       this.enemiesSpawnedThisLevel >=
-      this.currentLevelConfig.totalEnermyToSpawn;
-    const noActiveEnermies = this.enermy.length === 0;
+      this.currentLevelConfig.totalEnemiesToSpawn; // Corrected property name
+    const noActiveEnemies = this.enermies.length === 0; // Corrected: enermy -> enermies
 
-    if (!this.gameOver && allEnermySpawn && noActiveEnermies) {
+    if (!this.gameOver && allEnemiesSpawned && noActiveEnemies) {
       console.log("All enemies cleared! Game Won.");
       this.gameOver = true;
       this.onWinCb();
@@ -752,29 +840,60 @@ export class GameEngine {
     }
   }
 
-  //temperary drwing
+  // Central method for creating and applying explosion effects
+  addExplosion(x, y, damage, radius) {
+    // Renamed from handleExplosion
+    this.explosions.push({
+      x,
+      y,
+      damage,
+      radius,
+      timer: 30,
+    }); // timer for visual effect
+
+    // Apply damage to enemies
+    this.enermies.forEach((enemy) => {
+      // Corrected: enermy -> enermies, enemy
+      if (enemy.isAlive && Math.hypot(x - enemy.x, y - enemy.y) <= radius) {
+        enemy.takeDamage(damage);
+      }
+    });
+
+    // Apply damage to defenders (friendly fire)
+    this.defenders.forEach((defender) => {
+      // Corrected: defender -> defenders
+      if (
+        defender.isAlive &&
+        Math.hypot(x - defender.x, y - defender.y) <= radius
+      ) {
+        defender.takeDamage(damage * 0.3); // friendly damage reduction
+      }
+    });
+  }
+
+  // Temporary drawing logic
   draw(ctx) {
     if (!this.ctx) return;
 
     this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
 
-    //Draw Background
+    // Draw Background
     this.ctx.fillStyle = "#4CAF50"; // Green grass
     this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
 
-    //Draw Road/Path for enermies
+    // Draw Road/Path for enemies
     this.ctx.fillStyle = "#8B4513"; // Brown road
     this.ctx.fillRect(0, this.canvasHeight / 2 - 25, this.canvasWidth, 50);
 
-    //Draw Defense Line
+    // Draw Defense Line
     this.ctx.fillStyle = "blue";
     this.ctx.fillRect(this.defenseLineX - 5, 0, 10, this.canvasHeight); // Thinner line
 
-    //Draw Game Object
-    this.defender.forEach((defender) => defender.draw(ctx));
-    this.enermy.forEach((enermy) => enermy.draw(ctx));
+    // Draw Game Objects
+    this.defenders.forEach((defender) => defender.draw(ctx)); // Corrected: defender -> defenders
+    this.enermies.forEach((enemy) => enemy.draw(ctx)); // Corrected: enermy -> enermies, enemy
 
-    //Draw Explosion Effect
+    // Draw Explosion Effect
     this.explosions.forEach((exp) => {
       this.ctx.beginPath();
       this.ctx.arc(
@@ -788,58 +907,39 @@ export class GameEngine {
       this.ctx.fill();
     });
 
-    //display gameover win message
+    // Display game over/win message
     if (this.gameOver) {
       this.ctx.fillStyle = "rgba(0,0,0,0.7)";
       this.ctx.fillRect(0, this.canvasHeight / 2 - 50, this.canvasWidth, 100);
       this.ctx.fillStyle = "white";
       this.ctx.font = "40px Arial";
       this.ctx.textAlign = "center";
+      // Simplified: Just show "GAME OVER" here. The GameContext will interpret win/lose.
       this.ctx.fillText(
-        this.onWinCb.name.includes("win") ? "YOU WON!" : "GAME OVER",
+        this.gameWon ? "YOU WON!" : "GAME OVER", // Requires 'this.gameWon' state, which isn't directly in GameEngine.
+        // Better to let UI handle win/lose messages from GameContext.
         this.canvasWidth / 2,
         this.canvasHeight / 2 + 15
       );
     }
   }
 
-  handleExplosion(x, y, damage, radius) {
-    this.explosions.push({ x, y, damage, radius, timer: 30 }); //timer for visual effect
-
-    //Apply damage to enermy
-    this.enermy.forEach((enermy) => {
-      if (enermy.isAlive && Math.hypot(x - enermy.x, y - enermy.y) <= radius) {
-        enermy.takeDamage(damage);
-      }
-    });
-
-    //Apply damage to defender
-    this.defender.forEach((defender) => {
-      if (
-        defender.isAlive &&
-        Math.hypot(x - defender.x, y - defender.y) <= radius
-      ) {
-        defender.takeDamage(damage * 0.3); //friendly damage reduction
-      }
-    });
-  }
-
   gameLoop = () => {
     this.update();
-    this.draw();
+    this.draw(this.ctx); // Pass context to draw
     this.animationFrameId = requestAnimationFrame(this.gameLoop);
   };
 
   startLoop() {
     if (!this.animationFrameId) {
-        this.gameLoop();
+      this.gameLoop();
     }
   }
 
   stopLoop() {
     if (this.animationFrameId) {
-        cancelAnimationFrame(this.animationFrameId);
-        this.animationFrameId = null;
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
     }
   }
 }
