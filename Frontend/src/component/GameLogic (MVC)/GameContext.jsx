@@ -1,4 +1,5 @@
 //This file handles Game interaction with the GameEngine.js
+//Managing "Game States"
 
 import React from "react";
 import { GameEngine } from "./GameEngine";
