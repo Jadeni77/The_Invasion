@@ -1,6 +1,6 @@
 //Data for different types of Enermy types
 
-export class Enermy {
+export class Enemy {
   constructor(x, y, typeData = {}) {
     this.x = x;
     this.y = y;
@@ -106,7 +106,7 @@ export class Enermy {
   }
 }
 
-class FastEnermy extends Enermy {
+export class FastEnemy extends Enemy {
   constructor(x, y, image) {
     super(x, y, {
       name: "Fast Zombie",
@@ -123,7 +123,7 @@ class FastEnermy extends Enermy {
   }
 }
 
-class TankEnermy extends Enermy {
+export class TankEnemy extends Enemy {
   constructor(x, y, image) {
     super(x, y, {
       name: "Tank Zombie",
@@ -168,7 +168,7 @@ class TankEnermy extends Enermy {
   }
 }
 
-class BombEnermy extends Enermy {
+export class BombEnemy extends Enemy {
   constructor(x, y, image) {
     super(x, y, {
       name: "Exploder",

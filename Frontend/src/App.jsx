@@ -1,32 +1,24 @@
 import React from "react";
-import "./App.css";
-import "./component/GameRendering/Lobby.css";
 import { GameProvider } from "./component/GameLogic (MVC)/GameContext";
+import Lobby from "./component/GameRendering/Lobby";
 import GameBoard from "./component/GameRendering/GameBoard";
 import { useGame } from "./component/GameLogic (MVC)/GameContext";
-import Lobby from "./component/GameRendering/Lobby";
 
-function App() {
+const App = () => {
   return (
     <GameProvider>
-      <MainGameRouter />
+      <GameRouter />
     </GameProvider>
   );
-}
+};
 
-// This component uses GameContext to decide what to render
-function MainGameRouter() {
-  const { isGameInitialized, gameOver, returnToLobby } = useGame();
-
-  //if game is initialize and not over, show gameboard
+const GameRouter = () => {
+  const { isGameInitialized, gameOver } = useGame();
+  
   if (isGameInitialized && !gameOver) {
-    return <GameBoard selectedCard={null} />; // selectedCard will be handled by a CardSelection component later
-  } else if (gameOver) {
-    //GameBoard already handle that
-    return <GameBoard selectedCard={null} /> 
-  } else {
-    return <Lobby />
+    return <GameBoard />;
   }
-}
+  return <Lobby />;
+};
 
 export default App;

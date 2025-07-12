@@ -1,143 +1,132 @@
-import React from "react";
-import { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect } from "react";
 import { useGame } from "../GameLogic (MVC)/GameContext";
 
-//import card data files later
-//now use the dummy ownedCard field from GameContext.js
-
-//This function is responsible for
-// -Creating the HTML element <canvas> that GameEngine will draw on
-// -Initialize the GameEngine: call game.startLevel() from GameContext
-// -Handling User inputs: Forward mouse clicks/touches to GameEngine to handle deployment
-// -Displaying Game States: Using GameContext to show real-time energy, score,
-//                          and potentially game over/win states.
-function GameBoard({ selectedCard, onCardDeployed }) {
-  const canvasRef = useState(false); //ref to get direct access from DOM
+const GameBoard = () => {
+  const canvasRef = useRef(null);
   const {
-    currentLevelSession,
     startLevel,
     isGameInitialized,
+    currentLevelSession,
     inGameEnergy,
     inGameScore,
     gameOver,
     gameWon,
-    playerResources, // To access player's ownedCards
     deployDefender,
-    returnToLobby, // Function to call when user wants to go back to lobby
+    returnToLobby,
+    playerResources
   } = useGame();
+  const [selectedCard, setSelectedCard] = useState(null);
+   const [hand, setHand] = useState([]);
+  const [deck, setDeck] = useState([]);
 
-  const [canvasReady, setCanvasReady] = useState(false);
+  // Initialize game
+   useEffect(() => {
+    if (playerResources.ownedCards && playerResources.ownedCards.length > 0) {
+      // Shuffle cards
+      const shuffled = [...playerResources.ownedCards].sort(() => Math.random() - 0.5);
+      setDeck(shuffled);
+      // Draw initial 3 cards
+      drawCards();
+    }
+  }, [playerResources.ownedCards]);
 
-  //----Initialize Game Engine when level changes ---
-  useEffect(() => {
+   const drawCards = () => {
+    if (deck.length === 0) return;
+    
+    const cardsToDraw = Math.min(3 - hand.length, deck.length);
+    const newHand = [...hand, ...deck.slice(0, cardsToDraw)];
+    setHand(newHand);
+    setDeck(prev => prev.slice(cardsToDraw));
+  };
+
+   const handleCardSelection = (card) => {
+    setSelectedCard(card);
+  };
+
+  const handleCardDeployment = () => {
+    if (!selectedCard) return;
+    
+    // Remove card from hand
+    setHand(prev => prev.filter(c => c.id !== selectedCard.id));
+    setSelectedCard(null);
+    
+    // Redraw card if deck has cards
+    setTimeout(drawCards, 500);
+  };
+
+  // Handle canvas click
+  const handleCanvasClick = (event) => {
+    if (gameOver || !selectedCard) return;
+    
     const canvas = canvasRef.current;
-    if (!canvas) {
-      console.error("Canvas element not found!");
-      return;
-    }
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    deployDefender(selectedCard, x, y);
+  };
 
-    //auto start level 1 if not already initialized
-    //placeholder
-    if (!isGameInitialized) {
-      console.log(`Initializing game for level ${currentLevelSession}...`);
-      startLevel(canvas, currentLevelSession);
-      setCanvasReady(true);
-    }
-
-    //cleanup functions when game end
-    return () => {
-      //GameEngine handles stopLoop
-      //GameContext handles removing event listener
-      //no further logic requires
-    };
-  }, [currentLevelSession, startLevel, isGameInitialized]);
-
-  //---handle canvas clicks for defender deployment ---
-  const handleCanvasClick = useCallback(
-    (event) => {
-      if (gameOver) return; //no further deploment if gameover
-
-      const canvas = canvasRef.current;
-      if (!canvas || !selectedCard) {
-        // console.log("No card selected or canvas not ready for deployment.");
-        return;
-      }
-
-      //get click coordinate(x,y) related to canvas clickes
-      const rect = canvas.getBoundingClientRect();
-      const x = event.x - rect.left;
-      const y = event.y - rect.top;
-
-      //Call deployDefender from GameContext
-      // GameContext/GameEngine will handle energy cost and actual placement
-      deployDefender(selectedCard, x, y);
-
-      //optional: inform parent component that a card is clicked
-      if (onCardDeployed) {
-        onCardDeployed(selectedCard);
-      }
-    },
-    [selectedCard, deployDefender, gameOver, onCardDeployed]
-  );
-
-  //---Display GameOver/Win Popup --
   if (gameOver) {
     return (
       <div className="game-over-screen">
-        <h2>{gameWon ? "Victory!" : "Game Over!"}</h2>
-        <p>Your Score: {inGameScore}</p>
-        {gameWon && (
-          <div>
-            <h3>Award: </h3>
-            <p>You earned {inGameScore * (1 + Math.random(1))}</p>
-            {/* Display other awards based on gameWon, currentLevelSession, etc. */}
-            <p>Next Level Unlocked!</p>{" "}
-            {/* This message would be conditional */}
-          </div>
-        )}
-        {!gameWon && <p>Better luck next time!</p>}
-        <button onClick={returnToLobby}>Return to Lobby</button>
-        {/*  Optional: Play Again Button, check for lobby energy bar deduction*/}
-        <button
-          onClick={() => startLevel(canvasRef.current, currentLevelSession)}
-        >
-          Play Level {currentLevelSession} Again
-        </button>
+        <h2>{gameWon ? "Victory!" : "Defeated!"}</h2>
+        <p>Score: {inGameScore}</p>
+        <p>Gold Earned: {gameWon ? inGameScore : Math.floor(inGameScore * 0.05)}</p>
+        
+        <div className="buttons">
+          <button onClick={returnToLobby}>Return to Lobby</button>
+          <button onClick={() => startLevel(canvasRef.current, currentLevelSession)}>
+            Play Again
+          </button>
+        </div>
       </div>
     );
   }
 
-  //---Main Game Board Render ---
-  return (
+    return (
     <div className="game-board-container">
-      {/* Game UI Overlay (Energy, Score, etc.) */}
+      {/* Game UI Overlay */}
       <div className="game-ui-overlay">
         <div className="game-stats">
           <span>Energy: {inGameEnergy}</span>
           <span>Score: {inGameScore}</span>
-          {/* Could also display current level, wave number etc. Later Issue */}
         </div>
-        {/*
-          <div className="card-selection-area">
-            // This is where to integrate CardSelection component
-            // For now, assume selectedCard is passed via props or a global state
-            <p>Selected Card: {selectedCard ? selectedCard.name : "None"}</p>
-          </div>
-        */}
+        
+        {/* Card Hand */}
+        <div className="card-hand">
+          {hand.map(card => (
+            <div 
+              key={card.id}
+              className={`card ${selectedCard?.id === card.id ? 'selected' : ''}`}
+              onClick={() => handleCardSelection(card)}
+            >
+              <div className="card-name">{card.name}</div>
+              <div className="card-cost">{card.cost} ⚡</div>
+            </div>
+          ))}
+        </div>
       </div>
-
-      {/* The Game Canvas */}
+      
+      {/* Game Canvas */}
       <canvas
         ref={canvasRef}
-        width={800} //example width
-        height={600} //exaomple height
-        style={{ border: "2px solid black", backgroundColor: "lightgray" }}
-        onClick={handleCanvasClick}
-      >
-        Your browser does not support the HTML canvas tag.
-      </canvas>
+        width={800}
+        height={600}
+        onClick={(e) => {
+          handleCanvasClick(e);
+          if (selectedCard) handleCardDeployment();
+        }}
+      />
+      
+      {/* Deployment Indicator */}
+      {selectedCard && (
+        <div className="deployment-indicator">
+          <div className="indicator-icon">+</div>
+          <div className="indicator-text">Click to deploy {selectedCard.name}</div>
+        </div>
+      )}
     </div>
   );
-}
+};
 
 export default GameBoard;

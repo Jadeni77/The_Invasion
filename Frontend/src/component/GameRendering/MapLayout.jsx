@@ -1,4 +1,3 @@
-
 //dummy map
 
 export const levelsMapData = [
@@ -35,3 +34,32 @@ export const chestsData = [
     imageUrl: "link",
   },
 ];
+
+
+/*
+// Calculate time until next energy point
+  const timeToNextEnergy = () => {
+    const {
+      lobbyEnergy,
+      maxLobbyEnergy,
+      energyRechargeRate,
+      lastEnergyRechargeTime,
+    } = playerResources;
+    if (lobbyEnergy >= maxLobbyEnergy) {
+      return "Full";
+    }
+
+    const now = Date.now();
+    const timeSinceLastRecharge = now - lastEnergyRechargeTime;
+    // Time needed for one energy point in milliseconds
+    const timePerEnergyMs = (1000 * 60) / energyRechargeRate;
+    const remainingTimeMs =
+      timePerEnergyMs - (timeSinceLastRecharge % timePerEnergyMs);
+
+    if (remainingTimeMs <= 0) return "Rechargin..."; //shoudl be caught by useEffect in GaemContext
+
+    const minutes = Math.floor(remainingTimeMs / (1000 * 60));
+    const seconds = Math.floor((remainingTimeMs % (1000 * 60)) / 1000);
+    return `${minutes}m ${seconds}s`;
+  };
+*/

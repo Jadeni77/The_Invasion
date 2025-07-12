@@ -90,7 +90,7 @@ export class DefenderUnit {
   }
 }
 
-class BasicDefender extends DefenderUnit {
+export class BasicDefender extends DefenderUnit {
   constructor(x, y, cardData) {
     super(x, y, {
       ...cardData,
@@ -108,7 +108,7 @@ class BasicDefender extends DefenderUnit {
   // Inherits update, draw, takeDamage from PoliceUnit
 }
 
-class HealerDefender extends DefenderUnit {
+export class HealerDefender extends DefenderUnit {
   constructor(x, y, cardData) {
     super(x, y, {
       ...cardData,
@@ -178,7 +178,7 @@ class HealerDefender extends DefenderUnit {
   }
 }
 
-class GrenadeDefender extends DefenderUnit {
+export class GrenadeDefender extends DefenderUnit {
   constructor(x, y, cardData) {
     super(x, y, {
       ...cardData,
@@ -231,7 +231,7 @@ class GrenadeDefender extends DefenderUnit {
 }
 
 // No damage, high health, static
-class BarricadeDefender extends DefenderUnit {
+export class BarricadeDefender extends DefenderUnit {
   constructor(x, y, cardData) {
     super(x, y, {
       ...cardData,
