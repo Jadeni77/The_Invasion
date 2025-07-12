@@ -1,0 +1,21 @@
+/*
+src/
+|--component/
+|   |--GameLogic (MVC)/
+|   |    |--DefenderUnits.js
+|   |    |--EnemyUnits.js
+|   |    |--GameContext.jsx
+|   |    |--GameEngine.js
+|   |
+|   |--GameRendering/
+|   |    |--GameBoard.jsx
+|   |    |--Lobby.jsx
+|   |    |--MapLayout.jsx
+|
+| 
+|--style/
+|   |--Lobby.css
+|
+|--App.jsx
+
+*/
