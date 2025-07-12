@@ -1,115 +1,276 @@
-import React, { useEffect, useState } from "react";
-import { useGame } from "../GameLogic (MVC)/GameContext";
-import { levelsMapData, connectionsData } from "./MapLayout";
-
-import "./Lobby.css";
+// src/components/GameRendering/Lobby.jsx
+import React, { useRef, useEffect, useState } from "react";
+import { useGame } from "../GameLogic (MVC)/GameContext"; // Correct path
+import ResourceIcon from "./ResourceIcon"; // Correct path
+import EnergyBar from "./EnergyBar"; // Correct path
+import UpgradeModal from "./UpgradeModal"; // Correct path
+import { levelsMapData, connectionsData, chestsData } from "./MapLayout"; // New: Import map data from MapData.js
+import "../../style/Lobby.css"; // Correct path
+import "../../style/UpgradeModal.css"; // Correct path (if UpgradeModal.css is used by Lobby too)
+import WorkerStatus from "../common/WorkerStatus";
 
 const Lobby = () => {
-  const { playerResources, startLevel } = useGame();
-  const [selectedLevel, setSelectedLevel] = useState(null);
-  const [timeToNextEnergy, setTimeToNextEnergy] = useState("Full");
+  const { gameState, playerData, startLevel, openUpgradeModal } = useGame();
+  const [mapPosition, setMapPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  const [mapBoundaries, setMapBoundaries] = useState({
+    minX: 0,
+    minY: 0,
+    maxX: 0,
+    maxY: 0,
+  });
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null); // Ref for the inner game-map div
 
+  // Calculate map boundaries based on container and map size
   useEffect(() => {
-     const updateTime = () => {
-      const {
-        lobbyEnergy,
-        maxLobbyEnergy,
-        energyRechargeRate,
-        lastEnergyRechargeTime,
-      } = playerResources;
-      
-      if (lobbyEnergy >= maxLobbyEnergy) {
-        setTimeToNextEnergy("Full");
-        return;
-      }
-      
-      const now = Date.now();
-      const timeSinceLast = now - lastEnergyRechargeTime;
-      const timePerEnergy = (60 * 1000) / energyRechargeRate;
-      const timeToNext = timePerEnergy - (timeSinceLast % timePerEnergy);
-      
-      const minutes = Math.floor(timeToNext / (1000 * 60));
-      const seconds = Math.floor((timeToNext % (1000 * 60)) / 1000);
-      
-      setTimeToNextEnergy(`${minutes}m ${seconds}s`);
-    };
-    
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, [playerResources]);
-  
+    const calculateBoundaries = () => {
+      if (!mapContainerRef.current || !mapRef.current) return;
 
-  const handleLevelClick = (levelId) => {
-    if (playerResources.unlockedLevels.includes(levelId)) {
-      setSelectedLevel(levelId);
-      startLevel(null, levelId);
+      const containerRect = mapContainerRef.current.getBoundingClientRect();
+      const mapRect = mapRef.current.getBoundingClientRect();
+
+      // minX/Y are negative values, maxX/Y are 0 (top-left is 0,0)
+      setMapBoundaries({
+        minX: containerRect.width - mapRect.width, // Furthest left map can go
+        minY: containerRect.height - mapRect.height, // Furthest up map can go
+        maxX: 0, // Furthest right map can go (map's left edge aligns with container's left edge)
+        maxY: 0, // Furthest down map can go (map's top edge aligns with container's top edge)
+      });
+
+      // Ensure map position is within new boundaries on resize
+      setMapPosition((prevPos) => ({
+        x: Math.max(
+          containerRect.width - mapRect.width,
+          Math.min(0, prevPos.x)
+        ),
+        y: Math.max(
+          containerRect.height - mapRect.height,
+          Math.min(0, prevPos.y)
+        ),
+      }));
+    };
+
+    calculateBoundaries(); // Initial calculation
+    window.addEventListener("resize", calculateBoundaries);
+
+    return () => window.removeEventListener("resize", calculateBoundaries);
+  }, []);
+
+  // Handle Map dragging (mouse events)
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - mapPosition.x,
+      y: e.clientY - mapPosition.y,
+    });
+  };
+
+  const handleMouseMove = (e) => {
+    if (isDragging) {
+      let newX = e.clientX - dragStart.x;
+      let newY = e.clientY - dragStart.y;
+
+      // Apply boundaries
+      newX = Math.max(mapBoundaries.minX, Math.min(mapBoundaries.maxX, newX));
+      newY = Math.max(mapBoundaries.minY, Math.min(mapBoundaries.maxY, newY));
+      setMapPosition({
+        x: newX,
+        y: newY,
+      });
     }
   };
 
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Handle touch screen for mobile user
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      setDragStart({
+        x: e.touches[0].clientX - mapPosition.x,
+        y: e.touches[0].clientY - mapPosition.y,
+      });
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (isDragging && e.touches.length === 1) {
+      let newX = e.touches[0].clientX - dragStart.x;
+      let newY = e.touches[0].clientY - dragStart.y;
+
+      // Apply boundaries
+      newX = Math.max(mapBoundaries.minX, Math.min(mapBoundaries.maxX, newX));
+      newY = Math.max(mapBoundaries.minY, Math.min(mapBoundaries.maxY, newY));
+
+      setMapPosition({
+        x: newX,
+        y: newY,
+      });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
+  // Handle treasure click
+  const handleTreasureClick = (chestId) => {
+    console.log(`Treasure chest ${chestId} clicked!`);
+    // Backend API: await fetch(`/api/collect-treasure/${chestId}`)
+    // Update player data with new resources
+    // This would involve calling a function from GameContext to update player data
+    // Example: updateResource('gold', 100); or a dedicated collectTreasure function
+  };
+
+  // Handle level node click
+  const handleLevelNodeClick = (levelId) => {
+    // startLevel will handle energy check and state transition
+    startLevel(levelId); // GameBoard will be rendered by App.jsx
+  };
+
+  if (!playerData) return <div>Loading...</div>;
+
+  // Render UpgradeModal if gameState is "upgrade"
+  if (gameState === "upgrade") return <UpgradeModal />;
+
+  // Render Lobby UI
   return (
     <div className="lobby-container">
-      {/* Resource Bar with Energy Recharge Info */}
-      <div className="player-resources-bar">
-        <div className="resource">
-          <span className="label">Gold:</span>
-          <span className="value">{playerResources.gold}</span>
+      {/* Top menu bar */}
+      <div className="top-menu-bar">
+        <div className="player-info">
+          <div className="player-name">{playerData.name}</div>
+          <div className="player-rank">{playerData.rank}</div> {/* Corrected typo: ranl -> rank */}
         </div>
-        <div className="resource energy">
-          <span className="label">Energy:</span>
-          <span className="value">
-            {playerResources.lobbyEnergy}/{playerResources.maxLobbyEnergy}
-          </span>
-          <div className="recharge-info">
-            {playerResources.lobbyEnergy < playerResources.maxLobbyEnergy && (
-              <span>Next in: {timeToNextEnergy}</span>
-            )}
-          </div>
+
+        <div className="menu-buttons">
+          <button className="menu-button collection">
+            <i className="icon-collection" />
+            <span>Collection</span>
+          </button>
+          <button className="menu-button achievement">
+            <i className="icon-achievement" />
+            <span>Achievement</span>
+          </button>
+          <button className="menu-button settings">
+            <i className="icon-setting" />
+            <span>Setting</span>
+          </button>
         </div>
       </div>
 
-      <div className="game-map">
-        <svg viewBox="0 0 800 600" className="game-map-svg">
-          {connectionsData.map((conn) => (
-            <path
-              key={`${conn.from}-${conn.to}`}
-              d={conn.path}
-              className="map-path"
-              strokeDasharray="10 5"
-            />
-          ))}
+      {/* Energy Bar */}
+      {playerData.resources && (
+        <EnergyBar
+          current={playerData.resources.lobbyEnergy}
+          max={playerData.resources.maxLobbyEnergy}
+          rechargeRate={playerData.resources.energyRechargeRate}
+          lastRechargeTime={playerData.resources.lastEnergyRechargeTime}
+        />
+      )}
 
-          {levelsMapData.map((level) => (
-            <g
-              key={level.id}
-              className={`level-node ${
-                playerResources.unlockedLevels.includes(level.id)
-                  ? "unlocked"
-                  : "locked"
-              }`}
-              onClick={() => handleLevelClick(level.id)}
-            >
-              <circle cx={level.x} cy={level.y} r="25" />
-              <text x={level.x} y={level.y} textAnchor="middle" dy=".3em">
-                {level.id}
-              </text>
-            </g>
-          ))}
-        </svg>
+      {/* Resources Bar */}
+      <div className="resource-bar">
+        <ResourceIcon type="gold" value={playerData.resources.gold} />
+        <ResourceIcon type="workers" value={playerData.resources.workers} />
+        <ResourceIcon type="iron" value={playerData.resources.iron} />
+        <ResourceIcon type="grain" value={playerData.resources.grain} />
+        <ResourceIcon type="water" value={playerData.resources.water} />
+        <ResourceIcon type="gem" value={playerData.resources.gem} />
       </div>
 
-      <div className="upgrade-section">
-        <h2>Upgrade Cards</h2>
-        <div className="upgrade-grid">
-          {playerResources.ownedCards.map((card) => (
-            <div key={card.id} className="upgrade-card">
-              <div className="card-name">{card.name}</div>
-              <button>Upgrade</button>
-            </div>
-          ))}
+      {/* Worker status */}
+      <div className="worker-status-container">
+        {playerData.workers.map((worker) => (
+          <WorkerStatus key={worker.id} worker={worker} />
+        ))}
+      </div>
+
+      {/* Game Map */}
+      <div
+        className="game-map-container"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp} // Important for dragging out of container
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd} // Corrected: handleMouseUp -> handleTouchEnd
+        ref={mapContainerRef}
+      >
+        <div
+          className="game-map"
+          ref={mapRef}
+          style={{
+            transform: `translate(${mapPosition.x}px, ${mapPosition.y}px)`,
+            cursor: isDragging ? "grabbing" : "grab",
+          }}
+        >
+          {/* connection line */}
+          {connectionsData.map((conn) => {
+            <div
+              key={`conn-${conn.from}-${conn.to}`}
+              className="map-connection"
+              style={{
+                top: `${conn.y}px`,
+                left: `${conn.x}px`,
+                width: `${conn.length}px`,
+                transform: `rotate(${conn.rotation}deg)`,
+              }}
+            />;
+          })}
+
+          {/* Treasure chests */}
+          {chestsData.map((chest) => {
+            const isCollected = playerData.collectedTreasures.includes(
+              chest.id
+            );
+            // Check if chest is unlockable (e.g., previous level is unlocked)
+            const canCollect = playerData.unlockedLevels.includes(chest.requiresLevel);
+
+            return (
+              <div
+                key={`chest-${chest.id}`}
+                className={`treasure-chest ${isCollected ? "collected" : ""} ${!canCollect ? "locked-chest" : ""}`}
+                style={{ top: `${chest.y}px`, left: `${chest.x}px` }}
+                onClick={() => !isCollected && canCollect && handleTreasureClick(chest.id)}
+              >
+                {!isCollected && canCollect && <div className="chest-glow" />}
+              </div>
+            );
+          })}
+
+          {/* Level nodes */}
+          {levelsMapData.map((level) => {
+            const isUnlocked = playerData.unlockedLevels.includes(level.id);
+            return (
+              <div
+                key={`level-${level.id}`}
+                className={`level-node ${isUnlocked ? "unlocked" : "locked"}`}
+                style={{ top: `${level.y}px`, left: `${level.x}px` }}
+                onClick={() => isUnlocked && handleLevelNodeClick(level.id)}
+              >
+                <div className="level-number">{level.id} </div>
+                {isUnlocked && <div className="level-pulse" />}
+              </div>
+            );
+          })}
+
+          {/* Boundary indicators for opposite sides (these are for visual feedback for dragging) */}
+          {/* These are defined in CSS for .game-map-container::before/after and .boundary-right/.boundary-bottom */}
         </div>
       </div>
+
+      {/* Upgrade button */}
+      <button className="upgrade-button" onClick={openUpgradeModal}>
+        <i className="icon-upgrade"></i> {/* Icon placeholder */}
+        <span>Upgrade Cards</span>
+      </button>
     </div>
   );
 };

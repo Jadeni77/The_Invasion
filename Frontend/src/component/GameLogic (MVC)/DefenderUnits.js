@@ -1,4 +1,6 @@
-//Data for different types of Defender Units
+// src/component/GameLogic (MVC)/DefenderUnits.js
+// Data for different types of Defender Units
+
 export class DefenderUnit {
   constructor(x, y, cardData) {
     this.x = x;
@@ -9,6 +11,8 @@ export class DefenderUnit {
     this.attackDamage = cardData.damage || 20;
     this.fireRate = cardData.fireRate || 60; // frames per shot
     this.fireCountdown = this.fireRate;
+    this.lastAttackTime = 0; // New: To track last attack for canAttack
+    this.isRanged = cardData.isRanged || false; // New: Flag for ranged units
     this.cardData = cardData; // Contains original card info (name, type, cost, etc.)
     this.health = cardData.health || 100; // current health
     this.maxHealth = cardData.health || 100; // Store max health for healing
@@ -21,28 +25,24 @@ export class DefenderUnit {
   }
 
   // Default logic for all
-  // Handles basic attack
   update(enemies, defenderUnits) {
-    // Accepts all defenderUnits for future self-healing/buffing
+    // This update method will primarily handle non-attack logic (like movement if any)
+    // Attack logic is now separated into canAttack and attack methods, called by GameEngine
     if (!this.isAlive) return;
-    // Handle basic attack logic if the unit has attack damage and range
-    if (this.attackDamage > 0 && this.range > 0) {
-      this.fireCountdown--;
-      if (this.fireCountdown <= 0) {
-        // Corrected parameter name: enermy -> enemies
-        const target = enemies.find(
-          (z) =>
-            z.isAlive && Math.hypot(this.x - z.x, this.y - z.y) <= this.range
-        );
-        if (target) {
-          target.takeDamage(this.attackDamage);
-          this.fireCountdown = this.fireRate;
+    // Subclasses can add their specific update logic here
+  }
 
-          // Might add projectile logic here if not instant hit
-        }
-      }
-    }
-    // Subclasses will add their specific update logic here
+  // New: Checks if the defender can attack based on fireRate
+  canAttack(currentTime) {
+    return currentTime - this.lastAttackTime >= (this.fireRate / 60) * 1000; // Convert frames to milliseconds
+  }
+
+  // New: Performs an attack on a target
+  attack(target, currentTime) {
+    if (!this.isAlive || !target || !target.isAlive) return;
+
+    target.takeDamage(this.attackDamage);
+    this.lastAttackTime = currentTime; // Update last attack time
   }
 
   draw(ctx) {
@@ -82,8 +82,6 @@ export class DefenderUnit {
     return false; // Indicate defender alive
   }
 
-  // Generic method for special abilities. Subclasses will override this.
-  // The GameEngine's update loop will call this on relevant units.
   activateSpecialAbility(allGameEntities) {
     // Pass all entities for flexibility
     // Default: no special ability or ability that requires no specific targets
@@ -102,10 +100,10 @@ export class BasicDefender extends DefenderUnit {
       width: 30,
       height: 40,
       color: "blue",
+      isRanged: true, // Basic Cop is ranged
       image: cardData.image,
     });
   }
-  // Inherits update, draw, takeDamage from PoliceUnit
 }
 
 export class HealerDefender extends DefenderUnit {
@@ -116,12 +114,13 @@ export class HealerDefender extends DefenderUnit {
       damage: cardData.damage || 5, // Healers can still have a base attack damage
       health: cardData.health || 100,
       range: cardData.range || 100,
-      fireRate: cardData.fireRate || 90, // Corrected typo: firerate -> fireRate
+      fireRate: cardData.fireRate || 90,
       healingAmount: cardData.healingAmount || 10,
       healingRate: cardData.healingRate || 120, // frames per heal
       width: 35,
       height: 45,
       color: "lightgreen",
+      isRanged: false, // Healer is not ranged (doesn't shoot projectiles)
       image: cardData.image,
     });
     this.healingCountdown = this.healingRate;
@@ -129,8 +128,8 @@ export class HealerDefender extends DefenderUnit {
   }
 
   update(enemies, defenderUnits) {
-    // Corrected parameter name: enermy -> enemies
-    super.update(enemies, defenderUnits); // Call super update for potential base attack
+    // Healers don't attack enemies directly in their update, but can still heal
+    // super.update(enemies, defenderUnits); // Removed as it handles attack logic, which Healer doesn't need here
 
     // Healing Logic
     this.healingCountdown--;
@@ -162,7 +161,6 @@ export class HealerDefender extends DefenderUnit {
     super.draw(ctx);
     // Optional: Draw a healing aura when healing
     if (this.healingCountdown <= 20 && this.healingCountdown > 0) {
-      // Corrected: healingCountDown -> healingCountdown
       ctx.beginPath();
       ctx.arc(
         this.x + this.width / 2,
@@ -183,7 +181,7 @@ export class GrenadeDefender extends DefenderUnit {
     super(x, y, {
       ...cardData,
       name: "Grenadier",
-      damage: cardData.damage || 10,
+      damage: cardData.damage || 10, // Base damage for direct hit (if any)
       health: cardData.health || 110,
       range: cardData.range || 200,
       fireRate: cardData.fireRate || 180, // Slower fire rate for grenades
@@ -192,37 +190,34 @@ export class GrenadeDefender extends DefenderUnit {
       width: 40,
       height: 50,
       color: "darkorange",
+      isRanged: true, // Grenadier is ranged (throws projectiles)
       image: cardData.image,
     });
-    this.grenadeCountdown = this.fireRate; // Corrected: grenadeCountDown -> grenadeCountdown
+    this.grenadeCountdown = this.fireRate;
+    this.gameEngine = null; // Reference to game engine for adding explosions
   }
 
-  update(enemies, defenderUnits) {
-    // Corrected parameter name: enermy -> enemies
-    // Call super.update to maintain any base DefenderUnit attack logic
-    super.update(enemies, defenderUnits); // Corrected: enermies -> enemies
+  // Override attack to trigger explosion via GameEngine
+  attack(target, currentTime) {
+    if (!this.isAlive || !target || !target.isAlive) return;
 
-    this.grenadeCountdown--;
-    if (this.grenadeCountdown <= 0) {
-      const target = enemies.find(
-        // Corrected: enermy -> enemies
-        (z) => z.isAlive && Math.hypot(this.x - z.x, this.y - z.y) <= this.range
+    if (this.gameEngine) {
+      this.gameEngine.addExplosion(
+        target.x + target.width / 2, // Center explosion on target
+        target.y + target.height / 2,
+        this.grenadeDamage,
+        this.grenadeRadius
       );
-      if (target) {
-        if (this.gameEngine) {
-          // Changed to addExplosion, as per previous discussion for clarity
-          this.gameEngine.addExplosion(
-            target.x,
-            target.y,
-            this.grenadeDamage,
-            this.grenadeRadius
-          );
-        } else {
-          console.warn("GrenadeDefender: gameEngine reference not set!");
-        }
-        this.grenadeCountdown = this.fireRate;
-      }
+      this.lastAttackTime = currentTime; // Update last attack time
+    } else {
+      console.warn("GrenadeDefender: gameEngine reference not set for attack!");
     }
+  }
+
+  // Grenadier's update primarily for its own state, not attacking
+  update(enemies, defenderUnits) {
+    // No specific movement or other continuous logic for Grenadier beyond base DefenderUnit
+    // The attack logic is handled by GameEngine calling canAttack/attack
   }
 
   setGameEngine(engine) {
@@ -236,19 +231,19 @@ export class BarricadeDefender extends DefenderUnit {
     super(x, y, {
       ...cardData,
       name: "Barricade",
-      damage: 0,
+      damage: 0, // Barricades don't attack
       health: cardData.health || 500,
-      range: 0,
-      fireRate: 0,
+      range: 0, // No attack range
+      fireRate: 0, // No fire rate
       width: cardData.width || 80, // Wider for a barricade
       height: cardData.height || 30, // Shorter
       color: "gray",
+      isRanged: false, // Not ranged
       image: cardData.image,
     });
   }
 
   update(enemies, defenderUnits) {
-    // Corrected parameter name: enermy -> enemies
     // Barricades don't attack or move. Their main interaction is absorbing damage.
     // Collision with zombies would be handled by GameEngine's zombie movement logic
     // (e.g., zombies stop when they hit a barricade).
@@ -256,6 +251,5 @@ export class BarricadeDefender extends DefenderUnit {
 
   draw(ctx) {
     super.draw(ctx);
-    // super.draw also handles image
   }
 }

@@ -1,0 +1,115 @@
+/* Energy Bar Styles */
+.energy-bar {
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 12px;
+  padding: 15px;
+  margin: 15px 0;
+  border: 2px solid #5a3921;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.energy-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.energy-icon {
+  font-size: 28px;
+  color: #ffd700;
+}
+
+.energy-text {
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.energy-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.energy-count {
+  font-size: 24px;
+  font-weight: bold;
+  color: white;
+}
+
+.energy-timer {
+  font-size: 18px;
+  color: #a9a9a9;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 5px 10px;
+  border-radius: 8px;
+}
+
+.energy-progress-bar {
+  height: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.energy-progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, #8b6f4b, #ffd700);
+  transition: width 0.5s;
+  position: relative;
+  z-index: 2;
+}
+
+.energy-recharge-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255, 215, 0, 0.3);
+  z-index: 1;
+  transition: width 1s linear;
+}
+
+.energy-rate {
+  font-size: 14px;
+  color: #d4c0a1;
+  text-align: center;
+}
+
+/* Pulsing animation for recharging */
+@keyframes energy-pulse {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
+.energy-recharge-progress {
+  animation: energy-pulse 1.5s infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .energy-bar {
+    padding: 10px;
+  }
+  
+  .energy-icon {
+    font-size: 24px;
+  }
+  
+  .energy-text {
+    font-size: 18px;
+  }
+  
+  .energy-count {
+    font-size: 20px;
+  }
+  
+  .energy-timer {
+    font-size: 16px;
+  }
+}

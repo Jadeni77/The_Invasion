@@ -1,21 +1,31 @@
 /*
+
 src/
-|--component/
-|   |--GameLogic (MVC)/
-|   |    |--DefenderUnits.js
-|   |    |--EnemyUnits.js
-|   |    |--GameContext.jsx
-|   |    |--GameEngine.js
-|   |
-|   |--GameRendering/
-|   |    |--GameBoard.jsx
-|   |    |--Lobby.jsx
-|   |    |--MapLayout.jsx
+├── components/
+│   ├── GameLogic (MVC)/
+│   │    ├── DefenderUnits.js
+│   │    ├── EnemyUnits.js
+│   │    ├── GameContext.jsx
+│   │    └── GameEngine.js
+│   ├── GameRendering/
+│   │    ├── GameBoard.jsx
+│   │    ├── Lobby.jsx
+│   │    ├── MapLayout.jsx
+│   │    ├── UpgradeModal.jsx
+│   │    └── ResourceIcon.jsx
+|   |    |-- UpgradeModal.jsx
+|   |    |-- EnergyBar.jsx
+│   └── common/
+│        ├── Card.jsx
+│        └── WorkerStatus.jsx
+├── style/
+│   ├── Lobby.css
+│   └── GameBoard.css
+|   |-- EnergyBar.css
 |
-| 
-|--style/
-|   |--Lobby.css
+|-- Icons/
+|   |--Gold.png
 |
-|--App.jsx
+└── App.jsx
 
 */

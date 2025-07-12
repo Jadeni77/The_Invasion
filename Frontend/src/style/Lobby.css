@@ -5,22 +5,7 @@
   padding: 20px;
   background-color: #2e7d32;
   min-height: 100vh;
-  font-family: 'Pixel', sans-serif;
-}
-
-.top-menu {
-  display: flex;
-  gap: 15px;
-  margin: 20px 0;
-}
-
-.top-menu button {
-  padding: 10px 20px;
-  background-color: #8bc34a;
-  border: 2px solid #33691e;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 16px;
+  font-family: "Pixel", sans-serif;
 }
 
 .game-map {
@@ -30,12 +15,6 @@
   border-radius: 10px;
   padding: 20px;
   margin: 20px 0;
-}
-
-.map-path {
-  stroke: #fff;
-  stroke-width: 3;
-  fill: none;
 }
 
 .level-node {
@@ -61,48 +40,6 @@
   pointer-events: none;
 }
 
-.upgrade-section {
-  width: 80%;
-  background-color: #7cb342;
-  border-radius: 10px;
-  padding: 20px;
-}
-
-.upgrade-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 15px;
-  margin-top: 15px;
-}
-
-.upgrade-card {
-  background-color: #aed581;
-  border-radius: 8px;
-  padding: 10px;
-  text-align: center;
-  border: 2px solid #689f38;
-}
-
-.resource-bar {
-  display: flex;
-  gap: 20px;
-  background-color: #558b2f;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-weight: bold;
-}
-
-/* Add to existing styles */
-.player-resources-bar {
-  display: flex;
-  gap: 20px;
-  background-color: #4e342e;
-  padding: 12px 24px;
-  border-radius: 12px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-}
-
 .resource {
   display: flex;
   align-items: center;
@@ -122,12 +59,6 @@
 
 .energy .value {
   color: #4fc3f7;
-}
-
-.recharge-info {
-  margin-left: 10px;
-  font-size: 14px;
-  color: #a5d6a7;
 }
 
 .card-hand {
@@ -187,9 +118,15 @@
 
 /* Wave animation for energy bar when charging */
 @keyframes pulse {
-  0% { opacity: 0.7; }
-  50% { opacity: 1; }
-  100% { opacity: 0.7; }
+  0% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.7;
+  }
 }
 
 .energy .value {
@@ -212,3 +149,325 @@
 .energy.recharging .value::after {
   opacity: 1;
 }
+
+/* ---------- */
+/* Lobby Container */
+.lobby-container {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+  background-image: url("/assets/lobby-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  font-family: "Pixel", sans-serif;
+  color: white;
+  padding: 20px;
+}
+
+/* Top Menu Bar */
+.top-menu-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 12px;
+  border: 2px solid #5a3921;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.player-info {
+  text-align: center;
+}
+
+.player-name {
+  font-size: 24px;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.player-rank {
+  font-size: 16px;
+  color: #a9a9a9;
+}
+
+.menu-buttons {
+  display: flex;
+  gap: 15px;
+}
+
+.menu-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 15px;
+  background: #4a2e17;
+  border: 2px solid #6b4b2e;
+  border-radius: 8px;
+  color: #f0e6d2;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.menu-button:hover {
+  background: #5a3a20;
+  transform: translateY(-2px);
+}
+
+.menu-button i {
+  font-size: 24px;
+  margin-bottom: 5px;
+}
+
+/* Resource Bar */
+.resource-bar {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 20px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 10px;
+  border: 1px solid #5a3921;
+}
+
+.resource-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 15px;
+  background: rgba(90, 57, 33, 0.8);
+  border-radius: 20px;
+  border: 1px solid #a78b71;
+}
+
+.resource-symbol {
+  font-size: 24px;
+}
+
+.resource-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.resource-value {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.resource-label {
+  font-size: 12px;
+  color: #d4c0a1;
+}
+
+/* Worker Status */
+.worker-status-container {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  justify-content: center;
+}
+
+/* Game Map */
+.game-map-container {
+  position: relative;
+  height: 60vh;
+  width: 100%;
+  overflow: hidden;
+  background: rgba(25, 40, 15, 0.7);
+  border-radius: 15px;
+  border: 3px solid #4a2e17;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.game-map {
+  position: absolute;
+  top: 0;
+  left: 0;
+  min-width: 2000px;
+  min-height: 2000px;
+  background-image: url("/assets/map-bg.png");
+  background-size: 200px;
+  transform-origin: top left;
+}
+
+/* Boundary indicators */
+.game-map-container::before,
+.game-map-container::after {
+  content: "";
+  position: absolute;
+  z-index: 5;
+  background: rgba(255, 215, 0, 0.3);
+  pointer-events: none;
+}
+
+.game-map-container::before {
+  /* Horizontal boundaries */
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  box-shadow: 0 -2px 5px rgba(255, 215, 0, 0.5);
+}
+
+.game-map-container::after {
+  /* Vertical boundaries */
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 5px;
+  box-shadow: -2px 0 5px rgba(255, 215, 0, 0.5);
+}
+
+/* Boundary indicators for opposite sides */
+.game-map-container .boundary-right {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 5px;
+  background: rgba(255, 215, 0, 0.3);
+  box-shadow: 2px 0 5px rgba(255, 215, 0, 0.5);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.game-map-container .boundary-bottom {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: rgba(255, 215, 0, 0.3);
+  box-shadow: 0 2px 5px rgba(255, 215, 0, 0.5);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.map-connection {
+  position: absolute;
+  height: 8px;
+  background: #d4c0a1;
+  border: 2px solid #8b6f4b;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.level-node {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  background: url("/assets/level-node.png") center/contain no-repeat;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.7));
+}
+
+.level-node.locked {
+  filter: grayscale(100%) brightness(0.5)
+    drop-shadow(0 0 5px rgba(0, 0, 0, 0.7));
+}
+
+.level-number {
+  font-size: 24px;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 2px 2px 0 #000;
+  margin-top: 5px;
+}
+
+.level-pulse {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(255, 215, 0, 0.3);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+}
+
+.treasure-chest {
+  position: absolute;
+  width: 50px;
+  height: 40px;
+  background: url("/assets/chest-closed.png") center/contain no-repeat;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.7));
+}
+
+.treasure-chest.collected {
+  background-image: url("/assets/chest-open.png");
+  filter: grayscale(100%) brightness(0.7);
+}
+
+.chest-glow {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 215, 0, 0.5) 0%,
+    rgba(255, 215, 0, 0) 70%
+  );
+  border-radius: 50%;
+  animation: glow 2s infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    opacity: 0.3;
+  }
+  to {
+    opacity: 0.7;
+  }
+}
+
+/* Upgrade Button */
+.upgrade-button {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  padding: 15px 25px;
+  background: linear-gradient(to bottom, #8b6f4b, #5a3a20);
+  border: 3px solid #d4c0a1;
+  border-radius: 50px;
+  color: #ffd700;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  transition: all 0.2s;
+}
+
+.upgrade-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.7);
+}
+
+

@@ -1,7 +1,7 @@
-import React from "react";
 import { GameProvider } from "./component/GameLogic (MVC)/GameContext";
 import Lobby from "./component/GameRendering/Lobby";
 import GameBoard from "./component/GameRendering/GameBoard";
+import UpgradeModal from "./component/GameRendering/UpgradeModal"; // Correct path
 import { useGame } from "./component/GameLogic (MVC)/GameContext";
 
 const App = () => {
@@ -13,12 +13,16 @@ const App = () => {
 };
 
 const GameRouter = () => {
-  const { isGameInitialized, gameOver } = useGame();
-  
-  if (isGameInitialized && !gameOver) {
-    return <GameBoard />;
+  const { gameState } = useGame();
+
+  switch (gameState) {
+    case "inGame":
+      return <GameBoard />;
+    case "upgrade":
+      return <UpgradeModal />;
+    default:
+      return <Lobby />;
   }
-  return <Lobby />;
 };
 
 export default App;

@@ -1,0 +1,239 @@
+/* Upgrade Modal */
+.upgrade-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  width: 90%;
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #2c1e13;
+  border: 3px solid #8b6f4b;
+  border-radius: 15px;
+  padding: 30px;
+  position: relative;
+  box-shadow: 0 0 30px rgba(139, 111, 75, 0.5);
+}
+
+.close-button {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: #8b0000;
+  border: 2px solid #d4c0a1;
+  color: white;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.upgrade-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 25px;
+  margin-top: 20px;
+}
+
+.upgrade-card {
+  background: rgba(65, 45, 25, 0.8);
+  border: 2px solid #8b6f4b;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.upgrade-card.selected {
+  border-color: #ffd700;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+  transform: translateY(-5px);
+}
+
+.upgrade-card.locked {
+  opacity: 0.6;
+  filter: grayscale(80%);
+}
+
+.upgrade-requirements {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #8b6f4b;
+}
+
+.resource-costs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.resource-cost {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sufficient {
+  color: #7fff00;
+}
+
+.insufficient {
+  color: #ff6347;
+}
+
+.upgrade-progress {
+  margin-top: 15px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 20px;
+  background: linear-gradient(to right, #8b6f4b, #ffd700);
+  transition: width 0.5s;
+}
+
+.progress-text {
+  text-align: center;
+  padding: 5px;
+  font-weight: bold;
+  color: #ffd700;
+}
+
+.upgrade-action-button {
+  margin-top: 15px;
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(to bottom, #5a3a20, #8b6f4b);
+  border: 2px solid #d4c0a1;
+  border-radius: 8px;
+  color: #ffd700;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.upgrade-action-button:hover:not(:disabled) {
+  background: linear-gradient(to bottom, #6b4b2e, #9c8065);
+  transform: translateY(-2px);
+}
+
+.upgrade-action-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.upgrade-card {
+  position: relative;
+  border: 2px solid #8b6f4b;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.3s;
+  background: rgba(65, 45, 25, 0.8);
+}
+
+.upgrade-card.selected {
+  border-color: #ffd700;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+  transform: translateY(-5px);
+}
+
+.upgrade-card.upgrading {
+  border-color: #4fc3f7;
+  box-shadow: 0 0 15px rgba(79, 195, 247, 0.5);
+}
+
+.upgrade-info {
+  padding: 15px;
+}
+
+.resource-requirements {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.resource-requirement {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.resource-requirement.met {
+  border-left: 3px solid #7fff00;
+}
+
+.resource-requirement.unmet {
+  border-left: 3px solid #ff6347;
+}
+
+.worker-requirement {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  margin-bottom: 15px;
+  border-left: 3px solid #4fc3f7;
+}
+
+.worker-icon {
+  font-size: 20px;
+}
+
+.upgrade-button:hover:not(.disabled) {
+  background: linear-gradient(to bottom, #6b4b2e, #9c8065);
+  transform: translateY(-2px);
+}
+
+.upgrade-button.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: linear-gradient(to bottom, #3a2a10, #5a4b3e);
+}
+
+.upgrade-in-progress {
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.progress-text {
+  text-align: center;
+  margin-bottom: 10px;
+  color: #4fc3f7;
+  font-weight: bold;
+}
+
+.progress-bar {
+  height: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, #8b6f4b, #4fc3f7);
+  transition: width 0.5s;
+}

@@ -1,4 +1,21 @@
+// src/component/GameLogic (MVC)/GameEngine.js
+// This file serves as the Model (game state, entities) and Controller (game logic, updates)
 
+// Corrected imports: Ensure these paths are correct relative to GameEngine.js
+import {
+  DefenderUnit,
+  BasicDefender,
+  HealerDefender,
+  GrenadeDefender,
+  BarricadeDefender,
+} from "./DefenderUnits";
+import {
+  Enemy, // Base Enemy class
+  BasicEnemy, // Specific Enemy types
+  FastEnemy,
+  TankEnemy,
+  BombEnemy,
+} from "./EnemyUnits"; // Corrected import for specific enemy classes
 
 export class GameEngine {
   constructor(updateEnergyCb, updateScoreCb, onWinCb, onLoseCb) {
@@ -7,50 +24,54 @@ export class GameEngine {
     this.canvasHeight = 0;
     this.animationFrameId = null;
 
+    // Callbacks from GameContext to update UI
     this.updateEnergyCb = updateEnergyCb;
     this.updateScoreCb = updateScoreCb;
     this.onWinCb = onWinCb;
     this.onLoseCb = onLoseCb;
 
+    // Game entities
     this.defenders = [];
     this.enemies = [];
     this.explosions = [];
     this.projectiles = [];
 
-    this.inGameEnergy = 100;
+    // In-game state
+    this.inGameEnergy = 0; // Will be set by level config
     this.inGameScore = 0;
     this.lastEnemySpawnTime = 0;
     this.enemiesSpawnedThisLevel = 0;
     this.gameOver = false;
-    this.gameWon = false;
-    this.defenseLineX = 0;
-    this.currentWave = 1;
+    this.gameWon = false; // Track win/loss state
+    this.defenseLineX = 0; // Dynamic based on canvas width
+    this.currentWave = 1; // Current wave number
 
-    // Defender classes mapping
+    // Mapping of card names to their respective DefenderUnit classes
     this.defenderUnitClasses = {
       "Basic Cop": BasicDefender,
       "Healer Cop": HealerDefender,
-      "Grenadier": GrenadeDefender,
-      "Barricade": BarricadeDefender,
+      Grenadier: GrenadeDefender,
+      Barricade: BarricadeDefender,
     };
 
-    // Enemy classes mapping
+    // Mapping of enemy names to their respective Enemy classes
     this.enemyClasses = {
       "Basic Zombie": BasicEnemy,
       "Fast Zombie": FastEnemy,
       "Tank Zombie": TankEnemy,
-      "Exploder": BombEnemy,
+      Exploder: BombEnemy,
     };
 
-    // Level configurations
+    // Level configurations and loaded assets
     this.levelConfigs = new Map();
     this.currentLevelConfig = null;
-    this.loadedImages = {};
+    this.loadedImages = {}; // Stores loaded Image objects
 
-    // Initialize level configurations
+    // Initialize level configurations on construction
     this.initLevelConfigs();
   }
 
+  // Defines all game level configurations
   initLevelConfigs() {
     // Level 1
     this.levelConfigs.set(1, {
@@ -124,42 +145,58 @@ export class GameEngine {
     });
   }
 
+  // Preloads all images required for the current level
   preloadImages(imagePaths) {
     const promises = [];
-
+    // Iterate over key-value pairs (name, path)
     for (const [name, path] of Object.entries(imagePaths)) {
       const promise = new Promise((resolve, reject) => {
         const img = new Image();
-        img.src = path;
+        img.src = path; // Set image source
         img.onload = () => {
-          this.loadedImages[name] = img;
-          resolve();
+          this.loadedImages[name] = img; // Store loaded image object
+          resolve(); // Resolve promise on success
         };
-        img.onerror = reject;
+        img.onerror = () => {
+          console.error(`Failed to load image: ${path}`);
+          reject(new Error(`Failed to load image: ${path}`)); // Reject on error
+        };
       });
       promises.push(promise);
     }
-
-    return Promise.all(promises);
+    return Promise.all(promises); // Return a single promise that resolves when all images are loaded
   }
 
+  // Retrieves a loaded image by its name
   getImage(name) {
     return this.loadedImages[name];
   }
 
-  initialize(ctx, width, height, levelNumber) {
-    this.ctx = ctx;
+  /**
+   * Initializes the game engine for a specific level.
+   * @param {HTMLCanvasElement} canvas - The canvas DOM element.
+   * @param {number} width - The width of the canvas.
+   * @param {number} height - The height of the canvas.
+   * @param {number} levelNumber - The number of the level to initialize.
+   */
+  initialize(canvas, width, height, levelNumber) {
+    this.ctx = canvas.getContext('2d'); // Get 2D rendering context
     this.canvasWidth = width;
     this.canvasHeight = height;
     this.defenseLineX = width - 150; // Defense line 150px from right edge
 
+    // Get the configuration for the selected level
     this.currentLevelConfig = this.levelConfigs.get(levelNumber);
     if (!this.currentLevelConfig) {
-      console.error(`Level ${levelNumber} config not found. Using level 1.`);
+      console.error(`Level ${levelNumber} config not found. Defaulting to level 1.`);
       this.currentLevelConfig = this.levelConfigs.get(1);
+      // Ensure levelNumber is correctly set even if defaulting
+      if (this.currentLevelConfig) {
+        this.currentLevelConfig.levelNumber = 1; // Default to level 1
+      }
     }
 
-    // Preload all images for this level
+    // Preload all necessary images for the current level
     const allImages = {
       ...this.currentLevelConfig.enemyAssets,
       ...this.currentLevelConfig.defenderAssets,
@@ -167,15 +204,23 @@ export class GameEngine {
 
     this.preloadImages(allImages)
       .then(() => {
-        this.resetGame();
-        this.startLoop();
+        this.resetGame(); // Reset game state after assets are loaded
+        this.startLoop(); // Start the game loop
       })
       .catch((error) => {
         console.error("Error loading game assets:", error);
+        this.gameOver = true; // Prevent game from starting if assets fail to load
+        this.onLoseCb({ // Notify GameContext about the failure
+          score: 0,
+          level: levelNumber,
+          reason: "Asset loading failed"
+        });
       });
   }
 
+  // Resets the game state to its initial values for the current level
   resetGame() {
+    this.stopLoop(); // Stop any active animation loop
     this.defenders = [];
     this.enemies = [];
     this.explosions = [];
@@ -189,10 +234,18 @@ export class GameEngine {
     this.enemiesSpawnedThisLevel = 0;
     this.currentWave = 1;
 
+    // Update UI via callbacks
     this.updateEnergyCb(this.inGameEnergy);
     this.updateScoreCb(this.inGameScore);
   }
 
+  /**
+   * Deploys a defender unit onto the game board.
+   * @param {object} cardData - The data of the card being deployed.
+   * @param {number} x - X coordinate for deployment.
+   * @param {number} y - Y coordinate for deployment.
+   * @returns {boolean} True if deployment was successful, false otherwise.
+   */
   deployDefenderUnit(cardData, x, y) {
     if (this.gameOver) return false;
 
@@ -229,89 +282,112 @@ export class GameEngine {
       image: this.getImage(cardData.name),
     });
 
-    // Pass GameEngine reference for special abilities
+    // Pass GameEngine reference for special abilities (e.g., Grenadier's explosion)
     if (newUnit.setGameEngine) {
       newUnit.setGameEngine(this);
     }
 
     this.defenders.push(newUnit);
     this.inGameEnergy -= cardData.cost;
-    this.updateEnergyCb(this.inGameEnergy);
+    this.updateEnergyCb(this.inGameEnergy); // Update UI
 
     return true;
   }
 
+  /**
+   * Checks if a given position is valid for deploying a defender.
+   * @param {number} x - X coordinate.
+   * @param {number} y - Y coordinate.
+   * @param {number} width - Width of the unit.
+   * @param {number} height - Height of the unit.
+   * @returns {boolean} True if valid, false otherwise.
+   */
   isValidDeploymentPosition(x, y, width, height) {
-    // 1. Check if within deployable area (right half of screen)
+    // 1. Check if within deployable area (right half of screen, excluding road)
+    // Assuming road is in the middle, and deployable area is top-right quadrant
+    const roadTop = this.canvasHeight * 0.4; // Example: road starts at 40% down
+    const roadBottom = this.canvasHeight * 0.6; // Example: road ends at 60% down
+
     if (x < this.canvasWidth / 2 || x + width > this.canvasWidth) {
-      return false;
+      return false; // Must be in the right half
     }
 
-    // 2. Check if overlapping path (bottom 40% of screen)
-    const pathTop = this.canvasHeight * 0.6;
-    if (y + height > pathTop) {
-      return false;
+    // Check if overlapping the road (enemies path)
+    if (
+      this.checkCollision(
+        x, y, width, height,
+        0, roadTop, this.canvasWidth, roadBottom - roadTop // Road bounds
+      )
+    ) {
+      return false; // Cannot deploy on the road
     }
 
-    // 3. Check if overlapping existing defenders
+    // 2. Check if overlapping existing defenders
     for (const defender of this.defenders) {
       if (
         this.checkCollision(
-          x,
-          y,
-          width,
-          height,
-          defender.x,
-          defender.y,
-          defender.width,
-          defender.height
+          x, y, width, height,
+          defender.x, defender.y, defender.width, defender.height
         )
       ) {
-        return false;
+        return false; // Overlapping another defender
       }
     }
 
     return true;
   }
 
+  /**
+   * Performs AABB collision detection.
+   * @returns {boolean} True if collision, false otherwise.
+   */
   checkCollision(x1, y1, w1, h1, x2, y2, w2, h2) {
     return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
   }
 
+  /**
+   * Adds an explosion effect and applies damage in an area.
+   * @param {number} x - Center X of explosion.
+   * @param {number} y - Center Y of explosion.
+   * @param {number} damage - Damage dealt by explosion.
+   * @param {number} radius - Radius of explosion effect.
+   */
   addExplosion(x, y, damage, radius) {
     this.explosions.push({
       x,
       y,
       damage,
       radius,
-      timer: 30, // frames to display
+      timer: 30, // frames to display visual effect
     });
 
-    // Apply damage to enemies
+    // Apply damage to enemies within radius
     for (const enemy of this.enemies) {
       if (!enemy.isAlive) continue;
 
-      const distance = Math.hypot(enemy.x - x, enemy.y - y);
+      const distance = Math.hypot(enemy.x + enemy.width / 2 - x, enemy.y + enemy.height / 2 - y); // Distance from enemy center to explosion center
       if (distance <= radius) {
         enemy.takeDamage(damage);
       }
     }
 
-    // Apply reduced damage to defenders
+    // Apply reduced damage to defenders within radius (friendly fire)
     for (const defender of this.defenders) {
       if (!defender.isAlive) continue;
 
-      const distance = Math.hypot(defender.x - x, defender.y - y);
+      const distance = Math.hypot(defender.x + defender.width / 2 - x, defender.y + defender.height / 2 - y); // Distance from defender center to explosion center
       if (distance <= radius) {
         defender.takeDamage(damage * 0.3); // 30% damage to allies
       }
     }
   }
 
+  /** Spawns a new enemy based on current level configuration. */
   spawnEnemy() {
     const now = Date.now();
     const config = this.currentLevelConfig;
 
+    // Check if total enemies for level are spawned, if interval passed, and if max active enemies limit is not reached
     if (
       this.enemiesSpawnedThisLevel < config.totalEnemiesToSpawn &&
       now - this.lastEnemySpawnTime > config.enemySpawnInterval &&
@@ -328,9 +404,9 @@ export class GameEngine {
         return;
       }
 
-      // Spawn at top with random horizontal offset
+      // Spawn at a random Y position on the left edge
       const spawnX = -50; // Start off-screen left
-      const spawnY = Math.random() * (this.canvasHeight - 100) + 50;
+      const spawnY = Math.random() * (this.canvasHeight * 0.4 - 50) + this.canvasHeight * 0.4 + 25; // Spawn within the road area
 
       const enemy = new EnemyClass(spawnX, spawnY, {
         image: this.getImage(enemyType),
@@ -342,6 +418,7 @@ export class GameEngine {
     }
   }
 
+  /** Main update loop for the game state. */
   update() {
     if (this.gameOver) return;
 
@@ -360,34 +437,33 @@ export class GameEngine {
     this.checkGameConditions();
   }
 
+  /** Updates all defender units. */
   updateDefenders(now) {
     for (let i = this.defenders.length - 1; i >= 0; i--) {
       const defender = this.defenders[i];
 
       if (!defender.isAlive) {
-        this.defenders.splice(i, 1);
+        this.defenders.splice(i, 1); // Remove dead defender
         continue;
       }
 
-      defender.update(this.enemies, this.defenders);
+      defender.update(this.enemies, this.defenders); // Pass all enemies and defenders for their specific logic
 
-      // Handle defender attacks
-      if (defender.canAttack(now)) {
+      // Handle defender attacks (if they can attack)
+      if (defender.attackDamage > 0 && defender.range > 0 && defender.canAttack(now)) {
         const target = this.findTargetForDefender(defender);
         if (target) {
-          defender.attack(target, now);
+          defender.attack(target, now); // Defender performs its attack
 
-          // Create projectile for ranged attackers
+          // If the defender is ranged, create a projectile
           if (defender.isRanged) {
             this.projectiles.push({
               startX: defender.x + defender.width / 2,
               startY: defender.y + defender.height / 2,
-              targetX: target.x + target.width / 2,
-              targetY: target.y + target.height / 2,
+              target: target, // Store reference to the target enemy
               speed: 10,
               damage: defender.attackDamage,
-              progress: 0,
-              maxProgress: 100,
+              // Projectile progress will be calculated based on distance to target
             });
           }
         }
@@ -395,25 +471,33 @@ export class GameEngine {
     }
   }
 
+  /**
+   * Finds the closest valid target for a given defender.
+   * @param {DefenderUnit} defender - The defender unit looking for a target.
+   * @returns {Enemy|null} The closest enemy in range, or null if none found.
+   */
   findTargetForDefender(defender) {
-    // Find closest enemy in range
     let closestEnemy = null;
     let closestDistance = Infinity;
 
     for (const enemy of this.enemies) {
       if (!enemy.isAlive) continue;
 
-      const distance = Math.hypot(defender.x - enemy.x, defender.y - enemy.y);
+      // Calculate distance from defender's center to enemy's center
+      const distance = Math.hypot(
+        defender.x + defender.width / 2 - (enemy.x + enemy.width / 2),
+        defender.y + defender.height / 2 - (enemy.y + enemy.height / 2)
+      );
 
       if (distance <= defender.range && distance < closestDistance) {
         closestEnemy = enemy;
         closestDistance = distance;
       }
     }
-
     return closestEnemy;
   }
 
+  /** Updates all enemy units. */
   updateEnemies(now) {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
@@ -421,101 +505,94 @@ export class GameEngine {
       if (!enemy.isAlive) {
         // Handle enemy death
         this.inGameScore += enemy.bounty;
-        this.updateScoreCb(this.inGameScore);
+        this.updateScoreCb(this.inGameScore); // Update UI score
 
-        // Handle special death effects
-        if (enemy.shouldExplode) {
+        // Handle special death effects (e.g., BombEnemy explosion)
+        if (enemy.shouldExplode) { // BombEnemy sets this flag
           this.addExplosion(
-            enemy.x,
-            enemy.y,
+            enemy.x + enemy.width / 2, // Center explosion on enemy
+            enemy.y + enemy.height / 2,
             enemy.explosionDamage,
             enemy.explosionRadius
           );
         }
 
-        this.enemies.splice(i, 1);
+        this.enemies.splice(i, 1); // Remove dead enemy
         continue;
       }
 
-      enemy.update(this.defenders);
+      enemy.update(this.defenders); // Enemy updates its state (movement, attack if attacker)
 
-      // Move enemy toward defense line
-      if (!enemy.isAttacking) {
-        enemy.x += enemy.speed;
-
-        // Check if reached defense line
-        if (enemy.x >= this.defenseLineX) {
-          this.handleDefenseBreached();
-          return;
-        }
+      // Check if enemy reached defense line (only for non-attacking enemies or if they pass through)
+      // This check is primarily for enemies that don't stop to fight
+      if (enemy.x >= this.defenseLineX) {
+        this.handleDefenseBreached(); // Game over condition
+        return; // Exit loop as game is over
       }
 
-      // Handle enemy special abilities
+      // Handle enemy special abilities (e.g., BombEnemy self-destruct if near defender)
       if (enemy.activateSpecialAbility) {
         enemy.activateSpecialAbility(this.defenders);
       }
     }
   }
 
+  /** Updates all projectiles. */
   updateProjectiles() {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const projectile = this.projectiles[i];
-      projectile.progress += projectile.speed;
 
-      if (projectile.progress >= projectile.maxProgress) {
-        // Apply damage when projectile reaches target
-        for (const enemy of this.enemies) {
-          if (!enemy.isAlive) continue;
+      // Calculate direction towards target
+      const dx = projectile.target.x + projectile.target.width / 2 - projectile.startX;
+      const dy = projectile.target.y + projectile.target.height / 2 - projectile.startY;
+      const distanceToTarget = Math.hypot(dx, dy);
 
-          const distance = Math.hypot(
-            enemy.x - projectile.targetX,
-            enemy.y - projectile.targetY
-          );
+      // Move projectile
+      const moveAmount = Math.min(projectile.speed, distanceToTarget);
+      const angle = Math.atan2(dy, dx);
+      projectile.startX += Math.cos(angle) * moveAmount;
+      projectile.startY += Math.sin(angle) * moveAmount;
 
-          if (distance < enemy.width / 2) {
-            enemy.takeDamage(projectile.damage);
-            break;
-          }
+      // Check if projectile reached target
+      if (distanceToTarget <= projectile.speed || !projectile.target.isAlive) {
+        if (projectile.target.isAlive) { // Only apply damage if target is still alive
+          projectile.target.takeDamage(projectile.damage);
         }
-
-        this.projectiles.splice(i, 1);
+        this.projectiles.splice(i, 1); // Remove projectile
       }
     }
   }
 
+  /** Updates and removes expired explosion effects. */
   updateExplosions() {
     for (let i = this.explosions.length - 1; i >= 0; i--) {
-      this.explosions[i].timer--;
+      this.explosions[i].timer--; // Decrement timer
 
       if (this.explosions[i].timer <= 0) {
-        this.explosions.splice(i, 1);
+        this.explosions.splice(i, 1); // Remove expired explosion
       }
     }
   }
 
+  /** Checks for win or lose conditions. */
   checkGameConditions() {
-    // Check lose condition: defense breached
-    for (const enemy of this.enemies) {
-      if (enemy.x >= this.defenseLineX) {
-        this.handleDefenseBreached();
-        return;
-      }
-    }
+    // Lose condition: defense breached (handled in updateEnemies loop)
 
-    // Check win condition: all enemies defeated and spawned
+    // Win condition: all enemies spawned AND all active enemies are dead
     const config = this.currentLevelConfig;
-    if (
-      this.enemiesSpawnedThisLevel >= config.totalEnemiesToSpawn &&
-      this.enemies.length === 0
-    ) {
-      this.handleLevelComplete();
+    const allEnemiesSpawned = this.enemiesSpawnedThisLevel >= config.totalEnemiesToSpawn;
+    const noActiveEnemies = this.enemies.length === 0;
+
+    if (!this.gameOver && allEnemiesSpawned && noActiveEnemies) {
+      this.handleLevelComplete(); // Trigger win condition
     }
   }
 
+  /** Handles the game over state when defense is breached. */
   handleDefenseBreached() {
     this.gameOver = true;
     this.gameWon = false;
-    this.stopLoop();
+    this.stopLoop(); // Stop the game loop
 
     if (this.onLoseCb) {
       this.onLoseCb({
@@ -526,10 +603,11 @@ export class GameEngine {
     }
   }
 
+  /** Handles the game win state when all enemies are defeated. */
   handleLevelComplete() {
     this.gameOver = true;
     this.gameWon = true;
-    this.stopLoop();
+    this.stopLoop(); // Stop the game loop
 
     if (this.onWinCb) {
       this.onWinCb({
@@ -539,35 +617,33 @@ export class GameEngine {
     }
   }
 
+  /** Main drawing function for the canvas. */
   draw(ctx) {
     if (!ctx) return;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+    ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight); // Clear canvas
 
-    // Draw background
     this.drawBackground(ctx);
-
-    // Draw game objects
     this.drawDefenders(ctx);
     this.drawEnemies(ctx);
     this.drawProjectiles(ctx);
     this.drawExplosions(ctx);
     this.drawUI(ctx);
 
-    // Draw game over/win message
+    // Draw game over/win message overlay
     if (this.gameOver) {
       this.drawGameOverScreen(ctx);
     }
   }
 
+  /** Draws the game background elements. */
   drawBackground(ctx) {
-    // Draw sky
-    ctx.fillStyle = "#87CEEB";
+    // Draw sky (top 60% of canvas)
+    ctx.fillStyle = "#87CEEB"; // Light blue
     ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight * 0.6);
 
-    // Draw ground
-    ctx.fillStyle = "#8B4513";
+    // Draw ground (bottom 40% of canvas)
+    ctx.fillStyle = "#8B4513"; // Brown
     ctx.fillRect(
       0,
       this.canvasHeight * 0.6,
@@ -575,12 +651,17 @@ export class GameEngine {
       this.canvasHeight * 0.4
     );
 
-    // Draw garden (defense area)
-    ctx.fillStyle = "#2E8B57";
+    // Draw road/path for enemies (middle 20% of canvas height, across full width)
+    ctx.fillStyle = "#6B8E23"; // Olive green for road
+    ctx.fillRect(0, this.canvasHeight * 0.4, this.canvasWidth, this.canvasHeight * 0.2);
+
+
+    // Draw defense line
+    ctx.fillStyle = "#2E8B57"; // Sea green
     ctx.fillRect(this.defenseLineX, 0, 10, this.canvasHeight);
 
-    // Draw garden details
-    ctx.fillStyle = "#228B22";
+    // Draw garden details (example visual elements)
+    ctx.fillStyle = "#228B22"; // Forest green
     for (let i = 0; i < 5; i++) {
       const y = this.canvasHeight * 0.7 + i * 30;
       ctx.beginPath();
@@ -589,6 +670,7 @@ export class GameEngine {
     }
   }
 
+  /** Draws all active defender units. */
   drawDefenders(ctx) {
     for (const defender of this.defenders) {
       if (defender.isAlive) {
@@ -597,6 +679,7 @@ export class GameEngine {
     }
   }
 
+  /** Draws all active enemy units. */
   drawEnemies(ctx) {
     for (const enemy of this.enemies) {
       if (enemy.isAlive) {
@@ -605,43 +688,41 @@ export class GameEngine {
     }
   }
 
+  /** Draws all active projectiles. */
   drawProjectiles(ctx) {
-    ctx.fillStyle = "#FF0000";
+    ctx.fillStyle = "#FF0000"; // Red projectiles
 
     for (const projectile of this.projectiles) {
-      const progress = projectile.progress / projectile.maxProgress;
-      const x =
-        projectile.startX + (projectile.targetX - projectile.startX) * progress;
-      const y =
-        projectile.startY + (projectile.targetY - projectile.startY) * progress;
-
+      // Projectile is drawn at its current startX/startY
       ctx.beginPath();
-      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.arc(projectile.startX, projectile.startY, 5, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
+  /** Draws all active explosion effects. */
   drawExplosions(ctx) {
     for (const explosion of this.explosions) {
-      const radius = explosion.radius * (explosion.timer / 30);
-      const alpha = explosion.timer / 30;
+      const radius = explosion.radius * (explosion.timer / 30); // Radius shrinks over time
+      const alpha = explosion.timer / 30; // Alpha fades over time
 
-      ctx.fillStyle = `rgba(255, 165, 0, ${alpha})`;
+      ctx.fillStyle = `rgba(255, 165, 0, ${alpha})`; // Fading orange
       ctx.beginPath();
       ctx.arc(explosion.x, explosion.y, radius, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
+  /** Draws the in-game UI (energy, score, wave). */
   drawUI(ctx) {
     // Draw energy bar
     const energyPercent =
       this.inGameEnergy / this.currentLevelConfig.initialEnergy;
-    ctx.fillStyle = "#333";
+    ctx.fillStyle = "#333"; // Background
     ctx.fillRect(10, 10, 200, 20);
-    ctx.fillStyle = energyPercent > 0.3 ? "#4CAF50" : "#FF5722";
+    ctx.fillStyle = energyPercent > 0.3 ? "#4CAF50" : "#FF5722"; // Green or orange based on energy level
     ctx.fillRect(10, 10, 200 * energyPercent, 20);
-    ctx.fillStyle = "#FFF";
+    ctx.fillStyle = "#FFF"; // Text color
     ctx.font = "16px Arial";
     ctx.fillText(`Energy: ${Math.floor(this.inGameEnergy)}`, 15, 26);
 
@@ -658,7 +739,7 @@ export class GameEngine {
     );
 
     // Draw defense line indicator
-    ctx.strokeStyle = "#FF0000";
+    ctx.strokeStyle = "#FF0000"; // Red line
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(this.defenseLineX, 0);
@@ -666,11 +747,12 @@ export class GameEngine {
     ctx.stroke();
   }
 
+  /** Draws the game over/win screen overlay. */
   drawGameOverScreen(ctx) {
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Semi-transparent black overlay
     ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
 
-    ctx.fillStyle = "#FFF";
+    ctx.fillStyle = "#FFF"; // White text
     ctx.font = "48px Arial";
     ctx.textAlign = "center";
 
@@ -708,25 +790,39 @@ export class GameEngine {
     );
   }
 
+  /** The main game animation loop. */
   gameLoop = () => {
     this.update();
-    this.draw(this.ctx);
+    this.draw(this.ctx); // Pass context to draw
 
     if (!this.gameOver) {
       this.animationFrameId = requestAnimationFrame(this.gameLoop);
     }
   };
 
+  /** Starts the game animation loop. */
   startLoop() {
     if (!this.animationFrameId) {
       this.animationFrameId = requestAnimationFrame(this.gameLoop);
     }
   }
 
+  /** Stops the game animation loop. */
   stopLoop() {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
+  }
+
+  /** Cleans up GameEngine resources when no longer needed. */
+  cleanup() {
+    this.stopLoop();
+    // Remove any event listeners GameEngine might have added directly to canvas
+    // (e.g., if handleClick was directly on canvas in GameEngine, remove it here)
+    // this.ctx.canvas.removeEventListener("click", this.handleClickBound);
+    this.ctx = null;
+    this.canvas = null; // Clear canvas reference
+    console.log("GameEngine cleanup completed.");
   }
 }

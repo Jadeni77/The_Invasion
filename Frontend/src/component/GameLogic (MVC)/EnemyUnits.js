@@ -1,11 +1,12 @@
-//Data for different types of Enermy types
+// src/component/GameLogic (MVC)/EnemyUnits.js
+// Data for different types of Enemy types
 
 export class Enemy {
   constructor(x, y, typeData = {}) {
     this.x = x;
     this.y = y;
-    this.initialSpeed = typeData.initialSpeed || 0.8;
-    this.speed = this.initialSpeed; //current speed and can be modify by rage or ability
+    this.initialSpeed = typeData.speed || 0.8; // Use typeData.speed for initial speed
+    this.speed = this.initialSpeed; // current speed and can be modify by rage or ability
     this.width = typeData.width || 30;
     this.height = typeData.height || 30;
     this.health = typeData.health || 100;
@@ -17,16 +18,17 @@ export class Enemy {
     this.image = typeData.image; // Pixel style images are still image objects
     this.bounty = typeData.bounty || 10; // Reward when killing an enemy
 
-    //attak properties
+    // Attack properties
     this.isAttacker = typeData.isAttacker || false;
     this.attackDamage = typeData.attackDamage || 0;
-    this.attackRate = typeData.attackRate || 60;
+    this.attackRate = typeData.attackRate || 60; // frames per attack
     this.attackCountdown = this.attackRate;
-    this.isAttacking = false; //if entity is engage in attack
+    this.isAttacking = false; // if entity is engage in attack
   }
 
   /**
-   * Movement Path
+   * Movement and Attack Logic
+   * @param {Array<DefenderUnit>} defenderUnits - Array of active defender units
    */
   update(defenderUnits) {
     if (!this.isAlive) return;
@@ -36,30 +38,33 @@ export class Enemy {
     if (this.isAttacker) {
       // Find the first defender in its path/collision range
       targetDefender = defenderUnits.find((defender) => {
-        //find closest
-        defender.isAlive &&
+        return ( // <--- CRITICAL FIX: Added return statement
+          defender.isAlive &&
           this.x + this.width >= defender.x && // Enemy's right edge past defender's left edge
           this.x <= defender.x + defender.width && // Enemy's left edge before defender's right edge
           this.y + this.height >= defender.y && // Enemy's bottom edge past defender's top edge
-          this.y <= defender.y + defender.height; // Enemy's top edge before defender's bottom edge
+          this.y <= defender.y + defender.height // Enemy's top edge before defender's bottom edge
+        );
       });
 
       if (targetDefender) {
-        this.speed = 0; //attack will not move
+        this.speed = 0; // Stop moving when attacking
         this.isAttacking = true;
 
         this.attackCountdown--;
 
         if (this.attackCountdown <= 0) {
-          defenderUnits.takeDamage(this.attackDamage);
-          this.attackCountdown = this.attackRate;
+          targetDefender.takeDamage(this.attackDamage); // <--- CRITICAL FIX: Call takeDamage on targetDefender, not the array
+          this.attackCountdown = this.attackRate; // Reset attack cooldown
         }
       } else {
-        this.speed = this.initialSpeed;
+        this.speed = this.initialSpeed; // Resume movement if no target
         this.isAttacking = false;
         this.attackCountdown = this.attackRate; // Reset cooldown when not attacking
       }
     }
+
+    // Move only if not attacking or if not an attacker type
     if (!this.isAttacking) {
       this.x += this.speed;
     }
@@ -69,10 +74,8 @@ export class Enemy {
     if (!this.isAlive) return;
 
     if (this.image) {
-      // Draw the image if available
       ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
     } else {
-      // Fallback to color fill if no image
       ctx.fillStyle = this.color;
       ctx.fillRect(this.x, this.y, this.width, this.height);
     }
@@ -106,6 +109,24 @@ export class Enemy {
   }
 }
 
+export class BasicEnemy extends Enemy {
+  constructor(x, y, image) {
+    super(x, y, {
+      name: "Basic Zombie",
+      speed: 0.8,
+      health: 100,
+      color: "darkgreen",
+      width: 30,
+      height: 30,
+      image: image,
+      bounty: 10,
+      isAttacker: true, // Basic Zombie attacks
+      attackDamage: 10,
+      attackRate: 60,
+    });
+  }
+}
+
 export class FastEnemy extends Enemy {
   constructor(x, y, image) {
     super(x, y, {
@@ -117,7 +138,7 @@ export class FastEnemy extends Enemy {
       height: 25,
       image: image,
       bounty: 15,
-      isAttacker: false,
+      isAttacker: false, // This one just tries to cross
       attackDamage: 0,
     });
   }
@@ -134,14 +155,14 @@ export class TankEnemy extends Enemy {
       color: "darkred",
       image: image,
       bounty: 30,
-      isAttacker: true,
-      attackDamage: 30, //high base damage
+      isAttacker: true, // This one attacks
+      attackDamage: 30, // High base damage
       attackRate: 90, // Slower attack speed (1.5 seconds)
     });
     this.raged = false;
     this.rageThreshold = 0.5; // Rage when health drops below 50%
     this.rageSpeedMultiplier = 2.0; // Double speed when raged
-    this.rageDamageMultiplier = 1.5; // 50% more attack damage when raged (if zombies attack defenders)
+    this.rageDamageMultiplier = 1.5; // 50% more attack damage when raged
   }
 
   takeDamage(amount) {
@@ -155,10 +176,7 @@ export class TankEnemy extends Enemy {
       this.health / this.maxHealth <= this.rageThreshold
     ) {
       this.speed *= this.rageSpeedMultiplier;
-      // This line was causing an error as 'attackDamage' is not a property of Enermy or TankEnermy by default.
-      // If you intend for enemies to attack, you'll need to add an `attackDamage` property to Enermy class.
-      // For now, I'm commenting it out to prevent errors.
-      this.attackDamage *= this.rageDamageMultiplier;
+      this.attackDamage *= this.rageDamageMultiplier; // Re-enabled as Enemy now has attackDamage
       this.raged = true;
       console.log(`${this.name} is enraged! Speed: ${this.speed.toFixed(1)}`);
       // TODO: Add visual effect (e.g., change color to brighter red, pulsating) or sound effect
@@ -179,8 +197,8 @@ export class BombEnemy extends Enemy {
       color: "purple",
       image: image,
       bounty: 20,
-      isAttacker: false,
-      attackDamage: 0
+      isAttacker: false, // Primary interaction is explosion, not regular attack
+      attackDamage: 0,
     });
     this.explosionRadius = 100;
     this.explosionDamage = 200;
@@ -196,7 +214,7 @@ export class BombEnemy extends Enemy {
     return died;
   }
 
-  // This method should be called by GameEngine's update loop if BombEnermy needs to explode when near a defender
+  // This method should be called by GameEngine's update loop if BombEnemy needs to explode when near a defender
   // even if it hasn't died yet.
   activateSpecialAbility(defenders) {
     // Check if alive AND not already marked for explosion
