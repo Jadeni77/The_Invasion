@@ -9,6 +9,12 @@ function WorkerStatus({ worker }) {
         <div className="worker-state">
           {worker.injured ? "Injured (Resting)" : "Ready to Work"}
         </div>
+        {/* Add recovery timer for injured workers */}
+        {worker.injured && (
+          <div className="recovery-timer">
+            Recovers in: {worker.recoveryTime}s
+          </div>
+        )}
       </div>
     </div>
   );

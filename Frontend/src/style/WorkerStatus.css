@@ -1,0 +1,23 @@
+/* In Lobby.css */
+.worker-status {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  background: rgba(90, 57, 33, 0.8);
+  border-radius: 8px;
+  border: 1px solid #a78b71;
+}
+
+.worker-status.injured {
+  background: rgba(139, 0, 0, 0.6);
+}
+
+.worker-icon {
+  font-size: 24px;
+  margin-right: 10px;
+}
+
+.recovery-timer {
+  font-size: 12px;
+  color: #ff9999;
+}

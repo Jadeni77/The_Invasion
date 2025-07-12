@@ -1,5 +1,5 @@
 // src/components/GameRendering/UpgradeModal.jsx
-import React, { useState, useEffect } from 'react'; // Added useState, useEffect
+import React, { useState, useEffect } from "react"; // Added useState, useEffect
 import { useGame } from "../GameLogic (MVC)/GameContext"; // Correct path
 import ResourceIcon from "./ResourceIcon"; // Correct path
 import Card from "../common/Card"; // Correct path
@@ -10,6 +10,15 @@ function UpgradeModal() {
   const { playerData, upgradeQueue, startCardUpgrade, closeUpgradeModal } =
     useGame();
   const [selectedCard, setSelectedCard] = useState(null);
+  const [timer, setTimer] = useState(0); // Force re-renders
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimer((prev) => prev + 1); // Update every second
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   if (!playerData) return <div>Loading....</div>;
 
@@ -34,8 +43,8 @@ function UpgradeModal() {
     if (!playerData) return false;
 
     // Check if card is already in upgrade queue
-    if (upgradeQueue.some(u => u.cardId === card.id)) {
-        return false;
+    if (upgradeQueue.some((u) => u.cardId === card.id)) {
+      return false;
     }
 
     // Check resources

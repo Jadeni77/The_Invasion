@@ -32,28 +32,15 @@ const Lobby = () => {
       const containerRect = mapContainerRef.current.getBoundingClientRect();
       const mapRect = mapRef.current.getBoundingClientRect();
 
-      // minX/Y are negative values, maxX/Y are 0 (top-left is 0,0)
       setMapBoundaries({
-        minX: containerRect.width - mapRect.width, // Furthest left map can go
-        minY: containerRect.height - mapRect.height, // Furthest up map can go
-        maxX: 0, // Furthest right map can go (map's left edge aligns with container's left edge)
-        maxY: 0, // Furthest down map can go (map's top edge aligns with container's top edge)
+        minX: -(mapRect.width - containerRect.width),
+        minY: -(mapRect.height - containerRect.height),
+        maxX: 0,
+        maxY: 0,
       });
-
-      // Ensure map position is within new boundaries on resize
-      setMapPosition((prevPos) => ({
-        x: Math.max(
-          containerRect.width - mapRect.width,
-          Math.min(0, prevPos.x)
-        ),
-        y: Math.max(
-          containerRect.height - mapRect.height,
-          Math.min(0, prevPos.y)
-        ),
-      }));
     };
 
-    calculateBoundaries(); // Initial calculation
+    calculateBoundaries();
     window.addEventListener("resize", calculateBoundaries);
 
     return () => window.removeEventListener("resize", calculateBoundaries);
@@ -70,15 +57,12 @@ const Lobby = () => {
 
   const handleMouseMove = (e) => {
     if (isDragging) {
-      let newX = e.clientX - dragStart.x;
-      let newY = e.clientY - dragStart.y;
+      const newX = e.clientX - dragStart.x;
+      const newY = e.clientY - dragStart.y;
 
-      // Apply boundaries
-      newX = Math.max(mapBoundaries.minX, Math.min(mapBoundaries.maxX, newX));
-      newY = Math.max(mapBoundaries.minY, Math.min(mapBoundaries.maxY, newY));
       setMapPosition({
-        x: newX,
-        y: newY,
+        x: Math.max(mapBoundaries.minX, Math.min(mapBoundaries.maxX, newX)),
+        y: Math.max(mapBoundaries.minY, Math.min(mapBoundaries.maxY, newY)),
       });
     }
   };
@@ -100,16 +84,12 @@ const Lobby = () => {
 
   const handleTouchMove = (e) => {
     if (isDragging && e.touches.length === 1) {
-      let newX = e.touches[0].clientX - dragStart.x;
-      let newY = e.touches[0].clientY - dragStart.y;
-
-      // Apply boundaries
-      newX = Math.max(mapBoundaries.minX, Math.min(mapBoundaries.maxX, newX));
-      newY = Math.max(mapBoundaries.minY, Math.min(mapBoundaries.maxY, newY));
+      const newX = e.touches[0].clientX - dragStart.x;
+      const newY = e.touches[0].clientY - dragStart.y;
 
       setMapPosition({
-        x: newX,
-        y: newY,
+        x: Math.max(mapBoundaries.minX, Math.min(mapBoundaries.maxX, newX)),
+        y: Math.max(mapBoundaries.minY, Math.min(mapBoundaries.maxY, newY)),
       });
     }
   };
@@ -145,7 +125,8 @@ const Lobby = () => {
       <div className="top-menu-bar">
         <div className="player-info">
           <div className="player-name">{playerData.name}</div>
-          <div className="player-rank">{playerData.rank}</div> {/* Corrected typo: ranl -> rank */}
+          <div className="player-rank">{playerData.rank}</div>{" "}
+          {/* Corrected typo: ranl -> rank */}
         </div>
 
         <div className="menu-buttons">
@@ -231,14 +212,20 @@ const Lobby = () => {
               chest.id
             );
             // Check if chest is unlockable (e.g., previous level is unlocked)
-            const canCollect = playerData.unlockedLevels.includes(chest.requiresLevel);
+            const canCollect = playerData.unlockedLevels.includes(
+              chest.requiresLevel
+            );
 
             return (
               <div
                 key={`chest-${chest.id}`}
-                className={`treasure-chest ${isCollected ? "collected" : ""} ${!canCollect ? "locked-chest" : ""}`}
+                className={`treasure-chest ${isCollected ? "collected" : ""} ${
+                  !canCollect ? "locked-chest" : ""
+                }`}
                 style={{ top: `${chest.y}px`, left: `${chest.x}px` }}
-                onClick={() => !isCollected && canCollect && handleTreasureClick(chest.id)}
+                onClick={() =>
+                  !isCollected && canCollect && handleTreasureClick(chest.id)
+                }
               >
                 {!isCollected && canCollect && <div className="chest-glow" />}
               </div>

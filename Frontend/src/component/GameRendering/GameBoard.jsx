@@ -35,43 +35,48 @@ const GameBoard = () => {
     }
   }, [playerData]);
 
-
   // Initialize GameEngine when gameState is 'inGame' and canvas is ready
   useEffect(() => {
     if (gameState === "inGame" && canvasRef.current && selectedLevel !== null) {
-      console.log(`GameBoard: Initializing GameEngine for level ${selectedLevel}`);
-      // Pass the canvas element to startLevel in GameContext
-      startLevel(selectedLevel, canvasRef); // Pass canvasRef to GameContext's startLevel
-    }
-    // Cleanup function for when component unmounts or game state changes
-    return () => {
-      const gameEngine = getGameEngine();
-      if (gameEngine) {
-        gameEngine.stopLoop(); // Stop the game loop
-        gameEngine.cleanup(); // Perform any engine-specific cleanup
+      if (!gameEngineRef.current) {
+        gameEngineRef.current = new GameEngine(
+          updateEnergyCb,
+          updateScoreCb,
+          onWinCb,
+          onLoseCb
+        );
       }
-    };
-  }, [gameState, selectedLevel, startLevel, getGameEngine]);
 
+      // Initialize here instead of in startLevel
+      gameEngineRef.current.initialize(
+        canvasRef.current,
+        canvasRef.current.width,
+        canvasRef.current.height,
+        selectedLevel
+      );
+
+      gameEngineRef.current.startLoop();
+    }
+  }, [gameState, selectedLevel]);
 
   const drawCards = () => {
     // Only draw if hand is not full and deck has cards
     if (hand.length < 3 && deck.length > 0) {
       const cardsToDraw = Math.min(3 - hand.length, deck.length);
       const newCards = deck.slice(0, cardsToDraw);
-      setHand(prevHand => [...prevHand, ...newCards]);
-      setDeck(prevDeck => prevDeck.slice(cardsToDraw));
+      setHand((prevHand) => [...prevHand, ...newCards]);
+      setDeck((prevDeck) => prevDeck.slice(cardsToDraw));
     }
   };
 
   const handleCardSelection = (card) => {
     // Only allow selection if not already selected, and player has enough energy
     if (selectedCard?.id === card.id) {
-        setSelectedCard(null); // Deselect if already selected
+      setSelectedCard(null); // Deselect if already selected
     } else if (inGameEnergy >= card.cost) {
-        setSelectedCard(card);
+      setSelectedCard(card);
     } else {
-        console.log("Not enough energy to select this card!");
+      console.log("Not enough energy to select this card!");
     }
   };
 
@@ -79,7 +84,7 @@ const GameBoard = () => {
     if (!selectedCard) return;
 
     // Remove card from hand and redraw
-    setHand(prev => prev.filter(c => c.id !== selectedCard.id));
+    setHand((prev) => prev.filter((c) => c.id !== selectedCard.id));
     setSelectedCard(null);
 
     // Redraw a new card after a short delay
@@ -89,7 +94,7 @@ const GameBoard = () => {
 
   // Handle canvas click for defender deployment
   const handleCanvasClick = (event) => {
-    if (gameOver || !selectedCard) return;
+    if (gameOver || !selectedCard || !canvasRef.current) return;
 
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
@@ -101,7 +106,9 @@ const GameBoard = () => {
     if (deployed) {
       handleCardDeployment(); // Only remove card if deployment was successful
     } else {
-      console.log("Deployment failed (e.g., invalid position or not enough energy)");
+      console.log(
+        "Deployment failed (e.g., invalid position or not enough energy)"
+      );
     }
   };
 
@@ -112,15 +119,21 @@ const GameBoard = () => {
         <h2>{gameWon ? "Victory!" : "Defeated!"}</h2>
         <p>Score: {inGameScore}</p>
         {/* Gold earned logic is now handled by GameContext's onWinCb/onLoseCb */}
-        <p>Gold Earned: {gameWon ? inGameScore : Math.floor(inGameScore * 0.05)}</p>
+        <p>
+          Gold Earned: {gameWon ? inGameScore : Math.floor(inGameScore * 0.05)}
+        </p>
 
         <div className="buttons">
-          <button onClick={() => endGame(gameWon ? 'win' : 'loss')}>Return to Lobby</button>
+          <button onClick={() => endGame(gameWon ? "win" : "loss")}>
+            Return to Lobby
+          </button>
           {/* Re-initialize the same level for "Play Again" */}
-          <button onClick={() => {
-            endGame('restart'); // Signal a restart, not a win/loss
-            startLevel(selectedLevel, canvasRef); // Re-start the same level
-          }}>
+          <button
+            onClick={() => {
+              endGame("restart"); // Signal a restart, not a win/loss
+              startLevel(selectedLevel, canvasRef); // Re-start the same level
+            }}
+          >
             Play Again
           </button>
         </div>
@@ -140,12 +153,12 @@ const GameBoard = () => {
 
         {/* Card Hand */}
         <div className="card-hand">
-          {hand.map(card => (
+          {hand.map((card) => (
             <Card // Use the Card component you defined
               key={card.id}
               card={card}
               onClick={() => handleCardSelection(card)}
-              className={selectedCard?.id === card.id ? 'selected' : ''}
+              className={selectedCard?.id === card.id ? "selected" : ""}
             />
           ))}
         </div>
@@ -164,7 +177,9 @@ const GameBoard = () => {
       {selectedCard && (
         <div className="deployment-indicator">
           <div className="indicator-icon">+</div>
-          <div className="indicator-text">Click to deploy {selectedCard.name}</div>
+          <div className="indicator-text">
+            Click to deploy {selectedCard.name}
+          </div>
         </div>
       )}
     </div>

@@ -382,29 +382,29 @@ export const GameProvider = ({ children }) => {
         },
       }));
 
-      // Initialize GameEngine here with the canvas
-      if (!gameEngineRef.current) {
-        gameEngineRef.current = new GameEngine(
-          updateEnergyCb,
-          updateScoreCb,
-          onWinCb,
-          onLoseCb
-        );
-      }
-      gameEngineRef.current.initialize(
-        canvasRef.current,
-        canvasRef.current.width, // Pass canvas width
-        canvasRef.current.height, // Pass canvas height
-        levelId
-      );
+      // // Initialize GameEngine here with the canvas
+      // if (!gameEngineRef.current) {
+      //   gameEngineRef.current = new GameEngine(
+      //     updateEnergyCb,
+      //     updateScoreCb,
+      //     onWinCb,
+      //     onLoseCb
+      //   );
+      // }
+      // gameEngineRef.current.initialize(
+      //   canvasRef.current,
+      //   canvasRef.current.width, // Pass canvas width
+      //   canvasRef.current.height, // Pass canvas height
+      //   levelId
+      // );
 
       // Set game state
       setSelectedLevel(levelId);
       setGameState("inGame");
-      setGameOver(false); // Reset game over state for new game
-      setGameWon(false); // Reset game won state for new game
-      setInGameEnergy(gameEngineRef.current.inGameEnergy); // Sync initial in-game energy
-      setInGameScore(gameEngineRef.current.inGameScore); // Sync initial in-game score
+      // setGameOver(false); // Reset game over state for new game
+      // setGameWon(false); // Reset game won state for new game
+      // setInGameEnergy(gameEngineRef.current.inGameEnergy); // Sync initial in-game energy
+      // setInGameScore(gameEngineRef.current.inGameScore); // Sync initial in-game score
     },
     [playerData, updateEnergyCb, updateScoreCb, onWinCb, onLoseCb]
   );
