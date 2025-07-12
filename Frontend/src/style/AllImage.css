@@ -16,7 +16,7 @@
 }
 
 /* Styles specifically for the gold image */
-.resource-gold-image {
+.resource-image {
   width: 24px;   /* Adjusted size: Make it visible! */
   height: 24px;  /* Keep aspect ratio */
   object-fit: contain;

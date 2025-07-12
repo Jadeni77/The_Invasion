@@ -1,7 +1,7 @@
-// src/components/GameRendering/GameBoard.jsx
 import React, { useRef, useEffect, useState } from "react";
 import { useGame } from "../GameLogic (MVC)/GameContext"; // Correct path
 import Card from "../common/Card"; // Correct path
+import { GameEngine } from "../GameLogic (MVC)/GameEngine";
 
 const GameBoard = () => {
   const canvasRef = useRef(null); // Ref to the canvas DOM element
@@ -17,47 +17,58 @@ const GameBoard = () => {
     deployDefender, // Function to deploy a defender (from GameContext)
     endGame, // Function to end the game (from GameContext)
     getGameEngine, // Function to get the GameEngine instance
+    updateEnergyCb, // Added from context
+    updateScoreCb, // Added from context
+    onWinCb, // Added from context
+    onLoseCb, // Added from context
   } = useGame();
 
+  const gameEngineRef = useRef(null);
   const [selectedCard, setSelectedCard] = useState(null);
   const [hand, setHand] = useState([]);
   const [deck, setDeck] = useState([]);
 
-  // Initialize hand and deck from player's owned cards when playerData loads
+  // Initialize hand and deck from player's owned cards
   useEffect(() => {
-    if (playerData && playerData.cards && playerData.cards.length > 0) {
+    if (playerData?.cards?.length > 0) {
       const initialDeck = [...playerData.cards].sort(() => Math.random() - 0.5);
       setDeck(initialDeck);
-      // Draw initial hand after deck is set
-      const initialHand = initialDeck.slice(0, 3); // Draw 3 cards
-      setHand(initialHand);
-      setDeck(initialDeck.slice(3)); // Remove drawn cards from deck
+      setHand(initialDeck.slice(0, 3));
+      setDeck(initialDeck.slice(3));
     }
   }, [playerData]);
 
-  // Initialize GameEngine when gameState is 'inGame' and canvas is ready
+  // Initialize GameEngine when game starts
   useEffect(() => {
     if (gameState === "inGame" && canvasRef.current && selectedLevel !== null) {
-      if (!gameEngineRef.current) {
-        gameEngineRef.current = new GameEngine(
-          updateEnergyCb,
-          updateScoreCb,
-          onWinCb,
-          onLoseCb
-        );
-      }
-
-      // Initialize here instead of in startLevel
+      // Create new GameEngine instance
+      gameEngineRef.current = new GameEngine(
+        updateEnergyCb,
+        updateScoreCb,
+        onWinCb,
+        onLoseCb
+      );
+      
+      // Initialize and start game
       gameEngineRef.current.initialize(
         canvasRef.current,
         canvasRef.current.width,
         canvasRef.current.height,
         selectedLevel
       );
-
+      
       gameEngineRef.current.startLoop();
     }
-  }, [gameState, selectedLevel]);
+
+    // Cleanup function
+    return () => {
+      if (gameEngineRef.current) {
+        gameEngineRef.current.stopLoop();
+        gameEngineRef.current.cleanup();
+        gameEngineRef.current = null;
+      }
+    };
+  }, [gameState, selectedLevel, updateEnergyCb, updateScoreCb, onWinCb, onLoseCb]);
 
   const drawCards = () => {
     // Only draw if hand is not full and deck has cards

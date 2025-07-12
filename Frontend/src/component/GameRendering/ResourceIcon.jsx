@@ -1,16 +1,18 @@
 import Gold from "../../Icons/Gold.png";
-import "../../style/AllImage.css"; // New: Import component-specific CSS
+import Iron from "../../Icons/Iron.png";
+import Worker from "../../Icons/Worker.png";
+import "../../style/AllImage.css"; 
 
 
 function ResourceIcon({ type, value }) {
   const getIcon = () => {
     switch (type) {
       case "gold":
-        return <img src={Gold} alt="💰" className="resource-gold-image" />;
+        return <img src={Gold} alt="💰" className="resource-image" />;
       case "workers":
-        return "👷";
+        return <img src={Worker} alt="👷" className="resource-image" />;
       case "iron":
-        return "⛓️";
+        return <img src={Iron} alt="⛓️" className="resource-image" />;
       case "grain":
         return "🌾";
       case "water":

@@ -126,7 +126,6 @@ const Lobby = () => {
         <div className="player-info">
           <div className="player-name">{playerData.name}</div>
           <div className="player-rank">{playerData.rank}</div>{" "}
-          {/* Corrected typo: ranl -> rank */}
         </div>
 
         <div className="menu-buttons">

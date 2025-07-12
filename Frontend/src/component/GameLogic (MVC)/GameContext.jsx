@@ -69,7 +69,9 @@ export const GameProvider = ({ children }) => {
     ({ score, level, reason }) => {
       setGameOver(true);
       setGameWon(false);
-      console.log(`Game lost! Level: ${level}, Reason: ${reason}, Score: ${score}`);
+      console.log(
+        `Game lost! Level: ${level}, Reason: ${reason}, Score: ${score}`
+      );
 
       // Deduct resources on loss (as per your logic)
       setPlayerData((prev) => {
@@ -77,7 +79,10 @@ export const GameProvider = ({ children }) => {
         const newGold = Math.max(0, prev.resources.gold - 50); // Placeholder amounts
         const newGrain = Math.max(0, prev.resources.grain - 10);
         const newWater = Math.max(0, prev.resources.water - 50);
-        const newGem = Math.max(0, prev.resources.gem - Math.ceil(Math.random())); // Deduct 0 or 1 gem
+        const newGem = Math.max(
+          0,
+          prev.resources.gem - Math.ceil(Math.random())
+        ); // Deduct 0 or 1 gem
         return {
           ...prev,
           resources: {
@@ -208,7 +213,7 @@ export const GameProvider = ({ children }) => {
               ),
               lastEnergyRechargeTime:
                 prev.resources.lastEnergyRechargeTime +
-                wholeEnergy * (1000 * 60) / prev.resources.energyRechargeRate, // Corrected calculation
+                (wholeEnergy * (1000 * 60)) / prev.resources.energyRechargeRate, // Corrected calculation
             },
           };
         }
@@ -314,7 +319,9 @@ export const GameProvider = ({ children }) => {
           },
         ]);
       } else {
-        console.warn("Cannot start upgrade: requirements not met (resources or worker)");
+        console.warn(
+          "Cannot start upgrade: requirements not met (resources or worker)"
+        );
       }
     },
     [playerData, upgradeQueue, updateResource]
@@ -338,13 +345,15 @@ export const GameProvider = ({ children }) => {
             return card;
           }),
           // Mark worker as healthy after upgrade (assuming 1 worker per upgrade)
-          workers: prev.workers.map(worker => {
-            const completedUpgrade = completed.find(u => u.workerId === worker.id);
+          workers: prev.workers.map((worker) => {
+            const completedUpgrade = completed.find(
+              (u) => u.workerId === worker.id
+            );
             if (completedUpgrade) {
               return { ...worker, injured: false }; // Worker is now healthy
             }
             return worker;
-          })
+          }),
         }));
 
         // Remove completed upgrades from queue
@@ -358,13 +367,14 @@ export const GameProvider = ({ children }) => {
 
   // Game State management
   const startLevel = useCallback(
-    (levelId, canvasRef) => { // New: canvasRef is passed from GameBoard
-      if (!playerData || !canvasRef || !canvasRef.current) {
+    (levelId) => {
+      // New: canvasRef is passed from GameBoard
+      if (!playerData) {
         console.error("Cannot start level: Player data or canvas not ready.");
         return;
       }
 
-      const levelCost = levelId === 1 ? 0 : 10; // Level 1 is free
+      const levelCost = levelId === 1 ? 0 : 5; // Level 1 is free
       const currentEnergy = playerData.resources.lobbyEnergy;
 
       if (currentEnergy < levelCost) {
@@ -401,16 +411,19 @@ export const GameProvider = ({ children }) => {
       // Set game state
       setSelectedLevel(levelId);
       setGameState("inGame");
+      setGameOver(false);
+      setGameWon(false);
       // setGameOver(false); // Reset game over state for new game
       // setGameWon(false); // Reset game won state for new game
       // setInGameEnergy(gameEngineRef.current.inGameEnergy); // Sync initial in-game energy
       // setInGameScore(gameEngineRef.current.inGameScore); // Sync initial in-game score
     },
-    [playerData, updateEnergyCb, updateScoreCb, onWinCb, onLoseCb]
+    [playerData]
   );
 
   const endGame = useCallback(
-    (result) => { // Result can be 'win' or 'loss'
+    (result) => {
+      // Result can be 'win' or 'loss'
       if (gameEngineRef.current) {
         gameEngineRef.current.stopLoop(); // Ensure engine loop stops
         gameEngineRef.current.resetGame(); // Reset engine's internal state
@@ -467,6 +480,10 @@ export const GameProvider = ({ children }) => {
     openUpgradeModal,
     closeUpgradeModal,
     startCardUpgrade,
+    updateEnergyCb, // Add this
+    updateScoreCb, // Add this
+    onWinCb, // Add this
+    onLoseCb, // Add this
   };
 
   return (

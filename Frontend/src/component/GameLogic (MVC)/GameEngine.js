@@ -180,7 +180,7 @@ export class GameEngine {
    * @param {number} levelNumber - The number of the level to initialize.
    */
   initialize(canvas, width, height, levelNumber) {
-    this.ctx = canvas.getContext('2d'); // Get 2D rendering context
+    this.ctx = canvas.getContext("2d"); // Get 2D rendering context
     this.canvasWidth = width;
     this.canvasHeight = height;
     this.defenseLineX = width - 150; // Defense line 150px from right edge
@@ -188,7 +188,9 @@ export class GameEngine {
     // Get the configuration for the selected level
     this.currentLevelConfig = this.levelConfigs.get(levelNumber);
     if (!this.currentLevelConfig) {
-      console.error(`Level ${levelNumber} config not found. Defaulting to level 1.`);
+      console.error(
+        `Level ${levelNumber} config not found. Defaulting to level 1.`
+      );
       this.currentLevelConfig = this.levelConfigs.get(1);
       // Ensure levelNumber is correctly set even if defaulting
       if (this.currentLevelConfig) {
@@ -210,10 +212,11 @@ export class GameEngine {
       .catch((error) => {
         console.error("Error loading game assets:", error);
         this.gameOver = true; // Prevent game from starting if assets fail to load
-        this.onLoseCb({ // Notify GameContext about the failure
+        this.onLoseCb({
+          // Notify GameContext about the failure
           score: 0,
           level: levelNumber,
-          reason: "Asset loading failed"
+          reason: "Asset loading failed",
         });
       });
   }
@@ -315,8 +318,14 @@ export class GameEngine {
     // Check if overlapping the road (enemies path)
     if (
       this.checkCollision(
-        x, y, width, height,
-        0, roadTop, this.canvasWidth, roadBottom - roadTop // Road bounds
+        x,
+        y,
+        width,
+        height,
+        0,
+        roadTop,
+        this.canvasWidth,
+        roadBottom - roadTop // Road bounds
       )
     ) {
       return false; // Cannot deploy on the road
@@ -326,8 +335,14 @@ export class GameEngine {
     for (const defender of this.defenders) {
       if (
         this.checkCollision(
-          x, y, width, height,
-          defender.x, defender.y, defender.width, defender.height
+          x,
+          y,
+          width,
+          height,
+          defender.x,
+          defender.y,
+          defender.width,
+          defender.height
         )
       ) {
         return false; // Overlapping another defender
@@ -365,7 +380,10 @@ export class GameEngine {
     for (const enemy of this.enemies) {
       if (!enemy.isAlive) continue;
 
-      const distance = Math.hypot(enemy.x + enemy.width / 2 - x, enemy.y + enemy.height / 2 - y); // Distance from enemy center to explosion center
+      const distance = Math.hypot(
+        enemy.x + enemy.width / 2 - x,
+        enemy.y + enemy.height / 2 - y
+      ); // Distance from enemy center to explosion center
       if (distance <= radius) {
         enemy.takeDamage(damage);
       }
@@ -375,7 +393,10 @@ export class GameEngine {
     for (const defender of this.defenders) {
       if (!defender.isAlive) continue;
 
-      const distance = Math.hypot(defender.x + defender.width / 2 - x, defender.y + defender.height / 2 - y); // Distance from defender center to explosion center
+      const distance = Math.hypot(
+        defender.x + defender.width / 2 - x,
+        defender.y + defender.height / 2 - y
+      ); // Distance from defender center to explosion center
       if (distance <= radius) {
         defender.takeDamage(damage * 0.3); // 30% damage to allies
       }
@@ -406,7 +427,10 @@ export class GameEngine {
 
       // Spawn at a random Y position on the left edge
       const spawnX = -50; // Start off-screen left
-      const spawnY = Math.random() * (this.canvasHeight * 0.4 - 50) + this.canvasHeight * 0.4 + 25; // Spawn within the road area
+      const spawnY =
+        Math.random() * (this.canvasHeight * 0.4 - 50) +
+        this.canvasHeight * 0.4 +
+        25; // Spawn within the road area
 
       const enemy = new EnemyClass(spawnX, spawnY, {
         image: this.getImage(enemyType),
@@ -450,7 +474,11 @@ export class GameEngine {
       defender.update(this.enemies, this.defenders); // Pass all enemies and defenders for their specific logic
 
       // Handle defender attacks (if they can attack)
-      if (defender.attackDamage > 0 && defender.range > 0 && defender.canAttack(now)) {
+      if (
+        defender.attackDamage > 0 &&
+        defender.range > 0 &&
+        defender.canAttack(now)
+      ) {
         const target = this.findTargetForDefender(defender);
         if (target) {
           defender.attack(target, now); // Defender performs its attack
@@ -508,7 +536,8 @@ export class GameEngine {
         this.updateScoreCb(this.inGameScore); // Update UI score
 
         // Handle special death effects (e.g., BombEnemy explosion)
-        if (enemy.shouldExplode) { // BombEnemy sets this flag
+        if (enemy.shouldExplode) {
+          // BombEnemy sets this flag
           this.addExplosion(
             enemy.x + enemy.width / 2, // Center explosion on enemy
             enemy.y + enemy.height / 2,
@@ -543,8 +572,10 @@ export class GameEngine {
       const projectile = this.projectiles[i];
 
       // Calculate direction towards target
-      const dx = projectile.target.x + projectile.target.width / 2 - projectile.startX;
-      const dy = projectile.target.y + projectile.target.height / 2 - projectile.startY;
+      const dx =
+        projectile.target.x + projectile.target.width / 2 - projectile.startX;
+      const dy =
+        projectile.target.y + projectile.target.height / 2 - projectile.startY;
       const distanceToTarget = Math.hypot(dx, dy);
 
       // Move projectile
@@ -555,7 +586,8 @@ export class GameEngine {
 
       // Check if projectile reached target
       if (distanceToTarget <= projectile.speed || !projectile.target.isAlive) {
-        if (projectile.target.isAlive) { // Only apply damage if target is still alive
+        if (projectile.target.isAlive) {
+          // Only apply damage if target is still alive
           projectile.target.takeDamage(projectile.damage);
         }
         this.projectiles.splice(i, 1); // Remove projectile
@@ -580,7 +612,8 @@ export class GameEngine {
 
     // Win condition: all enemies spawned AND all active enemies are dead
     const config = this.currentLevelConfig;
-    const allEnemiesSpawned = this.enemiesSpawnedThisLevel >= config.totalEnemiesToSpawn;
+    const allEnemiesSpawned =
+      this.enemiesSpawnedThisLevel >= config.totalEnemiesToSpawn;
     const noActiveEnemies = this.enemies.length === 0;
 
     if (!this.gameOver && allEnemiesSpawned && noActiveEnemies) {
@@ -653,8 +686,12 @@ export class GameEngine {
 
     // Draw road/path for enemies (middle 20% of canvas height, across full width)
     ctx.fillStyle = "#6B8E23"; // Olive green for road
-    ctx.fillRect(0, this.canvasHeight * 0.4, this.canvasWidth, this.canvasHeight * 0.2);
-
+    ctx.fillRect(
+      0,
+      this.canvasHeight * 0.4,
+      this.canvasWidth,
+      this.canvasHeight * 0.2
+    );
 
     // Draw defense line
     ctx.fillStyle = "#2E8B57"; // Sea green
@@ -818,11 +855,12 @@ export class GameEngine {
   /** Cleans up GameEngine resources when no longer needed. */
   cleanup() {
     this.stopLoop();
-    // Remove any event listeners GameEngine might have added directly to canvas
-    // (e.g., if handleClick was directly on canvas in GameEngine, remove it here)
-    // this.ctx.canvas.removeEventListener("click", this.handleClickBound);
     this.ctx = null;
-    this.canvas = null; // Clear canvas reference
+    this.canvas = null;
+    this.defenders = [];
+    this.enemies = [];
+    this.explosions = [];
+    this.projectiles = [];
     console.log("GameEngine cleanup completed.");
   }
 }
