@@ -1,5 +1,6 @@
 import React from "react";
 import "../../style/Card.css";
+import "../../style/GameBoard.css";
 
 function Card({ card, onClick, selected, disabled }) {
   return (
