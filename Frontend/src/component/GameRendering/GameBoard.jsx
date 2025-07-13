@@ -1,56 +1,62 @@
 import React, { useRef, useEffect, useState } from "react";
-import { useGame } from "../GameLogic (MVC)/GameContext"; // Correct path
-import Card from "../common/Card"; // Correct path
+import { useGame } from "../GameLogic (MVC)/GameContext";
+import Card from "../common/Card";
 import { GameEngine } from "../GameLogic (MVC)/GameEngine";
-import "../../style/GameBoard.css";
 
 const GameBoard = () => {
-  const canvasRef = useRef(null); // Ref to the canvas DOM element
+  const canvasRef = useRef(null);
   const {
-    gameState, // Use gameState to determine if we should be active
-    playerData, // To get ownedCards for deck
-    selectedLevel, // The level number to start
+    gameState,
+    playerData,
+    selectedLevel,
     inGameEnergy,
     inGameScore,
     gameOver,
     gameWon,
-    startLevel, // Function to start the level (from GameContext)
-    deployDefender, // Function to deploy a defender (from GameContext)
-    endGame, // Function to end the game (from GameContext)
-    getGameEngine, // Function to get the GameEngine instance
-    updateEnergyCb, // Added from context
-    updateScoreCb, // Added from context
-    onWinCb, // Added from context
-    onLoseCb, // Added from context
+    deployDefender,
+    endGame,
+    updateEnergyCb,
+    updateScoreCb,
+    onWinCb,
+    onLoseCb,
+    startLevel,
   } = useGame();
 
   const gameEngineRef = useRef(null);
   const [selectedCard, setSelectedCard] = useState(null);
   const [hand, setHand] = useState([]);
   const [deck, setDeck] = useState([]);
+  const [baseHealth, setBaseHealth] = useState(100);
+  const [resetTrigger, setResetTrigger] = useState(0);
 
-  // Add useEffect for canvas sizing
+  // canvas sizing
   useEffect(() => {
-    if (canvasRef.current) {
-      const setCanvasSize = () => {
+    const resizeCanvas = () => {
+      if (canvasRef.current) {
         const container = canvasRef.current.parentElement;
         canvasRef.current.width = container.clientWidth;
-        canvasRef.current.height = container.clientHeight;
+        canvasRef.current.height = container.clientHeight - 60; // Account for top bar
 
+        // Update game engine if exists
         if (gameEngineRef.current) {
           gameEngineRef.current.canvasWidth = container.clientWidth;
-          gameEngineRef.current.canvasHeight = container.clientHeight;
-          gameEngineRef.current.defenseLineX = container.clientWidth * 0.8;
+          gameEngineRef.current.canvasHeight = container.clientHeight - 60;
+          gameEngineRef.current.defenseLineX = container.clientWidth * 0.9;
         }
-      };
+      }
+    };
 
-      setCanvasSize();
-      window.addEventListener("resize", setCanvasSize);
-      return () => window.removeEventListener("resize", setCanvasSize);
-    }
-  }, [gameState]);
+    // Initial resize
+    resizeCanvas();
 
-  // Initialize hand and deck from player's owned cards
+    // Add resize listener
+    window.addEventListener("resize", resizeCanvas);
+
+    // Cleanup
+    return () => window.removeEventListener("resize", resizeCanvas);
+  }, []);
+
+  // Initialize hand and deck
   useEffect(() => {
     if (playerData?.cards?.length > 0) {
       const initialDeck = [...playerData.cards].sort(() => Math.random() - 0.5);
@@ -60,18 +66,26 @@ const GameBoard = () => {
     }
   }, [playerData]);
 
-  // Initialize GameEngine when game starts
+  // Initialize game engine
   useEffect(() => {
     if (gameState === "inGame" && canvasRef.current && selectedLevel !== null) {
-      // Create new GameEngine instance
+      // Clean up previous game engine
+      if (gameEngineRef.current) {
+        gameEngineRef.current.stopLoop();
+        gameEngineRef.current.cleanup();
+        gameEngineRef.current = null;
+      }
+
+      // Create new game engine
       gameEngineRef.current = new GameEngine(
         updateEnergyCb,
         updateScoreCb,
         onWinCb,
-        onLoseCb
+        onLoseCb,
+        (health) => setBaseHealth(health)
       );
 
-      // Initialize and start game
+      // Initialize game
       gameEngineRef.current.initialize(
         canvasRef.current,
         canvasRef.current.width,
@@ -79,10 +93,23 @@ const GameBoard = () => {
         selectedLevel
       );
 
+      // Start game loop
       gameEngineRef.current.startLoop();
+
+      // Reset hand and deck
+      if (playerData?.cards?.length > 0) {
+        const initialDeck = [...playerData.cards].sort(
+          () => Math.random() - 0.5
+        );
+        setHand(initialDeck.slice(0, 3));
+        setDeck(initialDeck.slice(3));
+      }
+
+      // Reset selection
+      setSelectedCard(null);
     }
 
-    // Cleanup function
+    // Cleanup
     return () => {
       if (gameEngineRef.current) {
         gameEngineRef.current.stopLoop();
@@ -90,137 +117,135 @@ const GameBoard = () => {
         gameEngineRef.current = null;
       }
     };
-  }, [
-    gameState,
-    selectedLevel,
-    updateEnergyCb,
-    updateScoreCb,
-    onWinCb,
-    onLoseCb,
-  ]);
+  }, [gameState, selectedLevel, resetTrigger]);
 
   const drawCards = () => {
-    // Only draw if hand is not full and deck has cards
     if (hand.length < 3 && deck.length > 0) {
       const cardsToDraw = Math.min(3 - hand.length, deck.length);
       const newCards = deck.slice(0, cardsToDraw);
-      setHand((prevHand) => [...prevHand, ...newCards]);
-      setDeck((prevDeck) => prevDeck.slice(cardsToDraw));
+      setHand((prev) => [...prev, ...newCards]);
+      setDeck((prev) => prev.slice(cardsToDraw));
     }
   };
 
   const handleCardSelection = (card) => {
-    // Only allow selection if not already selected, and player has enough energy
     if (selectedCard?.id === card.id) {
-      setSelectedCard(null); // Deselect if already selected
+      setSelectedCard(null);
     } else if (inGameEnergy >= card.cost) {
       setSelectedCard(card);
-    } else {
-      console.log("Not enough energy to select this card!");
     }
   };
 
   const handleCardDeployment = () => {
     if (!selectedCard) return;
-
-    // Remove card from hand and redraw
     setHand((prev) => prev.filter((c) => c.id !== selectedCard.id));
     setSelectedCard(null);
-
-    // Redraw a new card after a short delay
-    // This simulates a cooldown or draw animation
-    setTimeout(drawCards, 1000); // Draw a new card after 1 second
+    setTimeout(drawCards, 300);
   };
 
-  // Handle canvas click for defender deployment
   const handleCanvasClick = (event) => {
-    if (gameOver || !selectedCard || !canvasRef.current) return;
+    if (gameOver || !selectedCard || !gameEngineRef.current) return;
 
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    // deployDefender returns true if successful, false otherwise
-    const deployed = deployDefender(selectedCard, x, y);
-    if (deployed) {
-      handleCardDeployment(); // Only remove card if deployment was successful
-    } else {
-      console.log(
-        "Deployment failed (e.g., invalid position or not enough energy)"
-      );
+    if (gameEngineRef.current.deployDefenderUnit(selectedCard, x, y)) {
+      handleCardDeployment();
     }
   };
 
-  // Render Game Over / Victory screen
+  // Render game over screen
   if (gameOver) {
     return (
       <div className="game-over-screen">
-        <h2>{gameWon ? "Victory!" : "Defeated!"}</h2>
-        <p>Score: {inGameScore}</p>
-        {/* Gold earned logic is now handled by GameContext's onWinCb/onLoseCb */}
-        <p>
-          Gold Earned: {gameWon ? inGameScore : Math.floor(inGameScore * 0.05)}
-        </p>
+        <h2>{gameWon ? "MISSION ACCOMPLISHED!" : "MISSION FAILED!"}</h2>
+        <div className="result-details">
+          <p>
+            Score: <span className="score-value">{inGameScore}</span>
+          </p>
+          <p>
+            Gold Earned:{" "}
+            <span className="gold-value">
+              {gameWon ? inGameScore : Math.floor(inGameScore * 0.3)}
+            </span>
+          </p>
+        </div>
 
-        <div className="buttons">
-          <button onClick={() => endGame(gameWon ? "win" : "loss")}>
-            Return to Lobby
-          </button>
-          {/* Re-initialize the same level for "Play Again" */}
+        <div className="action-buttons">
           <button
+            className="lobby-button"
+            onClick={() => endGame(gameWon ? "win" : "loss")}
+          >
+            RETURN TO LOBBY
+          </button>
+
+          <button
+            className="replay-button"
             onClick={() => {
-              endGame("restart"); // Signal a restart, not a win/loss
-              setTimeout(() => {
-                startLevel(selectedLevel);
-              }, 100);
+              // Properly reset the game
+              setResetTrigger((prev) => prev + 1);
             }}
           >
-            Play Again
+            PLAY AGAIN
           </button>
         </div>
       </div>
     );
   }
 
-  // Render the in-game UI and canvas
   return (
     <div className="game-board-container">
-      {/* Game UI Overlay */}
-      <div className="game-ui-overlay">
-        <div className="game-stats">
-          <span>Energy: {inGameEnergy}</span>
-          <span>Score: {inGameScore}</span>
+      {/* Top UI Bar */}
+      <div className="game-top-bar">
+        <div className="energy-container">
+          <div className="energy-icon">⚡</div>
+          <div className="energy-value">{inGameEnergy}</div>
         </div>
 
-        {/* Card Hand */}
-        <div className="card-hand">
-          {hand.map((card) => (
-            <Card // Use the Card component you defined
-              key={card.id}
-              card={card}
-              onClick={() => handleCardSelection(card)}
-              className={selectedCard?.id === card.id ? "selected" : ""}
-            />
-          ))}
+        <div className="score-container">
+          <div className="score-label">SCORE:</div>
+          <div className="score-value">{inGameScore}</div>
+        </div>
+
+        <div className="base-health-container">
+          <div className="base-icon">🏢</div>
+          <div className="health-bar">
+            <div className="health-fill" style={{ width: `${baseHealth}%` }} />
+          </div>
+          <div className="health-value">{baseHealth}%</div>
         </div>
       </div>
 
       {/* Game Canvas */}
       <canvas
         ref={canvasRef}
-        width={800} // Set initial width
-        height={600} // Set initial height
-        onClick={handleCanvasClick} // Only call handleCanvasClick
-        className="game-canvas" // Add a class for styling
+        width={800}
+        height={450}
+        onClick={handleCanvasClick}
+        className="game-canvas"
       />
+
+      {/* Card Hand */}
+      <div className="card-hand-container">
+        {hand.map((card) => (
+          <Card
+            key={card.id}
+            card={card}
+            onClick={() => handleCardSelection(card)}
+            selected={selectedCard?.id === card.id}
+            disabled={inGameEnergy < card.cost}
+          />
+        ))}
+      </div>
 
       {/* Deployment Indicator */}
       {selectedCard && (
         <div className="deployment-indicator">
           <div className="indicator-icon">+</div>
           <div className="indicator-text">
-            Click to deploy {selectedCard.name}
+            DEPLOY {selectedCard.name.toUpperCase()}
           </div>
         </div>
       )}

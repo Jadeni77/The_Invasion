@@ -48,11 +48,11 @@ export class DefenderUnit {
   draw(ctx) {
     if (!this.isAlive) return;
 
-    if (this.image) {
+    // Use fallback if image fails to load
+    if (this.image && this.image.complete && this.image.naturalHeight !== 0) {
       try {
         ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
       } catch (e) {
-        console.error("Error drawing image:", e);
         this.drawFallback(ctx);
       }
     } else {

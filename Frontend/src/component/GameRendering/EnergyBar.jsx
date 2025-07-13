@@ -67,7 +67,7 @@ const EnergyBar = ({ current, max, rechargeRate, lastRechargeTime }) => {
       </div>
       
       <div className="energy-rate">
-        Recharge rate: 1 energy per {Math.round(60 / rechargeRate)} minutes
+        Recharge rate: 1 energy per {Math.round(60 / rechargeRate)} seconds
       </div>
     </div>
   );

@@ -18,7 +18,13 @@ import {
 } from "./EnemyUnits"; // Corrected import for specific enemy classes
 
 export class GameEngine {
-  constructor(updateEnergyCb, updateScoreCb, onWinCb, onLoseCb) {
+  constructor(
+    updateEnergyCb,
+    updateScoreCb,
+    onWinCb,
+    onLoseCb,
+    updateBaseHealthCb
+  ) {
     this.ctx = null;
     this.canvasWidth = 0;
     this.canvasHeight = 0;
@@ -46,12 +52,15 @@ export class GameEngine {
     this.defenseLineX = 0; // Dynamic based on canvas width
     this.currentWave = 1; // Current wave number
 
+    this.updateBaseHealthCb = updateBaseHealthCb;
+    this.baseHealth = 100;
+
     // Mapping of card names to their respective DefenderUnit classes
     this.defenderUnitClasses = {
       "Basic Cop": BasicDefender,
       "Healer Cop": HealerDefender,
-      "Grenadier": GrenadeDefender,
-      "Barricade": BarricadeDefender,
+      Grenadier: GrenadeDefender,
+      Barricade: BarricadeDefender,
     };
 
     // Mapping of enemy names to their respective Enemy classes
@@ -59,7 +68,7 @@ export class GameEngine {
       "Basic Zombie": BasicEnemy,
       "Fast Zombie": FastEnemy,
       "Tank Zombie": TankEnemy,
-      "Exploder": BombEnemy,
+      Exploder: BombEnemy,
     };
 
     // Level configurations and loaded assets
@@ -147,25 +156,25 @@ export class GameEngine {
 
   // Preloads all images required for the current level
   preloadImages(imagePaths) {
-  const promises = [];
-  for (const [name, path] of Object.entries(imagePaths)) {
-    const promise = new Promise((resolve) => {
-      const img = new Image();
-      img.src = path;
-      img.onload = () => {
-        this.loadedImages[name] = img;
-        resolve();
-      };
-      img.onerror = () => {
-        console.warn(`Failed to load image: ${path}. Using fallback.`);
-        this.loadedImages[name] = null; // Mark as failed
-        resolve();
-      };
-    });
-    promises.push(promise);
+    const promises = [];
+    for (const [name, path] of Object.entries(imagePaths)) {
+      const promise = new Promise((resolve) => {
+        const img = new Image();
+        img.src = path;
+        img.onload = () => {
+          this.loadedImages[name] = img;
+          resolve();
+        };
+        img.onerror = () => {
+          console.warn(`Failed to load image: ${path}. Using fallback.`);
+          this.loadedImages[name] = null; // Mark as failed
+          resolve();
+        };
+      });
+      promises.push(promise);
+    }
+    return Promise.all(promises);
   }
-  return Promise.all(promises);
-}
 
   // Retrieves a loaded image by its name
   getImage(name) {
@@ -180,10 +189,12 @@ export class GameEngine {
    * @param {number} levelNumber - The number of the level to initialize.
    */
   initialize(canvas, width, height, levelNumber) {
+
+
     this.ctx = canvas.getContext("2d"); // Get 2D rendering context
     this.canvasWidth = width;
     this.canvasHeight = height;
-    this.defenseLineX = width * 0.8; // Defense line 150px from right edge
+    this.defenseLineX = width * 0.9; // Defense line 150px from right edge
 
     // Get the configuration for the selected level
     this.currentLevelConfig = this.levelConfigs.get(levelNumber);
@@ -236,10 +247,16 @@ export class GameEngine {
     this.lastEnemySpawnTime = 0;
     this.enemiesSpawnedThisLevel = 0;
     this.currentWave = 1;
+    this.baseHealth = 100;
 
     // Update UI via callbacks
     this.updateEnergyCb(this.inGameEnergy);
     this.updateScoreCb(this.inGameScore);
+
+    if (this.updateBaseHealthCb) {
+      this.updateBaseHealthCb(100);
+    }
+    console.log("Game reset complete");
   }
 
   /**
@@ -549,12 +566,32 @@ export class GameEngine {
 
       enemy.update(this.defenders); // Enemy updates its state (movement, attack if attacker)
 
-      // Check if enemy reached defense line (only for non-attacking enemies or if they pass through)
-      // This check is primarily for enemies that don't stop to fight
+      // Check if enemy reached defense line
       if (enemy.x + enemy.width >= this.defenseLineX) {
-      this.handleDefenseBreached();
-      return;
-    }
+        // Damage base
+        this.baseHealth -= 10;
+        if (this.updateBaseHealthCb) {
+          this.updateBaseHealthCb(this.baseHealth);
+        }
+
+        // Remove enemy
+        enemy.isAlive = false;
+        this.enemies.splice(i, 1);
+
+        // Check for game over
+        if (this.baseHealth <= 0) {
+          this.baseHealth = 0;
+          this.gameOver = true;
+          if (this.onLoseCb) {
+            this.onLoseCb({
+              score: this.inGameScore,
+              level: this.currentLevelConfig.levelNumber,
+              reason: "Base destroyed",
+            });
+          }
+        }
+        continue;
+      }
 
       // Handle enemy special abilities (e.g., BombEnemy self-destruct if near defender)
       if (enemy.activateSpecialAbility) {
@@ -666,23 +703,23 @@ export class GameEngine {
     }
   }
 
-  /** Draws the game background elements. */
   drawBackground(ctx) {
-    // Draw sky (top 60% of canvas)
-    ctx.fillStyle = "#87CEEB"; // Light blue
-    ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight * 0.6);
+    // Draw sky
+    ctx.fillStyle = "#1a3a5a";
+    ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
 
-    // Draw ground (bottom 40% of canvas)
-    ctx.fillStyle = "#8B4513"; // Brown
+    // Draw grass (top and bottom)
+    ctx.fillStyle = "#2a5a3a";
+    ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight * 0.4); // Top grass
     ctx.fillRect(
       0,
       this.canvasHeight * 0.6,
       this.canvasWidth,
       this.canvasHeight * 0.4
-    );
+    ); // Bottom grass
 
-    // Draw road/path for enemies (middle 20% of canvas height, across full width)
-    ctx.fillStyle = "#6B8E23"; // Olive green for road
+    // Draw road
+    ctx.fillStyle = "#5a5a5a";
     ctx.fillRect(
       0,
       this.canvasHeight * 0.4,
@@ -690,17 +727,43 @@ export class GameEngine {
       this.canvasHeight * 0.2
     );
 
-    // Draw defense line
-    ctx.fillStyle = "#2E8B57"; // Sea green
-    ctx.fillRect(this.defenseLineX, 0, 10, this.canvasHeight);
-
-    // Draw garden details (example visual elements)
-    ctx.fillStyle = "#228B22"; // Forest green
-    for (let i = 0; i < 5; i++) {
-      const y = this.canvasHeight * 0.7 + i * 30;
+    // Draw road markings
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    for (let i = 20; i < this.canvasWidth; i += 40) {
       ctx.beginPath();
-      ctx.arc(this.defenseLineX + 30, y, 15, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(i, this.canvasHeight * 0.5 - 5);
+      ctx.lineTo(i + 20, this.canvasHeight * 0.5 - 5);
+      ctx.stroke();
+    }
+
+    // Draw defense line (right edge)
+    ctx.strokeStyle = "#ff3300";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(this.defenseLineX - 1, 0);
+    ctx.lineTo(this.defenseLineX - 1, this.canvasHeight);
+    ctx.stroke();
+
+    // Draw base building
+    ctx.fillStyle = "#8b6f4b";
+    ctx.fillRect(
+      this.defenseLineX - 30,
+      this.canvasHeight * 0.3,
+      30,
+      this.canvasHeight * 0.4
+    );
+
+    // Draw windows
+    ctx.fillStyle = "#ffcc00";
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(
+        this.defenseLineX - 25,
+        this.canvasHeight * 0.35 + i * 40,
+        10,
+        20
+      );
     }
   }
 
