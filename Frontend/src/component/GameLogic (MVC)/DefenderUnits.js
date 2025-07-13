@@ -49,10 +49,14 @@ export class DefenderUnit {
     if (!this.isAlive) return;
 
     if (this.image) {
-      ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+      try {
+        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+      } catch (e) {
+        console.error("Error drawing image:", e);
+        this.drawFallback(ctx);
+      }
     } else {
-      ctx.fillStyle = this.color;
-      ctx.fillRect(this.x, this.y, this.width, this.height);
+      this.drawFallback(ctx);
     }
 
     // Unit name text
@@ -70,6 +74,16 @@ export class DefenderUnit {
     ctx.fillStyle = "lime";
     const healthWidth = (this.health / this.maxHealth) * this.width;
     ctx.fillRect(this.x, this.y - 10, healthWidth, 5); // Current health
+  }
+
+  drawFallback(ctx) {
+    ctx.fillStyle = this.color;
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+
+    // Draw unit type initial
+    ctx.fillStyle = "black";
+    ctx.font = "12px Arial";
+    ctx.fillText(this.name.charAt(0), this.x + 5, this.y + 15);
   }
 
   takeDamage(amount) {

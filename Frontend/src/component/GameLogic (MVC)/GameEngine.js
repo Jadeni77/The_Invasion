@@ -50,8 +50,8 @@ export class GameEngine {
     this.defenderUnitClasses = {
       "Basic Cop": BasicDefender,
       "Healer Cop": HealerDefender,
-      Grenadier: GrenadeDefender,
-      Barricade: BarricadeDefender,
+      "Grenadier": GrenadeDefender,
+      "Barricade": BarricadeDefender,
     };
 
     // Mapping of enemy names to their respective Enemy classes
@@ -59,7 +59,7 @@ export class GameEngine {
       "Basic Zombie": BasicEnemy,
       "Fast Zombie": FastEnemy,
       "Tank Zombie": TankEnemy,
-      Exploder: BombEnemy,
+      "Exploder": BombEnemy,
     };
 
     // Level configurations and loaded assets
@@ -83,14 +83,14 @@ export class GameEngine {
       availableEnemyTypes: ["Basic Zombie", "Fast Zombie"],
       initialEnergy: 100,
       enemyAssets: {
-        "Basic Zombie": "/assets/enemies/basic_zombie.png",
-        "Fast Zombie": "/assets/enemies/fast_zombie.png",
+        "Basic Zombie": "😄",
+        "Fast Zombie": "😄",
       },
       defenderAssets: {
-        "Basic Cop": "/assets/defenders/basic_cop.png",
-        "Healer Cop": "/assets/defenders/healer_cop.png",
-        Grenadier: "/assets/defenders/grenadier.png",
-        Barricade: "/assets/defenders/barricade.png",
+        "Basic Cop": "😄",
+        "Healer Cop": "😄",
+        Grenadier: "😄",
+        Barricade: "😄",
       },
     });
 
@@ -104,15 +104,15 @@ export class GameEngine {
       availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie"],
       initialEnergy: 120,
       enemyAssets: {
-        "Basic Zombie": "/assets/enemies/basic_zombie.png",
-        "Fast Zombie": "/assets/enemies/fast_zombie.png",
-        "Tank Zombie": "/assets/enemies/tank_zombie.png",
+        "Basic Zombie": "😄",
+        "Fast Zombie": "😄",
+        "Tank Zombie": "😄",
       },
       defenderAssets: {
-        "Basic Cop": "/assets/defenders/basic_cop.png",
-        "Healer Cop": "/assets/defenders/healer_cop.png",
-        Grenadier: "/assets/defenders/grenadier.png",
-        Barricade: "/assets/defenders/barricade.png",
+        "Basic Cop": "😄",
+        "Healer Cop": "😄",
+        Grenadier: "😄",
+        Barricade: "😄",
       },
     });
 
@@ -131,45 +131,45 @@ export class GameEngine {
       ],
       initialEnergy: 150,
       enemyAssets: {
-        "Basic Zombie": "/assets/enemies/basic_zombie.png",
-        "Fast Zombie": "/assets/enemies/fast_zombie.png",
-        "Tank Zombie": "/assets/enemies/tank_zombie.png",
+        "Basic Zombie": "😄",
+        "Fast Zombie": "😄",
+        "Tank Zombie": "😄",
         Exploder: "/assets/enemies/exploder.png",
       },
       defenderAssets: {
-        "Basic Cop": "/assets/defenders/basic_cop.png",
-        "Healer Cop": "/assets/defenders/healer_cop.png",
-        Grenadier: "/assets/defenders/grenadier.png",
-        Barricade: "/assets/defenders/barricade.png",
+        "Basic Cop": "😄",
+        "Healer Cop": "😄",
+        Grenadier: "😄",
+        Barricade: "😄",
       },
     });
   }
 
   // Preloads all images required for the current level
   preloadImages(imagePaths) {
-    const promises = [];
-    // Iterate over key-value pairs (name, path)
-    for (const [name, path] of Object.entries(imagePaths)) {
-      const promise = new Promise((resolve, reject) => {
-        const img = new Image();
-        img.src = path; // Set image source
-        img.onload = () => {
-          this.loadedImages[name] = img; // Store loaded image object
-          resolve(); // Resolve promise on success
-        };
-        img.onerror = () => {
-          console.error(`Failed to load image: ${path}`);
-          reject(new Error(`Failed to load image: ${path}`)); // Reject on error
-        };
-      });
-      promises.push(promise);
-    }
-    return Promise.all(promises); // Return a single promise that resolves when all images are loaded
+  const promises = [];
+  for (const [name, path] of Object.entries(imagePaths)) {
+    const promise = new Promise((resolve) => {
+      const img = new Image();
+      img.src = path;
+      img.onload = () => {
+        this.loadedImages[name] = img;
+        resolve();
+      };
+      img.onerror = () => {
+        console.warn(`Failed to load image: ${path}. Using fallback.`);
+        this.loadedImages[name] = null; // Mark as failed
+        resolve();
+      };
+    });
+    promises.push(promise);
   }
+  return Promise.all(promises);
+}
 
   // Retrieves a loaded image by its name
   getImage(name) {
-    return this.loadedImages[name];
+    return this.loadedImages[name] || null;
   }
 
   /**
@@ -183,7 +183,7 @@ export class GameEngine {
     this.ctx = canvas.getContext("2d"); // Get 2D rendering context
     this.canvasWidth = width;
     this.canvasHeight = height;
-    this.defenseLineX = width - 150; // Defense line 150px from right edge
+    this.defenseLineX = width * 0.8; // Defense line 150px from right edge
 
     // Get the configuration for the selected level
     this.currentLevelConfig = this.levelConfigs.get(levelNumber);
@@ -426,11 +426,8 @@ export class GameEngine {
       }
 
       // Spawn at a random Y position on the left edge
-      const spawnX = -50; // Start off-screen left
-      const spawnY =
-        Math.random() * (this.canvasHeight * 0.4 - 50) +
-        this.canvasHeight * 0.4 +
-        25; // Spawn within the road area
+      const spawnX = -100; // Start off-screen left
+      const spawnY = this.canvasHeight * 0.5;
 
       const enemy = new EnemyClass(spawnX, spawnY, {
         image: this.getImage(enemyType),
@@ -554,10 +551,10 @@ export class GameEngine {
 
       // Check if enemy reached defense line (only for non-attacking enemies or if they pass through)
       // This check is primarily for enemies that don't stop to fight
-      if (enemy.x >= this.defenseLineX) {
-        this.handleDefenseBreached(); // Game over condition
-        return; // Exit loop as game is over
-      }
+      if (enemy.x + enemy.width >= this.defenseLineX) {
+      this.handleDefenseBreached();
+      return;
+    }
 
       // Handle enemy special abilities (e.g., BombEnemy self-destruct if near defender)
       if (enemy.activateSpecialAbility) {

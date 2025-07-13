@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import { useGame } from "../GameLogic (MVC)/GameContext"; // Correct path
 import Card from "../common/Card"; // Correct path
 import { GameEngine } from "../GameLogic (MVC)/GameEngine";
+import "../../style/GameBoard.css";
 
 const GameBoard = () => {
   const canvasRef = useRef(null); // Ref to the canvas DOM element
@@ -28,6 +29,27 @@ const GameBoard = () => {
   const [hand, setHand] = useState([]);
   const [deck, setDeck] = useState([]);
 
+  // Add useEffect for canvas sizing
+  useEffect(() => {
+    if (canvasRef.current) {
+      const setCanvasSize = () => {
+        const container = canvasRef.current.parentElement;
+        canvasRef.current.width = container.clientWidth;
+        canvasRef.current.height = container.clientHeight;
+
+        if (gameEngineRef.current) {
+          gameEngineRef.current.canvasWidth = container.clientWidth;
+          gameEngineRef.current.canvasHeight = container.clientHeight;
+          gameEngineRef.current.defenseLineX = container.clientWidth * 0.8;
+        }
+      };
+
+      setCanvasSize();
+      window.addEventListener("resize", setCanvasSize);
+      return () => window.removeEventListener("resize", setCanvasSize);
+    }
+  }, [gameState]);
+
   // Initialize hand and deck from player's owned cards
   useEffect(() => {
     if (playerData?.cards?.length > 0) {
@@ -48,7 +70,7 @@ const GameBoard = () => {
         onWinCb,
         onLoseCb
       );
-      
+
       // Initialize and start game
       gameEngineRef.current.initialize(
         canvasRef.current,
@@ -56,7 +78,7 @@ const GameBoard = () => {
         canvasRef.current.height,
         selectedLevel
       );
-      
+
       gameEngineRef.current.startLoop();
     }
 
@@ -68,7 +90,14 @@ const GameBoard = () => {
         gameEngineRef.current = null;
       }
     };
-  }, [gameState, selectedLevel, updateEnergyCb, updateScoreCb, onWinCb, onLoseCb]);
+  }, [
+    gameState,
+    selectedLevel,
+    updateEnergyCb,
+    updateScoreCb,
+    onWinCb,
+    onLoseCb,
+  ]);
 
   const drawCards = () => {
     // Only draw if hand is not full and deck has cards
@@ -142,7 +171,9 @@ const GameBoard = () => {
           <button
             onClick={() => {
               endGame("restart"); // Signal a restart, not a win/loss
-              startLevel(selectedLevel, canvasRef); // Re-start the same level
+              setTimeout(() => {
+                startLevel(selectedLevel);
+              }, 100);
             }}
           >
             Play Again

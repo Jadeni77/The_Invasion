@@ -38,7 +38,8 @@ export class Enemy {
     if (this.isAttacker) {
       // Find the first defender in its path/collision range
       targetDefender = defenderUnits.find((defender) => {
-        return ( // <--- CRITICAL FIX: Added return statement
+        return (
+          // <--- CRITICAL FIX: Added return statement
           defender.isAlive &&
           this.x + this.width >= defender.x && // Enemy's right edge past defender's left edge
           this.x <= defender.x + defender.width && // Enemy's left edge before defender's right edge
@@ -74,10 +75,14 @@ export class Enemy {
     if (!this.isAlive) return;
 
     if (this.image) {
-      ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+      try {
+        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+      } catch (e) {
+        console.error("Error drawing image:", e);
+        this.drawFallback(ctx);
+      }
     } else {
-      ctx.fillStyle = this.color;
-      ctx.fillRect(this.x, this.y, this.width, this.height);
+      this.drawFallback(ctx);
     }
 
     // Health bar
@@ -92,6 +97,16 @@ export class Enemy {
     ctx.font = "10px Arial";
     ctx.fillText(this.health.toFixed(0), this.x, this.y - 15); // Show health value
     ctx.fillText(this.name.substring(0, 8), this.x, this.y + this.height + 10);
+  }
+
+  drawFallback(ctx) {
+    ctx.fillStyle = this.color;
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+
+    // Draw unit type initial
+    ctx.fillStyle = "black";
+    ctx.font = "12px Arial";
+    ctx.fillText(this.name.charAt(0), this.x + 5, this.y + 15);
   }
 
   takeDamage(amount) {
