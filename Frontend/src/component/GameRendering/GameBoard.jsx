@@ -184,7 +184,28 @@ const GameBoard = () => {
           <button
             className="replay-button"
             onClick={() => {
-              // Properly reset the game
+              endGame("restart");
+              // Reset local states
+              setBaseHealth(100);
+              setSelectedCard(null);
+
+            //   // Reset game states using context setters
+            //   if (gameEngineRef.current) {
+            //     gameEngineRef.current.stopLoop();
+            //     gameEngineRef.current.cleanup();
+            //     gameEngineRef.current = null;
+            //   }
+
+              // Reset hand and deck
+              if (playerData?.cards?.length > 0) {
+                const initialDeck = [...playerData.cards].sort(
+                  () => Math.random() - 0.5
+                );
+                setHand(initialDeck.slice(0, 3));
+                setDeck(initialDeck.slice(3));
+              }
+
+              // Force game engine reset
               setResetTrigger((prev) => prev + 1);
             }}
           >
@@ -199,6 +220,13 @@ const GameBoard = () => {
     <div className="game-board-container">
       {/* Top UI Bar */}
       <div className="game-top-bar">
+        <button
+          className="settings-button"
+          onClick={() => endGame("quit")}
+          title="Return to Lobby"
+        >
+          ⚙️
+        </button>
         <div className="energy-container">
           <div className="energy-icon">⚡</div>
           <div className="energy-value">{inGameEnergy}</div>

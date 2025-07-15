@@ -20,11 +20,16 @@ src/
 ├── style/
 │   ├── Lobby.css
 |   |-- EnergyBar.css
-|   |--UpgradeModal.css
-|   |--AllImage.css
+|   |-- UpgradeModal.css
+|   |-- AllImage.css
+|   |-- WorkerStatus.css
+|   |-- GameBoard.css
+|   |-- Card.css
 |
 |-- Icons/
 |   |--Gold.png
+|   |--Iron.png
+|   |--Worker.png
 |
 └── App.jsx
 

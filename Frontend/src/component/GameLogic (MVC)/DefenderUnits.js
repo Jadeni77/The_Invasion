@@ -47,6 +47,7 @@ export class DefenderUnit {
 
   draw(ctx) {
     if (!this.isAlive) return;
+    console.log(`Drawing ${this.name} at (${this.x}, ${this.y})`); // Add debug log
 
     // Use fallback if image fails to load
     if (this.image && this.image.complete && this.image.naturalHeight !== 0) {

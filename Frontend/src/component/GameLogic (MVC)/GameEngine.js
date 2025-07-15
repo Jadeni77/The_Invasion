@@ -92,14 +92,14 @@ export class GameEngine {
       availableEnemyTypes: ["Basic Zombie", "Fast Zombie"],
       initialEnergy: 100,
       enemyAssets: {
-        "Basic Zombie": "😄",
-        "Fast Zombie": "😄",
+        "Basic Zombie": null,
+        "Fast Zombie": null,
       },
       defenderAssets: {
-        "Basic Cop": "😄",
-        "Healer Cop": "😄",
-        Grenadier: "😄",
-        Barricade: "😄",
+        "Basic Cop": null,
+        "Healer Cop": null,
+        Grenadier: null,
+        Barricade: null,
       },
     });
 
@@ -113,15 +113,15 @@ export class GameEngine {
       availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie"],
       initialEnergy: 120,
       enemyAssets: {
-        "Basic Zombie": "😄",
-        "Fast Zombie": "😄",
-        "Tank Zombie": "😄",
+        "Basic Zombie": null,
+        "Fast Zombie": null,
+        "Tank Zombie": null,
       },
       defenderAssets: {
-        "Basic Cop": "😄",
-        "Healer Cop": "😄",
-        Grenadier: "😄",
-        Barricade: "😄",
+        "Basic Cop": null,
+        "Healer Cop": null,
+        Grenadier: null,
+        Barricade: null,
       },
     });
 
@@ -140,16 +140,16 @@ export class GameEngine {
       ],
       initialEnergy: 150,
       enemyAssets: {
-        "Basic Zombie": "😄",
-        "Fast Zombie": "😄",
-        "Tank Zombie": "😄",
-        Exploder: "/assets/enemies/exploder.png",
+        "Basic Zombie": null,
+        "Fast Zombie": null,
+        "Tank Zombie": null,
+        Exploder: null,
       },
       defenderAssets: {
-        "Basic Cop": "😄",
-        "Healer Cop": "😄",
-        Grenadier: "😄",
-        Barricade: "😄",
+        "Basic Cop": null,
+        "Healer Cop": null,
+        Grenadier: null,
+        Barricade: null,
       },
     });
   }
@@ -189,8 +189,6 @@ export class GameEngine {
    * @param {number} levelNumber - The number of the level to initialize.
    */
   initialize(canvas, width, height, levelNumber) {
-
-
     this.ctx = canvas.getContext("2d"); // Get 2D rendering context
     this.canvasWidth = width;
     this.canvasHeight = height;
@@ -267,6 +265,9 @@ export class GameEngine {
    * @returns {boolean} True if deployment was successful, false otherwise.
    */
   deployDefenderUnit(cardData, x, y) {
+    //debug
+    console.log("Deploying defender:", cardData.name, "at", x, y);
+
     if (this.gameOver) return false;
 
     const UnitClass = this.defenderUnitClasses[cardData.name];
@@ -297,6 +298,7 @@ export class GameEngine {
       return false;
     }
 
+    console.log("Deployment valid. Creating unit.");
     const newUnit = new UnitClass(deployX, deployY, {
       ...cardData,
       image: this.getImage(cardData.name),
@@ -311,6 +313,7 @@ export class GameEngine {
     this.inGameEnergy -= cardData.cost;
     this.updateEnergyCb(this.inGameEnergy); // Update UI
 
+    console.log(`Defender deployed. Total defenders: ${this.defenders.length}`);
     return true;
   }
 
@@ -569,9 +572,11 @@ export class GameEngine {
       // Check if enemy reached defense line
       if (enemy.x + enemy.width >= this.defenseLineX) {
         // Damage base
-        this.baseHealth -= 10;
+        const newHealth = Math.max(0, this.baseHealth - 10);
+        this.baseHealth = newHealth;
+
         if (this.updateBaseHealthCb) {
-          this.updateBaseHealthCb(this.baseHealth);
+          this.updateBaseHealthCb(newHealth);
         }
 
         // Remove enemy
@@ -769,8 +774,11 @@ export class GameEngine {
 
   /** Draws all active defender units. */
   drawDefenders(ctx) {
+    console.log(`Drawing ${this.defenders.length} defenders`); // Add debug log
     for (const defender of this.defenders) {
       if (defender.isAlive) {
+        console.log(`Drawing defender at (${defender.x}, ${defender.y})`); // Add debug log
+
         defender.draw(ctx);
       }
     }
