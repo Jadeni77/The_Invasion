@@ -192,7 +192,7 @@ const Lobby = () => {
           }}
         >
           {/* connection line */}
-          {connectionsData.map((conn) => {
+          {connectionsData.map((conn) => (
             <div
               key={`conn-${conn.from}-${conn.to}`}
               className="map-connection"
@@ -202,8 +202,8 @@ const Lobby = () => {
                 width: `${conn.length}px`,
                 transform: `rotate(${conn.rotation}deg)`,
               }}
-            />;
-          })}
+            />
+          ))}
 
           {/* Treasure chests */}
           {chestsData.map((chest) => {

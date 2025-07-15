@@ -382,14 +382,29 @@ export const GameProvider = ({ children }) => {
         );
         return;
       }
-      // Deduct energy
-      setPlayerData((prev) => ({
-        ...prev,
+
+      // Create a deep copy to ensure state updates
+      const newPlayerData = {
+        ...playerData,
         resources: {
-          ...prev.resources,
-          lobbyEnergy: Math.max(0, prev.resources.lobbyEnergy - levelCost),
+          ...playerData.resources,
+          lobbyEnergy: Math.max(
+            0,
+            playerData.resources.lobbyEnergy - levelCost
+          ),
         },
-      }));
+      };
+
+      setPlayerData(newPlayerData);
+
+      // // Deduct energy
+      // setPlayerData((prev) => ({
+      //   ...prev,
+      //   resources: {
+      //     ...prev.resources,
+      //     lobbyEnergy: Math.max(0, prev.resources.lobbyEnergy - levelCost),
+      //   },
+      // }));
 
       // Set game state
       setSelectedLevel(levelId);
@@ -398,10 +413,10 @@ export const GameProvider = ({ children }) => {
       setGameWon(false);
       setInGameEnergy(100); // Reset in-game energy
       setInGameScore(0); // Reset score
-      // setGameOver(false); // Reset game over state for new game
-      // setGameWon(false); // Reset game won state for new game
-      // setInGameEnergy(gameEngineRef.current.inGameEnergy); // Sync initial in-game energy
-      // setInGameScore(gameEngineRef.current.inGameScore); // Sync initial in-game score
+
+      console.log(
+        `Starting level ${levelId}. Lobby energy now: ${newPlayerData.resources.lobbyEnergy}`
+      );
     },
     [playerData]
   );
@@ -412,6 +427,16 @@ export const GameProvider = ({ children }) => {
       if (gameEngineRef.current) {
         gameEngineRef.current.stopLoop(); // Ensure engine loop stops
         gameEngineRef.current.resetGame(); // Reset engine's internal state
+      }
+
+      if (result === "quit") {
+        // Return to lobby with penalty (with cauze injury worker)
+        injureWorker();
+        setGameState("lobby");
+        setGameOver(false);
+        setGameWon(false);
+        setSelectedLevel(null);
+        return;
       }
 
       if (result === "loss") {

@@ -68,7 +68,7 @@
 
 .base-icon {
   font-size: 24px;
-  margin-right: 10px;
+  margin-right: 20px;
 }
 
 .health-bar {
@@ -77,7 +77,7 @@
   background: #333;
   border-radius: 6px;
   overflow: hidden;
-  margin-right: 10px;
+  margin-right: 20px;
 }
 
 .health-fill {
@@ -234,4 +234,27 @@
   background: linear-gradient(to bottom, #ffdd22, #ffaa22);
   transform: translateY(-3px);
   box-shadow: 0 5px 15px rgba(255, 204, 0, 0.5);
+}
+
+.settings-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid white;
+  border-radius: 50%;
+  font-size: 20px;
+  color: white;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.settings-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
 }
