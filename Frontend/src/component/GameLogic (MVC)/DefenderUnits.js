@@ -22,6 +22,7 @@ export class DefenderUnit {
     this.name = cardData.name || "Basic Police"; // for drawing/debug
     this.image = cardData.image;
     this.cost = cardData.cost || 0; // cost to deploy
+    console.log("DefenderUnit constructor END:", { x: this.x, y: this.y });
   }
 
   // Default logic for all
@@ -233,6 +234,8 @@ export class GrenadeDefender extends DefenderUnit {
   update(enemies, defenderUnits) {
     // No specific movement or other continuous logic for Grenadier beyond base DefenderUnit
     // The attack logic is handled by GameEngine calling canAttack/attack
+    // Call parent update
+    super.update(enemies, defenderUnits);
   }
 
   setGameEngine(engine) {

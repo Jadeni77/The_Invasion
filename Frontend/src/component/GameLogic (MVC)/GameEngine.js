@@ -281,9 +281,29 @@ export class GameEngine {
       return false;
     }
 
-    // Adjust position to center of card
-    const deployX = x - cardData.width / 2;
-    const deployY = y - cardData.height / 2;
+    // TEST: Add width/height if missing
+    let testCardData = { ...cardData };
+
+    if (!testCardData.width || !testCardData.height) {
+      console.log("Width/height missing, adding defaults");
+
+      // Add default dimensions based on unit type
+      const defaultSizes = {
+        "Basic Cop": { width: 30, height: 40 },
+        "Healer Cop": { width: 35, height: 45 },
+        "Grenadier": { width: 40, height: 50 },
+        "Barricade": { width: 80, height: 30 },
+      };
+
+      const defaults = defaultSizes[cardData.name] || { width: 40, height: 40 };
+      testCardData.width = testCardData.width || defaults.width;
+      testCardData.height = testCardData.height || defaults.height;
+
+      console.log("Updated cardData:", testCardData);
+    }
+
+    const deployX = x - testCardData.width / 2;
+    const deployY = y - testCardData.height / 2;
 
     // Check if position is valid (not on path, not overlapping other defenders)
     if (
@@ -300,7 +320,7 @@ export class GameEngine {
 
     console.log("Deployment valid. Creating unit.");
     const newUnit = new UnitClass(deployX, deployY, {
-      ...cardData,
+      ...testCardData,
       image: this.getImage(cardData.name),
     });
 
@@ -489,7 +509,7 @@ export class GameEngine {
       }
 
       defender.update(this.enemies, this.defenders); // Pass all enemies and defenders for their specific logic
-
+      
       // Handle defender attacks (if they can attack)
       if (
         defender.attackDamage > 0 &&
