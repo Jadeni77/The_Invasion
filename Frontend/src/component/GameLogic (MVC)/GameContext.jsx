@@ -133,7 +133,6 @@ export const GameProvider = ({ children }) => {
             id: 1,
             name: "Basic Cop",
             level: 1,
-            cost: 20,
             upgradeCost: { gold: 100, iron: 5, water: 3 },
             upgradeTime: 60,
           },
@@ -141,7 +140,6 @@ export const GameProvider = ({ children }) => {
             id: 2,
             name: "Healer Cop",
             level: 1,
-            cost: 40,
             upgradeCost: { gold: 150, grain: 10, water: 5, gem: 1 },
             upgradeTime: 120,
           },
@@ -149,7 +147,6 @@ export const GameProvider = ({ children }) => {
             id: 3,
             name: "Grenadier",
             level: 1,
-            cost: 60,
             upgradeCost: { gold: 200, iron: 15, gem: 2 },
             upgradeTime: 180,
           },
@@ -289,7 +286,7 @@ export const GameProvider = ({ children }) => {
     (cardId) => {
       if (!playerData) return;
 
-      const card = playerData.cards.find((c) => c.id === cardId);
+      const card = cardsWithStats.find((c) => c.id === cardId);
       if (!card) return;
 
       // Check if player has enough resources
@@ -383,28 +380,8 @@ export const GameProvider = ({ children }) => {
         return;
       }
 
-      // Create a deep copy to ensure state updates
-      const newPlayerData = {
-        ...playerData,
-        resources: {
-          ...playerData.resources,
-          lobbyEnergy: Math.max(
-            0,
-            playerData.resources.lobbyEnergy - levelCost
-          ),
-        },
-      };
-
-      setPlayerData(newPlayerData);
-
-      // // Deduct energy
-      // setPlayerData((prev) => ({
-      //   ...prev,
-      //   resources: {
-      //     ...prev.resources,
-      //     lobbyEnergy: Math.max(0, prev.resources.lobbyEnergy - levelCost),
-      //   },
-      // }));
+      //deduct resources
+      updateResource('lobbyEnergy', -levelCost);
 
       // Set game state
       setSelectedLevel(levelId);
@@ -418,7 +395,7 @@ export const GameProvider = ({ children }) => {
         `Starting level ${levelId}. Lobby energy now: ${newPlayerData.resources.lobbyEnergy}`
       );
     },
-    [playerData]
+    [playerData, updateResource]
   );
 
   const endGame = useCallback(

@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import { useGame } from "../GameLogic (MVC)/GameContext";
 import Card from "../common/Card";
 import { GameEngine } from "../GameLogic (MVC)/GameEngine";
+import { calculateCardStats } from "../GameLogic (MVC)/DefenderClassUtils";
 
 const GameBoard = () => {
   const canvasRef = useRef(null);
@@ -59,8 +60,10 @@ const GameBoard = () => {
   // Initialize hand and deck
   useEffect(() => {
     if (playerData?.cards?.length > 0) {
-      const initialDeck = [...playerData.cards].sort(() => Math.random() - 0.5);
-      setDeck(initialDeck);
+      const cardsWithStats = playerData.cards
+        .map(calculateCardStats)
+        .filter(Boolean);
+      const initialDeck = [...cardsWithStats].sort(() => Math.random() - 0.5);
       setHand(initialDeck.slice(0, 3));
       setDeck(initialDeck.slice(3));
     }
@@ -98,7 +101,10 @@ const GameBoard = () => {
 
       // Reset hand and deck
       if (playerData?.cards?.length > 0) {
-        const initialDeck = [...playerData.cards].sort(
+        const cardsWithStats = playerData.cards
+          .map(calculateCardStats)
+          .filter(Boolean);
+        const initialDeck = [...cardsWithStats].sort(
           () => Math.random() - 0.5
         );
         setHand(initialDeck.slice(0, 3));
@@ -189,13 +195,6 @@ const GameBoard = () => {
               setBaseHealth(100);
               setSelectedCard(null);
 
-            //   // Reset game states using context setters
-            //   if (gameEngineRef.current) {
-            //     gameEngineRef.current.stopLoop();
-            //     gameEngineRef.current.cleanup();
-            //     gameEngineRef.current = null;
-            //   }
-
               // Reset hand and deck
               if (playerData?.cards?.length > 0) {
                 const initialDeck = [...playerData.cards].sort(
@@ -207,6 +206,12 @@ const GameBoard = () => {
 
               // Force game engine reset
               setResetTrigger((prev) => prev + 1);
+
+              setTimeout(() => {
+                if (selectedLevel) {
+                  startLevel(selectedLevel);
+                }
+              }, 100);
             }}
           >
             PLAY AGAIN

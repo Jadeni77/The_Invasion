@@ -5,6 +5,7 @@ import ResourceIcon from "./ResourceIcon"; // Correct path
 import Card from "../common/Card"; // Correct path
 import "../../style/Lobby.css"; // Assuming some styles are shared
 import "../../style/UpgradeModal.css"; // Correct path
+import { getUpgradePreview } from "../GameLogic (MVC)/DefenderClassUtils";
 
 function UpgradeModal() {
   const { playerData, upgradeQueue, startCardUpgrade, closeUpgradeModal } =
@@ -22,8 +23,9 @@ function UpgradeModal() {
 
   if (!playerData) return <div>Loading....</div>;
 
+  //check if this card is still upgrading
   const getUpgradeStatus = (cardId) => {
-    const upgrade = upgradeQueue.find((u) => u.cardId === cardId); // Corrected: u.id -> u.cardId
+    const upgrade = upgradeQueue.find((u) => u.cardId === cardId);
     if (!upgrade) return null;
 
     const now = Date.now(); // Get current time
@@ -31,7 +33,7 @@ function UpgradeModal() {
     const elapsed = now - upgrade.startTime;
 
     const progress = Math.min(100, (elapsed / duration) * 100);
-    const timeLeft = Math.ceil((upgrade.endTime - now) / 1000); // Corrected: Date.now -> now
+    const timeLeft = Math.ceil((upgrade.endTime - now) / 1000);
 
     return {
       progress,
@@ -39,6 +41,7 @@ function UpgradeModal() {
     };
   };
 
+  //check if this car can be upgrded, by resources, and by worker
   const canUpgradeCard = (card) => {
     if (!playerData) return false;
 
@@ -74,6 +77,7 @@ function UpgradeModal() {
             const upgradeStatus = getUpgradeStatus(card.id);
             const isUpgrading = !!upgradeStatus;
             const canUpgrade = canUpgradeCard(card);
+            const upgradePreview = getUpgradePreview(card);
 
             return (
               <div
@@ -100,6 +104,39 @@ function UpgradeModal() {
                 ) : (
                   <div className="upgrade-info">
                     <h4>Upgrade to Level {card.level + 1}</h4>
+
+                    {/* Show Stats Improvement */}
+                    {upgradePreview && (
+                      <div className="stat-improvements">
+                        <div className="stat-change">
+                          ⚔️ {upgradePreview.current.damage} →{" "}
+                          {upgradePreview.next.damage}
+                        </div>
+                        <div className="stat-change">
+                          ❤️ {upgradePreview.current.health} →{" "}
+                          {upgradePreview.next.health}
+                        </div>
+                        <div className="stat-change">
+                          💰 {upgradePreview.current.cost} →{" "}
+                          {upgradePreview.next.cost}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* new ability */}
+                    {upgradePreview &&
+                      upgradePreview.upgradeInfo.newAbilities.length > 0 && (
+                        <div className="new-abilities">
+                          <span>🎯 New Abilities:</span>
+                          {upgradePreview.upgradeInfo.newAbilities.map(
+                            (ability, index) => (
+                              <div key={index} className="ability-preview">
+                                {ability}
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
 
                     <div className="resource-requirements">
                       {Object.entries(card.upgradeCost).map(
