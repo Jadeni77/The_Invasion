@@ -312,7 +312,7 @@ export class GameEngine {
 
     //the actual unit
     const newUnit = new UnitClass(deployX, deployY, {
-      ...cardData,
+      ...testCardData,
       image: this.getImage(cardData.name),
     });
 
@@ -490,7 +490,7 @@ export class GameEngine {
       }
 
       defender.update(this.enemies, this.defenders); // Pass all enemies and defenders for their specific logic
-
+      
       // Handle defender attacks (if they can attack)
       if (
         defender.attackDamage > 0 &&
