@@ -35,6 +35,17 @@ function Card({ card, onClick, selected, disabled }) {
           <span className="stat-value">{card.health || 0}</span>
         </div>
       </div>
+
+      {/* Show some special abilities */}
+      {card.specialAbilities && card.specialAbilities.length > 0 && (
+        <div className="card-abilities">
+          {card.specialAbilities.map((abilities, index) => {
+            <div key={index} className="ability-indicator">
+              ✨
+            </div>;
+          })}
+        </div>
+      )}
     </div>
   );
 }
