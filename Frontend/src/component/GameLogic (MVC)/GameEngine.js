@@ -1,21 +1,20 @@
 // src/component/GameLogic (MVC)/GameEngine.js
 // This file serves as the Model (game state, entities) and Controller (game logic, updates)
 
-// Corrected imports: Ensure these paths are correct relative to GameEngine.js
 import {
   DefenderUnit,
   BasicDefender,
   HealerDefender,
   GrenadeDefender,
   BarricadeDefender,
-} from "./DefenderUnits";
+} from "./DefenderUnits.js";
 import {
   Enemy, // Base Enemy class
   BasicEnemy, // Specific Enemy types
   FastEnemy,
   TankEnemy,
   BombEnemy,
-} from "./EnemyUnits"; // Corrected import for specific enemy classes
+} from "./EnemyUnits.js"; 
 
 export class GameEngine {
   constructor(
@@ -59,8 +58,8 @@ export class GameEngine {
     this.defenderUnitClasses = {
       "Basic Cop": BasicDefender,
       "Healer Cop": HealerDefender,
-      Grenadier: GrenadeDefender,
-      Barricade: BarricadeDefender,
+      "Grenadier": GrenadeDefender,
+      "Barricade": BarricadeDefender,
     };
 
     // Mapping of enemy names to their respective Enemy classes
@@ -68,7 +67,7 @@ export class GameEngine {
       "Basic Zombie": BasicEnemy,
       "Fast Zombie": FastEnemy,
       "Tank Zombie": TankEnemy,
-      Exploder: BombEnemy,
+      "Exploder": BombEnemy,
     };
 
     // Level configurations and loaded assets
@@ -490,7 +489,7 @@ export class GameEngine {
       }
 
       defender.update(this.enemies, this.defenders); // Pass all enemies and defenders for their specific logic
-      
+
       // Handle defender attacks (if they can attack)
       if (
         defender.attackDamage > 0 &&
@@ -547,6 +546,13 @@ export class GameEngine {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
 
+      enemy.update(this.defenders); // Enemy updates its state (movement, attack if attacker)
+
+      // Handle enemy special abilities (e.g., BombEnemy self-destruct if near defender)
+      if (enemy.activateSpecialAbility) {
+        enemy.activateSpecialAbility(this.defenders);
+      }
+
       if (!enemy.isAlive) {
         // Handle enemy death
         this.inGameScore += enemy.bounty;
@@ -567,10 +573,8 @@ export class GameEngine {
         continue;
       }
 
-      enemy.update(this.defenders); // Enemy updates its state (movement, attack if attacker)
-
       // Check if enemy reached defense line
-      if (enemy.x + enemy.width >= this.defenseLineX) {
+      if (enemy.isAlive && enemy.x + enemy.width >= this.defenseLineX) {
         // Damage the base
         const damage = 10;
         const newHealth = Math.max(0, this.baseHealth - damage);
@@ -580,7 +584,7 @@ export class GameEngine {
           this.updateBaseHealthCb(newHealth);
         }
 
-        // Remove enemy
+        // Remove enemy bc it reach the line 
         enemy.isAlive = false;
         this.enemies.splice(i, 1);
 
@@ -596,12 +600,7 @@ export class GameEngine {
             });
           }
         }
-        continue;
-      }
-
-      // Handle enemy special abilities (e.g., BombEnemy self-destruct if near defender)
-      if (enemy.activateSpecialAbility) {
-        enemy.activateSpecialAbility(this.defenders);
+        continue; //skip to next enemy
       }
     }
   }
@@ -660,22 +659,26 @@ export class GameEngine {
     if (!this.gameOver && allEnemiesSpawned && noActiveEnemies) {
       this.handleLevelComplete(); // Trigger win condition
     }
+
+    if (this.gameOver) {
+      this.handleDefenseBreached
+    }
   }
 
   // /** Handles the game over state when defense is breached. */
-  // handleDefenseBreached() {
-  //   this.gameOver = true;
-  //   this.gameWon = false;
-  //   this.stopLoop(); // Stop the game loop
+  handleDefenseBreached() {
+    this.gameOver = true;
+    this.gameWon = false;
+    this.stopLoop(); // Stop the game loop
 
-  //   if (this.onLoseCb) {
-  //     this.onLoseCb({
-  //       score: this.inGameScore,
-  //       level: this.currentLevelConfig.levelNumber,
-  //       reason: "Defense breached",
-  //     });
-  //   }
-  // }
+    if (this.onLoseCb) {
+      this.onLoseCb({
+        score: this.inGameScore,
+        level: this.currentLevelConfig.levelNumber,
+        reason: "Defense breached",
+      });
+    }
+  }
 
   /** Handles the game win state when all enemies are defeated. */
   handleLevelComplete() {

@@ -286,7 +286,7 @@ export const GameProvider = ({ children }) => {
     (cardId) => {
       if (!playerData) return;
 
-      const card = cardsWithStats.find((c) => c.id === cardId);
+      const card = playerData.cards.find((c) => c.id === cardId);
       if (!card) return;
 
       // Check if player has enough resources
@@ -390,10 +390,6 @@ export const GameProvider = ({ children }) => {
       setGameWon(false);
       setInGameEnergy(100); // Reset in-game energy
       setInGameScore(0); // Reset score
-
-      console.log(
-        `Starting level ${levelId}. Lobby energy now: ${newPlayerData.resources.lobbyEnergy}`
-      );
     },
     [playerData, updateResource]
   );
