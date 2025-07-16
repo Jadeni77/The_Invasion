@@ -38,7 +38,35 @@ export class DefenderUnit {
     this.color = cardData.color || "cyan"; // Base color, can be overridden by cardData
     this.name = cardData.name || "Basic Police"; // for drawing/debug
     this.image = cardData.image;
-    this.cost = cardData.cost || 0; // cost to deploy
+  }
+
+  applyLevelUpgrades() {
+    const level = this.level;
+
+    const statMultiplier = 1 + (level - 1) * 0.15; //15% increase
+
+    this.baseAttackDamage = Math.floor(this.baseAttackDamage * statMultiplier);
+    this.baseHealth = Math.floor(this.baseHealth * statMultiplier);
+    this.baseRange = Math.floor(this.baseRange * statMultiplier);
+    this.baseCost = Math.floor(this.baseCost * (1 + (level - 1) * 0.5)); //5% increase
+
+    //Apply special ability base on level
+    this.applySpecialAbilities();
+  }
+
+  //this is the special ability being unlock at a certain level
+  applySpecialAbilities() {
+    ////base class does not have any special ability
+    //subclasses can have
+  }
+
+  getUpgradeInfo() {
+    return {
+      damageIncrease: "+15%",
+      healthIncrease: "+15%",
+      rangeIncrease: "+15%",
+      newAbilities: [],
+    };
   }
 
   // Default logic for all
@@ -386,8 +414,6 @@ export class GrenadeDefender extends DefenderUnit {
   update(enemies, defenderUnits) {
     // No specific movement or other continuous logic for Grenadier beyond base DefenderUnit
     // The attack logic is handled by GameEngine calling canAttack/attack
-    // Call parent update
-    super.update(enemies, defenderUnits);
   }
 
   setGameEngine(engine) {

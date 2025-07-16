@@ -312,7 +312,7 @@ export class GameEngine {
 
     //the actual unit
     const newUnit = new UnitClass(deployX, deployY, {
-      ...testCardData,
+      ...cardData,
       image: this.getImage(cardData.name),
     });
 
