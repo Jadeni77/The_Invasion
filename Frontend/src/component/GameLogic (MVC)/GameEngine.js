@@ -276,22 +276,32 @@ export class GameEngine {
       return false;
     }
 
+    //create tempperaroy units - it will calculate its stat base on levels
+    const tempUnit = new UnitClass(0, 0, {
+      ...cardData,
+      image: this.getImage(cardData.name),
+    });
+
     if (this.inGameEnergy < cardData.cost) {
       console.log(`Not enough energy: ${this.inGameEnergy}/${cardData.cost}`);
       return false;
     }
 
     // Adjust position to center of card
-    const deployX = x - cardData.width / 2;
-    const deployY = y - cardData.height / 2;
+    const deployX = x - tempUnit.width / 2;
+    const deployY = y - tempUnit.height / 2;
+
+    console.log(
+      `Deployment coordinates: (${deployX}, ${deployY}), dimensions: ${tempUnit.width}x${tempUnit.height}`
+    );
 
     // Check if position is valid (not on path, not overlapping other defenders)
     if (
       !this.isValidDeploymentPosition(
         deployX,
         deployY,
-        cardData.width,
-        cardData.height
+        tempUnit.width,
+        tempUnit.height
       )
     ) {
       console.log("Invalid deployment position");
@@ -299,6 +309,8 @@ export class GameEngine {
     }
 
     console.log("Deployment valid. Creating unit.");
+
+    //the actual unit
     const newUnit = new UnitClass(deployX, deployY, {
       ...cardData,
       image: this.getImage(cardData.name),
@@ -310,10 +322,15 @@ export class GameEngine {
     }
 
     this.defenders.push(newUnit);
-    this.inGameEnergy -= cardData.cost;
+    this.inGameEnergy -= newUnit.cost;
     this.updateEnergyCb(this.inGameEnergy); // Update UI
 
-    console.log(`Defender deployed. Total defenders: ${this.defenders.length}`);
+    console.log(`Defender deployed with level ${newUnit.level} stats:`, {
+      damage: newUnit.attackDamage,
+      health: newUnit.health,
+      cost: newUnit.cost,
+      specialAbilities: newUnit.getUpgradeInfo().newAbilities,
+    });
     return true;
   }
 
@@ -333,22 +350,6 @@ export class GameEngine {
 
     if (x < this.canvasWidth / 2 || x + width > this.canvasWidth) {
       return false; // Must be in the right half
-    }
-
-    // Check if overlapping the road (enemies path)
-    if (
-      this.checkCollision(
-        x,
-        y,
-        width,
-        height,
-        0,
-        roadTop,
-        this.canvasWidth,
-        roadBottom - roadTop // Road bounds
-      )
-    ) {
-      return false; // Cannot deploy on the road
     }
 
     // 2. Check if overlapping existing defenders
@@ -498,8 +499,6 @@ export class GameEngine {
       ) {
         const target = this.findTargetForDefender(defender);
         if (target) {
-          defender.attack(target, now); // Defender performs its attack
-
           // If the defender is ranged, create a projectile
           if (defender.isRanged) {
             this.projectiles.push({
@@ -511,6 +510,7 @@ export class GameEngine {
               // Projectile progress will be calculated based on distance to target
             });
           }
+          defender.attack(target, now); // Defender performs its attack
         }
       }
     }
@@ -571,8 +571,9 @@ export class GameEngine {
 
       // Check if enemy reached defense line
       if (enemy.x + enemy.width >= this.defenseLineX) {
-        // Damage base
-        const newHealth = Math.max(0, this.baseHealth - 10);
+        // Damage the base
+        const damage = 10;
+        const newHealth = Math.max(0, this.baseHealth - damage);
         this.baseHealth = newHealth;
 
         if (this.updateBaseHealthCb) {
@@ -610,26 +611,27 @@ export class GameEngine {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const projectile = this.projectiles[i];
 
-      // Calculate direction towards target
+      if (!projectile.target.isAlive) {
+        this.projectiles.splice(i, 1);
+        continue;
+      }
+
+      // Calculate direction and move projectile
       const dx =
         projectile.target.x + projectile.target.width / 2 - projectile.startX;
       const dy =
         projectile.target.y + projectile.target.height / 2 - projectile.startY;
-      const distanceToTarget = Math.hypot(dx, dy);
+      const distance = Math.hypot(dx, dy);
 
-      // Move projectile
-      const moveAmount = Math.min(projectile.speed, distanceToTarget);
-      const angle = Math.atan2(dy, dx);
-      projectile.startX += Math.cos(angle) * moveAmount;
-      projectile.startY += Math.sin(angle) * moveAmount;
-
-      // Check if projectile reached target
-      if (distanceToTarget <= projectile.speed || !projectile.target.isAlive) {
-        if (projectile.target.isAlive) {
-          // Only apply damage if target is still alive
-          projectile.target.takeDamage(projectile.damage);
-        }
-        this.projectiles.splice(i, 1); // Remove projectile
+      if (distance <= projectile.speed) {
+        // Hit target
+        projectile.target.takeDamage(projectile.damage);
+        this.projectiles.splice(i, 1);
+      } else {
+        // Move projectile
+        const angle = Math.atan2(dy, dx);
+        projectile.startX += Math.cos(angle) * projectile.speed;
+        projectile.startY += Math.sin(angle) * projectile.speed;
       }
     }
   }
@@ -660,20 +662,20 @@ export class GameEngine {
     }
   }
 
-  /** Handles the game over state when defense is breached. */
-  handleDefenseBreached() {
-    this.gameOver = true;
-    this.gameWon = false;
-    this.stopLoop(); // Stop the game loop
+  // /** Handles the game over state when defense is breached. */
+  // handleDefenseBreached() {
+  //   this.gameOver = true;
+  //   this.gameWon = false;
+  //   this.stopLoop(); // Stop the game loop
 
-    if (this.onLoseCb) {
-      this.onLoseCb({
-        score: this.inGameScore,
-        level: this.currentLevelConfig.levelNumber,
-        reason: "Defense breached",
-      });
-    }
-  }
+  //   if (this.onLoseCb) {
+  //     this.onLoseCb({
+  //       score: this.inGameScore,
+  //       level: this.currentLevelConfig.levelNumber,
+  //       reason: "Defense breached",
+  //     });
+  //   }
+  // }
 
   /** Handles the game win state when all enemies are defeated. */
   handleLevelComplete() {
