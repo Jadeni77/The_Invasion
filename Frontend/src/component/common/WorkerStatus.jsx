@@ -1,4 +1,5 @@
 import React from "react";
+import "../../style/WorkerStatus.css";
 
 function WorkerStatus({ worker }) {
   return (
