@@ -29,6 +29,7 @@ const GameBoard = () => {
   const [deck, setDeck] = useState([]);
   const [baseHealth, setBaseHealth] = useState(100);
   const [resetTrigger, setResetTrigger] = useState(0);
+  const [showQuitDialog, setShowQuitDialog] = useState(false);
 
   // canvas sizing
   useEffect(() => {
@@ -104,9 +105,7 @@ const GameBoard = () => {
         const cardsWithStats = playerData.cards
           .map(calculateCardStats)
           .filter(Boolean);
-        const initialDeck = [...cardsWithStats].sort(
-          () => Math.random() - 0.5
-        );
+        const initialDeck = [...cardsWithStats].sort(() => Math.random() - 0.5);
         setHand(initialDeck.slice(0, 3));
         setDeck(initialDeck.slice(3));
       }
@@ -160,6 +159,30 @@ const GameBoard = () => {
     if (gameEngineRef.current.deployDefenderUnit(selectedCard, x, y)) {
       handleCardDeployment();
     }
+  };
+
+  const handleQuitClick = () => {
+    //pause the game
+    if (gameEngineRef.current) {
+      gameEngineRef.current.pauseGame();
+    }
+    setShowQuitDialog(true);
+  };
+
+  const handleQuitConfirm = () => {
+    //mark game over and lost
+    if (gameEngineRef.current) {
+      gameEngineRef.current.forceGameOver();
+    }
+    setShowQuitDialog(false);
+    endGame("quit");
+  };
+
+  const handleQuitCancel = () => {
+    if (gameEngineRef.current) {
+      gameEngineRef.current.resumeGame();
+    }
+    setShowQuitDialog(false);
   };
 
   // Render game over screen
@@ -227,7 +250,7 @@ const GameBoard = () => {
       <div className="game-top-bar">
         <button
           className="settings-button"
-          onClick={() => endGame("quit")}
+          onClick={handleQuitClick}
           title="Return to Lobby"
         >
           ⚙️
@@ -279,6 +302,31 @@ const GameBoard = () => {
           <div className="indicator-icon">+</div>
           <div className="indicator-text">
             DEPLOY {selectedCard.name.toUpperCase()}
+          </div>
+        </div>
+      )}
+
+      {/* QUit Confirmation Dialog */}
+      {showQuitDialog && (
+        <div className="quit-dialog-overlay">
+          <div className="quit-dialog">
+            <h3>Return to Lobby?</h3>
+            <p>
+              Warning: Quitting now will count as a defeat!
+              <br />
+              You will lose resources and may injure a worker.
+            </p>
+            <div className="quit-dialog-buttons">
+              <button
+                className="quit-confirm-button"
+                onClick={handleQuitConfirm}
+              >
+                QUIT GAME
+              </button>
+              <button className="quit-cancel-button" onClick={handleQuitCancel}>
+                CONTINUE PLAYING
+              </button>
+            </div>
           </div>
         </div>
       )}

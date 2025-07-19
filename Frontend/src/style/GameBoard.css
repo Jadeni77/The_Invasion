@@ -1,11 +1,13 @@
 /* Game Board Container */
 .game-board-container {
   position: relative;
-  width: 800px;
-  height: 600px;
+  width: 100%;
+  height: 100vh;
   background: #0a1a2a;
   overflow: hidden;
-  font-family: 'Arial', sans-serif;
+  font-family: "Arial", sans-serif;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Top Game Bar */
@@ -20,9 +22,12 @@
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
   z-index: 10;
   position: relative;
+  flex-shrink: 0;
 }
 
-.energy-container, .score-container, .base-health-container {
+.energy-container,
+.score-container,
+.base-health-container {
   display: flex;
   align-items: center;
   background: rgba(0, 30, 60, 0.7);
@@ -68,7 +73,7 @@
 
 .base-icon {
   font-size: 24px;
-  margin-right: 20px;
+  margin-right: 10px;
 }
 
 .health-bar {
@@ -77,7 +82,7 @@
   background: #333;
   border-radius: 6px;
   overflow: hidden;
-  margin-right: 20px;
+  margin-right: 10px;
 }
 
 .health-fill {
@@ -95,7 +100,7 @@
 /* Game Canvas */
 .game-canvas {
   width: 100%;
-  height: 450px;
+  flex: 1;
   background: #1a3a5a;
   display: block;
 }
@@ -111,10 +116,18 @@
   gap: 15px;
   padding: 10px;
   z-index: 10;
-  flex-direction: row; /* Ensure horizontal layout */
-  flex-wrap: nowrap; /* Prevent wrapping to next line */
-  overflow-x: auto; /* Allow horizontal scrolling if needed */
-  height: 130px; /* Fixed height for card container */
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  height: 150px; /* Increased height */
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  border-top: 2px solid #2a4a6a;
+}
+
+/* Hide scrollbar but keep functionality */
+.card-hand-container::-webkit-scrollbar {
+  height: 0;
 }
 
 /* Deployment Indicator */
@@ -140,9 +153,18 @@
 }
 
 @keyframes pulse {
-  0% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
-  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
-  100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+  0% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+  100% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 .indicator-icon {
@@ -165,6 +187,7 @@
   z-index: 20;
   color: white;
   text-align: center;
+  padding: 20px;
 }
 
 .game-over-screen h2 {
@@ -188,7 +211,8 @@
   margin: 10px 0;
 }
 
-.score-value, .gold-value {
+.score-value,
+.gold-value {
   color: #ffcc00;
   font-weight: bold;
   font-size: 26px;
@@ -198,9 +222,12 @@
   display: flex;
   gap: 20px;
   margin-top: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
-.lobby-button, .replay-button {
+.lobby-button,
+.replay-button {
   padding: 15px 30px;
   font-size: 18px;
   font-weight: bold;
@@ -257,4 +284,305 @@
 .settings-button:hover {
   background: rgba(255, 255, 255, 0.2);
   transform: scale(1.1);
+}
+
+/* The Quit Dialog */
+.quit-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.quit-dialog {
+  background: #2a4a6a;
+  border: 3px solid #ffcc00;
+  border-radius: 15px;
+  padding: 30px;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 0 20px rgba(255, 204, 0, 0.5);
+}
+.quit-dialog h3 {
+  color: #ffcc00;
+  font-size: 28px;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+}
+
+.quit-dialog p {
+  color: white;
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 30px;
+}
+
+.quit-dialog-buttons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+}
+
+.quit-confirm-button,
+.quit-cancel-button {
+  padding: 12px 25px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: none;
+  text-transform: uppercase;
+  min-width: 140px;
+}
+
+.quit-confirm-button {
+  background: linear-gradient(to bottom, #ff4444, #cc0000);
+  color: white;
+  border: 2px solid #ff6666;
+}
+
+.quit-confirm-button:hover {
+  background: linear-gradient(to bottom, #ff6666, #ff0000);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 0, 0, 0.4);
+}
+
+.quit-cancel-button {
+  background: linear-gradient(to bottom, #4caf50, #45a049);
+  color: white;
+  border: 2px solid #66bb6a;
+}
+
+.quit-cancel-button:hover {
+  background: linear-gradient(to bottom, #66bb6a, #4caf50);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+}
+
+/* Mobile Responsive - Portrait Mode */
+@media (max-width: 768px) and (orientation: portrait) {
+  .game-board-container {
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .game-top-bar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 10px;
+  }
+
+  .energy-container,
+  .score-container,
+  .base-health-container {
+    padding: 5px 10px;
+    font-size: 14px;
+  }
+
+  .energy-icon,
+  .base-icon {
+    font-size: 20px;
+    margin-right: 5px;
+  }
+
+  .energy-value,
+  .score-value {
+    font-size: 16px;
+  }
+
+  .score-label {
+    font-size: 12px;
+  }
+
+  .health-bar {
+    width: 60px;
+  }
+
+  .health-value {
+    font-size: 14px;
+    min-width: 40px;
+  }
+
+  .card-hand-container {
+    height: 120px;
+    gap: 10px;
+    padding: 5px;
+  }
+
+  .card-container {
+    width: 80px !important;
+    height: 110px !important;
+  }
+
+  .deployment-indicator {
+    font-size: 14px;
+    padding: 8px 15px;
+  }
+
+  .game-over-screen h2 {
+    font-size: 28px;
+  }
+
+  .result-details {
+    padding: 15px 20px;
+  }
+
+  .result-details p {
+    font-size: 18px;
+  }
+
+  .score-value,
+  .gold-value {
+    font-size: 20px;
+  }
+
+  .lobby-button,
+  .replay-button {
+    padding: 12px 20px;
+    font-size: 16px;
+    min-width: 150px;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+    align-items: center;
+  }
+
+  /* Quit Dialog */
+  .quit-dialog {
+    max-width: 90%;
+    padding: 20px;
+  }
+
+  .quit-dialog h3 {
+    font-size: 24px;
+  }
+
+  .quit-dialog p {
+    font-size: 14px;
+  }
+
+  .quit-dialog-buttons {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .quit-confirm-button,
+  .quit-cancel-button {
+    width: 100%;
+  }
+}
+
+/* Mobile Responsive - Landscape Mode */
+@media (max-width: 768px) and (orientation: landscape) {
+  .game-board-container {
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .game-top-bar {
+    height: 50px;
+    padding: 5px 15px;
+  }
+
+  .energy-container,
+  .score-container,
+  .base-health-container {
+    padding: 3px 8px;
+    font-size: 12px;
+  }
+
+  .energy-icon,
+  .base-icon {
+    font-size: 18px;
+    margin-right: 5px;
+  }
+
+  .energy-value,
+  .score-value {
+    font-size: 14px;
+  }
+
+  .score-label {
+    font-size: 11px;
+  }
+
+  .health-bar {
+    width: 50px;
+    height: 8px;
+  }
+
+  .health-value {
+    font-size: 12px;
+  }
+
+  .card-hand-container {
+    height: 100px;
+    gap: 8px;
+    padding: 5px;
+  }
+
+  .card-container {
+    width: 70px !important;
+    height: 90px !important;
+  }
+}
+
+/* Tablet Responsive */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .game-board-container {
+    max-width: 100%;
+  }
+
+  .card-hand-container {
+    height: 140px;
+  }
+
+  .energy-container,
+  .score-container,
+  .base-health-container {
+    padding: 5px 12px;
+  }
+
+  .energy-icon,
+  .base-icon {
+    font-size: 22px;
+  }
+
+  .energy-value,
+  .score-value {
+    font-size: 18px;
+  }
+}
+
+/* Large Desktop */
+@media (min-width: 1440px) {
+  .game-board-container {
+    max-width: 1440px;
+    margin: 0 auto;
+  }
+
+  .game-top-bar {
+    padding: 15px 30px;
+    height: 70px;
+  }
+
+  .card-hand-container {
+    height: 160px;
+    gap: 20px;
+  }
+
+  .card-container {
+    width: 110px !important;
+    height: 140px !important;
+  }
 }
