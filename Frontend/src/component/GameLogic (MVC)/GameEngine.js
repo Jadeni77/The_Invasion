@@ -53,19 +53,21 @@ export class GameEngine {
 
     this.updateBaseHealthCb = updateBaseHealthCb;
     this.baseHealth = 100;
+    this.isPaused = false;
 
     //Grid system for deployment
     this.gridSize = 60; //size for each grid cells
     this.deploymentGrid = [];
     this.gridOffsetX = 0;
     this.gridOffsetY = 0;
+    this.highlightGrid = false;
 
     // Mapping of card names to their respective DefenderUnit classes
     this.defenderUnitClasses = {
       "Basic Cop": BasicDefender,
       "Healer Cop": HealerDefender,
-      "Grenadier": GrenadeDefender,
-      "Barricade": BarricadeDefender,
+      Grenadier: GrenadeDefender,
+      Barricade: BarricadeDefender,
     };
 
     // Mapping of enemy names to their respective Enemy classes
@@ -73,7 +75,7 @@ export class GameEngine {
       "Basic Zombie": BasicEnemy,
       "Fast Zombie": FastEnemy,
       "Tank Zombie": TankEnemy,
-      "Exploder": BombEnemy,
+      Exploder: BombEnemy,
     };
 
     // Level configurations and loaded assets
@@ -88,7 +90,7 @@ export class GameEngine {
   //initial the grid in the game state
   initializeGrid() {
     const cols = Math.floor((this.canvasWidth * 0.5) / this.gridSize); //the right half for deploment
-    const rows = Math.floor((this.canvasHeight / this.gridSize));
+    const rows = Math.floor(this.canvasHeight / this.gridSize);
     this.gridOffsetX = this.canvasWidth * 0.5; //from the middle of the screen
     this.gridOffsetY = 0;
 
@@ -99,7 +101,8 @@ export class GameEngine {
       for (let col = 0; col < cols; col++) {
         //check if this grid cell is on the road
         const y = row * this.gridSize;
-        const isRoad = y >= this.canvasHeight * 0.4 && y <= this.canvasHeight * 0.6;
+        const isRoad =
+          y >= this.canvasHeight * 0.4 && y <= this.canvasHeight * 0.6;
 
         gridRow.push({
           x: this.gridOffsetX + col * this.gridSize,
@@ -107,7 +110,7 @@ export class GameEngine {
           occupied: false,
           isRoad: isRoad,
           row: row,
-          col: col
+          col: col,
         });
       }
       this.deploymentGrid.push(gridRow);
@@ -121,9 +124,12 @@ export class GameEngine {
     const col = Math.floor((x - this.gridOffsetX) / this.gridSize);
     const row = Math.floor((y - this.gridOffsetY) / this.gridSize);
 
-    if (row >= 0 && row < this.deploymentGrid.length &&
-      col >= 0 && col < this.deploymentGrid[0].length
-    )  {
+    if (
+      row >= 0 &&
+      row < this.deploymentGrid.length &&
+      col >= 0 &&
+      col < this.deploymentGrid[0].length
+    ) {
       return this.deploymentGrid[row][col];
     }
     return null;
@@ -147,8 +153,8 @@ export class GameEngine {
       defenderAssets: {
         "Basic Cop": null,
         "Healer Cop": null,
-        "Grenadier": null,
-        "Barricade": null,
+        "Grenadier ": null,
+        "Barricade ": null,
       },
     });
 
@@ -169,8 +175,8 @@ export class GameEngine {
       defenderAssets: {
         "Basic Cop": null,
         "Healer Cop": null,
-        "Grenadier": null,
-        "Barricade": null,
+        "Grenadier ": null,
+        "Barricade ": null,
       },
     });
 
@@ -192,13 +198,13 @@ export class GameEngine {
         "Basic Zombie": null,
         "Fast Zombie": null,
         "Tank Zombie": null,
-        "Exploder": null,
+        "Exploder ": null,
       },
       defenderAssets: {
         "Basic Cop": null,
         "Healer Cop": null,
-        "Grenadier": null,
-        "Barricade": null,
+        "Grenadier ": null,
+        "Barricade ": null,
       },
     });
   }
@@ -527,11 +533,12 @@ export class GameEngine {
 
       // Spawn at a random Y position on the left edge
       const spawnX = -100; // Start off-screen left
-      const spawnY = this.canvasHeight * 0.5;
+      const randomRow = Math.floor(Math.random() * this.deploymentGrid.length);
+      const spawnY = randomRow * this.gridSize + this.gridSize / 2 - 15; // Center of grid row minus half enemy height
+      
+     //const spawnY = this.canvasHeight * 0.5;
 
-      const enemy = new EnemyClass(spawnX, spawnY, {
-        image: this.getImage(enemyType),
-      });
+      const enemy = new EnemyClass(spawnX, spawnY, this.getImage(enemyType));
 
       this.enemies.push(enemy);
       this.lastEnemySpawnTime = now;
@@ -541,7 +548,7 @@ export class GameEngine {
 
   /** Main update loop for the game state. */
   update() {
-    if (this.gameOver) return;
+    if (this.gameOver || this.isPaused) return;
 
     const now = Date.now();
 
@@ -638,10 +645,8 @@ export class GameEngine {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
 
-      if (!enemy.isAlive || this.gameOver) {
-        if (!enemy.isAlive) {
-          this.enemies.splice(i, 1); //remove dead enemy
-        }
+      if (!enemy.isAlive) {
+        this.enemies.splice(i, 1); //remove dead enemy
         continue;
       }
 
@@ -654,11 +659,11 @@ export class GameEngine {
 
       if (!enemy.isAlive) {
         if (!this.gameOver) {
-                // Handle enemy death
-         this.inGameScore += enemy.bounty;
-         this.updateScoreCb(this.inGameScore); // Update UI score
+          // Handle enemy death
+          this.inGameScore += enemy.bounty;
+          this.updateScoreCb(this.inGameScore); // Update UI score
         }
-  
+
         // Handle special death effects (e.g., BombEnemy explosion)
         if (enemy.shouldExplode) {
           // BombEnemy sets this flag
@@ -675,26 +680,25 @@ export class GameEngine {
       }
 
       // Check if enemy reached defense line
-      if (enemy.isAlive && enemy.x + enemy.width >= this.defenseLineX) {
-        // Damage the base
-        const damage = 10;
-        const newHealth = Math.max(0, this.baseHealth - damage);
-        this.baseHealth = newHealth;
+      if (enemy.x + enemy.width >= this.defenseLineX) {
+        if (!this.gameOver) {
+          // Damage the base
+          const damage = 10;
+          this.baseHealth = Math.max(0, this.baseHealth - damage);
 
-        if (this.updateBaseHealthCb) {
-          this.updateBaseHealthCb(newHealth);
+          if (this.updateBaseHealthCb) {
+            this.updateBaseHealthCb(this.baseHealth);
+          }
+
+          // Check for game over
+          if (this.baseHealth <= 0) {
+            this.gameOver = true;
+            this.handleDefenseBreached();
+          }
         }
 
         // Remove enemy bc it reach the line
-        enemy.isAlive = false;
         this.enemies.splice(i, 1);
-
-        // Check for game over
-        if (this.baseHealth <= 0) {
-          this.baseHealth = 0;
-          this.gameOver = true;
-          this.handleDefenseBreached();
-        }
         continue; //skip to next enemy
       }
     }
@@ -826,6 +830,17 @@ export class GameEngine {
           //highlight occupied cells
           if (cell.occupied) {
             ctx.fillStyle = "rgba(255, 0, 0, 0.1)";
+            ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
+          }
+        }
+      }
+    }
+    // If player is selecting a card, highlight valid cells
+    if (this.highlightGrid) {
+      for (let row of this.deploymentGrid) {
+        for (let cell of row) {
+          if (!cell.isRoad && !cell.occupied) {
+            ctx.fillStyle = "rgba(0, 255, 0, 0.2)";
             ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
           }
         }
@@ -1022,13 +1037,28 @@ export class GameEngine {
 
   /** The main game animation loop. */
   gameLoop = () => {
-    this.update();
-    this.draw(this.ctx); // Pass context to draw
-
     if (!this.gameOver) {
+      if (!this.isPaused) {
+        this.update();
+        this.draw(this.ctx); // Pass context to draw
+      }
       this.animationFrameId = requestAnimationFrame(this.gameLoop);
     }
   };
+
+  pauseGame() {
+    this.isPaused = true;
+  }
+
+  resumeGame() {
+    this.isPaused = false;
+  }
+
+  forceGameOver() {
+    this.gameOver = true;
+    this.gameWon = false;
+    this.stopLoop();
+  }
 
   /** Starts the game animation loop. */
   startLoop() {
