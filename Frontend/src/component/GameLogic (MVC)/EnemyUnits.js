@@ -33,9 +33,10 @@ export class Enemy {
   update(defenderUnits) {
     if (!this.isAlive) return;
 
-    if (this.health === 0) {
+    if (this.health <= 0) {
         this.isAlive = false;
         this.speed = 0;
+        return;
     }
     let targetDefender = null;
 
@@ -59,7 +60,7 @@ export class Enemy {
         this.attackCountdown--;
 
         if (this.attackCountdown <= 0) {
-          targetDefender.takeDamage(this.attackDamage); // <--- CRITICAL FIX: Call takeDamage on targetDefender, not the array
+          targetDefender.takeDamage(this.attackDamage); 
           this.attackCountdown = this.attackRate; // Reset attack cooldown
         }
       } else {
