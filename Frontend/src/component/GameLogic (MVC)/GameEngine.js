@@ -14,7 +14,7 @@ import {
   FastEnemy,
   TankEnemy,
   BombEnemy,
-} from "./EnemyUnits.js"; 
+} from "./EnemyUnits.js";
 
 export class GameEngine {
   constructor(
@@ -54,6 +54,12 @@ export class GameEngine {
     this.updateBaseHealthCb = updateBaseHealthCb;
     this.baseHealth = 100;
 
+    //Grid system for deployment
+    this.gridSize = 60; //size for each grid cells
+    this.deploymentGrid = [];
+    this.gridOffsetX = 0;
+    this.gridOffsetY = 0;
+
     // Mapping of card names to their respective DefenderUnit classes
     this.defenderUnitClasses = {
       "Basic Cop": BasicDefender,
@@ -79,6 +85,50 @@ export class GameEngine {
     this.initLevelConfigs();
   }
 
+  //initial the grid in the game state
+  initializeGrid() {
+    const cols = Math.floor((this.canvasWidth * 0.5) / this.gridSize); //the right half for deploment
+    const rows = Math.floor((this.canvasHeight / this.gridSize));
+    this.gridOffsetX = this.canvasWidth * 0.5; //from the middle of the screen
+    this.gridOffsetY = 0;
+
+    this.deploymentGrid = [];
+
+    for (let row = 0; row < rows; row++) {
+      const gridRow = [];
+      for (let col = 0; col < cols; col++) {
+        //check if this grid cell is on the road
+        const y = row * this.gridSize;
+        const isRoad = y >= this.canvasHeight * 0.4 && y <= this.canvasHeight * 0.6;
+
+        gridRow.push({
+          x: this.gridOffsetX + col * this.gridSize,
+          y: this.gridOffsetY + row * this.gridSize,
+          occupied: false,
+          isRoad: isRoad,
+          row: row,
+          col: col
+        });
+      }
+      this.deploymentGrid.push(gridRow);
+    }
+  }
+
+  //get grid cell from coordinates
+  getGridCell(x, y) {
+    if (x < this.gridOffsetX) return null;
+
+    const col = Math.floor((x - this.gridOffsetX) / this.gridSize);
+    const row = Math.floor((y - this.gridOffsetY) / this.gridSize);
+
+    if (row >= 0 && row < this.deploymentGrid.length &&
+      col >= 0 && col < this.deploymentGrid[0].length
+    )  {
+      return this.deploymentGrid[row][col];
+    }
+    return null;
+  }
+
   // Defines all game level configurations
   initLevelConfigs() {
     // Level 1
@@ -97,8 +147,8 @@ export class GameEngine {
       defenderAssets: {
         "Basic Cop": null,
         "Healer Cop": null,
-        Grenadier: null,
-        Barricade: null,
+        "Grenadier": null,
+        "Barricade": null,
       },
     });
 
@@ -119,8 +169,8 @@ export class GameEngine {
       defenderAssets: {
         "Basic Cop": null,
         "Healer Cop": null,
-        Grenadier: null,
-        Barricade: null,
+        "Grenadier": null,
+        "Barricade": null,
       },
     });
 
@@ -142,13 +192,13 @@ export class GameEngine {
         "Basic Zombie": null,
         "Fast Zombie": null,
         "Tank Zombie": null,
-        Exploder: null,
+        "Exploder": null,
       },
       defenderAssets: {
         "Basic Cop": null,
         "Healer Cop": null,
-        Grenadier: null,
-        Barricade: null,
+        "Grenadier": null,
+        "Barricade": null,
       },
     });
   }
@@ -192,6 +242,9 @@ export class GameEngine {
     this.canvasWidth = width;
     this.canvasHeight = height;
     this.defenseLineX = width * 0.9; // Defense line 150px from right edge
+
+    //initialize grid syystem
+    this.initializeGrid();
 
     // Get the configuration for the selected level
     this.currentLevelConfig = this.levelConfigs.get(levelNumber);
@@ -246,6 +299,15 @@ export class GameEngine {
     this.currentWave = 1;
     this.baseHealth = 100;
 
+    //reset grid
+    if (this.deploymentGrid.length > 0) {
+      for (let row of this.deploymentGrid) {
+        for (let cell of row) {
+          cell.occupied = false;
+        }
+      }
+    }
+
     // Update UI via callbacks
     this.updateEnergyCb(this.inGameEnergy);
     this.updateScoreCb(this.inGameScore);
@@ -269,6 +331,13 @@ export class GameEngine {
 
     if (this.gameOver) return false;
 
+    //get grid cell
+    const gridCell = this.getGridCell(x, y);
+    if (!gridCell || gridCell.occupied || gridCell.isRoad) {
+      console.log("Invalid grid cell or cell is occupied/road");
+      return false;
+    }
+
     const UnitClass = this.defenderUnitClasses[cardData.name];
     if (!UnitClass) {
       console.error(`Unknown defender type: ${cardData.name}`);
@@ -287,8 +356,8 @@ export class GameEngine {
     }
 
     // Adjust position to center of card
-    const deployX = x - tempUnit.width / 2;
-    const deployY = y - tempUnit.height / 2;
+    const deployX = gridCell.x + (this.gridSize - tempUnit.width) / 2;
+    const deployY = gridCell.y + (this.gridSize - tempUnit.height) / 2;
 
     console.log(
       `Deployment coordinates: (${deployX}, ${deployY}), dimensions: ${tempUnit.width}x${tempUnit.height}`
@@ -323,6 +392,9 @@ export class GameEngine {
     this.defenders.push(newUnit);
     this.inGameEnergy -= newUnit.cost;
     this.updateEnergyCb(this.inGameEnergy); // Update UI
+
+    //mark cell occupy
+    gridCell.occupied = true;
 
     console.log(`Defender deployed with level ${newUnit.level} stats:`, {
       damage: newUnit.attackDamage,
@@ -388,6 +460,7 @@ export class GameEngine {
    * @param {number} radius - Radius of explosion effect.
    */
   addExplosion(x, y, damage, radius) {
+    if (this.gameOver) return;
     this.explosions.push({
       x,
       y,
@@ -405,7 +478,12 @@ export class GameEngine {
         enemy.y + enemy.height / 2 - y
       ); // Distance from enemy center to explosion center
       if (distance <= radius) {
-        enemy.takeDamage(damage);
+        const died = enemy.takeDamage(damage);
+        if (died && !this.gameOver) {
+          //only change game score when game still playing
+          this.inGameScore += enemy.bounty;
+          this.updateScoreCb(this.inGameScore);
+        }
       }
     }
 
@@ -425,6 +503,8 @@ export class GameEngine {
 
   /** Spawns a new enemy based on current level configuration. */
   spawnEnemy() {
+    if (this.gameOver) return;
+
     const now = Date.now();
     const config = this.currentLevelConfig;
 
@@ -480,10 +560,20 @@ export class GameEngine {
 
   /** Updates all defender units. */
   updateDefenders(now) {
+    if (this.gameOver) return;
+
     for (let i = this.defenders.length - 1; i >= 0; i--) {
       const defender = this.defenders[i];
 
       if (!defender.isAlive) {
+        //find and free the grid cell
+        const gridCell = this.getGridCell(
+          defender.x + defender.width / 2,
+          defender.y + defender.height / 2
+        );
+        if (gridCell) {
+          gridCell.occupied = false;
+        }
         this.defenders.splice(i, 1); // Remove dead defender
         continue;
       }
@@ -543,8 +633,17 @@ export class GameEngine {
 
   /** Updates all enemy units. */
   updateEnemies(now) {
+    if (this.gameOver) return;
+
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
+
+      if (!enemy.isAlive || this.gameOver) {
+        if (!enemy.isAlive) {
+          this.enemies.splice(i, 1); //remove dead enemy
+        }
+        continue;
+      }
 
       enemy.update(this.defenders); // Enemy updates its state (movement, attack if attacker)
 
@@ -554,10 +653,12 @@ export class GameEngine {
       }
 
       if (!enemy.isAlive) {
-        // Handle enemy death
-        this.inGameScore += enemy.bounty;
-        this.updateScoreCb(this.inGameScore); // Update UI score
-
+        if (!this.gameOver) {
+                // Handle enemy death
+         this.inGameScore += enemy.bounty;
+         this.updateScoreCb(this.inGameScore); // Update UI score
+        }
+  
         // Handle special death effects (e.g., BombEnemy explosion)
         if (enemy.shouldExplode) {
           // BombEnemy sets this flag
@@ -584,7 +685,7 @@ export class GameEngine {
           this.updateBaseHealthCb(newHealth);
         }
 
-        // Remove enemy bc it reach the line 
+        // Remove enemy bc it reach the line
         enemy.isAlive = false;
         this.enemies.splice(i, 1);
 
@@ -592,13 +693,7 @@ export class GameEngine {
         if (this.baseHealth <= 0) {
           this.baseHealth = 0;
           this.gameOver = true;
-          if (this.onLoseCb) {
-            this.onLoseCb({
-              score: this.inGameScore,
-              level: this.currentLevelConfig.levelNumber,
-              reason: "Base destroyed",
-            });
-          }
+          this.handleDefenseBreached();
         }
         continue; //skip to next enemy
       }
@@ -607,6 +702,8 @@ export class GameEngine {
 
   /** Updates all projectiles. */
   updateProjectiles() {
+    if (this.gameOver) return;
+
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const projectile = this.projectiles[i];
 
@@ -624,7 +721,12 @@ export class GameEngine {
 
       if (distance <= projectile.speed) {
         // Hit target
-        projectile.target.takeDamage(projectile.damage);
+        const died = projectile.target.takeDamage(projectile.damage);
+        if (died && !this.gameOver) {
+          // Only add score if game is not over
+          this.inGameScore += projectile.target.bounty;
+          this.updateScoreCb(this.inGameScore);
+        }
         this.projectiles.splice(i, 1);
       } else {
         // Move projectile
@@ -648,6 +750,7 @@ export class GameEngine {
 
   /** Checks for win or lose conditions. */
   checkGameConditions() {
+    if (this.gameOver) return;
     // Lose condition: defense breached (handled in updateEnemies loop)
 
     // Win condition: all enemies spawned AND all active enemies are dead
@@ -658,10 +761,6 @@ export class GameEngine {
 
     if (!this.gameOver && allEnemiesSpawned && noActiveEnemies) {
       this.handleLevelComplete(); // Trigger win condition
-    }
-
-    if (this.gameOver) {
-      this.handleDefenseBreached
     }
   }
 
@@ -701,6 +800,7 @@ export class GameEngine {
     ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight); // Clear canvas
 
     this.drawBackground(ctx);
+    this.drawGrid(ctx);
     this.drawDefenders(ctx);
     this.drawEnemies(ctx);
     this.drawProjectiles(ctx);
@@ -710,6 +810,26 @@ export class GameEngine {
     // Draw game over/win message overlay
     if (this.gameOver) {
       this.drawGameOverScreen(ctx);
+    }
+  }
+
+  drawGrid(ctx) {
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.lineWidth = 1;
+
+    for (let row of this.deploymentGrid) {
+      for (let cell of row) {
+        if (!cell.isRoad) {
+          //draw grid cell
+          ctx.strokeRect(cell.x, cell.y, this.gridSize, this.gridSize);
+
+          //highlight occupied cells
+          if (cell.occupied) {
+            ctx.fillStyle = "rgba(255, 0, 0, 0.1)";
+            ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
+          }
+        }
+      }
     }
   }
 
@@ -912,7 +1032,7 @@ export class GameEngine {
 
   /** Starts the game animation loop. */
   startLoop() {
-    if (!this.animationFrameId) {
+    if (!this.animationFrameId && !this.gameOver) {
       this.animationFrameId = requestAnimationFrame(this.gameLoop);
     }
   }

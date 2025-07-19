@@ -33,8 +33,10 @@ export class Enemy {
   update(defenderUnits) {
     if (!this.isAlive) return;
 
-    if (this.health === 0) return this.isAlive = false;
-
+    if (this.health === 0) {
+        this.isAlive = false;
+        this.speed = 0;
+    }
     let targetDefender = null;
 
     if (this.isAttacker) {
