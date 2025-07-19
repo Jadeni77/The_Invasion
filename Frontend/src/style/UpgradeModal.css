@@ -56,12 +56,20 @@
   padding: 20px;
   transition: all 0.3s;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .upgrade-card.selected {
   border-color: #ffd700;
   box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
   transform: translateY(-5px);
+}
+
+.upgrade-card.upgrading {
+  border-color: #4fc3f7;
+  box-shadow: 0 0 15px rgba(79, 195, 247, 0.5);
 }
 
 .upgrade-card.locked {
@@ -73,6 +81,65 @@
   margin-top: 15px;
   padding-top: 15px;
   border-top: 1px solid #8b6f4b;
+}
+
+.upgrade-card .card-container {
+  margin-bottom: 15px;
+  transform: scale(1.1);
+}
+
+.upgrade-info {
+  width: 100%;
+  padding: 15px;
+}
+
+.upgrade-info h4 {
+  color: #ffd700;
+  text-align: center;
+  margin-bottom: 15px;
+  font-size: 18px;
+}
+
+.stat-improvements {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 15px;
+}
+
+.stat-change {
+  color: #d4c0a1;
+  font-size: 14px;
+  margin: 5px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-change span {
+  margin: 0 5px;
+}
+
+.new-abilities {
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid #ffd700;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 15px;
+}
+
+.new-abilities > span {
+  color: #ffd700;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.ability-preview {
+  color: #d4c0a1;
+  font-size: 13px;
+  padding-left: 15px;
+  margin: 3px 0;
 }
 
 .resource-costs {
@@ -185,17 +252,38 @@
 
 .resource-requirement.unmet {
   border-left: 3px solid #ff6347;
+  opacity: 0.7;
+}
+
+.resource-requirement .resource-icon {
+  background: none;
+  border: none;
+  padding: 0;
+  flex-direction: row;
+  gap: 5px;
+}
+
+.resource-requirement .resource-symbol {
+  font-size: 20px;
+}
+
+.resource-requirement span {
+  color: #d4c0a1;
+  font-weight: bold;
 }
 
 .worker-requirement {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 8px;
   background: rgba(0, 0, 0, 0.3);
   border-radius: 6px;
   margin-bottom: 15px;
   border-left: 3px solid #4fc3f7;
+  font-size: 14px;
+  color: #d4c0a1;
 }
 
 .worker-icon {
@@ -223,6 +311,7 @@
   margin-bottom: 10px;
   color: #4fc3f7;
   font-weight: bold;
+  font-size: 16px;
 }
 
 .progress-bar {
@@ -236,4 +325,45 @@
   height: 100%;
   background: linear-gradient(to right, #8b6f4b, #4fc3f7);
   transition: width 0.5s;
+}
+
+
+/* Scrollbar styling */
+.modal-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 5px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background: #8b6f4b;
+  border-radius: 5px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+  background: #a88b6b;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    padding: 20px;
+  }
+  
+  .upgrade-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .resource-requirements {
+    grid-template-columns: 1fr;
+  }
+  
+  .upgrade-card .card-container {
+    transform: scale(1);
+  }
 }

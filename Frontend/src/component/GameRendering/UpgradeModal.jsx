@@ -117,7 +117,7 @@ function UpgradeModal() {
                           {upgradePreview.next.health}
                         </div>
                         <div className="stat-change">
-                          💰 {upgradePreview.current.cost} →{" "}
+                          ⚡ {upgradePreview.current.cost} →{" "}
                           {upgradePreview.next.cost}
                         </div>
                       </div>
