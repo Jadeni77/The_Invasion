@@ -2,21 +2,22 @@
 
 src/
 ├── components/
+│   └── common/
+│        ├── Card.jsx
+│        └── WorkerStatus.jsx
 │   ├── GameLogic (MVC)/
+|   |    |-- DefenderClassUtils.js
 │   │    ├── DefenderUnits.js
 │   │    ├── EnemyUnits.js
 │   │    ├── GameContext.jsx
 │   │    └── GameEngine.js
 │   ├── GameRendering/
+|   |    |-- EnergyBar.jsx
 │   │    ├── GameBoard.jsx
 │   │    ├── Lobby.jsx
 │   │    ├── MapLayout.jsx
-│   │    ├── UpgradeModal.jsx
 │   │    └── ResourceIcon.jsx
-|   |    |-- EnergyBar.jsx
-│   └── common/
-│        ├── Card.jsx
-│        └── WorkerStatus.jsx
+│   │    ├── UpgradeModal.jsx
 ├── style/
 │   ├── Lobby.css
 |   |-- EnergyBar.css
