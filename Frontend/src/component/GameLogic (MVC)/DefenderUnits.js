@@ -48,7 +48,7 @@ export class DefenderUnit {
     this.baseAttackDamage = Math.floor(this.baseAttackDamage * statMultiplier);
     this.baseHealth = Math.floor(this.baseHealth * statMultiplier);
     this.baseRange = Math.floor(this.baseRange * statMultiplier);
-    this.baseCost = Math.floor(this.baseCost * (1 + (level - 1) * 0.5)); //5% increase
+    //this.baseCost = Math.floor(this.baseCost * (1 + (level - 1) * 0.5)); //5% increase
 
     //Apply special ability base on level
     this.applySpecialAbilities();
@@ -448,7 +448,7 @@ export class BarricadeDefender extends DefenderUnit {
     const healthMultiplier = 1 + (level - 1) * 0.3; // 30% health increase per level
 
     this.baseHealth = Math.floor(this.baseHealth * healthMultiplier);
-    this.baseCost = Math.floor(this.baseCost * (1 + (level - 1) * 0.1));
+    //this.baseCost = Math.floor(this.baseCost * (1 + (level - 1) * 0.1));
 
     this.applySpecialAbilities();
   }
