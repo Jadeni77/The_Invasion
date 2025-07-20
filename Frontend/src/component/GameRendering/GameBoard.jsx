@@ -169,14 +169,24 @@ const GameBoard = () => {
     setShowQuitDialog(true);
   };
 
+  // const handleQuitConfirm = () => {
+  //   //mark game over and lost
+  //   if (gameEngineRef.current) {
+  //     gameEngineRef.current.forceGameOver();
+  //   }
+  //   setShowQuitDialog(false);
+  //   endGame("loss");
+  // };
+
   const handleQuitConfirm = () => {
-    //mark game over and lost
-    if (gameEngineRef.current) {
-      gameEngineRef.current.forceGameOver();
-    }
-    setShowQuitDialog(false);
-    endGame("loss");
-  };
+  if (gameEngineRef.current) {
+    gameEngineRef.current.stopLoop(); // Stop the game loop first
+    gameEngineRef.current.gameOver = true; // Mark as game over
+    gameEngineRef.current.gameWon = false; // Mark as loss
+  }
+  setShowQuitDialog(false);
+  endGame("quit"); // Use "quit" instead of "loss"
+};
 
   const handleQuitCancel = () => {
     if (gameEngineRef.current) {
