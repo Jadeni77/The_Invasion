@@ -278,8 +278,8 @@ export class GameEngine {
       })
       .catch((error) => {
         console.error("Error loading game assets:", error);
-    //    this.gameOver = true; // Prevent game from starting if assets fail to load
-    this.setGameOver(true, "Preven game from starting if loading fails");
+        //    this.gameOver = true; // Prevent game from starting if assets fail to load
+        this.setGameOver(true, "Preven game from starting if loading fails");
         this.onLoseCb({
           // Notify GameContext about the failure
           score: 0,
@@ -365,8 +365,13 @@ export class GameEngine {
     }
 
     // Adjust position to center of card
-    const deployX = gridCell.x + (this.gridSize - tempUnit.width) / 2;
-    const deployY = gridCell.y + (this.gridSize - tempUnit.height) / 2;
+    let deployX = gridCell.x + (this.gridSize - tempUnit.width) / 2;
+    let deployY = gridCell.y + (this.gridSize - tempUnit.height) / 2;
+
+    // Ensure the unit stays within the deployment area
+    if (deployX < this.gridOffsetX) {
+      deployX = this.gridOffsetX;
+    }
 
     console.log(
       `Deployment coordinates: (${deployX}, ${deployY}), dimensions: ${tempUnit.width}x${tempUnit.height}`
@@ -695,8 +700,8 @@ export class GameEngine {
 
           // Check for game over
           if (this.baseHealth <= 0) {
-         //   this.gameOver = true;
-         this.setGameOver(true, "Defense Breached");
+            //   this.gameOver = true;
+            this.setGameOver(true, "Defense Breached");
             this.handleDefenseBreached();
           }
         }
@@ -781,8 +786,8 @@ export class GameEngine {
 
     if (this.gameOver) return;
 
-   // this.gameOver = true;
-   this.setGameOver(true, "Defense Breached");
+    // this.gameOver = true;
+    this.setGameOver(true, "Defense Breached");
     this.gameWon = false;
     this.stopLoop(); // Stop the game loop
 
@@ -797,8 +802,8 @@ export class GameEngine {
 
   /** Handles the game win state when all enemies are defeated. */
   handleLevelComplete() {
-   // this.gameOver = true;
-   this.setGameOver(true, "Level Complete");
+    // this.gameOver = true;
+    this.setGameOver(true, "Level Complete");
     this.gameWon = true;
     this.stopLoop(); // Stop the game loop
 
@@ -925,10 +930,10 @@ export class GameEngine {
 
   /** Draws all active defender units. */
   drawDefenders(ctx) {
-   // console.log(`Drawing ${this.defenders.length} defenders`); // Add debug log
+    // console.log(`Drawing ${this.defenders.length} defenders`); // Add debug log
     for (const defender of this.defenders) {
       if (defender.isAlive) {
-     //   console.log(`Drawing defender at (${defender.x}, ${defender.y})`); // Add debug log
+        //   console.log(`Drawing defender at (${defender.x}, ${defender.y})`); // Add debug log
 
         defender.draw(ctx);
       }
