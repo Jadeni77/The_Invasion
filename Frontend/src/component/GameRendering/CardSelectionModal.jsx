@@ -58,7 +58,7 @@ function CardSelectionModal({ playerData, levelId, onConfirm, onCancel }) {
               <div
                 key={card.id}
                 className={`card-wrapper ${isSelected ? "selected" : ""}`}
-                onClick={handleCardToggle}
+                onClick={() => handleCardToggle(card)}
               >
                 <Card
                   card={card}

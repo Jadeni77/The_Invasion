@@ -23,6 +23,7 @@ const GameBoard = () => {
     onWinCb,
     onLoseCb,
     startLevel,
+    selectedCardsForGame,
   } = useGame();
 
   const gameEngineRef = useRef(null);
@@ -103,8 +104,16 @@ const GameBoard = () => {
       gameEngineRef.current.startLoop();
 
       // Reset hand and deck
-      if (playerData?.cards?.length > 0) {
+      if (selectedCardsForGame?.length > 0) {
         const cardsWithStats = selectedCardsForGame
+          .map(calculateCardStats)
+          .filter(Boolean);
+        const initialDeck = [...cardsWithStats].sort(() => Math.random() - 0.5);
+        setHand(initialDeck.slice(0, 3));
+        setDeck(initialDeck.slice(3));
+      } else if (playerData?.cards?.length > 0) {
+        // Fallback to all cards if no selection
+        const cardsWithStats = playerData.cards
           .map(calculateCardStats)
           .filter(Boolean);
         const initialDeck = [...cardsWithStats].sort(() => Math.random() - 0.5);
@@ -124,7 +133,7 @@ const GameBoard = () => {
         gameEngineRef.current = null;
       }
     };
-  }, [gameState, selectedLevel, resetTrigger]);
+  }, [gameState, selectedLevel, resetTrigger, selectedCardsForGame]);
 
   const drawCards = () => {
     if (hand.length < 3 && deck.length > 0) {
