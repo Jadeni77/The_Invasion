@@ -541,8 +541,8 @@ export class GameEngine {
 
       // Spawn at a random Y position on the left edge
       const spawnX = -100; // Start off-screen left
-     // const randomRow = Math.floor(Math.random() * this.deploymentGrid.length);
-     // const spawnY = randomRow * this.gridSize + this.gridSize / 2 - 15; // Center of grid row minus half enemy height
+      // const randomRow = Math.floor(Math.random() * this.deploymentGrid.length);
+      // const spawnY = randomRow * this.gridSize + this.gridSize / 2 - 15; // Center of grid row minus half enemy height
 
       const spawnY = this.canvasHeight * 0.5;
 
@@ -784,19 +784,20 @@ export class GameEngine {
       this.gameOver
     );
 
-//    if (this.gameOver) return;
+    //    if (this.gameOver) return;
+    if (!this.gameOver) {
+      // this.gameOver = true;
+      this.setGameOver(true, "Defense Breached");
+      this.gameWon = false;
+      this.stopLoop(); // Stop the game loop
 
-    // this.gameOver = true;
-    this.setGameOver(true, "Defense Breached");
-    this.gameWon = false;
-    this.stopLoop(); // Stop the game loop
-
-    if (this.onLoseCb) {
-      this.onLoseCb({
-        score: this.inGameScore,
-        level: this.currentLevelConfig.levelNumber,
-        reason: "Defense breached",
-      });
+      if (this.onLoseCb) {
+        this.onLoseCb({
+          score: this.inGameScore,
+          level: this.currentLevelConfig.levelNumber,
+          reason: "Defense breached",
+        });
+      }
     }
   }
 
