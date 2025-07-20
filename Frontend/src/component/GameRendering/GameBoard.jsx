@@ -175,7 +175,7 @@ const GameBoard = () => {
       gameEngineRef.current.forceGameOver();
     }
     setShowQuitDialog(false);
-    endGame("quit");
+    endGame("loss");
   };
 
   const handleQuitCancel = () => {
