@@ -101,14 +101,14 @@ export class GameEngine {
       for (let col = 0; col < cols; col++) {
         //check if this grid cell is on the road
         const y = row * this.gridSize;
-        const isRoad =
-          y >= this.canvasHeight * 0.4 && y <= this.canvasHeight * 0.6;
+        // const isRoad =
+        //   y >= this.canvasHeight * 0.4 && y <= this.canvasHeight * 0.6;
 
         gridRow.push({
           x: this.gridOffsetX + col * this.gridSize,
           y: this.gridOffsetY + row * this.gridSize,
           occupied: false,
-          isRoad: isRoad,
+       //   isRoad: isRoad,
           row: row,
           col: col,
         });
@@ -339,7 +339,7 @@ export class GameEngine {
 
     //get grid cell
     const gridCell = this.getGridCell(x, y);
-    if (!gridCell || gridCell.occupied || gridCell.isRoad) {
+    if (!gridCell || gridCell.occupied) {
       console.log("Invalid grid cell or cell is occupied/road");
       return false;
     }
@@ -823,7 +823,6 @@ export class GameEngine {
 
     for (let row of this.deploymentGrid) {
       for (let cell of row) {
-        if (!cell.isRoad) {
           //draw grid cell
           ctx.strokeRect(cell.x, cell.y, this.gridSize, this.gridSize);
 
@@ -832,14 +831,14 @@ export class GameEngine {
             ctx.fillStyle = "rgba(255, 0, 0, 0.1)";
             ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
           }
-        }
+        
       }
     }
     // If player is selecting a card, highlight valid cells
     if (this.highlightGrid) {
       for (let row of this.deploymentGrid) {
         for (let cell of row) {
-          if (!cell.isRoad && !cell.occupied) {
+          if (!cell.occupied) {
             ctx.fillStyle = "rgba(0, 255, 0, 0.2)";
             ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
           }
