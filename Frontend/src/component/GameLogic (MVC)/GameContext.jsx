@@ -29,6 +29,8 @@ export const GameProvider = ({ children }) => {
   const [gameOver, setGameOver] = useState(false);
   const [gameWon, setGameWon] = useState(false);
 
+  const [selectedCardsForGame, setSelectedCardsForGame] = useState(null);
+
   // Callbacks for GameEngine to update React state
   const updateEnergyCb = useCallback((energy) => {
     setInGameEnergy(energy);
@@ -368,7 +370,7 @@ export const GameProvider = ({ children }) => {
 
   // Game State management
   const startLevel = useCallback(
-    (levelId) => {
+    (levelId, selectedCards = null) => {
       if (!playerData) {
         console.error("Cannot start level: Player data or canvas not ready.");
         return;
@@ -386,6 +388,10 @@ export const GameProvider = ({ children }) => {
 
       //deduct resources
       updateResource("lobbyEnergy", -levelCost);
+
+      if (selectedCards) {
+        setSelectedCardsForGame(selectedCards); 
+      }
 
       // Set game state
       setSelectedLevel(levelId);
@@ -460,6 +466,7 @@ export const GameProvider = ({ children }) => {
     inGameScore, // Exposed in-game score
     gameOver, // Exposed game over status
     gameWon, // Exposed game won status
+    selectedCardsForGame,
     startLevel, // Function to start a level
     endGame, // Function to end the current game session
     deployDefender, // Function to deploy a defender

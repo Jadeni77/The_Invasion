@@ -18,6 +18,7 @@ src/
 │   │    ├── MapLayout.jsx
 │   │    └── ResourceIcon.jsx
 │   │    ├── UpgradeModal.jsx
+|   |    |-- CardSelectionModal.jsx
 ├── style/
 │   ├── Lobby.css
 |   |-- EnergyBar.css

@@ -1,5 +1,5 @@
 // src/components/GameRendering/Lobby.jsx
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, use } from "react";
 import { useGame } from "../GameLogic (MVC)/GameContext"; // Correct path
 import ResourceIcon from "./ResourceIcon"; // Correct path
 import EnergyBar from "./EnergyBar"; // Correct path
@@ -8,12 +8,16 @@ import { levelsMapData, connectionsData, chestsData } from "./MapLayout"; // New
 import "../../style/Lobby.css"; // Correct path
 import "../../style/UpgradeModal.css"; // Correct path (if UpgradeModal.css is used by Lobby too)
 import WorkerStatus from "../common/WorkerStatus";
+import CardSelectionModal from "./CardSelectionModal";
 
 const Lobby = () => {
   const { gameState, playerData, startLevel, openUpgradeModal } = useGame();
   const [mapPosition, setMapPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const [showCardSelection, setShowCardSelection] = useState(false);
+  const [selectedLevelId, setSelectedLevelId] = useState(null);
 
   const [mapBoundaries, setMapBoundaries] = useState({
     minX: 0,
@@ -110,7 +114,20 @@ const Lobby = () => {
   // Handle level node click
   const handleLevelNodeClick = (levelId) => {
     // startLevel will handle energy check and state transition
-    startLevel(levelId); // GameBoard will be rendered by App.jsx
+    //startLevel(levelId); // GameBoard will be rendered by App.jsx\
+
+    setSelectedLevelId(levelId);
+    setShowCardSelection(true);
+  };
+
+  const handleCardSelectionConfirm = (selectedCards) => {
+    setShowCardSelection(false);
+    startLevel(selectedLevelId, selectedCards);
+  };
+
+  const handleCardSelectionCancel = () => {
+    setShowCardSelection(false);
+    setSelectedLevelId(null);
   };
 
   if (!playerData) return <div>Loading...</div>;
@@ -257,6 +274,16 @@ const Lobby = () => {
         <i className="icon-upgrade"></i> {/* Icon placeholder */}
         <span>Upgrade Cards</span>
       </button>
+
+      {/* Showing the selection of cards before game start */}
+      {showCardSelection && (
+        <CardSelectionModal
+          playerData={playerData}
+          levelId={selectedLevelId}
+          onConfirm={handleCardSelectionConfirm}
+          onCancel={handleCardSelectionCancel}
+        />
+      )}
     </div>
   );
 };

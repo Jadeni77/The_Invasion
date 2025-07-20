@@ -104,7 +104,7 @@ const GameBoard = () => {
 
       // Reset hand and deck
       if (playerData?.cards?.length > 0) {
-        const cardsWithStats = playerData.cards
+        const cardsWithStats = selectedCardsForGame
           .map(calculateCardStats)
           .filter(Boolean);
         const initialDeck = [...cardsWithStats].sort(() => Math.random() - 0.5);

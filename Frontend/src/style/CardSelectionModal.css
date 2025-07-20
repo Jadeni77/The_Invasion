@@ -1,0 +1,215 @@
+/* src/style/CardSelectionModal.css */
+.card-selection-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.card-selection-modal {
+  background: #2a2a2a;
+  border-radius: 15px;
+  padding: 30px;
+  max-width: 900px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  border: 2px solid #444;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.modal-header h2 {
+  color: #fff;
+  font-size: 2em;
+  margin-bottom: 10px;
+}
+
+.modal-header p {
+  color: #ccc;
+  font-size: 1.1em;
+}
+
+.level-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 15px 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.energy-cost {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffeb3b;
+  font-size: 1.1em;
+}
+
+.energy-icon {
+  font-size: 1.5em;
+}
+
+.selected-count {
+  color: #4CAF50;
+  font-weight: bold;
+  font-size: 1.1em;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 15px;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.card-wrapper {
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.card-wrapper:hover {
+  transform: translateY(-5px);
+}
+
+.card-wrapper.selected {
+  transform: translateY(-5px) scale(1.05);
+}
+
+.card-wrapper.selected .card-container {
+  border: 3px solid #4CAF50;
+  box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+}
+
+.selection-indicator {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #4CAF50;
+  color: white;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  animation: popIn 0.3s ease;
+}
+
+@keyframes popIn {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.checkmark {
+  font-size: 1.2em;
+  font-weight: bold;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.cancel-button,
+.confirm-button {
+  padding: 12px 30px;
+  font-size: 1.1em;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+}
+
+.cancel-button {
+  background: #666;
+  color: white;
+}
+
+.cancel-button:hover {
+  background: #555;
+  transform: scale(1.05);
+}
+
+.confirm-button {
+  background: #4CAF50;
+  color: white;
+}
+
+.confirm-button:hover:not(:disabled) {
+  background: #45a049;
+  transform: scale(1.05);
+}
+
+.confirm-button:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Scrollbar styling */
+.cards-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cards-grid::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.cards-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+.cards-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
