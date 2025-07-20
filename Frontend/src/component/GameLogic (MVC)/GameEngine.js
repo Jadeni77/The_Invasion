@@ -541,10 +541,10 @@ export class GameEngine {
 
       // Spawn at a random Y position on the left edge
       const spawnX = -100; // Start off-screen left
-      const randomRow = Math.floor(Math.random() * this.deploymentGrid.length);
-      const spawnY = randomRow * this.gridSize + this.gridSize / 2 - 15; // Center of grid row minus half enemy height
+     // const randomRow = Math.floor(Math.random() * this.deploymentGrid.length);
+     // const spawnY = randomRow * this.gridSize + this.gridSize / 2 - 15; // Center of grid row minus half enemy height
 
-      //const spawnY = this.canvasHeight * 0.5;
+      const spawnY = this.canvasHeight * 0.5;
 
       const enemy = new EnemyClass(spawnX, spawnY, this.getImage(enemyType));
 
@@ -784,7 +784,7 @@ export class GameEngine {
       this.gameOver
     );
 
-    if (this.gameOver) return;
+//    if (this.gameOver) return;
 
     // this.gameOver = true;
     this.setGameOver(true, "Defense Breached");
@@ -829,10 +829,10 @@ export class GameEngine {
     this.drawExplosions(ctx);
     this.drawUI(ctx);
 
-    // Draw game over/win message overlay
-    if (this.gameOver) {
-      this.drawGameOverScreen(ctx);
-    }
+    // // Draw game over/win message overlay
+    // if (this.gameOver) {
+    //   this.drawGameOverScreen(ctx);
+    // }
   }
 
   drawGrid(ctx) {

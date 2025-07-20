@@ -193,17 +193,18 @@
 .game-over-screen h2 {
   font-size: 42px;
   color: #ffcc00;
-  text-shadow: 0 0 10px rgba(255, 204, 0, 0.7);
   margin-bottom: 30px;
   text-transform: uppercase;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .result-details {
-  background: rgba(0, 30, 60, 0.7);
-  border: 2px solid #3a6a9a;
-  border-radius: 15px;
-  padding: 20px 40px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 30px;
   margin-bottom: 30px;
+  min-width: 400px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 .result-details p {
@@ -216,6 +217,107 @@
   color: #ffcc00;
   font-weight: bold;
   font-size: 26px;
+}
+
+.score-section {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.score-section p {
+  font-size: 1.4em;
+  margin: 10px 0;
+}
+
+.score-value, .level-value {
+  color: #4CAF50;
+  font-weight: bold;
+  font-size: 1.2em;
+}
+
+.rewards-section h3 {
+  text-align: center;
+  margin-bottom: 15px;
+  font-size: 1.3em;
+  color: #fff;
+}
+
+.resource-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 10px 0;
+  font-size: 1.2em;
+}
+
+.resource-line.loss {
+  color: #ff5252;
+}
+
+.resource-icon {
+  font-size: 1.5em;
+  margin-right: 10px;
+}
+
+.resource-text {
+  font-weight: 500;
+}
+
+.warning-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 20px;
+  color: #ff9800;
+  font-size: 1.1em;
+}
+
+.warning-icon {
+  font-size: 1.5em;
+  margin-right: 10px;
+}
+
+.defeat-message {
+  text-align: center;
+  margin-top: 20px;
+  font-style: italic;
+  color: #ccc;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 20px;
+}
+
+.lobby-button, .replay-button {
+  padding: 15px 30px;
+  font-size: 1.2em;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.lobby-button {
+  background: #2196F3;
+  color: white;
+}
+
+.lobby-button:hover {
+  background: #1976D2;
+  transform: scale(1.05);
+}
+
+.replay-button {
+  background: #4CAF50;
+  color: white;
+}
+
+.replay-button:hover {
+  background: #388E3C;
+  transform: scale(1.05);
 }
 
 .action-buttons {

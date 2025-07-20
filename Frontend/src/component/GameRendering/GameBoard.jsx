@@ -3,6 +3,8 @@ import { useGame } from "../GameLogic (MVC)/GameContext";
 import Card from "../common/Card";
 import { GameEngine } from "../GameLogic (MVC)/GameEngine";
 import { calculateCardStats } from "../GameLogic (MVC)/DefenderClassUtils";
+import Gold from "../../Icons/Gold.png";
+import Iron from "../../Icons/Iron.png";
 
 const GameBoard = () => {
   const canvasRef = useRef(null);
@@ -179,14 +181,14 @@ const GameBoard = () => {
   // };
 
   const handleQuitConfirm = () => {
-  if (gameEngineRef.current) {
-    gameEngineRef.current.stopLoop(); // Stop the game loop first
-    gameEngineRef.current.gameOver = true; // Mark as game over
-    gameEngineRef.current.gameWon = false; // Mark as loss
-  }
-  setShowQuitDialog(false);
-  endGame("quit"); // Use "quit" instead of "loss"
-};
+    if (gameEngineRef.current) {
+      gameEngineRef.current.stopLoop(); // Stop the game loop first
+      gameEngineRef.current.gameOver = true; // Mark as game over
+      gameEngineRef.current.gameWon = false; // Mark as loss
+    }
+    setShowQuitDialog(false);
+    endGame("quit"); // Use "quit" instead of "loss"
+  };
 
   const handleQuitCancel = () => {
     if (gameEngineRef.current) {
@@ -197,19 +199,96 @@ const GameBoard = () => {
 
   // Render game over screen
   if (gameOver) {
+    console.log("Rendering game over screen");
+
+    const goldLoss = gameWon ? 0 : 50;
+    const ironLoss = gameWon ? 0 : 10;
+    const grainLoss = gameWon ? 0 : 10;
+    const waterLoss = gameWon ? 0 : 50;
+    const gemLoss = gameWon ? 0 : Math.ceil(Math.random());
+    const goldEarned = Math.floor(inGameScore * 0.3);
+    const ironEarned = Math.floor(inGameScore * 0.3);
+    const grainEarned = Math.floor(inGameScore * 0.3);
+    const waterEarned = Math.floor(inGameScore * 0.3);
+
     return (
       <div className="game-over-screen">
         <h2>{gameWon ? "MISSION ACCOMPLISHED!" : "MISSION FAILED!"}</h2>
         <div className="result-details">
-          <p>
-            Score: <span className="score-value">{inGameScore}</span>
-          </p>
-          <p>
-            Gold Earned:{" "}
-            <span className="gold-value">
-              {gameWon ? inGameScore : Math.floor(inGameScore * 0.3)}
-            </span>
-          </p>
+          <div className="score-section">
+            <p>
+              Final Score: <span className="score-value">{inGameScore}</span>
+            </p>
+            <p>
+              Level: <span className="level-value">{selectedLevel}</span>
+            </p>
+          </div>
+
+          <div className="rewards-section">
+            <h3>{gameWon ? "Rewards Earned:" : "Resources Lost:"}</h3>
+            {gameWon ? (
+              <>
+                <div className="resource-line">
+                  <span className="resource-icon">
+                    <img src={Gold} alt="💰" className="resource-image" />
+                  </span>
+                  <span className="resource-text">Gold + {goldEarned}</span>
+                </div>
+                <div className="resource-line">
+                  <span className="resource-icon">
+                    {" "}
+                    <img src={Iron} alt="⛓️" className="resource-image" />
+                  </span>
+                  <span className="resource-text">Iron + {ironEarned}</span>
+                </div>
+                <div className="resource-line">
+                  <span className="resource-icon">💰</span>
+                  <span className="resource-text">Grain + {grainEarned}</span>
+                </div>
+                <div className="resource-line">
+                  <span className="resource-icon">💰</span>
+                  <span className="resource-text">Water + {waterEarned}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="resource-line loss">
+                  <span className="resource-icon">
+                    {" "}
+                    <img src={Gold} alt="💰" className="resource-image" />
+                  </span>
+                  <span className="resource-text">Gold -{goldLoss}</span>
+                </div>
+                <div className="resource-line loss">
+                  <span className="resource-icon">
+                    {" "}
+                    <img src={Iron} alt="⛓️" className="resource-image" />
+                  </span>
+                  <span className="resource-text">Iron -{ironLoss}</span>
+                </div>
+                <div className="resource-line loss">
+                  <span className="resource-icon">🌾</span>
+                  <span className="resource-text">Grain -{grainLoss}</span>
+                </div>
+                <div className="resource-line loss">
+                  <span className="resource-icon">💧</span>
+                  <span className="resource-text">Water -{waterLoss}</span>
+                </div>
+
+                {gemLoss > 0 && (
+                  <div className="resource-line loss">
+                    <span className="resource-icon">💎</span>
+                    <span className="resource-text">Gem -{gemLoss}</span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          {!gameWon && (
+            <div className="defeat-message">
+              <p>The evil creatures reached your garden!</p>
+            </div>
+          )}
         </div>
 
         <div className="action-buttons">
@@ -230,7 +309,10 @@ const GameBoard = () => {
 
               // Reset hand and deck
               if (playerData?.cards?.length > 0) {
-                const initialDeck = [...playerData.cards].sort(
+                const cardsWithStats = playerData.cards
+                  .map(calculateCardStats)
+                  .filter(Boolean);
+                const initialDeck = [...cardsWithStats].sort(
                   () => Math.random() - 0.5
                 );
                 setHand(initialDeck.slice(0, 3));

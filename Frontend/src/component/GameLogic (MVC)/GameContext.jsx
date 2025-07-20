@@ -67,6 +67,10 @@ export const GameProvider = ({ children }) => {
 
   const onLoseCb = useCallback(
     ({ score, level, reason }) => {
+      console.log("onLoseCb called with:", { score, level, reason }); // Debug log
+      console.log("onLoseCb called - BEFORE setting states"); // Add this
+      console.log("Current gameOver state:", gameOver); // Add this
+
       setGameOver(true);
       setGameWon(false);
       console.log(
@@ -381,7 +385,7 @@ export const GameProvider = ({ children }) => {
       }
 
       //deduct resources
-      updateResource('lobbyEnergy', -levelCost);
+      updateResource("lobbyEnergy", -levelCost);
 
       // Set game state
       setSelectedLevel(levelId);
