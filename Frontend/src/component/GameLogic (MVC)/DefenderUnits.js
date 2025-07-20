@@ -11,7 +11,7 @@ export class DefenderUnit {
     this.baseWidth = cardData.width || 40;
     this.baseHeight = cardData.height || 40;
     this.baseRange = cardData.range || 150;
-    this.baseAttackDamage = cardData.damage || 20;
+    this.baseAttackDamage = cardData.damage || 0;
     this.baseFireRate = cardData.fireRate || 60;
     this.baseHealth = cardData.health || 100;
     this.baseCost = cardData.cost || 0;
