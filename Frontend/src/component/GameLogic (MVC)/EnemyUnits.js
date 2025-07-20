@@ -34,9 +34,9 @@ export class Enemy {
     if (!this.isAlive) return;
 
     if (this.health <= 0) {
-        this.isAlive = false;
-        this.speed = 0;
-        return;
+      this.isAlive = false;
+      this.speed = 0;
+      return;
     }
     let targetDefender = null;
 
@@ -60,7 +60,7 @@ export class Enemy {
         this.attackCountdown--;
 
         if (this.attackCountdown <= 0) {
-          targetDefender.takeDamage(this.attackDamage); 
+          targetDefender.takeDamage(this.attackDamage);
           this.attackCountdown = this.attackRate; // Reset attack cooldown
         }
       } else {
@@ -115,6 +115,11 @@ export class Enemy {
   }
 
   takeDamage(amount) {
+    console.log(
+      `${this.name} taking ${amount} damage at position (${this.x}, ${this.y})`
+    );
+    console.trace(); // This will show the call stack
+
     this.health -= amount;
     if (this.health <= 0) {
       this.health = 0;

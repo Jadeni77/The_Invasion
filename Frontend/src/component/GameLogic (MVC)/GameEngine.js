@@ -108,7 +108,7 @@ export class GameEngine {
           x: this.gridOffsetX + col * this.gridSize,
           y: this.gridOffsetY + row * this.gridSize,
           occupied: false,
-       //   isRoad: isRoad,
+          //   isRoad: isRoad,
           row: row,
           col: col,
         });
@@ -278,7 +278,8 @@ export class GameEngine {
       })
       .catch((error) => {
         console.error("Error loading game assets:", error);
-        this.gameOver = true; // Prevent game from starting if assets fail to load
+    //    this.gameOver = true; // Prevent game from starting if assets fail to load
+    this.setGameOver(true, "Preven game from starting if loading fails");
         this.onLoseCb({
           // Notify GameContext about the failure
           score: 0,
@@ -339,6 +340,8 @@ export class GameEngine {
 
     //get grid cell
     const gridCell = this.getGridCell(x, y);
+    console.log("Grid cell:", gridCell); // Add this debug line
+
     if (!gridCell || gridCell.occupied) {
       console.log("Invalid grid cell or cell is occupied/road");
       return false;
@@ -425,7 +428,7 @@ export class GameEngine {
     const roadTop = this.canvasHeight * 0.4; // Example: road starts at 40% down
     const roadBottom = this.canvasHeight * 0.6; // Example: road ends at 60% down
 
-    if (x < this.canvasWidth / 2 || x + width > this.canvasWidth) {
+    if (x < this.gridOffsetX - 1 || x + width > this.canvasWidth) {
       return false; // Must be in the right half
     }
 
@@ -535,8 +538,8 @@ export class GameEngine {
       const spawnX = -100; // Start off-screen left
       const randomRow = Math.floor(Math.random() * this.deploymentGrid.length);
       const spawnY = randomRow * this.gridSize + this.gridSize / 2 - 15; // Center of grid row minus half enemy height
-      
-     //const spawnY = this.canvasHeight * 0.5;
+
+      //const spawnY = this.canvasHeight * 0.5;
 
       const enemy = new EnemyClass(spawnX, spawnY, this.getImage(enemyType));
 
@@ -645,7 +648,7 @@ export class GameEngine {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
 
-      if (!enemy.isAlive) {
+      if (!enemy || !enemy.isAlive) {
         this.enemies.splice(i, 1); //remove dead enemy
         continue;
       }
@@ -692,7 +695,8 @@ export class GameEngine {
 
           // Check for game over
           if (this.baseHealth <= 0) {
-            this.gameOver = true;
+         //   this.gameOver = true;
+         this.setGameOver(true, "Defense Breached");
             this.handleDefenseBreached();
           }
         }
@@ -770,7 +774,15 @@ export class GameEngine {
 
   // /** Handles the game over state when defense is breached. */
   handleDefenseBreached() {
-    this.gameOver = true;
+    console.log(
+      "handleDefenseBreached called, current gameOver state:",
+      this.gameOver
+    );
+
+    if (this.gameOver) return;
+
+   // this.gameOver = true;
+   this.setGameOver(true, "Defense Breached");
     this.gameWon = false;
     this.stopLoop(); // Stop the game loop
 
@@ -785,7 +797,8 @@ export class GameEngine {
 
   /** Handles the game win state when all enemies are defeated. */
   handleLevelComplete() {
-    this.gameOver = true;
+   // this.gameOver = true;
+   this.setGameOver(true, "Level Complete");
     this.gameWon = true;
     this.stopLoop(); // Stop the game loop
 
@@ -823,15 +836,14 @@ export class GameEngine {
 
     for (let row of this.deploymentGrid) {
       for (let cell of row) {
-          //draw grid cell
-          ctx.strokeRect(cell.x, cell.y, this.gridSize, this.gridSize);
+        //draw grid cell
+        ctx.strokeRect(cell.x, cell.y, this.gridSize, this.gridSize);
 
-          //highlight occupied cells
-          if (cell.occupied) {
-            ctx.fillStyle = "rgba(255, 0, 0, 0.1)";
-            ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
-          }
-        
+        //highlight occupied cells
+        if (cell.occupied) {
+          ctx.fillStyle = "rgba(255, 0, 0, 0.1)";
+          ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
+        }
       }
     }
     // If player is selecting a card, highlight valid cells
@@ -913,10 +925,10 @@ export class GameEngine {
 
   /** Draws all active defender units. */
   drawDefenders(ctx) {
-    console.log(`Drawing ${this.defenders.length} defenders`); // Add debug log
+   // console.log(`Drawing ${this.defenders.length} defenders`); // Add debug log
     for (const defender of this.defenders) {
       if (defender.isAlive) {
-        console.log(`Drawing defender at (${defender.x}, ${defender.y})`); // Add debug log
+     //   console.log(`Drawing defender at (${defender.x}, ${defender.y})`); // Add debug log
 
         defender.draw(ctx);
       }
@@ -1054,9 +1066,17 @@ export class GameEngine {
   }
 
   forceGameOver() {
-    this.gameOver = true;
+    //this.gameOver = true;
+    this.setGameOver(true, "Force Game Over");
     this.gameWon = false;
     this.stopLoop();
+  }
+
+  //setter for seting the game over with console debugging
+  setGameOver(value, reason) {
+    console.log(`Setting gameOver to ${value}, reason: ${reason}`);
+    console.trace(); // Show call stack
+    this.gameOver = value;
   }
 
   /** Starts the game animation loop. */
