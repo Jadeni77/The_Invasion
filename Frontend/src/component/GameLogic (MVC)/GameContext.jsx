@@ -32,14 +32,17 @@ export const GameProvider = ({ children }) => {
   const [selectedCardsForGame, setSelectedCardsForGame] = useState(null);
 
   // Callbacks for GameEngine to update React state
+  //updating in game energy 
   const updateEnergyCb = useCallback((energy) => {
     setInGameEnergy(energy);
   }, []);
 
+  //updating in game score
   const updateScoreCb = useCallback((score) => {
     setInGameScore(score);
   }, []);
 
+  //handle game win logiv
   const onWinCb = useCallback(
     ({ score, level }) => {
       setGameOver(true);
@@ -67,6 +70,7 @@ export const GameProvider = ({ children }) => {
     [] // Dependencies are handled by the state setters
   );
 
+  //handle game loss logic
   const onLoseCb = useCallback(
     ({ score, level, reason }) => {
       console.log("onLoseCb called with:", { score, level, reason }); // Debug log
@@ -81,6 +85,7 @@ export const GameProvider = ({ children }) => {
 
       // Deduct resources on loss (as per your logic)
       setPlayerData((prev) => {
+        console.log("Set Player Data Resources Logic Being called in onLoseCb")
         if (!prev) return prev;
         const newGold = Math.max(0, prev.resources.gold - 50); // Placeholder amounts
         const newGrain = Math.max(0, prev.resources.grain - 10);
