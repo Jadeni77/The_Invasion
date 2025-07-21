@@ -701,7 +701,7 @@ export class GameEngine {
           // Check for game over
           if (this.baseHealth <= 0) {
             //   this.gameOver = true;
-            this.setGameOver(true, "Defense Breached");
+          //  this.setGameOver(true, "Defense Breached");
             this.handleDefenseBreached();
           }
         }
@@ -792,6 +792,8 @@ export class GameEngine {
       this.stopLoop(); // Stop the game loop
 
       if (this.onLoseCb) {
+        console.log("Calling onLoseCb now");
+
         this.onLoseCb({
           score: this.inGameScore,
           level: this.currentLevelConfig.levelNumber,

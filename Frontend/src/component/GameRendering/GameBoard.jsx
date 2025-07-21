@@ -171,7 +171,7 @@ const GameBoard = () => {
         gameEngineRef.current = null;
       }
     };
-  }, [gameState, selectedLevel, resetTrigger]);
+  }, [gameState, selectedLevel, resetTrigger, updateEnergyCb, updateScoreCb, onWinCb, onLoseCb]);
 
   // const drawCards = () => {
   //   if (hand.length < 3 && deck.length > 0) {
@@ -210,7 +210,7 @@ const GameBoard = () => {
 
     if (gameEngineRef.current.deployDefenderUnit(selectedCard, x, y)) {
       //handleCardDeployment();
-      const cooldownDuration = this.getCooldownDuration(selectedCard);
+      const cooldownDuration = getCooldownDuration(selectedCard);
       setCardCooldown((prev) => ({
         ...prev,
         [selectedCard.id]: cooldownDuration,
@@ -266,7 +266,7 @@ const GameBoard = () => {
 
   // Render game over screen
   if (gameOver) {
-    console.log("Rendering game over screen");
+   // console.log("Rendering game over screen");
 
     const goldLoss = gameWon ? 0 : 50;
     const ironLoss = gameWon ? 0 : 10;
@@ -444,7 +444,7 @@ const GameBoard = () => {
         {cardSlots.map((card) => {
           const cooldown = cardCooldown[card.id] || 0;
           const cooldownPercent =
-            cooldown > 0 ? (cooldown / this.getCooldownDuration(card)) * 100 : 0;
+            cooldown > 0 ? (cooldown / getCooldownDuration(card)) * 100 : 0;
           const isDisabled = cooldown > 0 || inGameEnergy < card.cost;
 
           return (
