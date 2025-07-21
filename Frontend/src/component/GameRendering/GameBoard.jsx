@@ -28,8 +28,12 @@ const GameBoard = () => {
 
   const gameEngineRef = useRef(null);
   const [selectedCard, setSelectedCard] = useState(null);
-  const [cardSlots, setCardSlots] = useState([]); // Fixed card slots
-  const [cardCooldowns, setCardCooldowns] = useState({}); // Track cooldowns
+  // const [hand, setHand] = useState([]);
+  // const [deck, setDeck] = useState([]);
+
+  const [cardSlots, setCardSlots] = useState([]);
+  const [cardCooldown, setCardCooldown] = useState({});
+
   const [baseHealth, setBaseHealth] = useState(100);
   const [resetTrigger, setResetTrigger] = useState(0);
   const [showQuitDialog, setShowQuitDialog] = useState(false);
@@ -68,42 +72,40 @@ const GameBoard = () => {
         .map(calculateCardStats)
         .filter(Boolean);
       setCardSlots(cardsWithStats);
-      
-      // Initialize cooldowns (all cards start ready)
-      const initialCooldowns = {};
-      cardsWithStats.forEach(card => {
-        initialCooldowns[card.id] = 0;
+
+      //initialize cooldown (all the start will be start ready)
+      const initialCooldown = {};
+      cardsWithStats.forEach((card) => {
+        initialCooldown[card.id] = 0;
       });
-      setCardCooldowns(initialCooldowns);
+      setCardCooldown(initialCooldown);
     } else if (playerData?.cards?.length > 0) {
-      // Fallback to all cards if no selection
       const cardsWithStats = playerData.cards
         .map(calculateCardStats)
         .filter(Boolean);
       setCardSlots(cardsWithStats);
-      
-      const initialCooldowns = {};
-      cardsWithStats.forEach(card => {
-        initialCooldowns[card.id] = 0;
+
+      const initialCooldown = {};
+      cardsWithStats.forEach((card) => {
+        initialCooldown[card.id] = 0;
       });
-      setCardCooldowns(initialCooldowns);
+      setCardCooldown(initialCooldown);
     }
   }, [selectedCardsForGame, playerData]);
 
-  // Update cooldowns
+  //update cooldowns
   useEffect(() => {
     const cooldownInterval = setInterval(() => {
-      setCardCooldowns(prev => {
+      setCardCooldown((prev) => {
         const updated = { ...prev };
-        Object.keys(updated).forEach(cardId => {
+        Object.keys(updated).forEach((cardId) => {
           if (updated[cardId] > 0) {
-            updated[cardId] = Math.max(0, updated[cardId] - 100); // Decrease by 100ms
+            updated[cardId] = Math.max(0, updated[cardId] - 100); //deacrease by 100ms
           }
         });
         return updated;
       });
-    }, 100); // Update every 100ms for smooth progress
-
+    }, 100);
     return () => clearInterval(cooldownInterval);
   }, []);
 
@@ -137,8 +139,28 @@ const GameBoard = () => {
       // Start game loop
       gameEngineRef.current.startLoop();
 
-      // Reset selection
       setSelectedCard(null);
+
+      // // Reset hand and deck
+      // if (selectedCardsForGame?.length > 0) {
+      //   const cardsWithStats = selectedCardsForGame
+      //     .map(calculateCardStats)
+      //     .filter(Boolean);
+      //   const initialDeck = [...cardsWithStats].sort(() => Math.random() - 0.5);
+      //   setHand(initialDeck.slice(0, 3));
+      //   setDeck(initialDeck.slice(3));
+      // } else if (playerData?.cards?.length > 0) {
+      //   // Fallback to all cards if no selection
+      //   const cardsWithStats = playerData.cards
+      //     .map(calculateCardStats)
+      //     .filter(Boolean);
+      //   const initialDeck = [...cardsWithStats].sort(() => Math.random() - 0.5);
+      //   setHand(initialDeck.slice(0, 3));
+      //   setDeck(initialDeck.slice(3));
+      // }
+
+      // // Reset selection
+      // setSelectedCard(null);
     }
 
     // Cleanup
@@ -151,11 +173,18 @@ const GameBoard = () => {
     };
   }, [gameState, selectedLevel, resetTrigger]);
 
+  // const drawCards = () => {
+  //   if (hand.length < 3 && deck.length > 0) {
+  //     const cardsToDraw = Math.min(3 - hand.length, deck.length);
+  //     const newCards = deck.slice(0, cardsToDraw);
+  //     setHand((prev) => [...prev, ...newCards]);
+  //     setDeck((prev) => prev.slice(cardsToDraw));
+  //   }
+  // };
+
   const handleCardSelection = (card) => {
-    // Check if card is on cooldown or not enough energy
-    if (cardCooldowns[card.id] > 0 || inGameEnergy < card.cost) {
-      return;
-    }
+    //check if a card is on cooldown
+    if (cardCooldown[card.id] > 0 || inGameEnergy < card.cost) return;
 
     if (selectedCard?.id === card.id) {
       setSelectedCard(null);
@@ -163,6 +192,13 @@ const GameBoard = () => {
       setSelectedCard(card);
     }
   };
+
+  // const handleCardDeployment = () => {
+  //   if (!selectedCard) return;
+  //   setHand((prev) => prev.filter((c) => c.id !== selectedCard.id));
+  //   setSelectedCard(null);
+  //   setTimeout(drawCards, 300);
+  // };
 
   const handleCanvasClick = (event) => {
     if (gameOver || !selectedCard || !gameEngineRef.current) return;
@@ -173,27 +209,25 @@ const GameBoard = () => {
     const y = event.clientY - rect.top;
 
     if (gameEngineRef.current.deployDefenderUnit(selectedCard, x, y)) {
-      // Set cooldown for the deployed card
-      const cooldownDuration = getCooldownDuration(selectedCard);
-      setCardCooldowns(prev => ({
+      //handleCardDeployment();
+      const cooldownDuration = this.getCooldownDuration(selectedCard);
+      setCardCooldown((prev) => ({
         ...prev,
-        [selectedCard.id]: cooldownDuration
+        [selectedCard.id]: cooldownDuration,
       }));
-      
       setSelectedCard(null);
     }
   };
 
-  // Get cooldown duration based on card type
+  //get the cooldown duration for a card type
   const getCooldownDuration = (card) => {
-    // You can customize cooldowns per card type
     const cooldowns = {
-      "Basic Cop": 5000,      // 5 seconds
-      "Healer Cop": 8000,     // 8 seconds
-      "Grenadier": 10000,     // 10 seconds
-      "Barricade": 7000,      // 7 seconds
+      "Basic Cop": 5000, //5 second
+      "Healer Cop": 8000,
+      "Grenadier ": 10000,
+      "Barricade ": 7000,
     };
-    return cooldowns[card.name] || 5000; // Default 5 seconds
+    return cooldowns[card.name] || 5000; //default at 5 seconds
   };
 
   const handleQuitClick = () => {
@@ -203,6 +237,15 @@ const GameBoard = () => {
     }
     setShowQuitDialog(true);
   };
+
+  // const handleQuitConfirm = () => {
+  //   //mark game over and lost
+  //   if (gameEngineRef.current) {
+  //     gameEngineRef.current.forceGameOver();
+  //   }
+  //   setShowQuitDialog(false);
+  //   endGame("loss");
+  // };
 
   const handleQuitConfirm = () => {
     if (gameEngineRef.current) {
@@ -328,6 +371,18 @@ const GameBoard = () => {
               setBaseHealth(100);
               setSelectedCard(null);
 
+              // // Reset hand and deck
+              // if (playerData?.cards?.length > 0) {
+              //   const cardsWithStats = playerData.cards
+              //     .map(calculateCardStats)
+              //     .filter(Boolean);
+              //   const initialDeck = [...cardsWithStats].sort(
+              //     () => Math.random() - 0.5
+              //   );
+              //   setHand(initialDeck.slice(0, 3));
+              //   setDeck(initialDeck.slice(3));
+              // }
+
               // Force game engine reset
               setResetTrigger((prev) => prev + 1);
 
@@ -384,13 +439,14 @@ const GameBoard = () => {
         className="game-canvas"
       />
 
-      {/* Card Slots - Fixed Position */}
+      {/* Card slots at a fix position in game */}
       <div className="card-slots-container">
         {cardSlots.map((card) => {
-          const cooldown = cardCooldowns[card.id] || 0;
-          const cooldownPercent = cooldown > 0 ? (cooldown / getCooldownDuration(card)) * 100 : 0;
+          const cooldown = cardCooldown[card.id] || 0;
+          const cooldownPercent =
+            cooldown > 0 ? (cooldown / this.getCooldownDuration(card)) * 100 : 0;
           const isDisabled = cooldown > 0 || inGameEnergy < card.cost;
-          
+
           return (
             <div key={card.id} className="card-slot-wrapper">
               <Card
@@ -399,9 +455,10 @@ const GameBoard = () => {
                 selected={selectedCard?.id === card.id}
                 disabled={isDisabled}
               />
+
               {cooldown > 0 && (
                 <div className="cooldown-overlay">
-                  <div 
+                  <div
                     className="cooldown-progress"
                     style={{ height: `${cooldownPercent}%` }}
                   />
@@ -415,6 +472,19 @@ const GameBoard = () => {
         })}
       </div>
 
+      {/* {/* Card Hand }
+      <div className="card-hand-container">
+        {hand.map((card) => (
+          <Card
+            key={card.id}
+            card={card}
+            onClick={() => handleCardSelection(card)}
+            selected={selectedCard?.id === card.id}
+            disabled={inGameEnergy < card.cost}
+          />
+        ))}
+      </div> */}
+
       {/* Deployment Indicator */}
       {selectedCard && (
         <div className="deployment-indicator">
@@ -425,7 +495,7 @@ const GameBoard = () => {
         </div>
       )}
 
-      {/* Quit Confirmation Dialog */}
+      {/* QUit Confirmation Dialog */}
       {showQuitDialog && (
         <div className="quit-dialog-overlay">
           <div className="quit-dialog">
