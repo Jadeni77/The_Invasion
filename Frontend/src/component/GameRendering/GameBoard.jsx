@@ -28,8 +28,8 @@ const GameBoard = () => {
 
   const gameEngineRef = useRef(null);
   const [selectedCard, setSelectedCard] = useState(null);
-  const [hand, setHand] = useState([]);
-  const [deck, setDeck] = useState([]);
+  const [cardSlots, setCardSlots] = useState([]); // Fixed card slots
+  const [cardCooldowns, setCardCooldowns] = useState({}); // Track cooldowns
   const [baseHealth, setBaseHealth] = useState(100);
   const [resetTrigger, setResetTrigger] = useState(0);
   const [showQuitDialog, setShowQuitDialog] = useState(false);
@@ -61,17 +61,51 @@ const GameBoard = () => {
     return () => window.removeEventListener("resize", resizeCanvas);
   }, []);
 
-  // Initialize hand and deck
+  // Initialize card slots
   useEffect(() => {
-    if (playerData?.cards?.length > 0) {
+    if (selectedCardsForGame?.length > 0) {
+      const cardsWithStats = selectedCardsForGame
+        .map(calculateCardStats)
+        .filter(Boolean);
+      setCardSlots(cardsWithStats);
+      
+      // Initialize cooldowns (all cards start ready)
+      const initialCooldowns = {};
+      cardsWithStats.forEach(card => {
+        initialCooldowns[card.id] = 0;
+      });
+      setCardCooldowns(initialCooldowns);
+    } else if (playerData?.cards?.length > 0) {
+      // Fallback to all cards if no selection
       const cardsWithStats = playerData.cards
         .map(calculateCardStats)
         .filter(Boolean);
-      const initialDeck = [...cardsWithStats].sort(() => Math.random() - 0.5);
-      setHand(initialDeck.slice(0, 3));
-      setDeck(initialDeck.slice(3));
+      setCardSlots(cardsWithStats);
+      
+      const initialCooldowns = {};
+      cardsWithStats.forEach(card => {
+        initialCooldowns[card.id] = 0;
+      });
+      setCardCooldowns(initialCooldowns);
     }
-  }, [playerData]);
+  }, [selectedCardsForGame, playerData]);
+
+  // Update cooldowns
+  useEffect(() => {
+    const cooldownInterval = setInterval(() => {
+      setCardCooldowns(prev => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach(cardId => {
+          if (updated[cardId] > 0) {
+            updated[cardId] = Math.max(0, updated[cardId] - 100); // Decrease by 100ms
+          }
+        });
+        return updated;
+      });
+    }, 100); // Update every 100ms for smooth progress
+
+    return () => clearInterval(cooldownInterval);
+  }, []);
 
   // Initialize game engine
   useEffect(() => {
@@ -103,24 +137,6 @@ const GameBoard = () => {
       // Start game loop
       gameEngineRef.current.startLoop();
 
-      // Reset hand and deck
-      if (selectedCardsForGame?.length > 0) {
-        const cardsWithStats = selectedCardsForGame
-          .map(calculateCardStats)
-          .filter(Boolean);
-        const initialDeck = [...cardsWithStats].sort(() => Math.random() - 0.5);
-        setHand(initialDeck.slice(0, 3));
-        setDeck(initialDeck.slice(3));
-      } else if (playerData?.cards?.length > 0) {
-        // Fallback to all cards if no selection
-        const cardsWithStats = playerData.cards
-          .map(calculateCardStats)
-          .filter(Boolean);
-        const initialDeck = [...cardsWithStats].sort(() => Math.random() - 0.5);
-        setHand(initialDeck.slice(0, 3));
-        setDeck(initialDeck.slice(3));
-      }
-
       // Reset selection
       setSelectedCard(null);
     }
@@ -133,30 +149,19 @@ const GameBoard = () => {
         gameEngineRef.current = null;
       }
     };
-  }, [gameState, selectedLevel, resetTrigger, selectedCardsForGame]);
-
-  const drawCards = () => {
-    if (hand.length < 3 && deck.length > 0) {
-      const cardsToDraw = Math.min(3 - hand.length, deck.length);
-      const newCards = deck.slice(0, cardsToDraw);
-      setHand((prev) => [...prev, ...newCards]);
-      setDeck((prev) => prev.slice(cardsToDraw));
-    }
-  };
+  }, [gameState, selectedLevel, resetTrigger]);
 
   const handleCardSelection = (card) => {
+    // Check if card is on cooldown or not enough energy
+    if (cardCooldowns[card.id] > 0 || inGameEnergy < card.cost) {
+      return;
+    }
+
     if (selectedCard?.id === card.id) {
       setSelectedCard(null);
-    } else if (inGameEnergy >= card.cost) {
+    } else {
       setSelectedCard(card);
     }
-  };
-
-  const handleCardDeployment = () => {
-    if (!selectedCard) return;
-    setHand((prev) => prev.filter((c) => c.id !== selectedCard.id));
-    setSelectedCard(null);
-    setTimeout(drawCards, 300);
   };
 
   const handleCanvasClick = (event) => {
@@ -168,8 +173,27 @@ const GameBoard = () => {
     const y = event.clientY - rect.top;
 
     if (gameEngineRef.current.deployDefenderUnit(selectedCard, x, y)) {
-      handleCardDeployment();
+      // Set cooldown for the deployed card
+      const cooldownDuration = getCooldownDuration(selectedCard);
+      setCardCooldowns(prev => ({
+        ...prev,
+        [selectedCard.id]: cooldownDuration
+      }));
+      
+      setSelectedCard(null);
     }
+  };
+
+  // Get cooldown duration based on card type
+  const getCooldownDuration = (card) => {
+    // You can customize cooldowns per card type
+    const cooldowns = {
+      "Basic Cop": 5000,      // 5 seconds
+      "Healer Cop": 8000,     // 8 seconds
+      "Grenadier": 10000,     // 10 seconds
+      "Barricade": 7000,      // 7 seconds
+    };
+    return cooldowns[card.name] || 5000; // Default 5 seconds
   };
 
   const handleQuitClick = () => {
@@ -179,15 +203,6 @@ const GameBoard = () => {
     }
     setShowQuitDialog(true);
   };
-
-  // const handleQuitConfirm = () => {
-  //   //mark game over and lost
-  //   if (gameEngineRef.current) {
-  //     gameEngineRef.current.forceGameOver();
-  //   }
-  //   setShowQuitDialog(false);
-  //   endGame("loss");
-  // };
 
   const handleQuitConfirm = () => {
     if (gameEngineRef.current) {
@@ -216,9 +231,9 @@ const GameBoard = () => {
     const waterLoss = gameWon ? 0 : 50;
     const gemLoss = gameWon ? 0 : Math.ceil(Math.random());
     const goldEarned = Math.floor(inGameScore * 0.3);
-    const ironEarned = Math.floor(inGameScore * 0.3);
-    const grainEarned = Math.floor(inGameScore * 0.3);
-    const waterEarned = Math.floor(inGameScore * 0.3);
+    const ironEarned = Math.floor(inGameScore * 0.1);
+    const grainEarned = Math.floor(inGameScore * 0.2);
+    const waterEarned = Math.floor(inGameScore * 0.2);
 
     return (
       <div className="game-over-screen">
@@ -245,17 +260,16 @@ const GameBoard = () => {
                 </div>
                 <div className="resource-line">
                   <span className="resource-icon">
-                    {" "}
                     <img src={Iron} alt="⛓️" className="resource-image" />
                   </span>
                   <span className="resource-text">Iron + {ironEarned}</span>
                 </div>
                 <div className="resource-line">
-                  <span className="resource-icon">💰</span>
+                  <span className="resource-icon">🌾</span>
                   <span className="resource-text">Grain + {grainEarned}</span>
                 </div>
                 <div className="resource-line">
-                  <span className="resource-icon">💰</span>
+                  <span className="resource-icon">💧</span>
                   <span className="resource-text">Water + {waterEarned}</span>
                 </div>
               </>
@@ -263,14 +277,12 @@ const GameBoard = () => {
               <>
                 <div className="resource-line loss">
                   <span className="resource-icon">
-                    {" "}
                     <img src={Gold} alt="💰" className="resource-image" />
                   </span>
                   <span className="resource-text">Gold -{goldLoss}</span>
                 </div>
                 <div className="resource-line loss">
                   <span className="resource-icon">
-                    {" "}
                     <img src={Iron} alt="⛓️" className="resource-image" />
                   </span>
                   <span className="resource-text">Iron -{ironLoss}</span>
@@ -315,18 +327,6 @@ const GameBoard = () => {
               // Reset local states
               setBaseHealth(100);
               setSelectedCard(null);
-
-              // Reset hand and deck
-              if (playerData?.cards?.length > 0) {
-                const cardsWithStats = playerData.cards
-                  .map(calculateCardStats)
-                  .filter(Boolean);
-                const initialDeck = [...cardsWithStats].sort(
-                  () => Math.random() - 0.5
-                );
-                setHand(initialDeck.slice(0, 3));
-                setDeck(initialDeck.slice(3));
-              }
 
               // Force game engine reset
               setResetTrigger((prev) => prev + 1);
@@ -384,17 +384,35 @@ const GameBoard = () => {
         className="game-canvas"
       />
 
-      {/* Card Hand */}
-      <div className="card-hand-container">
-        {hand.map((card) => (
-          <Card
-            key={card.id}
-            card={card}
-            onClick={() => handleCardSelection(card)}
-            selected={selectedCard?.id === card.id}
-            disabled={inGameEnergy < card.cost}
-          />
-        ))}
+      {/* Card Slots - Fixed Position */}
+      <div className="card-slots-container">
+        {cardSlots.map((card) => {
+          const cooldown = cardCooldowns[card.id] || 0;
+          const cooldownPercent = cooldown > 0 ? (cooldown / getCooldownDuration(card)) * 100 : 0;
+          const isDisabled = cooldown > 0 || inGameEnergy < card.cost;
+          
+          return (
+            <div key={card.id} className="card-slot-wrapper">
+              <Card
+                card={card}
+                onClick={() => handleCardSelection(card)}
+                selected={selectedCard?.id === card.id}
+                disabled={isDisabled}
+              />
+              {cooldown > 0 && (
+                <div className="cooldown-overlay">
+                  <div 
+                    className="cooldown-progress"
+                    style={{ height: `${cooldownPercent}%` }}
+                  />
+                  <div className="cooldown-text">
+                    {Math.ceil(cooldown / 1000)}s
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Deployment Indicator */}
@@ -407,7 +425,7 @@ const GameBoard = () => {
         </div>
       )}
 
-      {/* QUit Confirmation Dialog */}
+      {/* Quit Confirmation Dialog */}
       {showQuitDialog && (
         <div className="quit-dialog-overlay">
           <div className="quit-dialog">

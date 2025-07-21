@@ -105,7 +105,7 @@
   display: block;
 }
 
-/* Card Hand */
+/* Card Hand
 .card-hand-container {
   position: absolute;
   bottom: 10px;
@@ -119,16 +119,100 @@
   flex-direction: row;
   flex-wrap: nowrap;
   overflow-x: auto;
-  height: 150px; /* Increased height */
+  height: 150px; /* Increased height 
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(5px);
   border-top: 2px solid #2a4a6a;
-}
+} */
 
 /* Hide scrollbar but keep functionality */
-.card-hand-container::-webkit-scrollbar {
+/* .card-hand-container::-webkit-scrollbar {
   height: 0;
+} */
+
+
+
+/* Add these styles to GameBoard.css */
+
+/* Card Slots Container - Fixed position like Plants vs Zombies */
+.card-slots-container {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 10px;
+  border: 2px solid #333;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
+
+.card-slot-wrapper {
+  position: relative;
+}
+
+/* Cooldown overlay */
+.cooldown-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cooldown-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.7);
+  transition: height 0.1s linear;
+  border-radius: 0 0 8px 8px;
+}
+
+.cooldown-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  z-index: 10;
+}
+
+/* Update disabled card styling */
+.card-slot-wrapper .card-container.disabled {
+  filter: grayscale(50%);
+  opacity: 0.8;
+}
+
+/* Selected card highlight */
+.card-slot-wrapper .card-container.selected {
+  box-shadow: 0 0 20px #4CAF50, 0 0 40px #4CAF50;
+  transform: translateY(-5px);
+  border: 3px solid #4CAF50;
+}
+
+/* Hover effect for available cards */
+.card-slot-wrapper .card-container:not(.disabled):hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+}
+
+/* Energy cost indicator when not enough energy */
+.card-slot-wrapper .card-container.disabled .card-cost {
+  color: #ff5252;
+  font-weight: bold;
+}
+
 
 /* Deployment Indicator */
 .deployment-indicator {
@@ -512,11 +596,11 @@
     min-width: 40px;
   }
 
-  .card-hand-container {
+  /* .card-hand-container {
     height: 120px;
     gap: 10px;
     padding: 5px;
-  }
+  } */
 
   .card-container {
     width: 80px !important;
@@ -688,3 +772,4 @@
     height: 140px !important;
   }
 }
+
