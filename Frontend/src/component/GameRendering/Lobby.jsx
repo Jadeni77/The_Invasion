@@ -9,6 +9,9 @@ import "../../style/Lobby.css"; // Correct path
 import "../../style/UpgradeModal.css"; // Correct path (if UpgradeModal.css is used by Lobby too)
 import WorkerStatus from "../common/WorkerStatus";
 import CardSelectionModal from "./CardSelectionModal";
+import CloseChest from "../../Icons/CloseChest.png";
+import OpenChest from "../../Icons/OpenChest.png";
+
 
 const Lobby = () => {
   const { gameState, playerData, startLevel, openUpgradeModal } = useGame();
@@ -243,6 +246,11 @@ const Lobby = () => {
                   !isCollected && canCollect && handleTreasureClick(chest.id)
                 }
               >
+                {isCollected ? (
+                  <img src={OpenChest} alt="Open Chest" className="open-chest"/>
+                ) : (
+                  <img src={CloseChest} alt="Close Chest" className="close-chest"/>
+                )}
                 {!isCollected && canCollect && <div className="chest-glow" />}
               </div>
             );
