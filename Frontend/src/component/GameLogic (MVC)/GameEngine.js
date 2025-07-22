@@ -244,19 +244,29 @@ export class GameEngine {
    * @param {number} levelNumber - The number of the level to initialize.
    */
   initialize(canvas, width, height, levelNumber) {
+    // CRITICAL: Stop any existing game loop FIRST
+    this.stopLoop();
+
+    // Clear any existing game state
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+
     this.ctx = canvas.getContext("2d"); // Get 2D rendering context
     this.canvasWidth = width;
     this.canvasHeight = height;
     this.defenseLineX = width * 0.9; // Defense line 150px from right edge
 
-    //initialize grid syystem
+
+    //initialize grid system
     this.initializeGrid();
 
     // Get the configuration for the selected level
     this.currentLevelConfig = this.levelConfigs.get(levelNumber);
     if (!this.currentLevelConfig) {
       console.error(
-        `Level ${levelNumber} config not found. Defaulting to level 1.`
+          `Level ${levelNumber} config not found. Defaulting to level 1.`
       );
       this.currentLevelConfig = this.levelConfigs.get(1);
       // Ensure levelNumber is correctly set even if defaulting
@@ -272,21 +282,24 @@ export class GameEngine {
     };
 
     this.preloadImages(allImages)
-      .then(() => {
-        this.resetGame(); // Reset game state after assets are loaded
-        this.startLoop(); // Start the game loop
-      })
-      .catch((error) => {
-        console.error("Error loading game assets:", error);
-        //    this.gameOver = true; // Prevent game from starting if assets fail to load
-        this.setGameOver(true, "Preven game from starting if loading fails");
-        this.onLoseCb({
-          // Notify GameContext about the failure
-          score: 0,
-          level: levelNumber,
-          reason: "Asset loading failed",
+        .then(() => {
+          // Double-check we're still supposed to be running
+          if (this.gameOver) {
+            return;
+          }
+
+          this.resetGame(); // Reset game state after assets are loaded
+          this.startLoop(); // Start the game loop
+        })
+        .catch((error) => {
+          console.error("Error loading game assets:", error);
+          this.setGameOver(true, "Prevent game from starting if loading fails");
+          this.onLoseCb({
+                          score: 0,
+                          level: levelNumber,
+                          reason: "Asset loading failed",
+                        });
         });
-      });
   }
 
   // Resets the game state to its initial values for the current level
@@ -524,32 +537,33 @@ export class GameEngine {
 
     // Check if total enemies for level are spawned, if interval passed, and if max active enemies limit is not reached
     if (
-      this.enemiesSpawnedThisLevel < config.totalEnemiesToSpawn &&
-      now - this.lastEnemySpawnTime > config.enemySpawnInterval &&
-      this.enemies.length < config.maxActiveEnemies
+        this.enemiesSpawnedThisLevel < config.totalEnemiesToSpawn &&
+        now - this.lastEnemySpawnTime > config.enemySpawnInterval &&
+        this.enemies.length < config.maxActiveEnemies
     ) {
+      // UPDATE THIS IMMEDIATELY to prevent multiple spawns in same frame
+      this.lastEnemySpawnTime = now;
+
       const enemyType =
-        config.availableEnemyTypes[
-          Math.floor(Math.random() * config.availableEnemyTypes.length)
-        ];
+          config.availableEnemyTypes[
+              Math.floor(Math.random() * config.availableEnemyTypes.length)
+              ];
 
       const EnemyClass = this.enemyClasses[enemyType];
       if (!EnemyClass) {
         console.warn(`Unknown enemy type: ${enemyType}`);
+        // Reset the timer if we fail to spawn
+        this.lastEnemySpawnTime = now - config.enemySpawnInterval + 1000;
         return;
       }
 
       // Spawn at a random Y position on the left edge
       const spawnX = -100; // Start off-screen left
-      // const randomRow = Math.floor(Math.random() * this.deploymentGrid.length);
-      // const spawnY = randomRow * this.gridSize + this.gridSize / 2 - 15; // Center of grid row minus half enemy height
-
       const spawnY = this.canvasHeight * 0.5;
 
       const enemy = new EnemyClass(spawnX, spawnY, this.getImage(enemyType));
 
       this.enemies.push(enemy);
-      this.lastEnemySpawnTime = now;
       this.enemiesSpawnedThisLevel++;
     }
   }
@@ -563,10 +577,16 @@ export class GameEngine {
     // Spawn enemies
     this.spawnEnemy();
 
-    // Update all entities
-    this.updateDefenders(now);
-    this.updateEnemies(now);
+    // UPDATE PROJECTILES FIRST (before enemies move)
     this.updateProjectiles();
+
+    // Then update defenders
+    this.updateDefenders(now);
+
+    // Then update enemies (they might die from projectiles)
+    this.updateEnemies(now);
+
+    // Finally update explosions
     this.updateExplosions();
 
     // Check win/lose conditions
@@ -653,62 +673,94 @@ export class GameEngine {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
 
+      // REMOVE DEAD ENEMIES FIRST
       if (!enemy || !enemy.isAlive) {
-        this.enemies.splice(i, 1); //remove dead enemy
+        this.enemies.splice(i, 1);
         continue;
       }
 
-      enemy.update(this.defenders); // Enemy updates its state (movement, attack if attacker)
+      // Update enemy (movement and attacks)
+      enemy.update(this.defenders);
 
-      // Handle enemy special abilities (e.g., BombEnemy self-destruct if near defender)
+      // Check if enemy died during update
+      if (!enemy.isAlive) {
+        if (!this.gameOver) {
+          this.inGameScore += enemy.bounty;
+          this.updateScoreCb(this.inGameScore);
+        }
+
+        // Handle special death effects
+        if (enemy.shouldExplode) {
+          this.addExplosion(
+              enemy.x + enemy.width / 2,
+              enemy.y + enemy.height / 2,
+              enemy.explosionDamage,
+              enemy.explosionRadius
+          );
+        }
+
+        this.enemies.splice(i, 1);
+        continue; // SKIP THE REST - DON'T CHECK DEFENSE LINE
+      }
+
+      // Handle special abilities (only for alive enemies)
       if (enemy.activateSpecialAbility) {
         enemy.activateSpecialAbility(this.defenders);
       }
 
+      // Check if still alive after special ability
       if (!enemy.isAlive) {
         if (!this.gameOver) {
-          // Handle enemy death
           this.inGameScore += enemy.bounty;
-          this.updateScoreCb(this.inGameScore); // Update UI score
+          this.updateScoreCb(this.inGameScore);
         }
 
-        // Handle special death effects (e.g., BombEnemy explosion)
         if (enemy.shouldExplode) {
-          // BombEnemy sets this flag
           this.addExplosion(
-            enemy.x + enemy.width / 2, // Center explosion on enemy
-            enemy.y + enemy.height / 2,
-            enemy.explosionDamage,
-            enemy.explosionRadius
+              enemy.x + enemy.width / 2,
+              enemy.y + enemy.height / 2,
+              enemy.explosionDamage,
+              enemy.explosionRadius
           );
         }
 
-        this.enemies.splice(i, 1); // Remove dead enemy
+        this.enemies.splice(i, 1);
+        continue; // SKIP THE REST
+      }
+
+      // Double-check that enemy is actually alive (health > 0)
+      if (enemy.health <= 0) {
+        enemy.isAlive = false;
+        this.enemies.splice(i, 1);
         continue;
       }
 
-      // Check if enemy reached defense line
+      // Only log ONCE when enemy enters the 100-pixel zone
+      if (enemy.x + enemy.width >= this.defenseLineX - 100 && enemy.x + enemy.width < this.defenseLineX - 95) {
+        console.log(`Enemy approaching! ID: ${enemy.id}, health: ${enemy.health}, isAlive: ${enemy.isAlive}, distance to line: ${this.defenseLineX - (enemy.x + enemy.width)}`);
+      }
+
+      // Only check defense line for ALIVE enemies
       if (enemy.x + enemy.width >= this.defenseLineX) {
+        console.log("=== ENEMY REACHED DEFENSE LINE ===");
+        console.log(`Enemy ID: ${enemy.id}, ${enemy.name} (ALIVE: ${enemy.isAlive}, HEALTH: ${enemy.health})`);
+
         if (!this.gameOver) {
-          // Damage the base
           const damage = 10;
+          console.log(`Base health BEFORE damage: ${this.baseHealth}`);
           this.baseHealth = Math.max(0, this.baseHealth - damage);
+          console.log(`Base health AFTER damage: ${this.baseHealth}`);
 
           if (this.updateBaseHealthCb) {
             this.updateBaseHealthCb(this.baseHealth);
           }
 
-          // Check for game over
           if (this.baseHealth <= 0) {
-            //   this.gameOver = true;
-          //  this.setGameOver(true, "Defense Breached");
             this.handleDefenseBreached();
           }
         }
 
-        // Remove enemy bc it reach the line
         this.enemies.splice(i, 1);
-        continue; //skip to next enemy
       }
     }
   }
@@ -720,26 +772,43 @@ export class GameEngine {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const projectile = this.projectiles[i];
 
-      if (!projectile.target.isAlive) {
+      // Check if target still exists and is alive
+      if (!projectile.target || !projectile.target.isAlive) {
         this.projectiles.splice(i, 1);
         continue;
       }
 
       // Calculate direction and move projectile
-      const dx =
-        projectile.target.x + projectile.target.width / 2 - projectile.startX;
-      const dy =
-        projectile.target.y + projectile.target.height / 2 - projectile.startY;
+      const dx = projectile.target.x + projectile.target.width / 2 - projectile.startX;
+      const dy = projectile.target.y + projectile.target.height / 2 - projectile.startY;
       const distance = Math.hypot(dx, dy);
 
       if (distance <= projectile.speed) {
         // Hit target
+        console.log(`Projectile hitting ${projectile.target.name} for ${projectile.damage} damage`);
         const died = projectile.target.takeDamage(projectile.damage);
-        if (died && !this.gameOver) {
-          // Only add score if game is not over
-          this.inGameScore += projectile.target.bounty;
-          this.updateScoreCb(this.inGameScore);
+        console.log(`Enemy died: ${died}, Enemy health: ${projectile.target.health}`);
+
+        if (died) {
+          // Log the state BEFORE removal
+          console.log(`BEFORE REMOVAL - Enemy count: ${this.enemies.length}`);
+          console.log(`Dead enemy details - Name: ${projectile.target.name}, ID: ${projectile.target.id}, Health: ${projectile.target.health}`);
+
+          // IMMEDIATELY remove the dead enemy from the enemies array
+          const enemyIndex = this.enemies.findIndex(e => e.id === projectile.target.id);
+          if (enemyIndex !== -1) {
+            this.enemies.splice(enemyIndex, 1);
+            console.log(`AFTER REMOVAL - Enemy count: ${this.enemies.length}`);
+          } else {
+            console.error(`WARNING: Could not find dead enemy in array! ID: ${projectile.target.id}`);
+          }
+
+          if (!this.gameOver) {
+            this.inGameScore += projectile.target.bounty;
+            this.updateScoreCb(this.inGameScore);
+          }
         }
+
         this.projectiles.splice(i, 1);
       } else {
         // Move projectile
@@ -1089,6 +1158,12 @@ export class GameEngine {
 
   /** Starts the game animation loop. */
   startLoop() {
+    // ADD THIS CHECK
+    if (this.animationFrameId) {
+      console.warn("Game loop already running! Stopping old loop.");
+      this.stopLoop();
+    }
+
     if (!this.animationFrameId && !this.gameOver) {
       this.animationFrameId = requestAnimationFrame(this.gameLoop);
     }

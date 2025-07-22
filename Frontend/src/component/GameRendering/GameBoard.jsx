@@ -112,65 +112,60 @@ const GameBoard = () => {
   // Initialize game engine
   useEffect(() => {
     if (gameState === "inGame" && canvasRef.current && selectedLevel !== null) {
-      // Clean up previous game engine
-      if (gameEngineRef.current) {
-        gameEngineRef.current.stopLoop();
-        gameEngineRef.current.cleanup();
-        gameEngineRef.current = null;
-      }
+      // Use a flag to prevent double initialization
+      let isCancelled = false;
 
-      // Create new game engine
-      gameEngineRef.current = new GameEngine(
-        updateEnergyCb,
-        updateScoreCb,
-        onWinCb,
-        onLoseCb,
-        (health) => setBaseHealth(health)
-      );
+      // Small delay to let React's double-render complete
+      const initTimeout = setTimeout(() => {
+        if (isCancelled) return;
 
-      // Initialize game
-      gameEngineRef.current.initialize(
-        canvasRef.current,
-        canvasRef.current.width,
-        canvasRef.current.height,
-        selectedLevel
-      );
+        // Clean up any existing engine
+        if (gameEngineRef.current) {
+          gameEngineRef.current.stopLoop();
+          gameEngineRef.current.cleanup();
+          gameEngineRef.current = null;
+        }
 
-      // Start game loop
-      gameEngineRef.current.startLoop();
+        // Create new game engine
+        const engine = new GameEngine(
+            updateEnergyCb,
+            updateScoreCb,
+            onWinCb,
+            onLoseCb,
+            (health) => setBaseHealth(health)
+        );
 
-      setSelectedCard(null);
+        gameEngineRef.current = engine;
 
-      // // Reset hand and deck
-      // if (selectedCardsForGame?.length > 0) {
-      //   const cardsWithStats = selectedCardsForGame
-      //     .map(calculateCardStats)
-      //     .filter(Boolean);
-      //   const initialDeck = [...cardsWithStats].sort(() => Math.random() - 0.5);
-      //   setHand(initialDeck.slice(0, 3));
-      //   setDeck(initialDeck.slice(3));
-      // } else if (playerData?.cards?.length > 0) {
-      //   // Fallback to all cards if no selection
-      //   const cardsWithStats = playerData.cards
-      //     .map(calculateCardStats)
-      //     .filter(Boolean);
-      //   const initialDeck = [...cardsWithStats].sort(() => Math.random() - 0.5);
-      //   setHand(initialDeck.slice(0, 3));
-      //   setDeck(initialDeck.slice(3));
-      // }
+        // Initialize game
+        gameEngineRef.current.initialize(
+            canvasRef.current,
+            canvasRef.current.width,
+            canvasRef.current.height,
+            selectedLevel
+        );
 
-      // // Reset selection
-      // setSelectedCard(null);
+        // Start game loop
+        gameEngineRef.current.startLoop();
+
+        setSelectedCard(null);
+      }, 50); // 50ms delay
+
+      // Cleanup
+      return () => {
+        isCancelled = true;
+        clearTimeout(initTimeout);
+
+        if (gameEngineRef.current) {
+          gameEngineRef.current.stopLoop();
+          gameEngineRef.current.cleanup();
+          if (window.gameEngineInstance === gameEngineRef.current) {
+            window.gameEngineInstance = null;
+          }
+          gameEngineRef.current = null;
+        }
+      };
     }
-
-    // Cleanup
-    return () => {
-      if (gameEngineRef.current) {
-        gameEngineRef.current.stopLoop();
-        gameEngineRef.current.cleanup();
-        gameEngineRef.current = null;
-      }
-    };
   }, [gameState, selectedLevel, resetTrigger, updateEnergyCb, updateScoreCb, onWinCb, onLoseCb]);
 
   // const drawCards = () => {
