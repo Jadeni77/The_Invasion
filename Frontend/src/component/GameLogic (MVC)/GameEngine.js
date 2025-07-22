@@ -559,6 +559,8 @@ export class GameEngine {
 
       // Spawn at a random Y position on the left edge
       const spawnX = -100; // Start off-screen left
+      // const randomRow = Math.floor(Math.random() * this.deploymentGrid.length);
+      // const spawnY = randomRow * this.gridSize + this.gridSize / 2 - 15; // Center of grid row minus half enemy height
       const spawnY = this.canvasHeight * 0.5;
 
       const enemy = new EnemyClass(spawnX, spawnY, this.getImage(enemyType));
