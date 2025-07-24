@@ -7,6 +7,7 @@ import {
   HealerDefender,
   GrenadeDefender,
   BarricadeDefender,
+    EnergyGenerator
 } from "./DefenderUnits.js";
 import {
   Enemy, // Base Enemy class
@@ -15,6 +16,7 @@ import {
   TankEnemy,
   BombEnemy,
 } from "./EnemyUnits.js";
+import { EnergyDrop } from "./EnergyDrop.js";
 
 export class GameEngine {
   constructor(
@@ -62,12 +64,17 @@ export class GameEngine {
     this.gridOffsetY = 0;
     this.highlightGrid = false;
 
+    this.energyDrops = [];
+    this.enemyEnergyDropChance = 0.2; // 20% chance to drop energy
+
+
     // Mapping of card names to their respective DefenderUnit classes
     this.defenderUnitClasses = {
       "Basic Cop": BasicDefender,
       "Healer Cop": HealerDefender,
-      Grenadier: GrenadeDefender,
-      Barricade: BarricadeDefender,
+      "Grenadier": GrenadeDefender,
+      "Barricade": BarricadeDefender,
+      "Energy Generator": EnergyGenerator
     };
 
     // Mapping of enemy names to their respective Enemy classes
@@ -75,7 +82,7 @@ export class GameEngine {
       "Basic Zombie": BasicEnemy,
       "Fast Zombie": FastEnemy,
       "Tank Zombie": TankEnemy,
-      Exploder: BombEnemy,
+      "Exploder": BombEnemy,
     };
 
     // Level configurations and loaded assets
@@ -85,6 +92,38 @@ export class GameEngine {
 
     // Initialize level configurations on construction
     this.initLevelConfigs();
+  }
+
+
+  dropEnergy(x, y, amount) {
+    if (this.gameOver) return;
+    this.energyDrops.push(new EnergyDrop(x, y, amount));
+  }
+
+  /**
+   *
+   * Check if energy is collected and add it to the inGameEnergy,
+   * else return false
+   * @param x the x position of the current mouse
+   * @param y the y position of the current mouse
+   */
+  collectEnergy(x, y) {
+    console.log(`Checking energy collection at (${x}, ${y})`);
+    console.log(`Number of energy drops: ${this.energyDrops.length}`);
+    for (let i = this.energyDrops.length - 1; i >= 0; i--) {
+      const drop = this.energyDrops[i];
+      if (drop.checkCollection(x, y)) {
+        console.log("Energy collected!");
+
+        drop.startCollectionAnimation(110, 20); //where the bar locate;
+        this.inGameEnergy  += drop.amount;
+        this.updateEnergyCb(this.inGameEnergy);
+        return true; //energy is collected
+      }
+    }
+    console.log("No energy collected");
+
+    return false;
   }
 
   //initial the grid in the game state
@@ -153,8 +192,9 @@ export class GameEngine {
       defenderAssets: {
         "Basic Cop": null,
         "Healer Cop": null,
-        "Grenadier ": null,
-        "Barricade ": null,
+        "Grenadier": null,
+        "Barricade": null,
+        "Energy Generator": null
       },
     });
 
@@ -175,8 +215,9 @@ export class GameEngine {
       defenderAssets: {
         "Basic Cop": null,
         "Healer Cop": null,
-        "Grenadier ": null,
-        "Barricade ": null,
+        "Grenadier": null,
+        "Barricade": null,
+        "Energy Generator": null
       },
     });
 
@@ -198,13 +239,14 @@ export class GameEngine {
         "Basic Zombie": null,
         "Fast Zombie": null,
         "Tank Zombie": null,
-        "Exploder ": null,
+        "Exploder": null,
       },
       defenderAssets: {
         "Basic Cop": null,
         "Healer Cop": null,
-        "Grenadier ": null,
-        "Barricade ": null,
+        "Grenadier": null,
+        "Barricade": null,
+        "Energy Generator": null
       },
     });
   }
@@ -318,6 +360,8 @@ export class GameEngine {
     this.enemiesSpawnedThisLevel = 0;
     this.currentWave = 1;
     this.baseHealth = 100;
+
+    this.energyDrops = [];
 
     //reset grid
     if (this.deploymentGrid.length > 0) {
@@ -588,11 +632,25 @@ export class GameEngine {
     // Then update enemies (they might die from projectiles)
     this.updateEnemies(now);
 
+    this.updateEnergyDrops();
+
     // Finally update explosions
     this.updateExplosions();
 
     // Check win/lose conditions
     this.checkGameConditions();
+  }
+
+  /**
+   * call the update method in EnergyDrop class to check if its still there
+   *
+   */
+  updateEnergyDrops() {
+    for (let i = this.energyDrops.length - 1; i >= 0; i--) {
+      if (!this.energyDrops[i].update()) {
+        this.energyDrops.splice(i, 1);
+      }
+    }
   }
 
   /** Updates all defender units. */
@@ -689,6 +747,15 @@ export class GameEngine {
         if (!this.gameOver) {
           this.inGameScore += enemy.bounty;
           this.updateScoreCb(this.inGameScore);
+
+          //energy drop chance when enemy killed
+          if (Math.random() < this.enemyEnergyDropChance) {
+            this.dropEnergy(
+                enemy.x + enemy.width / 2,
+                enemy.y + enemy.height / 2,
+                5 //can be adjusted base on game
+            );
+          }
         }
 
         // Handle special death effects
@@ -900,6 +967,7 @@ export class GameEngine {
     this.drawDefenders(ctx);
     this.drawEnemies(ctx);
     this.drawProjectiles(ctx);
+    this.drawEnergyDrops(ctx);
     this.drawExplosions(ctx);
     this.drawUI(ctx);
 
@@ -907,6 +975,12 @@ export class GameEngine {
     // if (this.gameOver) {
     //   this.drawGameOverScreen(ctx);
     // }
+  }
+
+  drawEnergyDrops(ctx) {
+    for (const drop of this.energyDrops) {
+      drop.draw(ctx);
+    }
   }
 
   drawGrid(ctx) {

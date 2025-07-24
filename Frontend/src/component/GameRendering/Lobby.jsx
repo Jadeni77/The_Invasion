@@ -118,6 +118,9 @@ const Lobby = () => {
   const handleLevelNodeClick = (levelId) => {
     // startLevel will handle energy check and state transition
     //startLevel(levelId); // GameBoard will be rendered by App.jsx\
+    console.log("Level clicked:", levelId);
+    console.log("Setting selectedLevelId to:", levelId);
+    console.log("Setting showCardSelection to true");
 
     setSelectedLevelId(levelId);
     setShowCardSelection(true);
@@ -137,6 +140,9 @@ const Lobby = () => {
 
   // Render UpgradeModal if gameState is "upgrade"
   if (gameState === "upgrade") return <UpgradeModal />;
+
+  console.log("Current showCardSelection state:", showCardSelection);
+  console.log("Current selectedLevelId:", selectedLevelId);
 
   // Render Lobby UI
   return (

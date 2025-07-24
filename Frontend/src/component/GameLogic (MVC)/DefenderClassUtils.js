@@ -3,7 +3,7 @@ import {
   BasicDefender,
   HealerDefender,
   GrenadeDefender,
-  BarricadeDefender,
+  BarricadeDefender, EnergyGenerator,
 } from "./DefenderUnits";
 
 export const defenderUnitClasses = {
@@ -11,6 +11,7 @@ export const defenderUnitClasses = {
   "Healer Cop": HealerDefender,
   "Grenadier": GrenadeDefender,
   "Barricade": BarricadeDefender,
+  "Energy Generator": EnergyGenerator
 };
 
 export const calculateCardStats = (card) => {

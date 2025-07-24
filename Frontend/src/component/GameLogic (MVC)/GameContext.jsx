@@ -169,6 +169,14 @@ export const GameProvider = ({ children }) => {
             upgradeCost: { gold: 120, iron: 20, grain: 5 },
             upgradeTime: 90,
           },
+          {
+            id: 5,
+            name: "Energy Generator",
+            level: 1,
+            cost: 25,
+            upgradeCost: { gold: 80, water: 10, grain: 20},
+            upgradeTime: 75
+          }
         ],
         unlockedLevels: [1],
         collectedTreasures: [],
@@ -424,6 +432,17 @@ export const GameProvider = ({ children }) => {
         setGameOver(false);
         setGameWon(false);
         setSelectedLevel(null);
+        return;
+      }
+
+      if (result === "replay") {
+        // For replay, don't go back to lobby, just reset the game states
+        setGameOver(false);
+        setGameWon(false);
+        setGameState("inGame");
+        //setSelectedCardsForGame()
+        // Don't clear selectedLevel or selectedCardsForGame
+        // Don't change gameState from "inGame"
         return;
       }
 

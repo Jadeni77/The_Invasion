@@ -487,3 +487,107 @@ export class BarricadeDefender extends DefenderUnit {
     super.draw(ctx);
   }
 }
+
+export class EnergyGenerator extends DefenderUnit {
+  constructor(x, y, cardData) {
+    super(x, y, {
+      ...cardData,
+      name: "Energy Generator",
+      //basic
+      damage: 0,
+      health: 80,
+      range: 0,
+      fireRate: 0,
+      cost: 25,
+      energyDropAmount: 5,
+      energyDropRate: 600, //10 seconds
+
+      width: 35,
+      height: 35,
+      color: "yellow",
+      isRanged: false,
+      image: cardData.image,
+    });
+    this.baseEnergyDropAmount = 5;
+    this.baseEnergyDropRate = 600;
+
+    this.applyEnergyUpgrades();
+
+    this.energyDropAmount = this.baseEnergyDropAmount;
+    this.energyDropRate = this.baseEnergyDropRate;
+    this.energyDropCountDown = this.energyDropRate;
+    this.gameEngine = null; //reference for game engine to implement energy dropping
+  }
+
+  applyEnergyUpgrades() {
+    const level = this.level;
+    this.baseEnergyDropAmount = this.baseEnergyDropAmount + (level - 1);
+  }
+
+  applySpecialAbilities() {
+    switch (this.level) {
+      case 3:
+        this.hasEnergyBurst = true;
+        this.baseEnergyDropAmount += 2; // +2 extra energy
+        break;
+      case 5:
+        this.hasEnergyField = true;
+        this.autoCollect = true;
+        break;
+    }
+  }
+
+  getUpgradeInfo() {
+    const newAbilities = [];
+
+    if (this.level === 2) newAbilities.push("Energy Burst (Level 3)");
+    if (this.level === 4) newAbilities.push("Auto-Collect Field (Level 5)");
+
+    return {
+      energyIncrease: `+${this.level - 1} per drop`,
+      newAbilities
+    }
+  }
+
+  update(enemies, defenderUnits) {
+    if (!this.isAlive) return;
+
+    //energy drop logic
+    this.energyDropCountDown--;
+    if (this.energyDropCountDown <= 0) {
+      if (this.gameEngine) {
+        //drop energy at random position near this defender
+        const offsetX = (Math.random() - 0.5 ) * 60;
+        const offsetY = (Math.random() - 0.5) * 60;
+        this.gameEngine.dropEnergy(
+            this.x + this.width / 2 + offsetX,
+            this.y + this.height / 2 + offsetY,
+            this.energyDropAmount
+        );
+      }
+      this.energyDropCountDown = this.energyDropRate;
+    }
+  }
+
+  draw(ctx) {
+    super.draw(ctx);
+
+    //energy generator indicator
+    const progress = 1 - (this.energyDropCountDown / this.energyDropRate);
+    ctx.beginPath();
+    ctx.arc(
+        this.x + this.width / 2,
+        this.y + this.height / 2,
+        this.width / 2 + 5,
+        -Math.PI / 2,
+        -Math.PI / 2 + (Math.PI * 2 * progress)
+    );
+    ctx.strokeStyle = "rgba(255, 255, 0, 0.8)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  setGameEngine(engine) {
+    this.gameEngine = engine;
+  }
+}

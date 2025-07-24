@@ -196,21 +196,42 @@ const GameBoard = () => {
   // };
 
   const handleCanvasClick = (event) => {
-    if (gameOver || !selectedCard || !gameEngineRef.current) return;
+    console.log("Canvas Click");
+    if (gameOver || !gameEngineRef.current) {
+      console.log(("Gme"))
+      return;
+    }
 
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    if (gameEngineRef.current.deployDefenderUnit(selectedCard, x, y)) {
-      //handleCardDeployment();
-      const cooldownDuration = getCooldownDuration(selectedCard);
-      setCardCooldown((prev) => ({
-        ...prev,
-        [selectedCard.id]: cooldownDuration,
-      }));
-      setSelectedCard(null);
+    //try to collect energy first when overlap
+    if (gameEngineRef.current.collectEnergy(x, y)) {
+      console.log("Energy collection successful");
+      return;
+    }
+
+    console.log(`Click at: (${x}, ${y})`);
+    console.log(`Energy drops in game engine: ${gameEngineRef.current.energyDrops.length}`);
+
+
+    gameEngineRef.current.energyDrops.forEach((drop, i) => {
+      console.log(`Drop ${i}: position (${drop.x}, ${drop.y}), floatOffset: ${drop.floatOffset}`);
+    });
+
+    //if selected a card and no energy to collect, then deploy
+    if (selectedCard) {
+      if (gameEngineRef.current.deployDefenderUnit(selectedCard, x, y)) {
+        //handleCardDeployment();
+        const cooldownDuration = getCooldownDuration(selectedCard);
+        setCardCooldown((prev) => ({
+          ...prev,
+          [selectedCard.id]: cooldownDuration,
+        }));
+        setSelectedCard(null);
+      }
     }
   };
 
@@ -219,8 +240,9 @@ const GameBoard = () => {
     const cooldowns = {
       "Basic Cop": 5000, //5 second
       "Healer Cop": 8000,
-      "Grenadier ": 10000,
-      "Barricade ": 7000,
+      "Grenadier": 10000,
+      "Barricade": 7000,
+      "Energy Generator": 5000
     };
     return cooldowns[card.name] || 5000; //default at 5 seconds
   };
@@ -232,15 +254,6 @@ const GameBoard = () => {
     }
     setShowQuitDialog(true);
   };
-
-  // const handleQuitConfirm = () => {
-  //   //mark game over and lost
-  //   if (gameEngineRef.current) {
-  //     gameEngineRef.current.forceGameOver();
-  //   }
-  //   setShowQuitDialog(false);
-  //   endGame("loss");
-  // };
 
   const handleQuitConfirm = () => {
     if (gameEngineRef.current) {
@@ -361,22 +374,17 @@ const GameBoard = () => {
           <button
             className="replay-button"
             onClick={() => {
-              endGame("restart");
+              endGame("replay");
               // Reset local states
               setBaseHealth(100);
               setSelectedCard(null);
 
-              // // Reset hand and deck
-              // if (playerData?.cards?.length > 0) {
-              //   const cardsWithStats = playerData.cards
-              //     .map(calculateCardStats)
-              //     .filter(Boolean);
-              //   const initialDeck = [...cardsWithStats].sort(
-              //     () => Math.random() - 0.5
-              //   );
-              //   setHand(initialDeck.slice(0, 3));
-              //   setDeck(initialDeck.slice(3));
-              // }
+              // Reset cooldowns
+              const resetCooldowns = {};
+              cardSlots.forEach((card) => {
+                resetCooldowns[card.id] = 0;
+              });
+              setCardCooldown(resetCooldowns);
 
               // Force game engine reset
               setResetTrigger((prev) => prev + 1);
