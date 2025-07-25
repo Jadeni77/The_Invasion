@@ -116,7 +116,7 @@ export class GameEngine {
         console.log("Energy collected!");
 
         drop.startCollectionAnimation(110, 20); //where the bar locate;
-        this.inGameEnergy  += drop.amount;
+        this.inGameEnergy = Math.min(100, this.inGameEnergy + drop.amount);
         this.updateEnergyCb(this.inGameEnergy);
         return true; //energy is collected
       }

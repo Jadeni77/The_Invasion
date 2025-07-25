@@ -434,7 +434,7 @@ export class BarricadeDefender extends DefenderUnit {
       fireRate: 0,
       cost: 30,
 
-      width: 80,
+      width: 50,
       height: 30,
       color: "gray",
       isRanged: false,
@@ -509,7 +509,7 @@ export class EnergyGenerator extends DefenderUnit {
       image: cardData.image,
     });
     this.baseEnergyDropAmount = 5;
-    this.baseEnergyDropRate = 600;
+    this.baseEnergyDropRate = 300;
 
     this.applyEnergyUpgrades();
 
