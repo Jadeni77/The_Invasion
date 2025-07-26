@@ -404,19 +404,35 @@
   }
 }
 
+/* Lobby Chest Display */
 .treasure-chest {
   position: absolute;
   width: 50px;
   height: 40px;
-  background: url("/assets/chest-closed.png") center/contain no-repeat;
   cursor: pointer;
   transform: translate(-50%, -50%);
   filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.7));
+  transition: all 0.3s;
+}
+
+.treasure-chest img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .treasure-chest.collected {
-  background-image: url("/assets/chest-open.png");
   filter: grayscale(100%) brightness(0.7);
+}
+
+.treasure-chest.locked-chest {
+  filter: grayscale(100%) brightness(0.5);
+  cursor: not-allowed;
+}
+
+.treasure-chest:not(.collected):not(.locked-chest):hover {
+  transform: translate(-50%, -50%) scale(1.1);
+  filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.9));
 }
 
 .chest-glow {

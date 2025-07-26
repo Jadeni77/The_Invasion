@@ -5,6 +5,7 @@ import { GameEngine } from "../GameLogic (MVC)/GameEngine";
 import { calculateCardStats } from "../GameLogic (MVC)/DefenderClassUtils";
 import Gold from "../../Icons/Gold.png";
 import Iron from "../../Icons/Iron.png";
+import { useMobileOrientation } from "./UseMobileOrientation.js";
 
 const GameBoard = () => {
   const canvasRef = useRef(null);
@@ -28,8 +29,6 @@ const GameBoard = () => {
 
   const gameEngineRef = useRef(null);
   const [selectedCard, setSelectedCard] = useState(null);
-  // const [hand, setHand] = useState([]);
-  // const [deck, setDeck] = useState([]);
 
   const [cardSlots, setCardSlots] = useState([]);
   const [cardCooldown, setCardCooldown] = useState({});
@@ -37,6 +36,9 @@ const GameBoard = () => {
   const [baseHealth, setBaseHealth] = useState(100);
   const [resetTrigger, setResetTrigger] = useState(0);
   const [showQuitDialog, setShowQuitDialog] = useState(false);
+  const [collectedPieces, setCollectedPieces] = useState([]);
+
+  useMobileOrientation(gameState);
 
   // canvas sizing
   useEffect(() => {
@@ -135,6 +137,11 @@ const GameBoard = () => {
             (health) => setBaseHealth(health)
         );
 
+        //set card pieces collection callback
+        engine.onCardPieceCollected = (cardName) => {
+          setCollectedPieces(prev => [...prev, cardName]);
+        }
+
         gameEngineRef.current = engine;
 
         // Initialize game
@@ -168,15 +175,6 @@ const GameBoard = () => {
     }
   }, [gameState, selectedLevel, resetTrigger, updateEnergyCb, updateScoreCb, onWinCb, onLoseCb]);
 
-  // const drawCards = () => {
-  //   if (hand.length < 3 && deck.length > 0) {
-  //     const cardsToDraw = Math.min(3 - hand.length, deck.length);
-  //     const newCards = deck.slice(0, cardsToDraw);
-  //     setHand((prev) => [...prev, ...newCards]);
-  //     setDeck((prev) => prev.slice(cardsToDraw));
-  //   }
-  // };
-
   const handleCardSelection = (card) => {
     //check if a card is on cooldown
     if (cardCooldown[card.id] > 0 || inGameEnergy < card.cost) return;
@@ -187,13 +185,6 @@ const GameBoard = () => {
       setSelectedCard(card);
     }
   };
-
-  // const handleCardDeployment = () => {
-  //   if (!selectedCard) return;
-  //   setHand((prev) => prev.filter((c) => c.id !== selectedCard.id));
-  //   setSelectedCard(null);
-  //   setTimeout(drawCards, 300);
-  // };
 
   const handleCanvasClick = (event) => {
     console.log("Canvas Click");
@@ -210,6 +201,11 @@ const GameBoard = () => {
     //try to collect energy first when overlap
     if (gameEngineRef.current.collectEnergy(x, y)) {
       console.log("Energy collection successful");
+      return;
+    }
+
+    if (gameEngineRef.current.collectCardPieces(x, y)) {
+      console.log("CardPiece collection successful");
       return;
     }
 
@@ -323,6 +319,26 @@ const GameBoard = () => {
                   <span className="resource-icon">💧</span>
                   <span className="resource-text">Water + {waterEarned}</span>
                 </div>
+
+                {/*   Added card pieces section */}
+                {collectedPieces.length > 0 && (
+                    <div className="card-pieces-section">
+                      <h4>Card Pieces Collected:</h4>
+                      {Object.entries(
+                          collectedPieces.reduce((acc, piece) => {
+                            acc[piece] = (acc[piece] || 0) + 1;
+                            return acc;
+                          }, {})
+                      ).map(([cardName, count]) => (
+                          <div key={cardName} className="resource-line">
+                            <span className="pieces-icon">⬟</span>
+                            <span className="resource-text">
+                          {cardName} x{count}
+                        </span>
+                          </div>
+                      ))}
+                    </div>
+                )}
               </>
             ) : (
               <>
@@ -366,7 +382,19 @@ const GameBoard = () => {
         <div className="action-buttons">
           <button
             className="lobby-button"
-            onClick={() => endGame(gameWon ? "win" : "loss")}
+            onClick={() => {
+              if (collectedPieces.length > 0 && gameEngineRef.current) {
+                // This should be handled by GameContext
+                playerData.cards.forEach(card => {
+                  const piecesForThisCard = collectedPieces.filter(
+                      pieceName => pieceName === card.name
+                  ).length;
+                  if (piecesForThisCard > 0) {
+                    card.pieces += piecesForThisCard;
+                  }
+                });
+              }
+              endGame(gameWon ? "win" : "loss")}}
           >
             RETURN TO LOBBY
           </button>
@@ -385,6 +413,7 @@ const GameBoard = () => {
                 resetCooldowns[card.id] = 0;
               });
               setCardCooldown(resetCooldowns);
+              setCollectedPieces([]);
 
               // Force game engine reset
               setResetTrigger((prev) => prev + 1);
@@ -474,19 +503,6 @@ const GameBoard = () => {
           );
         })}
       </div>
-
-      {/* {/* Card Hand }
-      <div className="card-hand-container">
-        {hand.map((card) => (
-          <Card
-            key={card.id}
-            card={card}
-            onClick={() => handleCardSelection(card)}
-            selected={selectedCard?.id === card.id}
-            disabled={inGameEnergy < card.cost}
-          />
-        ))}
-      </div> */}
 
       {/* Deployment Indicator */}
       {selectedCard && (

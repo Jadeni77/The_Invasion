@@ -17,6 +17,8 @@ import {
   BombEnemy,
 } from "./EnemyUnits.js";
 import { EnergyDrop } from "./EnergyDrop.js";
+import { CardPieceDrop} from "./CardPieceDrop.js";
+import card from "../common/Card.jsx";
 
 export class GameEngine {
   constructor(
@@ -52,6 +54,9 @@ export class GameEngine {
     this.gameWon = false; // Track win/loss state
     this.defenseLineX = 0; // Dynamic based on canvas width
     this.currentWave = 1; // Current wave number
+    this.waveEnemiesSpawned = 0;
+    this.waveComplete = false;
+    this.waveCooldown = 0;
 
     this.updateBaseHealthCb = updateBaseHealthCb;
     this.baseHealth = 100;
@@ -65,8 +70,11 @@ export class GameEngine {
     this.highlightGrid = false;
 
     this.energyDrops = [];
-    this.enemyEnergyDropChance = 0.2; // 20% chance to drop energy
+    this.enemyEnergyDropChance = 1.0; // 20% chance to drop energy
 
+    this.cardPieceDrops = [];
+    this.cardPieceDropChance = 0.15;
+    this.onCardPieceCollected = null;
 
     // Mapping of card names to their respective DefenderUnit classes
     this.defenderUnitClasses = {
@@ -126,20 +134,51 @@ export class GameEngine {
     return false;
   }
 
+  dropCardPieces(x, y) {
+    if (this.gameOver) return;
+
+    //Randomly select a card type and drop
+    const cardType = ['Basic Cop', 'Healer Cop', 'Grenadier', 'Barricade', 'Energy Generator'];
+    const randomCard = cardType[Math.floor(Math.random() * cardType.length)];
+
+    this.cardPieceDrops.push(new CardPieceDrop(x, y, randomCard));
+  }
+
+  collectCardPieces(x, y) {
+    for (let i = this.cardPieceDrops.length - 1; i >= 0; i--) {
+      const drop = this.cardPieceDrops[i];
+      if (drop.checkCollection(x, y)) {
+        console.log("CardPiece collected!");
+
+        drop.startCollectionAnimation(this.canvasWidth - 100, 50); // top right
+
+        if (this.onCardPieceCollected) {
+          this.onCardPieceCollected(drop.cardName);
+        }
+        this.cardPieceDrops.splice(i, 1);
+        return true;
+      }
+    }
+    console.log("No CardPiece Collected!");
+    return false;
+  }
+
   //initial the grid in the game state
   initializeGrid() {
     const cols = Math.floor((this.canvasWidth * 0.5) / this.gridSize); //the right half for deploment
-    const rows = Math.floor(this.canvasHeight / this.gridSize);
+    const maxRow = 6;
+
+    const totalGridHeight = maxRow * this.gridSize;
     this.gridOffsetX = this.canvasWidth * 0.5; //from the middle of the screen
-    this.gridOffsetY = 0;
+    this.gridOffsetY = (this.canvasHeight - totalGridHeight) / 2;
 
     this.deploymentGrid = [];
 
-    for (let row = 0; row < rows; row++) {
+    for (let row = 0; row < maxRow; row++) {
       const gridRow = [];
       for (let col = 0; col < cols; col++) {
         //check if this grid cell is on the road
-        const y = row * this.gridSize;
+      //  const y = this.gridOffsetY + row * this.gridSize;
         // const isRoad =
         //   y >= this.canvasHeight * 0.4 && y <= this.canvasHeight * 0.6;
 
@@ -359,9 +398,12 @@ export class GameEngine {
     this.lastEnemySpawnTime = 0;
     this.enemiesSpawnedThisLevel = 0;
     this.currentWave = 1;
+    this.waveEnemiesSpawned = 0;
+    this.waveComplete = false;
     this.baseHealth = 100;
 
     this.energyDrops = [];
+    this.cardPieceDrops = [];
 
     //reset grid
     if (this.deploymentGrid.length > 0) {
@@ -532,6 +574,10 @@ export class GameEngine {
    */
   addExplosion(x, y, damage, radius) {
     if (this.gameOver) return;
+
+    console.log(`Explosion at (${x}, ${y}) with damage ${damage} 
+    and radius ${radius}`); // Fix: Added debug logging
+
     this.explosions.push({
       x,
       y,
@@ -549,6 +595,8 @@ export class GameEngine {
         enemy.y + enemy.height / 2 - y
       ); // Distance from enemy center to explosion center
       if (distance <= radius) {
+        console.log(`Enemy ${enemy.name} in explosion range, 
+        taking ${damage} damage`); // Fix: Added debug logging
         const died = enemy.takeDamage(damage);
         if (died && !this.gameOver) {
           //only change game score when game still playing
@@ -567,7 +615,11 @@ export class GameEngine {
         defender.y + defender.height / 2 - y
       ); // Distance from defender center to explosion center
       if (distance <= radius) {
-        defender.takeDamage(damage * 0.3); // 30% damage to allies
+        const actualDamage = damage * 0.3;
+        console.log(`Defender ${defender.name} in explosion range, 
+        taking ${actualDamage} damage`); // Fix: Added debug logging
+
+        defender.takeDamage(actualDamage); // 30% damage to allies
       }
     }
   }
@@ -579,9 +631,35 @@ export class GameEngine {
     const now = Date.now();
     const config = this.currentLevelConfig;
 
+    //calculate enemy per waves
+    const enemiesPerWave = Math.ceil(config.totalEnemiesToSpawn / config.waves);
+
+    //check if the current wave is complete
+    if (this.waveEnemiesSpawned >= enemiesPerWave && this.enemies.length === 0) {
+      if (this.currentWave < config.waves) {
+        //start cooldown for the next wave
+        if (this.waveCooldown === 0) {
+          this.waveCooldown = 180;
+          console.log(`Wave ${this.currentWave} complete! Next wave in 3 seconds...`);
+        }
+        return;
+      }
+    }
+
+    //handle wave cooldown
+    if (this.waveCooldown > 0) {
+      this.waveCooldown--;
+      if (this.waveCooldown === 0) {
+        //start next wave
+        this.currentWave++;
+        this.waveEnemiesSpawned = 0;
+        console.log(`Starting Wave ${this.currentWave}!`);
+      }
+      return;
+    }
+
     // Check if total enemies for level are spawned, if interval passed, and if max active enemies limit is not reached
-    if (
-        this.enemiesSpawnedThisLevel < config.totalEnemiesToSpawn &&
+    if (this.enemiesSpawnedThisLevel < config.totalEnemiesToSpawn &&
         now - this.lastEnemySpawnTime > config.enemySpawnInterval &&
         this.enemies.length < config.maxActiveEnemies
     ) {
@@ -603,14 +681,15 @@ export class GameEngine {
 
       // Spawn at a random Y position on the left edge
       const spawnX = -100; // Start off-screen left
-      // const randomRow = Math.floor(Math.random() * this.deploymentGrid.length);
-      // const spawnY = randomRow * this.gridSize + this.gridSize / 2 - 15; // Center of grid row minus half enemy height
-      const spawnY = this.canvasHeight * 0.5;
+     const randomRow = Math.floor(Math.random() * this.deploymentGrid.length);
+     const spawnY = this.gridOffsetY + randomRow * this.gridSize + this.gridSize / 2 - 15; // Center of grid row minus half enemy height
+      // const spawnY = this.canvasHeight * 0.5;
 
       const enemy = new EnemyClass(spawnX, spawnY, this.getImage(enemyType));
 
       this.enemies.push(enemy);
       this.enemiesSpawnedThisLevel++;
+      this.waveEnemiesSpawned++;
     }
   }
 
@@ -634,6 +713,8 @@ export class GameEngine {
 
     this.updateEnergyDrops();
 
+    this.updateCardPieceDrops();
+
     // Finally update explosions
     this.updateExplosions();
 
@@ -649,6 +730,14 @@ export class GameEngine {
     for (let i = this.energyDrops.length - 1; i >= 0; i--) {
       if (!this.energyDrops[i].update()) {
         this.energyDrops.splice(i, 1);
+      }
+    }
+  }
+
+  updateCardPieceDrops() {
+    for (let i = this.cardPieceDrops.length - 1; i >= 0; i--) {
+      if (!this.cardPieceDrops[i].update()) {
+        this.cardPieceDrops.splice(i, 1);
       }
     }
   }
@@ -744,19 +833,25 @@ export class GameEngine {
 
       // Check if enemy died during update
       if (!enemy.isAlive) {
-        if (!this.gameOver) {
-          this.inGameScore += enemy.bounty;
-          this.updateScoreCb(this.inGameScore);
-
-          //energy drop chance when enemy killed
-          if (Math.random() < this.enemyEnergyDropChance) {
-            this.dropEnergy(
-                enemy.x + enemy.width / 2,
-                enemy.y + enemy.height / 2,
-                5 //can be adjusted base on game
-            );
-          }
-        }
+        // if (!this.gameOver) {
+        //   this.inGameScore += enemy.bounty;
+        //   this.updateScoreCb(this.inGameScore);
+        //
+        //   //energy drop chance when enemy killed
+        //   if (Math.random() < this.enemyEnergyDropChance) {
+        //     this.dropEnergy(
+        //         enemy.x + enemy.width / 2,
+        //         enemy.y + enemy.height / 2,
+        //         5 //can be adjusted base on game
+        //     );
+        //   }
+        //   if (Math.random() < this.cardPieceDropChance) {
+        //     this.dropCardPieces(
+        //         enemy.x + enemy.width / 2,
+        //         enemy.y + enemy.height / 2,
+        //     );
+        //   }
+        // }
 
         // Handle special death effects
         if (enemy.shouldExplode) {
@@ -875,6 +970,22 @@ export class GameEngine {
           if (!this.gameOver) {
             this.inGameScore += projectile.target.bounty;
             this.updateScoreCb(this.inGameScore);
+
+            // ADD THIS - Energy drop chance when enemy killed
+            if (Math.random() < this.enemyEnergyDropChance) {
+              this.dropEnergy(
+                  projectile.target.x + projectile.target.width / 2,
+                  projectile.target.y + projectile.target.height / 2,
+                  5
+              );
+            }
+            // ADD THIS - Card piece drop chance
+            if (Math.random() < this.cardPieceDropChance) {
+              this.dropCardPieces(
+                  projectile.target.x + projectile.target.width / 2,
+                  projectile.target.y + projectile.target.height / 2,
+              );
+            }
           }
         }
 
@@ -968,6 +1079,7 @@ export class GameEngine {
     this.drawEnemies(ctx);
     this.drawProjectiles(ctx);
     this.drawEnergyDrops(ctx);
+    this.drawCardPieceDrops(ctx);
     this.drawExplosions(ctx);
     this.drawUI(ctx);
 
@@ -979,6 +1091,12 @@ export class GameEngine {
 
   drawEnergyDrops(ctx) {
     for (const drop of this.energyDrops) {
+      drop.draw(ctx);
+    }
+  }
+
+  drawCardPieceDrops(ctx) {
+    for (const drop of this.cardPieceDrops) {
       drop.draw(ctx);
     }
   }
@@ -1124,6 +1242,9 @@ export class GameEngine {
 
   /** Draws the in-game UI (energy, score, wave). */
   drawUI(ctx) {
+    // Fix: Save the current context state
+    ctx.save();
+
     // Draw energy bar
     const energyPercent =
       this.inGameEnergy / this.currentLevelConfig.initialEnergy;
@@ -1133,14 +1254,20 @@ export class GameEngine {
     ctx.fillRect(10, 10, 200 * energyPercent, 20);
     ctx.fillStyle = "#FFF"; // Text color
     ctx.font = "16px Arial";
+    ctx.textAlign = "left"; // Set text alignment
+    ctx.textBaseline = "middle"; // Fix text baseline
     ctx.fillText(`Energy: ${Math.floor(this.inGameEnergy)}`, 15, 26);
 
     // Draw score
     ctx.fillStyle = "#FFF";
     ctx.font = "16px Arial";
+    ctx.textAlign = "right"; // Fix: Set text alignment
+    ctx.textBaseline = "middle"; // Fix text baseline
     ctx.fillText(`Score: ${this.inGameScore}`, this.canvasWidth - 150, 26);
 
     // Draw wave info
+    ctx.textAlign = "center"; // Fix: Set text alignment
+    ctx.textBaseline = "middle"; // Fix text baseline
     ctx.fillText(
       `Wave: ${this.currentWave}/${this.currentLevelConfig.waves}`,
       this.canvasWidth / 2 - 50,
@@ -1154,6 +1281,9 @@ export class GameEngine {
     ctx.moveTo(this.defenseLineX, 0);
     ctx.lineTo(this.defenseLineX, this.canvasHeight);
     ctx.stroke();
+
+    //Restore the context state
+    ctx.restore();
   }
 
   /** Draws the game over/win screen overlay. */

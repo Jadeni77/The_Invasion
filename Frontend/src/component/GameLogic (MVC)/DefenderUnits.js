@@ -77,12 +77,12 @@ export class DefenderUnit {
     // Subclasses can add their specific update logic here
   }
 
-  // New: Checks if the defender can attack based on fireRate
+  // Checks if the defender can attack based on fireRate
   canAttack(currentTime) {
-    return currentTime - this.lastAttackTime >= (this.fireRate / 60) * 1000; // Convert frames to milliseconds
+    return currentTime - this.lastAttackTime >= (this.fireRate * 1000) / 60; // Convert frames to milliseconds
   }
 
-  // New: Performs an attack on a target
+  // Performs an attack on a target
   attack(target, currentTime) {
     if (!this.isAlive || !target || !target.isAlive) return;
 
@@ -167,6 +167,27 @@ export class BasicDefender extends DefenderUnit {
       isRanged: true, // Basic Cop is ranged
       image: cardData.image,
     });
+    this.armorPiercing = false;
+    this.hasArmorPiercing = false;
+  }
+
+  attack(target, currentTime) {
+    if (!this.isAlive || !target || !target.isAlive) return;
+
+    let finalDamage = this.attackDamage;
+
+    //check for armor piecing again tank
+    if (this.hasArmorPiercing && this.armorPiercing && target.name === 'Tank Zombie') {
+      //ignore damage reduction
+      target.health -= finalDamage;
+      if (target.health <= 0) {
+        target.health = 0;
+        target.isAlive = false;
+      }
+    } else {
+        target.takeDamage(finalDamage);
+      }
+    this.lastAttackTime = currentTime;
   }
 
   applySpecialAbilities() {
@@ -270,8 +291,7 @@ export class HealerDefender extends DefenderUnit {
   }
 
   update(enemies, defenderUnits) {
-    // Healers don't attack enemies directly in their update, but can still heal
-    // super.update(enemies, defenderUnits); // Removed as it handles attack logic, which Healer doesn't need here
+    if (!this.isAlive) return;
 
     // Healing Logic
     this.healingCountdown--;
@@ -287,16 +307,33 @@ export class HealerDefender extends DefenderUnit {
             this.y + this.height / 2 - (unit.y + unit.height / 2)
           ) <= this.healingRange // In range
       );
-      // Sort by lowest health percentage to prioritize
-      unitsToHeal.sort(
-        (a, b) => a.health / a.maxHealth - b.health / b.maxHealth
-      );
-      if (unitsToHeal.length > 0) {
+
+      //group healing special ability
+      if (this.hasGroupHeal && unitsToHeal.length > 0) {
+        //heal up to three units
+        const toHeal = unitsToHeal.slice(0, 3);
+        toHeal.forEach(unit => {
+          unit.health = Math.min(
+              unit.maxHealth,
+              unit.health + this.healingAmount
+          );
+        });
+      } else if (unitsToHeal.length > 0) {
+        // Sort by lowest health percentage to prioritize
+        unitsToHeal.sort((a, b) => a.health / a.maxHealth - b.health / b.maxHealth);
         const targetUnit = unitsToHeal[0];
-        targetUnit.health = Math.min(
-          targetUnit.maxHealth,
-          targetUnit.health + this.healingAmount
-        );
+        targetUnit.health = Math.min(targetUnit.maxHealth, targetUnit.health + this.healingAmount);
+      }
+
+      //check for resurreltion ability
+      if (this.hasResurrection && this.canResurrect) {
+        const deadUnit = defenderUnits.find(unit => {
+          !unit.isAlive && unit.id !== this.id});
+        if (deadUnit && Math.random() < 0.1) { //1% chance for healing cycle
+          deadUnit.isAlive = true;
+          deadUnit.health = deadUnit.maxHealth * 0.2; //revive with 20% health
+          this.canResurrect = false; //only resurrect once per battle
+        }
       }
       this.healingCountdown = this.healingRate;
     }

@@ -42,6 +42,7 @@ function UpgradeModal() {
   };
 
   //check if this car can be upgrded, by resources, and by worker
+  //add cardpieces requirement in order to upgrade
   const canUpgradeCard = (card) => {
     if (!playerData) return false;
 
@@ -55,12 +56,16 @@ function UpgradeModal() {
       ([resource, amount]) => playerData.resources[resource] >= amount
     );
 
+    //check cardpieces
+    const piecesNeeded = card.piecesNeeded * card.level;
+    const hasEnoughPieces = card.pieces >= piecesNeeded;
+
     // Check available workers
     const availableWorker = playerData.workers.find(
       (w) => !w.injured && !upgradeQueue.some((u) => u.workerId === w.id)
     );
 
-    return hasResources && !!availableWorker; // Ensure availableWorker is not null/undefined
+    return hasResources && hasEnoughPieces && !!availableWorker; // Ensure availableWorker is not null/undefined
   };
 
   return (
@@ -156,6 +161,16 @@ function UpgradeModal() {
                           </div>
                         )
                       )}
+                    </div>
+
+                    {/* Card Pieces Requirement Display */}
+                    <div className="card-pieces-requirement">
+                      <span className="pieces-icon">⬟</span>
+                      <span className={`pieces-text ${
+                          card.pieces >= card.piecesNeeded * card.level ? "met" : "unmet"
+                      }`}>
+                        Card Pieces: {card.pieces} / {card.piecesNeeded * card.level}
+                      </span>
                     </div>
 
                     <div className="worker-requirement">

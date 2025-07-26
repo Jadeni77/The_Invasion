@@ -7,7 +7,6 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { GameEngine } from "./GameEngine"; // Correct path
 
 export const GameContext = createContext();
 
@@ -30,6 +29,7 @@ export const GameProvider = ({ children }) => {
   const [gameWon, setGameWon] = useState(false);
 
   const [selectedCardsForGame, setSelectedCardsForGame] = useState(null);
+  const [collectedCardPieces, setCollectedCardPieces] = useState([]);
 
   // Callbacks for GameEngine to update React state
   //updating in game energy 
@@ -52,7 +52,16 @@ export const GameProvider = ({ children }) => {
       // Update player data based on win
       setPlayerData((prev) => {
         if (!prev) return prev;
-        const newGold = prev.resources.gold + score;
+        const goldEarned = Math.floor(score * 0.3);
+        const ironEarned = Math.floor(score * 0.1);
+        const grainEarned = Math.floor(score * 0.2);
+        const waterEarned = Math.floor(score * 0.2);
+
+        const newGold = prev.resources.gold + goldEarned;
+        const newIron = prev.resources.iron + ironEarned;
+        const newGrain = prev.resources.grain + grainEarned;
+        const newWater = prev.resources.water + waterEarned;
+
         const newUnlockedLevels = [...prev.unlockedLevels];
         if (!newUnlockedLevels.includes(level + 1)) {
           newUnlockedLevels.push(level + 1); // Unlock next level
@@ -60,7 +69,13 @@ export const GameProvider = ({ children }) => {
         }
         return {
           ...prev,
-          resources: { ...prev.resources, gold: newGold },
+          resources: {
+            ...prev.resources,
+            gold: newGold,
+            iron: newIron,
+            grain: newGrain,
+            water: newWater
+          },
           unlockedLevels: newUnlockedLevels,
         };
       });
@@ -144,6 +159,8 @@ export const GameProvider = ({ children }) => {
             id: 1,
             name: "Basic Cop",
             level: 1,
+            pieces: 0,
+            piecesNeeded: 10,
             upgradeCost: { gold: 100, iron: 5, water: 3 },
             upgradeTime: 60,
           },
@@ -151,6 +168,8 @@ export const GameProvider = ({ children }) => {
             id: 2,
             name: "Healer Cop",
             level: 1,
+            pieces: 0,
+            piecesNeeded: 10,
             upgradeCost: { gold: 150, grain: 10, water: 5, gem: 1 },
             upgradeTime: 120,
           },
@@ -158,6 +177,8 @@ export const GameProvider = ({ children }) => {
             id: 3,
             name: "Grenadier",
             level: 1,
+            pieces: 0,
+            piecesNeeded: 10,
             upgradeCost: { gold: 200, iron: 15, gem: 2 },
             upgradeTime: 180,
           },
@@ -165,6 +186,8 @@ export const GameProvider = ({ children }) => {
             id: 4,
             name: "Barricade",
             level: 1,
+            pieces: 0,
+            piecesNeeded: 10,
             cost: 30,
             upgradeCost: { gold: 120, iron: 20, grain: 5 },
             upgradeTime: 90,
@@ -173,6 +196,8 @@ export const GameProvider = ({ children }) => {
             id: 5,
             name: "Energy Generator",
             level: 1,
+            pieces: 0,
+            piecesNeeded: 10,
             cost: 25,
             upgradeCost: { gold: 80, water: 10, grain: 20},
             upgradeTime: 75
@@ -313,18 +338,29 @@ export const GameProvider = ({ children }) => {
         ([resource, amount]) => playerData.resources[resource] >= amount
       );
 
+      const hasEnoughPieces = card.pieces >= (card.piecesNeeded * card.level);
+
       // Check if available worker
       const availableWorker = playerData.workers.find(
         (w) => !w.injured && !upgradeQueue.some((u) => u.workerId === w.id)
       );
 
-      if (canAfford && availableWorker) {
+      if (canAfford && availableWorker && hasEnoughPieces) {
         Object.entries(card.upgradeCost).forEach(([resource, amount]) => {
           updateResource(resource, -amount);
         });
 
-        // Add to upgrade queue
-        const upgradeEndTime = Date.now() + card.upgradeTime * 1000;
+        //deduct card pieces
+        setPlayerData(prev => ({
+          ...prev,
+          cards: prev.cards.map((c) =>
+            c.id === cardId ? {...c, pieces: c.pieces - (c.piecesNeeded * c.level)}
+          : c),
+        }));
+
+        // Add to upgrade queue where upgrading time will be scale base on level
+        const upgradeTime = card.upgradeTime * (1 + (card.level - 1) * 0.4); // 40% increase per level
+        const upgradeEndTime = Date.now() + upgradeTime * 1000;
         setUpgradeQueue((prev) => [
           ...prev,
           {
@@ -336,7 +372,7 @@ export const GameProvider = ({ children }) => {
         ]);
       } else {
         console.warn(
-          "Cannot start upgrade: requirements not met (resources or worker)"
+          "Cannot start upgrade: requirements not met (resources or worker or cardpieces)"
         );
       }
     },
@@ -452,13 +488,34 @@ export const GameProvider = ({ children }) => {
       }
       // Resource gain on win is now handled by onWinCb
 
+      //add collected card pieces to player data at game end
+      if (collectedCardPieces.length > 0) {
+        setPlayerData(prev => {
+          const updatedCards = prev.cards.map(card => {
+            const piecesForThisCard = collectedCardPieces.filter(
+                pieceName => pieceName === card.name
+            ).length;
+            return {
+              ...card,
+              pieces: card.pieces + piecesForThisCard
+            };
+          });
+          return  {
+            ...prev,
+            cards: updatedCards
+          };
+        });
+        //clear collection after adding to player data
+        setCollectedCardPieces([]);
+      }
+
       setGameState("lobby");
       setGameOver(false); // Reset UI state
       setGameWon(false); // Reset UI state
       setSelectedLevel(null); // Clear selected level
       savePlayerData(playerData); // Save updated player data
     },
-    [injureWorker, playerData, savePlayerData]
+    [injureWorker, playerData, savePlayerData, collectedCardPieces]
   );
 
   const deployDefender = useCallback(

@@ -105,52 +105,40 @@
   display: block;
 }
 
-/* Card Hand
-.card-hand-container {
-  position: absolute;
-  bottom: 10px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  gap: 15px;
-  padding: 10px;
-  z-index: 10;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  height: 150px; /* Increased height 
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(5px);
-  border-top: 2px solid #2a4a6a;
-} */
-
-/* Hide scrollbar but keep functionality */
-/* .card-hand-container::-webkit-scrollbar {
-  height: 0;
-} */
-
-
-
 /* Add these styles to GameBoard.css */
 
 /* Card Slots Container - Fixed position like Plants vs Zombies */
 .card-slots-container {
   position: absolute;
-  bottom: 20px;
+  bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 10px;
-  padding: 15px;
-  background: rgba(0, 0, 0, 0.8);
+  gap: 8px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.7);
   border-radius: 10px;
   border: 2px solid #333;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+  max-width: 90%;
+  overflow-x: auto;
+}
+
+/* Hide scrollbar but keep functionality */
+.card-slots-container::-webkit-scrollbar {
+  height: 0;
 }
 
 .card-slot-wrapper {
   position: relative;
+  flex-shrink: 0;
+}
+
+/* Fix: Smaller card size in game */
+.card-slot-wrapper .card-container {
+  width: 80% !important;
+  height: 100% !important;
 }
 
 /* Cooldown overlay */
@@ -345,6 +333,26 @@
 
 .resource-text {
   font-weight: 500;
+}
+
+/* Added card pieces section styles */
+.card-pieces-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.card-pieces-section h4 {
+  text-align: center;
+  color: #9370DB;
+  margin-bottom: 10px;
+  font-size: 1.1em;
+}
+
+.pieces-icon {
+  font-size: 1.5em;
+  color: #9370DB;
+  margin-right: 10px;
 }
 
 .warning-text {

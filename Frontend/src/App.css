@@ -6,32 +6,38 @@ src/
 │        ├── Card.jsx
 │        └── WorkerStatus.jsx
 │   ├── GameLogic (MVC)/
+|   |    |-- CardPieceDrop.js
 |   |    |-- DefenderClassUtils.js
 │   │    ├── DefenderUnits.js
 │   │    ├── EnemyUnits.js
+|   |    |-- EnergyDrop.js
 │   │    ├── GameContext.jsx
 │   │    └── GameEngine.js
 │   ├── GameRendering/
+|   |    |-- CardSelectionModal.jsx
 |   |    |-- EnergyBar.jsx
 │   │    ├── GameBoard.jsx
 │   │    ├── Lobby.jsx
 │   │    ├── MapLayout.jsx
 │   │    └── ResourceIcon.jsx
 │   │    ├── UpgradeModal.jsx
-|   |    |-- CardSelectionModal.jsx
+|   |    |-- UseMobileOrientation.js
 ├── style/
-│   ├── Lobby.css
-|   |-- EnergyBar.css
-|   |-- UpgradeModal.css
 |   |-- AllImage.css
-|   |-- WorkerStatus.css
-|   |-- GameBoard.css
 |   |-- Card.css
+|   |-- CardSelectionModal.css
+|   |-- EnergyBar.css
+|   |-- GameBoard.css
+│   ├── Lobby.css
+|   |-- UpgradeModal.css
+|   |-- WorkerStatus.css
 |
 |-- Icons/
-|   |--Gold.png
-|   |--Iron.png
-|   |--Worker.png
+|   |-- CloseChest.png
+|   |-- Gold.png
+|   |-- Iron.png
+|   |-- OpenChest.png
+|   |-- Worker.png
 |
 └── App.jsx
 

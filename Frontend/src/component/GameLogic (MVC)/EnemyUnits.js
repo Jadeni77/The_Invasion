@@ -247,15 +247,14 @@ export class BombEnemy extends Enemy {
 
     // If close then explode
     const nearestDefender = defenders.find(
-      (defender) =>
-        defender.isAlive &&
+      (defender) => defender.isAlive &&
         Math.hypot(this.x - defender.x, this.y - defender.y) <
-          this.explosionRadius
-    );
+          this.explosionRadius / 2); //reduce range for explosion detection
     if (nearestDefender) {
       console.log(`${this.name} self-destructs near a defender!`);
       this.shouldExplode = true; // Mark for explosion
       this.isAlive = false; // Enemy is consumed by the explosion
+      this.health = 0;
     }
   }
 
