@@ -167,8 +167,9 @@ export class BasicDefender extends DefenderUnit {
       isRanged: true, // Basic Cop is ranged
       image: cardData.image,
     });
-    this.armorPiercing = false;
-    this.hasArmorPiercing = false;
+    // this.armorPiercing = false;
+    // this.hasArmorPiercing = false;
+    this.useProjectile = true;
   }
 
   attack(target, currentTime) {
@@ -389,6 +390,8 @@ export class GrenadeDefender extends DefenderUnit {
     this.grenadeRadius = this.baseGrenadeRadius;
     this.grenadeCountdown = this.fireRate;
     this.gameEngine = null; // Reference to game engine for adding explosions
+
+    this.useProjectile = false;
   }
 
   applyGrenadeUpgrades() {

@@ -774,16 +774,20 @@ export class GameEngine {
         if (target) {
           // If the defender is ranged, create a projectile
           if (defender.isRanged) {
-            this.projectiles.push({
-              startX: defender.x + defender.width / 2,
-              startY: defender.y + defender.height / 2,
-              target: target, // Store reference to the target enemy
-              speed: 10,
-              damage: defender.attackDamage,
-              // Projectile progress will be calculated based on distance to target
-            });
+            if (defender.useProjectile) {
+              this.projectiles.push({
+                startX: defender.x + defender.width / 2,
+                startY: defender.y + defender.height / 2,
+                target: target, // Store reference to the target enemy
+                speed: 10,
+                damage: defender.attackDamage,});
+              defender.lastAttackTime = now;
+            } else {
+              defender.attack(target, now);
+            }
+          } else {
+            defender.attack(target, now); // Defender performs its attack
           }
-          defender.attack(target, now); // Defender performs its attack
         }
       }
     }
