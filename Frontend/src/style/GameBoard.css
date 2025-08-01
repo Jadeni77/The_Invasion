@@ -105,14 +105,23 @@
   display: block;
 }
 
-/* Add these styles to GameBoard.css */
+/* Bottom Game Bar */
+.game-bottom-bar {
+  height: 180px; /* Adjusted for proper card display */
+  padding: 15px 20px;
+  background: rgba(0, 20, 40, 0.8);
+  border-top: 2px solid #2a4a6a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  box-shadow: 0 -3px 10px rgba(0, 0, 0, 0.5);
+}
 
-/* Card Slots Container - Fixed position like Plants vs Zombies */
+/* Card Slots Container */
 .card-slots-container {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   gap: 8px;
   padding: 10px;
@@ -120,9 +129,10 @@
   border-radius: 10px;
   border: 2px solid #333;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  z-index: 10;
   max-width: 90%;
   overflow-x: auto;
+  height: auto;
+  align-items: center;
 }
 
 /* Hide scrollbar but keep functionality */
@@ -130,15 +140,17 @@
   height: 0;
 }
 
+/* Card slot wrapper */
 .card-slot-wrapper {
   position: relative;
   flex-shrink: 0;
+  height: auto;
+  width: auto;
 }
 
-/* Fix: Smaller card size in game */
 .card-slot-wrapper .card-container {
-  width: 80% !important;
-  height: 100% !important;
+  width: 80px !important;
+  height: auto !important;
 }
 
 /* Cooldown overlay */
@@ -200,7 +212,6 @@
   color: #ff5252;
   font-weight: bold;
 }
-
 
 /* Deployment Indicator */
 .deployment-indicator {
@@ -374,42 +385,6 @@
   margin-top: 20px;
   font-style: italic;
   color: #ccc;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 20px;
-}
-
-.lobby-button, .replay-button {
-  padding: 15px 30px;
-  font-size: 1.2em;
-  border-radius: 5px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-weight: bold;
-  text-transform: uppercase;
-}
-
-.lobby-button {
-  background: #2196F3;
-  color: white;
-}
-
-.lobby-button:hover {
-  background: #1976D2;
-  transform: scale(1.05);
-}
-
-.replay-button {
-  background: #4CAF50;
-  color: white;
-}
-
-.replay-button:hover {
-  background: #388E3C;
-  transform: scale(1.05);
 }
 
 .action-buttons {
@@ -604,15 +579,23 @@
     min-width: 40px;
   }
 
-  /* .card-hand-container {
-    height: 120px;
-    gap: 10px;
+  /* Bottom bar adjustments */
+  .game-bottom-bar {
+    height: 140px;
     padding: 5px;
-  } */
+  }
 
-  .card-container {
-    width: 80px !important;
-    height: 110px !important;
+  .card-slots-container {
+    gap: 5px;
+    padding: 5px;
+  }
+
+  .card-slot-wrapper {
+    height: 120px;
+  }
+
+  .card-slot-wrapper .card-container {
+    width: 70px !important;
   }
 
   .deployment-indicator {
@@ -688,6 +671,11 @@
     padding: 5px 15px;
   }
 
+  .game-bottom-bar {
+    height: 100px;
+    padding: 5px 10px;
+  }
+
   .energy-container,
   .score-container,
   .base-health-container {
@@ -719,15 +707,17 @@
     font-size: 12px;
   }
 
-  .card-hand-container {
-    height: 100px;
-    gap: 8px;
+  .card-slots-container {
+    gap: 5px;
     padding: 5px;
   }
 
-  .card-container {
-    width: 70px !important;
-    height: 90px !important;
+  .card-slot-wrapper {
+    height: 85px;
+  }
+
+  .card-slot-wrapper .card-container {
+    width: 60px !important;
   }
 }
 
@@ -737,8 +727,12 @@
     max-width: 100%;
   }
 
-  .card-hand-container {
-    height: 140px;
+  .game-bottom-bar {
+    height: 160px;
+  }
+
+  .card-slot-wrapper {
+    height: 120px;
   }
 
   .energy-container,
@@ -770,14 +764,16 @@
     height: 70px;
   }
 
-  .card-hand-container {
-    height: 160px;
-    gap: 20px;
+  .game-bottom-bar {
+    height: 180px;
+    padding: 10px 30px;
   }
 
-  .card-container {
-    width: 110px !important;
-    height: 140px !important;
+  .card-slot-wrapper {
+    height: 140px;
+  }
+
+  .card-slot-wrapper .card-container {
+    width: 90px !important;
   }
 }
-

@@ -46,12 +46,12 @@ const GameBoard = () => {
       if (canvasRef.current) {
         const container = canvasRef.current.parentElement;
         canvasRef.current.width = container.clientWidth;
-        canvasRef.current.height = container.clientHeight - 60; // Account for top bar
+        canvasRef.current.height = container.clientHeight - 60 - 250; // Account for top bar (60px) AND bottom bar (120)
 
         // Update game engine if exists
         if (gameEngineRef.current) {
           gameEngineRef.current.canvasWidth = container.clientWidth;
-          gameEngineRef.current.canvasHeight = container.clientHeight - 60;
+          gameEngineRef.current.canvasHeight = container.clientHeight - 60 - 250; // Account for both bars
           gameEngineRef.current.defenseLineX = container.clientWidth * 0.9;
         }
       }
@@ -433,112 +433,115 @@ const GameBoard = () => {
   }
 
   return (
-    <div className="game-board-container">
-      {/* Top UI Bar */}
-      <div className="game-top-bar">
-        <button
-          className="settings-button"
-          onClick={handleQuitClick}
-          title="Return to Lobby"
-        >
-          ⚙️
-        </button>
-        <div className="energy-container">
-          <div className="energy-icon">⚡</div>
-          <div className="energy-value">{inGameEnergy}</div>
-        </div>
-
-        <div className="score-container">
-          <div className="score-label">SCORE:</div>
-          <div className="score-value">{inGameScore}</div>
-        </div>
-
-        <div className="base-health-container">
-          <div className="base-icon">🏢</div>
-          <div className="health-bar">
-            <div className="health-fill" style={{ width: `${baseHealth}%` }} />
+      <div className="game-board-container">
+        {/* Top UI Bar */}
+        <div className="game-top-bar">
+          <button
+              className="settings-button"
+              onClick={handleQuitClick}
+              title="Return to Lobby"
+          >
+            ⚙️
+          </button>
+          <div className="energy-container">
+            <div className="energy-icon">⚡</div>
+            <div className="energy-value">{inGameEnergy}</div>
           </div>
-          <div className="health-value">{baseHealth}%</div>
+
+          <div className="score-container">
+            <div className="score-label">SCORE:</div>
+            <div className="score-value">{inGameScore}</div>
+          </div>
+
+          <div className="base-health-container">
+            <div className="base-icon">🏢</div>
+            <div className="health-bar">
+              <div className="health-fill" style={{ width: `${baseHealth}%` }} />
+            </div>
+            <div className="health-value">{baseHealth}%</div>
+          </div>
         </div>
-      </div>
 
-      {/* Game Canvas */}
-      <canvas
-        ref={canvasRef}
-        width={800}
-        height={450}
-        onClick={handleCanvasClick}
-        className="game-canvas"
-      />
+        {/* Game Canvas */}
+        <canvas
+            ref={canvasRef}
+            width={800}
+            height={450}
+            onClick={handleCanvasClick}
+            className="game-canvas"
+        />
 
-      {/* Card slots at a fix position in game */}
-      <div className="card-slots-container">
-        {cardSlots.map((card) => {
-          const cooldown = cardCooldown[card.id] || 0;
-          const cooldownPercent =
-            cooldown > 0 ? (cooldown / getCooldownDuration(card)) * 100 : 0;
-          const isDisabled = cooldown > 0 || inGameEnergy < card.cost;
+        {/* Card slots in bottom bar */}
+        <div className="game-bottom-bar">
+          <div className="card-slots-container">
+            {cardSlots.map((card) => {
 
-          return (
-            <div key={card.id} className="card-slot-wrapper">
-              <Card
-                card={card}
-                onClick={() => handleCardSelection(card)}
-                selected={selectedCard?.id === card.id}
-                disabled={isDisabled}
-              />
+              const cooldown = cardCooldown[card.id] || 0;
+              const cooldownPercent =
+                  cooldown > 0 ? (cooldown / getCooldownDuration(card)) * 100 : 0;
+              const isDisabled = cooldown > 0 || inGameEnergy < card.cost;
 
-              {cooldown > 0 && (
-                <div className="cooldown-overlay">
-                  <div
-                    className="cooldown-progress"
-                    style={{ height: `${cooldownPercent}%` }}
-                  />
-                  <div className="cooldown-text">
-                    {Math.ceil(cooldown / 1000)}s
+              return (
+                  <div key={card.id} className="card-slot-wrapper">
+                    <Card
+                        card={card}
+                        onClick={() => handleCardSelection(card)}
+                        selected={selectedCard?.id === card.id}
+                        disabled={isDisabled}
+                    />
+
+                    {cooldown > 0 && (
+                        <div className="cooldown-overlay">
+                          <div
+                              className="cooldown-progress"
+                              style={{ height: `${cooldownPercent}%` }}
+                          />
+                          <div className="cooldown-text">
+                            {Math.ceil(cooldown / 1000)}s
+                          </div>
+                        </div>
+                    )}
                   </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Deployment Indicator */}
+        {selectedCard && (
+            <div className="deployment-indicator">
+              <div className="indicator-icon">+</div>
+              <div className="indicator-text">
+                DEPLOY {selectedCard.name.toUpperCase()}
+              </div>
+            </div>
+        )}
+
+        {/* Quit Confirmation Dialog */}
+        {showQuitDialog && (
+            <div className="quit-dialog-overlay">
+              <div className="quit-dialog">
+                <h3>Return to Lobby?</h3>
+                <p>
+                  Warning: Quitting now will count as a defeat!
+                  <br />
+                  You will lose resources and may injure a worker.
+                </p>
+                <div className="quit-dialog-buttons">
+                  <button
+                      className="quit-confirm-button"
+                      onClick={handleQuitConfirm}
+                  >
+                    QUIT GAME
+                  </button>
+                  <button className="quit-cancel-button" onClick={handleQuitCancel}>
+                    CONTINUE PLAYING
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
-          );
-        })}
+        )}
       </div>
-
-      {/* Deployment Indicator */}
-      {selectedCard && (
-        <div className="deployment-indicator">
-          <div className="indicator-icon">+</div>
-          <div className="indicator-text">
-            DEPLOY {selectedCard.name.toUpperCase()}
-          </div>
-        </div>
-      )}
-
-      {/* QUit Confirmation Dialog */}
-      {showQuitDialog && (
-        <div className="quit-dialog-overlay">
-          <div className="quit-dialog">
-            <h3>Return to Lobby?</h3>
-            <p>
-              Warning: Quitting now will count as a defeat!
-              <br />
-              You will lose resources and may injure a worker.
-            </p>
-            <div className="quit-dialog-buttons">
-              <button
-                className="quit-confirm-button"
-                onClick={handleQuitConfirm}
-              >
-                QUIT GAME
-              </button>
-              <button className="quit-cancel-button" onClick={handleQuitCancel}>
-                CONTINUE PLAYING
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
   );
 };
 
