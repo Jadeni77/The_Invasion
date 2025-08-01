@@ -24,6 +24,25 @@ export class Enemy {
     this.attackRate = typeData.attackRate || 60; // frames per attack
     this.attackCountdown = this.attackRate;
     this.isAttacking = false; // if entity is engage in attack
+
+    this.isRanged = false;
+    this.lastAttackTime = 0;
+    this.attackRange = typeData.attackRange || 50;
+  }
+
+  canAttack(currentTime) {
+    if (!this.isAttacker) return;
+    return currentTime - this.lastAttackTime >= (this.attackRate * 1000) / 60;
+  }
+
+  attack(target, currentTime) {
+    if (!this.isAlive || !target || !target.isAlive) return;
+
+    if (!this.isRanged) {
+      target.takeDamage(this.attackDamage);
+    }
+    //range attacks are handle by gameEnging in the draw Projectile method
+    this.lastAttackTime = currentTime;
   }
 
   /**
@@ -274,5 +293,77 @@ export class BombEnemy extends Enemy {
       ctx.lineWidth = 2;
       ctx.stroke();
     }
+  }
+}
+
+export class RangeEnemy extends Enemy {
+  constructor(x, y, image) {
+    super(x, y, {
+      name: "Skeleton Shooter",
+      speed: 0.8,
+      health: 150,
+      width: 30,
+      height: 30,
+      color: "White",
+      image: image,
+      bounty: 15,
+      isAttacker: true,
+      attackDamage: 20,
+      attackRate: 50
+    });
+    this.attackRange = 100;
+    this.lastAttackTime = 0;
+    this.isRanged = true;
+  }
+
+  update(defenderUnits) {
+    if (!this.isAlive) return;
+
+    if (this.health <= 0) {
+      this.isAlive = false;
+      this.health = 0;
+      return;
+    }
+
+    //find closest defender within range
+    const targetDefender = this.findClosestDefender(defenderUnits);
+
+    if (targetDefender && this.getDistanceTo(targetDefender) <= this.attackRange) {
+      this.speed = 0;
+    } else {
+      this.x += this.speed;
+    }
+  }
+
+  findClosestDefender(defenderUnits) {
+    let closest = null;
+    let minDistance = Infinity;
+
+    for (const defender of defenderUnits) {
+      if (!defender.isAlive) continue;
+
+      const distance = this.getDistanceTo(defender);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closest = defender;
+      }
+    }
+    return closest;
+  }
+
+  getDistanceTo(target) {
+    return Math.hypot(
+        this.x + this.width / 2 - (target + target.width / 2),
+        this.y + this.height / 2 - (target + target.height / 2)
+    );
+  }
+
+  canAttack(currentTime) {
+    return currentTime - this.lastAttackTime >= (this.attackRate * 1000) / 60;
+  }
+
+  attack(target, currentTime) {
+    // Just update attack time - GameEngine will create the projectile
+    this.lastAttackTime = currentTime;
   }
 }

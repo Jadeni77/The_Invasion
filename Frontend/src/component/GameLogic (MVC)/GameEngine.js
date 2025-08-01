@@ -15,6 +15,7 @@ import {
   FastEnemy,
   TankEnemy,
   BombEnemy,
+  RangeEnemy
 } from "./EnemyUnits.js";
 import { EnergyDrop } from "./EnergyDrop.js";
 import { CardPieceDrop} from "./CardPieceDrop.js";
@@ -44,6 +45,7 @@ export class GameEngine {
     this.enemies = [];
     this.explosions = [];
     this.projectiles = [];
+    this.enemyProjectiles = [];
 
     // In-game state
     this.inGameEnergy = 0; // Will be set by level config
@@ -91,6 +93,7 @@ export class GameEngine {
       "Fast Zombie": FastEnemy,
       "Tank Zombie": TankEnemy,
       "Exploder": BombEnemy,
+      "Skeleton Shooter": RangeEnemy
     };
 
     // Level configurations and loaded assets
@@ -222,11 +225,12 @@ export class GameEngine {
       maxActiveEnemies: 8,
       totalEnemiesToSpawn: 20,
       waves: 3,
-      availableEnemyTypes: ["Basic Zombie", "Fast Zombie"],
+      availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Skeleton Shooter"],
       initialEnergy: 100,
       enemyAssets: {
         "Basic Zombie": null,
         "Fast Zombie": null,
+        "Skeleton Shooter": null
       },
       defenderAssets: {
         "Basic Cop": null,
@@ -704,6 +708,7 @@ export class GameEngine {
 
     // UPDATE PROJECTILES FIRST (before enemies move)
     this.updateProjectiles();
+    this.updateEnemyProjectiles();
 
     // Then update defenders
     this.updateDefenders(now);
@@ -837,25 +842,6 @@ export class GameEngine {
 
       // Check if enemy died during update
       if (!enemy.isAlive) {
-        // if (!this.gameOver) {
-        //   this.inGameScore += enemy.bounty;
-        //   this.updateScoreCb(this.inGameScore);
-        //
-        //   //energy drop chance when enemy killed
-        //   if (Math.random() < this.enemyEnergyDropChance) {
-        //     this.dropEnergy(
-        //         enemy.x + enemy.width / 2,
-        //         enemy.y + enemy.height / 2,
-        //         5 //can be adjusted base on game
-        //     );
-        //   }
-        //   if (Math.random() < this.cardPieceDropChance) {
-        //     this.dropCardPieces(
-        //         enemy.x + enemy.width / 2,
-        //         enemy.y + enemy.height / 2,
-        //     );
-        //   }
-        // }
 
         // Handle special death effects
         if (enemy.shouldExplode) {
@@ -874,6 +860,23 @@ export class GameEngine {
       // Handle special abilities (only for alive enemies)
       if (enemy.activateSpecialAbility) {
         enemy.activateSpecialAbility(this.defenders);
+      }
+
+      if (enemy.isAttacker && enemy.canAttack(now)) {
+        const target = this.findTargetForEnemy(enemy);
+        if (target) {
+          if (enemy.isRanged) {
+            this.enemyProjectiles.push({
+              startX: enemy.x + enemy.width / 2,
+              startY: enemy.y + enemy.height / 2,
+              target: target,
+              speed: 8, // Slightly slower than defender projectiles
+              damage: enemy.attackDamage,
+              color: "#FF4444" // Red projectiles for enemies
+            });
+          }
+          enemy.attack(target, now);
+        }
       }
 
       // Check if still alive after special ability
@@ -931,6 +934,26 @@ export class GameEngine {
         this.enemies.splice(i, 1);
       }
     }
+  }
+
+  findTargetForEnemy(enemy) {
+    let closestDefender = null;
+    let closestDistance = Infinity;
+
+    for (const defender of this.defenders) {
+      if (!defender.isAlive) continue;
+
+      const distance = Math.hypot(
+          enemy.x + enemy.width / 2 - (defender.x + defender.width / 2),
+          enemy.y + enemy.height / 2 - (defender.y + defender.height / 2)
+      );
+
+      if (distance <= enemy.attackRange && distance < closestDistance) {
+        closestDefender = defender;
+        closestDistance = distance;
+      }
+    }
+    return closestDefender;
   }
 
   /** Updates all projectiles. */
@@ -996,6 +1019,36 @@ export class GameEngine {
         this.projectiles.splice(i, 1);
       } else {
         // Move projectile
+        const angle = Math.atan2(dy, dx);
+        projectile.startX += Math.cos(angle) * projectile.speed;
+        projectile.startY += Math.sin(angle) * projectile.speed;
+      }
+    }
+  }
+
+  updateEnemyProjectiles() {
+    if (this.gameOver) return;
+
+    for (let i = this.enemyProjectiles.length - 1; i >= 0; i--) {
+      const projectile = this.enemyProjectiles[i];
+
+      //check if target exist and alive
+      if (!projectile.target || !projectile.target.isAlive) {
+        this.enemyProjectiles.splice(i, 1);
+        continue;
+      }
+
+      // Calculate direction and move projectile
+      const dx = projectile.target.x + projectile.target.width / 2 - projectile.startX;
+      const dy = projectile.target.y + projectile.target.height / 2 - projectile.startY;
+      const distance = Math.hypot(dx, dy);
+
+      if (distance <= projectile.speed) {
+        //hit target
+        projectile.target.takeDamage(projectile.damage);
+        this.enemyProjectiles.splice(i, 1);
+      } else {
+        //move projectile
         const angle = Math.atan2(dy, dx);
         projectile.startX += Math.cos(angle) * projectile.speed;
         projectile.startY += Math.sin(angle) * projectile.speed;
@@ -1222,11 +1275,19 @@ export class GameEngine {
   /** Draws all active projectiles. */
   drawProjectiles(ctx) {
     ctx.fillStyle = "#FF0000"; // Red projectiles
-
+    //draw defender projectiles
     for (const projectile of this.projectiles) {
       // Projectile is drawn at its current startX/startY
       ctx.beginPath();
       ctx.arc(projectile.startX, projectile.startY, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Draw enemy projectiles
+    for (const projectile of this.enemyProjectiles) {
+      ctx.fillStyle = projectile.color || "#FF0000"; // Red for enemies
+      ctx.beginPath();
+      ctx.arc(projectile.startX, projectile.startY, 4, 0, Math.PI * 2);
       ctx.fill();
     }
   }
