@@ -2,7 +2,7 @@
 // This file serves as the Model (game state, entities) and Controller (game logic, updates)
 
 import { DefenderUnit, BasicDefender, HealerDefender,
-  GrenadeDefender, BarricadeDefender, EnergyGenerator } from "./DefenderUnits.js";
+  GrenadeDefender, BarricadeDefender, EnergyGenerator, Sniper } from "./DefenderUnits.js";
 import { Enemy, BasicEnemy, FastEnemy, TankEnemy,
   BombEnemy, RangeEnemy, ShieldEnemy, HealerEnemy, EMPEnemy,
   MiniEnemy, SplitterEnemy, VampireEnemy, SwarmLeader} from "./EnemyUnits.js";
@@ -58,7 +58,8 @@ export class GameEngine {
       "Healer Cop": HealerDefender,
       "Grenadier": GrenadeDefender,
       "Barricade": BarricadeDefender,
-      "Energy Generator": EnergyGenerator
+      "Energy Generator": EnergyGenerator,
+      "Sniper": Sniper
     };
 
     // Mapping of enemy names to their respective Enemy classes
@@ -158,9 +159,13 @@ export class GameEngine {
       levelNumber: 1,
       enemySpawnInterval: 3000, // 3 seconds
       maxActiveEnemies: 8,
-      totalEnemiesToSpawn: 20,//20,
+      totalEnemiesToSpawn: 50,
       waves: 3,
-      availableEnemyTypes: ["Swarm Witch", ],
+      availableEnemyTypes:
+          ["Basic Zombie", "Fast Zombie", "Tank Zombie",
+           "Exploder", "Skeleton Shooter", "Shielder",
+          "Healer", "Splitter", "Mini", "Swarm Witch",
+          "EMP", "Vampire"],
       initialEnergy: 100,
       enemyAssets: {
         "Basic Zombie": null,

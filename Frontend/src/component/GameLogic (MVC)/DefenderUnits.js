@@ -1,47 +1,42 @@
 // src/component/GameLogic (MVC)/DefenderUnits.js
 // Data for different types of Defender Units
 
+import card from "../common/Card.jsx";
+
 export class DefenderUnit {
-  constructor(x, y, cardData) {
+  constructor(x, y, cardData = {}) {
     this.x = x;
     this.y = y;
     this.level = cardData.level || 1;
 
-    //set base stat (these are the level 1 stats)
-    this.baseWidth = cardData.width || 40;
-    this.baseHeight = cardData.height || 40;
-    this.baseRange = cardData.range || 150;
-    this.baseAttackDamage = cardData.damage || 0;
-    this.baseFireRate = cardData.fireRate || 60;
-    this.baseHealth = cardData.health || 100;
-    this.baseCost = cardData.cost || 0;
+    //base data
+    this.width = cardData.width || 40;
+    this.height = cardData.height || 40;
+    this.range = cardData.range || 150;
+    this.attackDamage = cardData.damage || 0;
+    this.fireRate =cardData.fireRate || 60;
+    this.health = cardData.health || 100;
+    this.maxHealth = cardData.health || 100;
+    this.cost = cardData.cost || 0;
+    this.color = cardData.color || "cyan";
+    this.name = cardData.name || "Basic Police";
+    this.image = cardData.image;
 
-    //Apply base level grade
-    this.applyLevelUpgrades();
-
-    //The final stat after being upgrade or stay as what it is
-    this.width = this.baseWidth;
-    this.height = this.baseHeight;
-    this.range = this.baseRange;
-    this.attackDamage = this.baseAttackDamage;
-    this.fireRate = this.baseFireRate;
-    this.health = this.baseHealth;
-    this.maxHealth = this.baseHealth;
-    this.cost = this.baseCost; //cost to deploy
-
+    //combat properties
     this.fireCountdown = this.fireRate;
     this.lastAttackTime = 0; // New: To track last attack for canAttack
     this.isRanged = cardData.isRanged || false; // New: Flag for ranged units
-    this.cardData = cardData; // Contains original card info (name, type, cost, etc.)
     this.isAlive = true;
     this.id = Math.random();
-    this.color = cardData.color || "cyan"; // Base color, can be overridden by cardData
-    this.name = cardData.name || "Basic Police"; // for drawing/debug
-    this.image = cardData.image;
 
-    this.gameEngine = null;
+    //status effect
     this.disabled = false;
     this.disabledDuration = 0;
+
+    //game engine reference
+    this.gameEngine = null;
+
+    this.applyLevelUpgrades();
   }
 
   applyLevelUpgrades() {
@@ -49,9 +44,10 @@ export class DefenderUnit {
 
     const statMultiplier = 1 + (level - 1) * 0.15; //15% increase
 
-    this.baseAttackDamage = Math.floor(this.baseAttackDamage * statMultiplier);
-    this.baseHealth = Math.floor(this.baseHealth * statMultiplier);
-    this.baseRange = Math.floor(this.baseRange * statMultiplier);
+    this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
+    this.health = Math.floor(this.health * statMultiplier);
+    this.maxHealth = Math.floor(this.maxHealth * statMultiplier);
+    this.range = Math.floor(this.range * statMultiplier);
     //Apply special ability base on level
     this.applySpecialAbilities();
   }
@@ -156,27 +152,26 @@ export class DefenderUnit {
 
 export class BasicDefender extends DefenderUnit {
   constructor(x, y, cardData) {
-    super(x, y, {
-      ...cardData,
+    const typeData = {
       name: "Basic Cop",
-
-      //Basic stat
-      damage: 15, // Base Level 1 damage
-      health: 120, // Base Level 1 health
-      range: 200, // Base Level 1 range
-      fireRate: 60, // Base Level 1 fire rate
-      cost: 20, // Base Level 1 cost
-
+      damage: 15,
+      health: 120,
+      range: 200,
+      fireRate: 60,
+      cost: 20,
       width: 30,
       height: 40,
       color: "blue",
-      isRanged: true, // Basic Cop is ranged
+      isRanged: true,
+      level: cardData.level || 1,
       image: cardData.image,
-    });
-    this.hasRapidFire = false;
-    this.armorPiercing = false;
-    this.hasArmorPiercing = false;
+    };
+    super(x, y, typeData);
+
     this.useProjectile = true;
+    //special abilities
+    this.hasRapidFire = false;
+    this.hasArmorPiercing = false;
   }
 
   attack(target, currentTime) {
@@ -184,8 +179,13 @@ export class BasicDefender extends DefenderUnit {
 
     let finalDamage = this.attackDamage;
 
+    //shoot faster
+    if (this.hasRapidFire) {
+      this.baseFireRate = Math.floor(this.baseFireRate * 0.5); // 50% faster
+    }
+
     //check for armor piecing again tank
-    if (this.hasArmorPiercing && this.armorPiercing) {
+    if (this.hasArmorPiercing) {
       //ignore damage reduction
       target.health -= finalDamage;
       if (target.health <= 0) {
@@ -202,11 +202,9 @@ export class BasicDefender extends DefenderUnit {
     switch (this.level) {
       case 3:
         this.hasRapidFire = true;
-        this.baseFireRate = Math.floor(this.baseFireRate * 0.7); // 30% faster
         break;
       case 5:
         this.hasArmorPiercing = true;
-        this.armorPiercing = true;
         break;
     }
   }
@@ -218,46 +216,32 @@ export class BasicDefender extends DefenderUnit {
     if (this.level === 2) newAbilities.push("Rapid Fire (Level 3)");
     if (this.level === 4) newAbilities.push("Armor Piercing (Level 5)");
 
-    return {
-      ...base,
-      newAbilities,
-    };
+    return { ...base, newAbilities };
   }
 }
 
 export class HealerDefender extends DefenderUnit {
   constructor(x, y, cardData) {
-    super(x, y, {
-      ...cardData,
+    const typeData = {
       name: "Healer Cop",
-      //base stat
       damage: 5,
       health: 100,
       range: 100,
       fireRate: 90,
-      cost: 40,
-      healingAmount: 10,
-      healingRate: 120,
-      healingRange: 80,
-
+      cost: 30,
       width: 35,
       height: 45,
       color: "lightgreen",
       isRanged: false,
+      level: cardData.level || 1,
       image: cardData.image,
-    });
+    }
+    super(x, y, typeData);
 
-    //healer bases stats
-    this.baseHealingAmount = 10;
-    this.baseHealingRate = 120;
-    this.baseHealingRange = 80;
-
-    //Apply healer-specific upgrade
-    this.applyHealerUpgrades();
-
-    this.healingAmount = this.baseHealingAmount;
-    this.healingRate = this.baseHealingRate;
-    this.healingRange = this.baseHealingRange;
+    //healer stats
+    this.healingAmount = 10;
+    this.healingRate = 120;
+    this.healingRange = 80;
     this.healingCountdown = this.healingRate;
 
     //special ability fields
@@ -266,21 +250,18 @@ export class HealerDefender extends DefenderUnit {
     this.canResurrect = false;
   }
 
-  applyHealerUpgrades() {
+  applyLevelUpgrades() {
     const level = this.level;
     const statMultiplier = 1 + (level - 1) * 0.2; // Healers get 20% increase per level
 
-    this.baseHealingAmount = Math.floor(
-      this.baseHealingAmount * statMultiplier
-    );
-    this.baseHealingRange = Math.floor(this.baseHealingRange * statMultiplier);
+    this.healingAmount = Math.floor(this.healingAmount * statMultiplier);
+    this.healingRange = Math.floor(this.healingRange * statMultiplier);
   }
 
   applySpecialAbilities() {
     switch (this.level) {
       case 3:
         this.hasGroupHeal = true;
-        this.baseHealingRange = Math.floor(this.baseHealingRange * 1.5);
         break;
       case 5:
         this.hasResurrection = true;
@@ -296,11 +277,7 @@ export class HealerDefender extends DefenderUnit {
     if (this.level === 2) newAbilities.push("Group Heal (Level 3)");
     if (this.level === 4) newAbilities.push("Resurrection (Level 5)");
 
-    return {
-      ...base,
-      healingIncrease: "+20%",
-      newAbilities,
-    };
+    return {...base, healingIncrease: "+20%", newAbilities};
   }
 
   update(enemies, defenderUnits) {
@@ -323,14 +300,11 @@ export class HealerDefender extends DefenderUnit {
 
       //group healing special ability
       if (this.hasGroupHeal && unitsToHeal.length > 0) {
+        this.healingRange = Math.floor(this.healingRange * 1.5);
         //heal up to three units
         const toHeal = unitsToHeal.slice(0, 3);
-        toHeal.forEach(unit => {
-          unit.health = Math.min(
-              unit.maxHealth,
-              unit.health + this.healingAmount
-          );
-        });
+        toHeal.forEach(unit => { unit.health = Math.min(unit.maxHealth,
+                                                        unit.health + this.healingAmount);});
       } else if (unitsToHeal.length > 0) {
         // Sort by lowest health percentage to prioritize
         unitsToHeal.sort((a, b) => a.health / a.maxHealth - b.health / b.maxHealth);
@@ -373,66 +347,48 @@ export class HealerDefender extends DefenderUnit {
 
 export class GrenadeDefender extends DefenderUnit {
   constructor(x, y, cardData) {
-    super(x, y, {
-      ...cardData,
+    const typeData = {
       name: "Grenadier",
-      //base stat
-      damage: 10,
+      damage: 40,
       health: 110,
       range: 250,
       fireRate: 180,
       cost: 60,
-      grenadeDamage: 40,
-      grenadeRadius: 60,
-
       width: 40,
-      height: 50,
+      height: 45,
       color: "darkorange",
       isRanged: true,
+      level: cardData.level || 1,
       image: cardData.image,
-    });
+    }
+    super(x, y, typeData);
 
-    this.baseGrenadeDamage = 40;
-    this.baseGrenadeRadius = 60;
-
-    //apply upgrade
-    this.applyGrenadeUpgrades();
-
-    this.grenadeDamage = this.baseGrenadeDamage;
-    this.grenadeRadius = this.baseGrenadeRadius;
+    this.grenadeRadius = 60;
     this.grenadeCountdown = this.fireRate;
-
     this.useProjectile = false;
 
     //Special Ability Fields
     this.hasClusterBomb = false;
-    this.clusterBomb = false;
     this.hasNapalm = false;
-    this.napalm = false;
     //TODO: Need to tackle the special ability logic for this class
+
   }
 
-  applyGrenadeUpgrades() {
+  applyLevelUpgrades() {
     const level = this.level;
     const statMultiplier = 1 + (level - 1) * 0.25; // Grenadiers get 25% increase per level
 
-    this.baseGrenadeDamage = Math.floor(
-      this.baseGrenadeDamage * statMultiplier
-    );
-    this.baseGrenadeRadius = Math.floor(
-      this.baseGrenadeRadius * (1 + (level - 1) * 0.1)
-    ); // 10% radius increase
+    this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
+    this.grenadeRadius = Math.floor(this.grenadeRadius * (1 + (level - 1) * 0.1)); // 10% radius increase
   }
 
   applySpecialAbilities() {
     switch (this.level) {
       case 3:
         this.hasClusterBomb = true;
-        this.clusterBomb = true;
         break;
       case 5:
         this.hasNapalm = true;
-        this.napalm = true;
         break;
     }
   }
@@ -444,22 +400,25 @@ export class GrenadeDefender extends DefenderUnit {
     if (this.level === 2) newAbilities.push("Cluster Bomb (Level 3)");
     if (this.level === 4) newAbilities.push("Napalm Strike (Level 5)");
 
-    return {
-      ...base,
-      explosionDamage: "+25%",
-      newAbilities,
-    };
+    return {...base, explosionDamage: "+25%", newAbilities,};
   }
 
   // Override attack to trigger explosion via GameEngine
   attack(target, currentTime) {
     if (!this.isAlive || !target || !target.isAlive) return;
 
+    if (this.hasClusterBomb) {
+      //TODO:
+    }
+    if (this.hasNapalm) {
+      //TODO:
+    }
+
     if (this.gameEngine) {
       this.gameEngine.addExplosion(
         target.x + target.width / 2, // Center explosion on target
         target.y + target.height / 2,
-        this.grenadeDamage,
+        this.attackDamage,
         this.grenadeRadius
       );
       this.lastAttackTime = currentTime; // Update last attack time
@@ -467,47 +426,38 @@ export class GrenadeDefender extends DefenderUnit {
       console.warn("GrenadeDefender: gameEngine reference not set for attack!");
     }
   }
-
-  // Grenadier's update primarily for its own state, not attacking
-  update(enemies, defenderUnits) {
-    // No specific movement or other continuous logic for Grenadier beyond base DefenderUnit
-    // The attack logic is handled by GameEngine calling canAttack/attack
-  }
 }
 
 // No damage, high health, static
 export class BarricadeDefender extends DefenderUnit {
   constructor(x, y, cardData) {
-    super(x, y, {
-      ...cardData,
+    const typeData = {
       name: "Barricade",
-      //base stat
       damage: 0,
       health: 500,
       range: 0,
       fireRate: 0,
       cost: 30,
-
       width: 50,
-      height: 30,
+      height: 40,
       color: "gray",
       isRanged: false,
+      level: cardData.level || 1,
       image: cardData.image,
-    });
+    }
+    super(x, y, typeData);
+
     //special ability
     this.hasSpikes = false;
-    this.spikeCounter = false;
     this.hasElectricField = false;
-    this.electricField = false;
     //TODO: Need to tackle the special ability logic for this class
   }
 
   applyLevelUpgrades() {
     const level = this.level;
-    // Barricades only get health increases and special abilities
     const healthMultiplier = 1 + (level - 1) * 0.3; // 30% health increase per level
 
-    this.baseHealth = Math.floor(this.baseHealth * healthMultiplier);
+    this.health = Math.floor(this.health * healthMultiplier);
     //this.baseCost = Math.floor(this.baseCost * (1 + (level - 1) * 0.1));
 
     this.applySpecialAbilities();
@@ -517,11 +467,9 @@ export class BarricadeDefender extends DefenderUnit {
     switch (this.level) {
       case 3:
         this.hasSpikes = true;
-        this.spikeCounter = true;
         break;
       case 5:
         this.hasElectricField = true;
-        this.electricField = true;
         break;
     }
   }
@@ -538,43 +486,35 @@ export class BarricadeDefender extends DefenderUnit {
   }
 
   update(enemies, defenderUnits) {
-    // Barricades don't attack or move. Their main interaction is absorbing damage.
-    // Collision with zombies would be handled by GameEngine's zombie movement logic
-    // (e.g., zombies stop when they hit a barricade).
-  }
-
-  draw(ctx) {
-    super.draw(ctx);
+    if (this.hasSpikes) {
+      //TODO:
+    }
+    if (this.hasElectricField) {
+      //TODO:
+    }
   }
 }
 
 export class EnergyGenerator extends DefenderUnit {
   constructor(x, y, cardData) {
-    super(x, y, {
-      ...cardData,
+    const typeData = {
       name: "Energy Generator",
-      //basic
       damage: 0,
       health: 80,
       range: 0,
       fireRate: 0,
       cost: 25,
-      energyDropAmount: 5,
-      energyDropRate: 600, //10 seconds
-
       width: 35,
       height: 35,
       color: "yellow",
       isRanged: false,
+      level: cardData.level || 1,
       image: cardData.image,
-    });
-    this.baseEnergyDropAmount = 5;
-    this.baseEnergyDropRate = 300;
+    }
+    super(x, y, typeData);
 
-    this.applyEnergyUpgrades();
-
-    this.energyDropAmount = this.baseEnergyDropAmount;
-    this.energyDropRate = this.baseEnergyDropRate;
+    this.energyDropAmount = 5;
+    this.energyDropRate = 300;
     this.energyDropCountDown = this.energyDropRate;
 
     //special ability
@@ -584,16 +524,15 @@ export class EnergyGenerator extends DefenderUnit {
     //TODO: Need to tackle the special ability logic for this class
   }
 
-  applyEnergyUpgrades() {
+  applyLevelUpgrades() {
     const level = this.level;
-    this.baseEnergyDropAmount = this.baseEnergyDropAmount + (level - 1);
+    this.energyDropAmount = this.energyDropAmount + (level - 1);
   }
 
   applySpecialAbilities() {
     switch (this.level) {
       case 3:
         this.hasEnergyBurst = true;
-        this.baseEnergyDropAmount += 2; // +2 extra energy
         break;
       case 5:
         this.hasEnergyField = true;
@@ -608,15 +547,22 @@ export class EnergyGenerator extends DefenderUnit {
     if (this.level === 2) newAbilities.push("Energy Burst (Level 3)");
     if (this.level === 4) newAbilities.push("Auto-Collect Field (Level 5)");
 
-    return {
-      energyIncrease: `+${this.level - 1} per drop`,
-      newAbilities
+    return {energyIncrease: `+${this.level - 1} per drop`, newAbilities
     }
   }
 
   update(enemies, defenderUnits) {
     if (!this.isAlive) return;
 
+    if (this.hasEnergyBurst) {
+      this.energyDropAmount *= 1.5; //50% increase
+    }
+    if (this.hasEnergyField) {
+      //TODO:
+    }
+    if (this.autoCollect) {
+      //TODO:
+    }
     //energy drop logic
     this.energyDropCountDown--;
     if (this.energyDropCountDown <= 0) {
@@ -652,3 +598,73 @@ export class EnergyGenerator extends DefenderUnit {
     ctx.stroke();
   }
 }
+
+export class Sniper extends DefenderUnit {
+  constructor(x, y, cardData) {
+    const typeDate = {
+      name: "Sniper",
+      damage: 50,
+      health: 80,
+      range: 800,
+      fireRate: 120,
+      cost: 80,
+      width: 30,
+      height: 40,
+      color: "darkgreen",
+      isRanged: true,
+      level: cardData.level || 1,
+      image: cardData.image,
+    }
+    super(x, y, typeDate);
+
+    this.critChance = 0,2;
+    this.critMultiplier = 2.0;
+
+    //special ability
+    this.hasPiercingShot = false;
+    this.hasHeadshot = false;
+  }
+
+  applySpecialAbilities() {
+    switch (this.level) {
+      case 3:
+        this.hasPiercingShot = true;
+        this.critChance = 0.4;
+        break;
+      case 5:
+        this.hasHeadshot = true;
+        this.critMultiplier = 3.0;
+        break;
+    }
+  }
+
+  getUpgradeInfo() {
+    const base = super.getUpgradeInfo();
+    const newAbilities = [];
+
+    if (this.level === 2) newAbilities.push("Piercing Shot (Level 3)");
+    if (this.level === 4) newAbilities.push("Headshot (Level 5)");
+
+    return {...base, criticalIncrease: "+10%", newAbilities,};
+  }
+
+  attack(target, currentTime) {
+    if (!this.isAlive || !target || !target.isAlive) return;
+
+    let damage = this.attackDamage;
+
+    if (Math.random() < this.critChance) {
+      damage *= this.critMultiplier;
+    }
+    if (this.hasPiercingShot) {
+      //TODO:
+    }
+    if (this.hasHeadshot) {
+      //TODO:
+    }
+    target.takeDamage(damage);
+    this.lastAttackTime = currentTime;
+  }
+}
+
+
