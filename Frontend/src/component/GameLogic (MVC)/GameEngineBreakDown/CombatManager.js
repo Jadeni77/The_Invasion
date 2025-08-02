@@ -15,7 +15,7 @@ export class CombatManager {
      */
     updateDefenderCombat(defenders, enemies, now) {
         for (const defender of defenders) {
-            if (!defender.isAlive) continue;
+            if (!defender.isAlive || defender.disabled) continue;
 
             //handle defender attack if they can
             if (defender.attackDamage > 0 && defender.range > 0 && defender.canAttack(now)) {

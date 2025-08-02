@@ -38,6 +38,10 @@ export class DefenderUnit {
     this.color = cardData.color || "cyan"; // Base color, can be overridden by cardData
     this.name = cardData.name || "Basic Police"; // for drawing/debug
     this.image = cardData.image;
+
+    this.gameEngine = null;
+    this.disabled = false;
+    this.disabledDuration = 0;
   }
 
   applyLevelUpgrades() {
@@ -48,8 +52,6 @@ export class DefenderUnit {
     this.baseAttackDamage = Math.floor(this.baseAttackDamage * statMultiplier);
     this.baseHealth = Math.floor(this.baseHealth * statMultiplier);
     this.baseRange = Math.floor(this.baseRange * statMultiplier);
-    //this.baseCost = Math.floor(this.baseCost * (1 + (level - 1) * 0.5)); //5% increase
-
     //Apply special ability base on level
     this.applySpecialAbilities();
   }
@@ -146,6 +148,10 @@ export class DefenderUnit {
     // Pass all entities for flexibility
     // Default: no special ability or ability that requires no specific targets
   }
+
+  setGameEngine(engine) {
+    this.gameEngine = engine;
+  }
 }
 
 export class BasicDefender extends DefenderUnit {
@@ -157,7 +163,7 @@ export class BasicDefender extends DefenderUnit {
       //Basic stat
       damage: 15, // Base Level 1 damage
       health: 120, // Base Level 1 health
-      range: 150, // Base Level 1 range
+      range: 200, // Base Level 1 range
       fireRate: 60, // Base Level 1 fire rate
       cost: 20, // Base Level 1 cost
 
@@ -167,8 +173,9 @@ export class BasicDefender extends DefenderUnit {
       isRanged: true, // Basic Cop is ranged
       image: cardData.image,
     });
-    // this.armorPiercing = false;
-    // this.hasArmorPiercing = false;
+    this.hasRapidFire = false;
+    this.armorPiercing = false;
+    this.hasArmorPiercing = false;
     this.useProjectile = true;
   }
 
@@ -178,7 +185,7 @@ export class BasicDefender extends DefenderUnit {
     let finalDamage = this.attackDamage;
 
     //check for armor piecing again tank
-    if (this.hasArmorPiercing && this.armorPiercing && target.name === 'Tank Zombie') {
+    if (this.hasArmorPiercing && this.armorPiercing) {
       //ignore damage reduction
       target.health -= finalDamage;
       if (target.health <= 0) {
@@ -252,6 +259,11 @@ export class HealerDefender extends DefenderUnit {
     this.healingRate = this.baseHealingRate;
     this.healingRange = this.baseHealingRange;
     this.healingCountdown = this.healingRate;
+
+    //special ability fields
+    this.hasGroupHeal = false;
+    this.hasResurrection = false;
+    this.canResurrect = false;
   }
 
   applyHealerUpgrades() {
@@ -367,7 +379,7 @@ export class GrenadeDefender extends DefenderUnit {
       //base stat
       damage: 10,
       health: 110,
-      range: 200,
+      range: 250,
       fireRate: 180,
       cost: 60,
       grenadeDamage: 40,
@@ -389,9 +401,15 @@ export class GrenadeDefender extends DefenderUnit {
     this.grenadeDamage = this.baseGrenadeDamage;
     this.grenadeRadius = this.baseGrenadeRadius;
     this.grenadeCountdown = this.fireRate;
-    this.gameEngine = null; // Reference to game engine for adding explosions
 
     this.useProjectile = false;
+
+    //Special Ability Fields
+    this.hasClusterBomb = false;
+    this.clusterBomb = false;
+    this.hasNapalm = false;
+    this.napalm = false;
+    //TODO: Need to tackle the special ability logic for this class
   }
 
   applyGrenadeUpgrades() {
@@ -455,10 +473,6 @@ export class GrenadeDefender extends DefenderUnit {
     // No specific movement or other continuous logic for Grenadier beyond base DefenderUnit
     // The attack logic is handled by GameEngine calling canAttack/attack
   }
-
-  setGameEngine(engine) {
-    this.gameEngine = engine;
-  }
 }
 
 // No damage, high health, static
@@ -480,6 +494,12 @@ export class BarricadeDefender extends DefenderUnit {
       isRanged: false,
       image: cardData.image,
     });
+    //special ability
+    this.hasSpikes = false;
+    this.spikeCounter = false;
+    this.hasElectricField = false;
+    this.electricField = false;
+    //TODO: Need to tackle the special ability logic for this class
   }
 
   applyLevelUpgrades() {
@@ -556,7 +576,12 @@ export class EnergyGenerator extends DefenderUnit {
     this.energyDropAmount = this.baseEnergyDropAmount;
     this.energyDropRate = this.baseEnergyDropRate;
     this.energyDropCountDown = this.energyDropRate;
-    this.gameEngine = null; //reference for game engine to implement energy dropping
+
+    //special ability
+    this.hasEnergyBurst = false;
+    this.hasEnergyField = false;
+    this.autoCollect = false;
+    //TODO: Need to tackle the special ability logic for this class
   }
 
   applyEnergyUpgrades() {
@@ -625,9 +650,5 @@ export class EnergyGenerator extends DefenderUnit {
     ctx.strokeStyle = "rgba(255, 255, 0, 0.8)";
     ctx.lineWidth = 3;
     ctx.stroke();
-  }
-
-  setGameEngine(engine) {
-    this.gameEngine = engine;
   }
 }

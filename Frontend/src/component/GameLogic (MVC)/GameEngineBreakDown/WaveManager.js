@@ -3,7 +3,7 @@
  * logic of how to handle enemy spawn within a wave system.
  */
 export class WaveManager {
-    constructor(levelConfig, spawnEnemyCallback) {
+    constructor(levelConfig, spawnEnemyCallback, ) {
         this.config = levelConfig;
         this.spawnEnemy = spawnEnemyCallback;
         this.currentWave = 1;
@@ -50,13 +50,11 @@ export class WaveManager {
         //spawn enemy
         if (this.enemiesSpawnedThisLevel < this.config.totalEnemiesToSpawn &&
             now - this.lastEnemySpawnTime > this.config.enemySpawnInterval &&
-            enemyCount < this.config.maxActiveEnemies
-        ) {
+            enemyCount < this.config.maxActiveEnemies) {
             this.lastEnemySpawnTime = now;
 
             const enemyType = this.config.availableEnemyTypes[
                 Math.floor(Math.random() * this.config.availableEnemyTypes.length)];
-
             this.spawnEnemy(enemyType);
             this.enemiesSpawnedThisLevel++;
             this.waveEnemiesSpawned++;

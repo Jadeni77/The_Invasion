@@ -6,6 +6,12 @@ src/
 │        ├── Card.jsx
 │        └── WorkerStatus.jsx
 │   ├── GameLogic (MVC)/
+|   |    |-- GameEngineBreakDown/
+|   |    |    |-- CombatManager.js
+|   |    |    |-- DropManager.js
+|   |    |    |-- GridManager.js
+|   |    |    |-- WaveManager.js
+|   |    |
 |   |    |-- CardPieceDrop.js
 |   |    |-- DefenderClassUtils.js
 │   │    ├── DefenderUnits.js

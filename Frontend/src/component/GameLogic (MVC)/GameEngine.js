@@ -3,7 +3,9 @@
 
 import { DefenderUnit, BasicDefender, HealerDefender,
   GrenadeDefender, BarricadeDefender, EnergyGenerator } from "./DefenderUnits.js";
-import { Enemy, BasicEnemy, FastEnemy, TankEnemy, BombEnemy, RangeEnemy } from "./EnemyUnits.js";
+import { Enemy, BasicEnemy, FastEnemy, TankEnemy,
+  BombEnemy, RangeEnemy, ShieldEnemy, HealerEnemy, EMPEnemy,
+  MiniEnemy, SplitterEnemy, VampireEnemy, SwarmLeader} from "./EnemyUnits.js";
 import { EnergyDrop } from "./EnergyDrop.js";
 import { CardPieceDrop} from "./CardPieceDrop.js";
 import { CombatManager } from "./GameEngineBreakDown/CombatManager.js";
@@ -65,7 +67,14 @@ export class GameEngine {
       "Fast Zombie": FastEnemy,
       "Tank Zombie": TankEnemy,
       "Exploder": BombEnemy,
-      "Skeleton Shooter": RangeEnemy
+      "Skeleton Shooter": RangeEnemy,
+      "Shielder": ShieldEnemy,
+      "Healer": HealerEnemy,
+      "Splitter": SplitterEnemy,
+      "Mini": MiniEnemy,
+      "Swarm Witch": SwarmLeader,
+      "EMP": EMPEnemy,
+      "Vampire": VampireEnemy
     };
 
     // Level configurations and loaded assets
@@ -149,9 +158,9 @@ export class GameEngine {
       levelNumber: 1,
       enemySpawnInterval: 3000, // 3 seconds
       maxActiveEnemies: 8,
-      totalEnemiesToSpawn: 20,
+      totalEnemiesToSpawn: 20,//20,
       waves: 3,
-      availableEnemyTypes: ["Exploder"],
+      availableEnemyTypes: ["Swarm Witch", ],
       initialEnergy: 100,
       enemyAssets: {
         "Basic Zombie": null,
@@ -166,6 +175,21 @@ export class GameEngine {
         "Energy Generator": null
       },
     });
+
+    /*
+        "Basic Zombie": BasicEnemy,
+      "Fast Zombie": FastEnemy,
+      "Tank Zombie": TankEnemy,
+      "Exploder": BombEnemy,
+      "Skeleton Shooter": RangeEnemy,
+      "Shielder": ShieldEnemy,
+      "Healer": HealerEnemy,
+      "Splitter": SplitterEnemy,
+      "Mini": MiniEnemy,
+      "Swarm Witch": SwarmLeader,
+      "EMP": EMPEnemy,
+      "Vampire": VampireEnemy
+     */
 
     // Level 2
     this.levelConfigs.set(2, {
@@ -287,7 +311,8 @@ export class GameEngine {
     this.gridManager.initializeGrid();
     //initialize wave manager
     this.waveManager = new WaveManager(this.currentLevelConfig,
-                                       (enemyType) => this.spawnEnemyOfType(enemyType))
+                                       (enemyType) => this.spawnEnemyOfType(enemyType),
+                                       this);
 
     // Preload all necessary images for the current level
     const allImages = {
@@ -325,6 +350,10 @@ export class GameEngine {
     const spawnX = -100;
     const spawnY = this.gridManager.getRandomSpawnY();
     const enemy = new EnemyClass(spawnX, spawnY, this.getImage(enemyType));
+
+    if (enemy.setGameEngine()) {
+      enemy.setGameEngine(this);
+    }
     this.enemies.push(enemy);
   }
 
@@ -480,16 +509,7 @@ export class GameEngine {
   addExplosion(x, y, damage, radius) {
     if (this.gameOver) return;
 
-    console.log(`Explosion at (${x}, ${y}) with damage ${damage} 
-    and radius ${radius}`); // Fix: Added debug logging
-
-    this.explosions.push({
-      x,
-      y,
-      damage,
-      radius,
-      timer: 30, // frames to display visual effect
-    });
+    this.explosions.push({x, y, damage, radius, timer: 30,});
 
     // Apply damage to enemies within radius
     for (const enemy of this.enemies) {
@@ -500,8 +520,6 @@ export class GameEngine {
         enemy.y + enemy.height / 2 - y
       ); // Distance from enemy center to explosion center
       if (distance <= radius) {
-        console.log(`Enemy ${enemy.name} in explosion range, 
-        taking ${damage} damage`); // Fix: Added debug logging
         const died = enemy.takeDamage(damage);
         if (died && !this.gameOver) {
           //only change game score when game still playing
@@ -589,6 +607,16 @@ export class GameEngine {
 
       this.combatManager.updateDefenderCombat(this.defenders, this.enemies, now);
     }
+
+    //handle disabled
+    for (const defender of this.defenders) {
+      if (defender.disabled && defender.disabledDuration) {
+        defender.disabledDuration--;
+        if (defender.disabledDuration <= 0) {
+          defender.disabled = false;
+        }
+      }
+    }
   }
 
   /** Updates all enemy units. */
@@ -602,6 +630,10 @@ export class GameEngine {
       if (!enemy || !enemy.isAlive) {
         this.enemies.splice(i, 1);
         continue;
+      }
+      if (!enemy.gameEngine) {
+        console.warn(`Enemy ${enemy.name} lost gameEngine reference, restoring...`);
+        enemy.gameEngine = this;
       }
       // Update enemy (movement and attacks)
       enemy.update(this.defenders);
@@ -660,6 +692,9 @@ export class GameEngine {
       }
     }
     this.combatManager.updateEnemyCombat(this.defenders, this.enemies, now);
+
+    //handle slow/freeze duration
+
   }
 
   handleEnemyDeath(enemy) {
@@ -700,15 +735,14 @@ export class GameEngine {
       if (distance <= projectile.speed) {
         const died = projectile.target.takeDamage(projectile.damage);
         if (died) {
-          const enemyIndex = this.enemies.findIndex(e => e.id === projectile.target.id);
-          if (enemyIndex !== -1) {
-            this.enemies.splice(enemyIndex, 1);
-          }
-
           if (!this.gameOver) {
             this.inGameScore += projectile.target.bounty;
             this.updateScoreCb(this.inGameScore);
             this.dropManager.handleEnemyDeath(projectile.target);
+          }
+          const enemyIndex = this.enemies.findIndex(e => e.id === projectile.target.id);
+          if (enemyIndex !== -1) {
+            this.enemies.splice(enemyIndex, 1);
           }
         }
         this.projectiles.splice(i, 1);
