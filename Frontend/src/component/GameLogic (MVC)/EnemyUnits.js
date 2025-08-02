@@ -25,13 +25,13 @@ export class Enemy {
     this.attackCountdown = this.attackRate;
     this.isAttacking = false; // if entity is engage in attack
 
-    this.isRanged = false;
+    this.isRanged = typeData.isRanged || false;
     this.lastAttackTime = 0;
     this.attackRange = typeData.attackRange || 50;
   }
 
   canAttack(currentTime) {
-    if (!this.isAttacker) return;
+    if (!this.isAttacker) return false;
     return currentTime - this.lastAttackTime >= (this.attackRate * 1000) / 60;
   }
 
@@ -134,11 +134,6 @@ export class Enemy {
   }
 
   takeDamage(amount) {
-    console.log(
-      `${this.name} taking ${amount} damage at position (${this.x}, ${this.y})`
-    );
-    console.trace(); // This will show the call stack
-
     this.health -= amount;
     if (this.health <= 0) {
       this.health = 0;
@@ -309,11 +304,12 @@ export class RangeEnemy extends Enemy {
       bounty: 15,
       isAttacker: true,
       attackDamage: 20,
-      attackRate: 50
+      attackRate: 50,
+      attackRange: 100
     });
-    this.attackRange = 100;
     this.lastAttackTime = 0;
     this.isRanged = true;
+    this.isMoving = true;
   }
 
   update(defenderUnits) {
@@ -329,8 +325,12 @@ export class RangeEnemy extends Enemy {
     const targetDefender = this.findClosestDefender(defenderUnits);
 
     if (targetDefender && this.getDistanceTo(targetDefender) <= this.attackRange) {
-      this.speed = 0;
+      this.isMoving = false;
     } else {
+      this.isMoving = true;
+    }
+
+    if (this.isMoving) {
       this.x += this.speed;
     }
   }
@@ -353,8 +353,8 @@ export class RangeEnemy extends Enemy {
 
   getDistanceTo(target) {
     return Math.hypot(
-        this.x + this.width / 2 - (target + target.width / 2),
-        this.y + this.height / 2 - (target + target.height / 2)
+        this.x + this.width / 2 - (target.x + target.width / 2),
+        this.y + this.height / 2 - (target.y + target.height / 2)
     );
   }
 
