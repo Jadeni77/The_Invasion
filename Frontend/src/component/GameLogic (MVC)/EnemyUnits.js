@@ -234,19 +234,23 @@ export class TankEnemy extends Enemy {
     this.rageThreshold = 0.5; // Rage when health drops below 50%
     this.rageSpeedMultiplier = 2.0; // Double speed when raged
     this.rageDamageMultiplier = 1.5; // 50% more attack damage when raged
+
+    this.hasArmor = true;
+    this.armorReduction = 0.5
   }
 
-  takeDamage(amount) {
+  takeDamage(amount, ignoreArmor) {
     // 50% damage reduction always
-    const actualDamage = amount * 0.5;
-    const died = super.takeDamage(actualDamage); // Call parent takeDamage with reduced amount
+    const actualDamage = (this.hasArmor && !ignoreArmor)
+                         ? amount * this.armorReduction : amount;
+
+    const died = super.takeDamage(actualDamage);
 
     if (this.isAlive && !this.raged && this.health / this.maxHealth <= this.rageThreshold) {
       this.speed *= this.rageSpeedMultiplier;
       this.attackDamage *= this.rageDamageMultiplier; // Re-enabled as Enemy now has attackDamage
       this.raged = true;
       console.log(`${this.name} is enraged! Speed: ${this.speed.toFixed(1)}`);
-      // TODO: Add visual effect (e.g., change color to brighter red, pulsating) or sound effect
       this.color = "orange"; // Simple visual change
     }
     return died;

@@ -125,7 +125,8 @@ export class GameEngine {
    */
   dropCardPieces(x, y) {
     if (this.gameOver) return;
-    const cardType = ['Basic Cop', 'Healer Cop', 'Grenadier', 'Barricade', 'Energy Generator'];
+    const cardType = ['Basic Cop', 'Healer Cop', 'Grenadier',
+                      'Barricade', 'Energy Generator', "Sniper"];
     const randomCard = cardType[Math.floor(Math.random() * cardType.length)];
     this.cardPieceDrops.push(new CardPieceDrop(x, y, randomCard));
   }
@@ -161,11 +162,11 @@ export class GameEngine {
       maxActiveEnemies: 8,
       totalEnemiesToSpawn: 50,
       waves: 3,
-      availableEnemyTypes:
-          ["Basic Zombie", "Fast Zombie", "Tank Zombie",
-           "Exploder", "Skeleton Shooter", "Shielder",
-          "Healer", "Splitter", "Mini", "Swarm Witch",
-          "EMP", "Vampire"],
+      availableEnemyTypes: ["Tank Zombie"],
+          // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
+          //  "Exploder", "Skeleton Shooter", "Shielder",
+          // "Healer", "Splitter", "Mini", "Swarm Witch",
+          // "EMP", "Vampire"],
       initialEnergy: 100,
       enemyAssets: {
         "Basic Zombie": null,
@@ -468,8 +469,10 @@ export class GameEngine {
     console.log(`Defender deployed with level ${newUnit.level} stats:`, {
       damage: newUnit.attackDamage,
       health: newUnit.health,
+      fireRate: newUnit.fireRate,
       cost: newUnit.cost,
-      specialAbilities: newUnit.getUpgradeInfo().newAbilities,
+      hasRapidFire: newUnit.hasRapidFire,
+      hasArmorPiercing: newUnit.hasArmorPiercing,
     });
     return true;
   }
@@ -525,7 +528,7 @@ export class GameEngine {
         enemy.y + enemy.height / 2 - y
       ); // Distance from enemy center to explosion center
       if (distance <= radius) {
-        const died = enemy.takeDamage(damage);
+        const died = enemy.takeDamage(damage, false); //explosion does not ignore armor
         if (died && !this.gameOver) {
           //only change game score when game still playing
           this.inGameScore += enemy.bounty;
@@ -721,7 +724,9 @@ export class GameEngine {
 
   /** Updates all projectiles. */
   updateProjectiles() {
-    if (this.gameOver) return;
+    if (this.gameOver) {
+      return;
+    }
 
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const projectile = this.projectiles[i];
@@ -738,16 +743,20 @@ export class GameEngine {
       const distance = Math.hypot(dx, dy);
 
       if (distance <= projectile.speed) {
-        const died = projectile.target.takeDamage(projectile.damage);
-        if (died) {
-          if (!this.gameOver) {
-            this.inGameScore += projectile.target.bounty;
-            this.updateScoreCb(this.inGameScore);
-            this.dropManager.handleEnemyDeath(projectile.target);
-          }
-          const enemyIndex = this.enemies.findIndex(e => e.id === projectile.target.id);
-          if (enemyIndex !== -1) {
-            this.enemies.splice(enemyIndex, 1);
+        if (projectile.onHit) {
+          projectile.onHit();
+        } else {
+          const died = projectile.target.takeDamage(projectile.damage, projectile.ignoreArmor);
+          if (died) {
+            if (!this.gameOver) {
+              this.inGameScore += projectile.target.bounty;
+              this.updateScoreCb(this.inGameScore);
+              this.dropManager.handleEnemyDeath(projectile.target);
+            }
+            const enemyIndex = this.enemies.findIndex(e => e.id === projectile.target.id);
+            if (enemyIndex !== -1) {
+              this.enemies.splice(enemyIndex, 1);
+            }
           }
         }
         this.projectiles.splice(i, 1);
@@ -778,8 +787,12 @@ export class GameEngine {
       const distance = Math.hypot(dx, dy);
 
       if (distance <= projectile.speed) {
-        //hit target
-        projectile.target.takeDamage(projectile.damage);
+        if (projectile.onHit) {
+          projectile.onHit();
+        } else {
+          //hit target
+          projectile.target.takeDamage(projectile.damage);
+        }
         this.enemyProjectiles.splice(i, 1);
       } else {
         //move projectile

@@ -29,7 +29,12 @@ export class CombatManager {
                             startY: defender.y + defender.height / 2,
                             target: target, // Store reference to the target enemy
                             speed: 10,
-                            damage: defender.attackDamage,});
+                            damage: defender.attackDamage,
+                            attacker: defender,
+                            ignoreArmor: defender.hasArmorPiercing || false,
+                            onHit: () => {
+                                defender.attack(target, now);
+                            }});
                             defender.lastAttackTime = now;
                         } else {
                             defender.attack(target, now);
@@ -62,9 +67,15 @@ export class CombatManager {
                         target: target,
                         speed: 8,
                         damage: enemy.attackDamage,
-                        color: "#FF4444" });
+                        color: "#FF4444",
+                        attacker: enemy,
+                        onHit: () => {
+                            enemy.attack(target, now);
+                        }});
+                        enemy.lastAttackTime = now;
+                    } else {
+                        enemy.attack(target, now);
                     }
-                    enemy.attack(target, now);
                 }
             }
         }

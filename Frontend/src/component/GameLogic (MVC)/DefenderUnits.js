@@ -1,13 +1,14 @@
 // src/component/GameLogic (MVC)/DefenderUnits.js
 // Data for different types of Defender Units
 
-import card from "../common/Card.jsx";
-
 export class DefenderUnit {
   constructor(x, y, cardData = {}) {
     this.x = x;
     this.y = y;
     this.level = cardData.level || 1;
+
+    console.log(`Creating ${cardData.name} at level ${this.level}`);
+
 
     //base data
     this.width = cardData.width || 40;
@@ -41,6 +42,7 @@ export class DefenderUnit {
 
   applyLevelUpgrades() {
     const level = this.level;
+    console.log(`Applying level upgrades for ${this.name} at level ${level}`);
 
     const statMultiplier = 1 + (level - 1) * 0.15; //15% increase
 
@@ -172,49 +174,49 @@ export class BasicDefender extends DefenderUnit {
       level: cardData.level || 1,
       image: cardData.image,
     };
+    console.log(`BasicDefender constructor - cardData.level: ${cardData.level}`);
+
     super(x, y, typeData);
 
     this.useProjectile = true;
     //special abilities
-    this.hasRapidFire = false;
-    this.hasArmorPiercing = false;
-  }
-
-  attack(target, currentTime) {
-    if (!this.isAlive || !target || !target.isAlive) return;
-
-    let finalDamage = this.attackDamage;
-
-    //shoot faster
-    if (this.hasRapidFire) {
-      //TODO: ability not working in here
-      this.fireRate = Math.floor(this.fireRate * 0.5); // 50% faster
-    }
-
-    //check for armor piecing again tank
-    if (this.hasArmorPiercing) {
-      //ignore damage reduction
-      target.health -= finalDamage;
-      if (target.health <= 0) {
-        target.health = 0;
-        target.isAlive = false;
-      }
-    } else {
-        target.takeDamage(finalDamage);
-      }
-    this.lastAttackTime = currentTime;
   }
 
   applySpecialAbilities() {
-    switch (this.level) {
-      case 3:
-        this.hasRapidFire = true;
-        break;
-      case 5:
-        this.hasArmorPiercing = true;
-        break;
+    this.hasRapidFire = false;
+    this.hasArmorPiercing = false;
+    console.log(`BasicDefender applySpecialAbilities - Level: ${this.level}`);
+    if (this.level >= 3) {
+      this.hasRapidFire = true;
+      this.fireRate = Math.floor(this.fireRate * 0.5); // 50% faster
+      console.log(`BasicDefender: Rapid Fire enabled, new fireRate: ${this.fireRate}`);
+    }
+    if (this.level >= 5) {
+      this.hasArmorPiercing = true;
+      console.log("BasicDefender: Armor Piercing enabled at level 5");
     }
   }
+
+  attack(target, currentTime) {
+    if (!this.isAlive || !target || !target.isAlive) {
+      return;
+    }
+
+    console.log(`BasicDefender attack - Level: ${this.level}, HasArmorPiercing: ${this.hasArmorPiercing}`);
+
+    const died = target.takeDamage(this.attackDamage, this.hasArmorPiercing);
+
+        if (died && this.gameEngine && !this.gameEngine.gameOver) {
+          this.gameEngine.inGameScore += target.bounty;
+          this.gameEngine.updateScoreCb(this.gameEngine.inGameScore);
+          this.gameEngine.dropManager.handleEnemyDeath(target);
+          //remove from enemy array
+          const enemyIndex = this.gameEngine.enemies.findIndex(e => e.id === target.id);
+          if (enemyIndex !== -1) {
+            this.gameEngine.enemies.splice(enemyIndex, 1);
+          }
+        }
+    }
 
   getUpgradeInfo() {
     const base = super.getUpgradeInfo();
@@ -250,11 +252,6 @@ export class HealerDefender extends DefenderUnit {
     this.healingRate = 120;
     this.healingRange = 80;
     this.healingCountdown = this.healingRate;
-
-    //special ability fields
-    this.hasGroupHeal = false;
-    this.hasResurrection = false;
-    this.canResurrect = false;
   }
 
   applyLevelUpgrades() {
@@ -266,14 +263,16 @@ export class HealerDefender extends DefenderUnit {
   }
 
   applySpecialAbilities() {
-    switch (this.level) {
-      case 3:
-        this.hasGroupHeal = true;
-        break;
-      case 5:
-        this.hasResurrection = true;
-        this.canResurrect = true;
-        break;
+    this.hasGroupHeal = false;
+    this.hasResurrection = false;
+    this.canResurrect = false;
+
+    if (this.level >= 3) {
+      this.hasGroupHeal = true;
+    }
+    if (this.level >= 5) {
+      this.hasResurrection = true;
+      this.canResurrect = true;
     }
   }
 
@@ -375,8 +374,6 @@ export class GrenadeDefender extends DefenderUnit {
     this.useProjectile = false;
 
     //Special Ability Fields
-    this.hasClusterBomb = false;
-    this.hasNapalm = false;
     //TODO: Need to tackle the special ability logic for this class
 
   }
@@ -390,13 +387,14 @@ export class GrenadeDefender extends DefenderUnit {
   }
 
   applySpecialAbilities() {
-    switch (this.level) {
-      case 3:
-        this.hasClusterBomb = true;
-        break;
-      case 5:
-        this.hasNapalm = true;
-        break;
+    this.hasClusterBomb = false;
+    this.hasNapalm = false;
+
+    if (this.level >= 3) {
+      this.hasClusterBomb = true;
+    }
+    if (this.level >= 5) {
+      this.hasNapalm = true;
     }
   }
 
@@ -455,8 +453,6 @@ export class BarricadeDefender extends DefenderUnit {
     super(x, y, typeData);
 
     //special ability
-    this.hasSpikes = false;
-    this.hasElectricField = false;
     //TODO: Need to tackle the special ability logic for this class
   }
 
@@ -471,13 +467,14 @@ export class BarricadeDefender extends DefenderUnit {
   }
 
   applySpecialAbilities() {
-    switch (this.level) {
-      case 3:
-        this.hasSpikes = true;
-        break;
-      case 5:
-        this.hasElectricField = true;
-        break;
+    this.hasSpikes = false;
+    this.hasElectricField = false;
+
+    if (this.level >= 3) {
+      this.hasSpikes = true;
+    }
+    if (this.level >= 5) {
+      this.hasElectricField = true;
     }
   }
 
@@ -525,9 +522,6 @@ export class EnergyGenerator extends DefenderUnit {
     this.energyDropCountDown = this.energyDropRate;
 
     //special ability
-    this.hasEnergyBurst = false;
-    this.hasEnergyField = false;
-    this.autoCollect = false;
     //TODO: Need to tackle the special ability logic for this class
   }
 
@@ -537,14 +531,16 @@ export class EnergyGenerator extends DefenderUnit {
   }
 
   applySpecialAbilities() {
-    switch (this.level) {
-      case 3:
-        this.hasEnergyBurst = true;
-        break;
-      case 5:
-        this.hasEnergyField = true;
-        this.autoCollect = true;
-        break;
+    this.hasEnergyBurst = false;
+    this.hasEnergyField = false;
+    this.autoCollect = false;
+
+    if (this.level >= 3) {
+      this.hasEnergyBurst = true;
+    }
+    if (this.level >= 5) {
+      this.hasEnergyField = true;
+      this.autoCollect = true;
     }
   }
 
@@ -628,20 +624,19 @@ export class Sniper extends DefenderUnit {
     this.critMultiplier = 2.0;
 
     //special ability
-    this.hasPiercingShot = false;
-    this.hasHeadshot = false;
   }
 
   applySpecialAbilities() {
-    switch (this.level) {
-      case 3:
-        this.hasPiercingShot = true;
-        this.critChance = 0.4;
-        break;
-      case 5:
-        this.hasHeadshot = true;
-        this.critMultiplier = 3.0;
-        break;
+    this.hasPiercingShot = false;
+    this.hasHeadshot = false;
+
+    if (this.level >= 3) {
+      this.hasPiercingShot = true;
+      this.critChance = 0.4;
+    }
+    if (this.level >= 5) {
+      this.hasHeadshot = true;
+      this.critMultiplier = 3.0;
     }
   }
 
