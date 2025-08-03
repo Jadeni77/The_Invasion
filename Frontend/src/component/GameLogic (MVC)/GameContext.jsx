@@ -159,7 +159,7 @@ export const GameProvider = ({ children }) => {
             id: 1,
             name: "Basic Cop",
             level: 1,
-            pieces: 10,
+            pieces: 100,
             piecesNeeded: 10,
             upgradeCost: { gold: 100, iron: 5, water: 3 },
             upgradeTime: 1,
@@ -201,6 +201,16 @@ export const GameProvider = ({ children }) => {
             cost: 25,
             upgradeCost: { gold: 80, water: 10, grain: 20},
             upgradeTime: 75
+          },
+          {
+            id: 6,
+            name: "Sniper",
+            level: 1,
+            pieces: 0,
+            piecesNeeded: 25,
+            cost: 80,
+            upgradeCost: { gold: 130, water: 60, grain: 35},
+            upgradeTime: 100
           }
         ],
         unlockedLevels: [1],

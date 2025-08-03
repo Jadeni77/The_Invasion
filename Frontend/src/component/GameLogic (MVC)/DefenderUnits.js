@@ -118,6 +118,12 @@ export class DefenderUnit {
     ctx.fillStyle = "lime";
     const healthWidth = (this.health / this.maxHealth) * this.width;
     ctx.fillRect(this.x, this.y - 10, healthWidth, 5); // Current health
+
+    // Show disabled status
+    if (this.disabled) {
+      ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
+      ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
   }
 
   drawFallback(ctx) {
@@ -181,7 +187,8 @@ export class BasicDefender extends DefenderUnit {
 
     //shoot faster
     if (this.hasRapidFire) {
-      this.baseFireRate = Math.floor(this.baseFireRate * 0.5); // 50% faster
+      //TODO: ability not working in here
+      this.fireRate = Math.floor(this.fireRate * 0.5); // 50% faster
     }
 
     //check for armor piecing again tank
@@ -617,7 +624,7 @@ export class Sniper extends DefenderUnit {
     }
     super(x, y, typeDate);
 
-    this.critChance = 0,2;
+    this.critChance = 0.2;
     this.critMultiplier = 2.0;
 
     //special ability
@@ -664,6 +671,22 @@ export class Sniper extends DefenderUnit {
     }
     target.takeDamage(damage);
     this.lastAttackTime = currentTime;
+  }
+
+  draw(ctx) {
+    super.draw(ctx);
+
+    // Laser sight when targeting
+    if (this.lastAttackTime && Date.now() - this.lastAttackTime < 100) {
+      ctx.strokeStyle = "rgba(255, 0, 0, 0.3)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(this.x + this.width / 2, this.y + this.height / 2);
+      ctx.lineTo(this.canvasWidth || 800, this.y + this.height / 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
   }
 }
 
