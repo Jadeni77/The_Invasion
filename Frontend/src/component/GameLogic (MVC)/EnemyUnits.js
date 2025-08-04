@@ -27,7 +27,7 @@ export class Enemy {
 
     this.isRanged = typeData.isRanged || false;
     this.lastAttackTime = 0;
-    this.attackRange = typeData.attackRange || 50;
+    this.attackRange = typeData.attackRange || 0;
 
     this.buffed = typeData.buffed || false;
     this.buffedBy = typeData.buffedBy || null;
@@ -137,7 +137,7 @@ export class Enemy {
     ctx.fillText(this.name.charAt(0), this.x + 5, this.y + 15);
   }
 
-  takeDamage(amount) {
+  takeDamage(amount, ignoreArmor = false) {
     this.health -= amount;
     if (this.health <= 0) {
       this.health = 0;

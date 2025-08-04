@@ -245,6 +245,7 @@ export class HealerDefender extends DefenderUnit {
 
     this.healingAmount = Math.floor(this.healingAmount * statMultiplier);
     this.healingRange = Math.floor(this.healingRange * statMultiplier);
+    this.applySpecialAbilities();
   }
 
   applySpecialAbilities() {
@@ -254,6 +255,7 @@ export class HealerDefender extends DefenderUnit {
 
     if (this.level >= 3) {
       this.hasGroupHeal = true;
+      this.healingRange = Math.floor(this.healingRange * 1.5);
     }
     if (this.level >= 5) {
       this.hasResurrection = true;
@@ -291,7 +293,6 @@ export class HealerDefender extends DefenderUnit {
 
       //group healing special ability
       if (this.hasGroupHeal && unitsToHeal.length > 0) {
-        this.healingRange = Math.floor(this.healingRange * 1.5);
         //heal up to three units
         const toHeal = unitsToHeal.slice(0, 3);
         toHeal.forEach(unit => { unit.health = Math.min(unit.maxHealth,
@@ -305,12 +306,24 @@ export class HealerDefender extends DefenderUnit {
 
       //check for resurreltion ability
       if (this.hasResurrection && this.canResurrect) {
-        const deadUnit = defenderUnits.find(unit => {
-          !unit.isAlive && unit.id !== this.id});
-        if (deadUnit && Math.random() < 0.1) { //1% chance for healing cycle
-          deadUnit.isAlive = true;
-          deadUnit.health = deadUnit.maxHealth * 0.2; //revive with 20% health
-          this.canResurrect = false; //only resurrect once per battle
+        console.log(`Healer checking for dead units...`);
+
+        //check all defenders including recent died
+        let allDefender = [...defenderUnits];
+        if (this.gameEngine && this.gameEngine.recentlyDiedDefenders) {
+          allDefender = [...defenderUnits, ...this.gameEngine.recentlyDiedDefenders];
+        }
+        const deadUnits = allDefender.filter(unit => !unit.isAlive
+                                                     && unit.id !== this.id
+                                                     && unit.health <= 0);
+        console.log(`Found ${deadUnits.length} dead units`);
+        if (deadUnits.length > 0) {
+          const deadUnit = deadUnits[0];
+            console.log(`Resurrecting ${deadUnit.name}`);
+            deadUnit.health = Math.floor(deadUnit.maxHealth * 0.2);
+            this.canResurrect = false;
+            deadUnit.hasBeenResurrected = true;
+            console.log("Resurrection successful!");
         }
       }
       this.healingCountdown = this.healingRate;
@@ -332,6 +345,19 @@ export class HealerDefender extends DefenderUnit {
       ctx.strokeStyle = "rgba(0, 255, 0, " + this.healingCountdown / 20 + ")";
       ctx.lineWidth = 3;
       ctx.stroke();
+    }
+    // Visual indicator for resurrection ability
+    if (this.hasResurrection && this.canResurrect) {
+      ctx.fillStyle = "rgba(255, 215, 0, 0.3)"; // Golden glow
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.width / 2 + 10,
+          0,
+          Math.PI * 2
+      );
+      ctx.fill();
     }
   }
 }
@@ -369,6 +395,8 @@ export class GrenadeDefender extends DefenderUnit {
 
     this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
     this.grenadeRadius = Math.floor(this.grenadeRadius * (1 + (level - 1) * 0.1)); // 10% radius increase
+
+    this.applySpecialAbilities();
   }
 
   applySpecialAbilities() {
@@ -396,21 +424,64 @@ export class GrenadeDefender extends DefenderUnit {
   // Override attack to trigger explosion via GameEngine
   attack(target, currentTime) {
     if (!this.isAlive || !target || !target.isAlive) return;
-
-    if (this.hasClusterBomb) {
-      //TODO:
-    }
-    if (this.hasNapalm) {
-      //TODO:
-    }
+    console.log(`Grenadier has ClusterBomb : ${this.hasClusterBomb} `);
+    console.log(`Grenadier has Napalm : ${this.hasNapalm} `);
 
     if (this.gameEngine) {
       this.gameEngine.addExplosion(
-        target.x + target.width / 2, // Center explosion on target
-        target.y + target.height / 2,
-        this.attackDamage,
-        this.grenadeRadius
+          target.x + target.width / 2, // Center explosion on target
+          target.y + target.height / 2,
+          this.attackDamage,
+          this.grenadeRadius
       );
+
+    if (this.hasClusterBomb) {
+      for (let i = 0; i < 3; i++) {
+        const angle = (Math.PI * 2 * i) / 3;
+        const offsetX = Math.cos(angle) * 40;
+        const offsetY = Math.sin(angle) * 40;
+
+        setTimeout(() => {
+          this.gameEngine.addExplosion(
+              target.x + target.width / 2 + offsetX,
+              target.y + target.height / 2 + offsetY,
+              this.attackDamage * 0.75, //75% damage
+              this.grenadeRadius * 0.8 //smaller radius
+          );
+        }, 200 + i * 100);
+      }
+    }
+    if (this.hasNapalm && this.gameEngine) {
+      const napalmX = target.x + target.width / 2;
+      const napalmY = target.y + target.height / 2;
+      const napalmRadius = this.grenadeRadius * 0.8;
+      //5 ticks of fire damage over 2.5 second
+      for (let i = 0; i < 5; i++) {
+        setTimeout(() => {
+          if (this.gameEngine && this.gameEngine.enemies) {
+            this.gameEngine.explosions.push({
+              x: napalmX,
+              y: napalmY,
+              damage: 0,
+              radius: napalmRadius,
+              timer: 15,
+              color: "orange"});
+
+            //apply burining damage
+            for (const enemy of this.gameEngine.enemies) {
+              if (!enemy.isAlive) continue;
+              const distance = Math.hypot(
+                  enemy.x + enemy.width / 2 - napalmX,
+                  enemy.y + enemy.height / 2 - napalmY
+              );
+              if (distance <= napalmRadius) {
+                enemy.takeDamage(this.attackDamage * 0.1, false);
+              }
+            }
+          }
+        }, i * 500);
+      }
+    }
       this.lastAttackTime = currentTime; // Update last attack time
     } else {
       console.warn("GrenadeDefender: gameEngine reference not set for attack!");

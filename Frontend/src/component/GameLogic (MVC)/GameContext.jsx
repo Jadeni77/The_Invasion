@@ -167,7 +167,7 @@ export const GameProvider = ({ children }) => {
           {
             id: 2,
             name: "Healer Cop",
-            level: 1,
+            level: 5,
             pieces: 10,
             piecesNeeded: 10,
             upgradeCost: { gold: 150, grain: 10, water: 5, gem: 1 },
@@ -176,7 +176,7 @@ export const GameProvider = ({ children }) => {
           {
             id: 3,
             name: "Grenadier",
-            level: 1,
+            level: 5,
             pieces: 10,
             piecesNeeded: 10,
             upgradeCost: { gold: 200, iron: 15, gem: 2 },
@@ -185,7 +185,7 @@ export const GameProvider = ({ children }) => {
           {
             id: 4,
             name: "Barricade",
-            level: 1,
+            level: 3,
             pieces: 0,
             piecesNeeded: 10,
             cost: 30,

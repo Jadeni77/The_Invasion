@@ -1,9 +1,9 @@
 // src/component/GameLogic (MVC)/GameEngine.js
 // This file serves as the Model (game state, entities) and Controller (game logic, updates)
 
-import { DefenderUnit, BasicDefender, HealerDefender,
+import { BasicDefender, HealerDefender,
   GrenadeDefender, BarricadeDefender, EnergyGenerator, Sniper } from "./DefenderUnits.js";
-import { Enemy, BasicEnemy, FastEnemy, TankEnemy,
+import { BasicEnemy, FastEnemy, TankEnemy,
   BombEnemy, RangeEnemy, ShieldEnemy, HealerEnemy, EMPEnemy,
   MiniEnemy, SplitterEnemy, VampireEnemy, SwarmLeader} from "./EnemyUnits.js";
 import { EnergyDrop } from "./EnergyDrop.js";
@@ -28,6 +28,7 @@ export class GameEngine {
 
     // Game entities
     this.defenders = [];
+    this.recentlyDiedDefenders = [];
     this.enemies = [];
     this.explosions = [];
     this.projectiles = [];
@@ -422,7 +423,7 @@ export class GameEngine {
       return false;
     }
 
-    //create tempperaroy units - it will calculate its stat base on levels
+    //create temporary units - it will calculate its stat base on levels
     const tempUnit = new UnitClass(0, 0, {
       ...cardData,
       image: this.getImage(cardData.name),
@@ -596,25 +597,35 @@ export class GameEngine {
   updateDefenders(now) {
     if (this.gameOver) return;
 
-    for (let i = this.defenders.length - 1; i >= 0; i--) {
-      const defender = this.defenders[i];
-
-      if (!defender.isAlive) {
-        //find and free the grid cell
-        const gridCell = this.gridManager.getGridCell(
-          defender.x + defender.width / 2,
-          defender.y + defender.height / 2
-        );
-        if (gridCell) {
-          gridCell.occupied = false;
-        }
-        this.defenders.splice(i, 1); // Remove dead defender
-        continue;
-      }
-      defender.update(this.enemies, this.defenders); // Pass all enemies and defenders for their specific logic
-
-      this.combatManager.updateDefenderCombat(this.defenders, this.enemies, now);
+    //add recent dead enemies back to main defender for resurrection check
+    if (this.recentlyDiedDefenders.length > 0) {
+      this.defenders.push(...this.recentlyDiedDefenders);
+      this.recentlyDiedDefenders = [];
     }
+    //update all alive defenders
+    for (const defender of this.defenders) {
+      // Skip update for dead defenders, but keep them in array
+      if (defender.isAlive) {
+        defender.update(this.enemies, this.defenders); // Pass all defenders including dead ones
+      }
+    }
+    //check for resurrect units
+    for (const defender of this.defenders) {
+      if (!defender.isAlive && defender.health > 0) {
+        defender.isAlive = true;
+        console.log(`${defender.name} resurrected!`);
+
+        const gridCell = this.gridManager.getGridCell(
+            defender.x + defender.width / 2,
+            defender.y + defender.height / 2
+        );
+        if (gridCell && !gridCell.occupied) {
+          gridCell.occupied = true;
+        }
+      }
+    }
+
+    this.combatManager.updateDefenderCombat(this.defenders, this.enemies, now);
 
     //handle disabled
     for (const defender of this.defenders) {
@@ -625,6 +636,26 @@ export class GameEngine {
         }
       }
     }
+    //remove dead defenders and clear grid logic but keep them for one frame
+    const newRecentlyDied = [];
+    for (let i = this.defenders.length - 1; i >= 0; i--) {
+      const defender = this.defenders[i];
+      if (!defender.isAlive && defender.health <= 0) {
+        // Keep dead units for one frame so healers can resurrect them
+        newRecentlyDied.push(defender);
+
+        //find and free the grid cell
+        const gridCell = this.gridManager.getGridCell(
+            defender.x + defender.width / 2,
+            defender.y + defender.height / 2
+        );
+        if (gridCell) {
+          gridCell.occupied = false;
+        }
+        this.defenders.splice(i, 1); // Remove dead defender
+      }
+    }
+    this.recentlyDiedDefenders = newRecentlyDied;
   }
 
   /** Updates all enemy units. */
@@ -833,7 +864,6 @@ export class GameEngine {
     if (!this.gameOver) {
       // this.gameOver = true;
       this.setGameOver(true, "Defense Breached");
-      this.gameWon = false;
       this.stopLoop(); // Stop the game loop
 
       if (this.onLoseCb) {
@@ -852,7 +882,6 @@ export class GameEngine {
   handleLevelComplete() {
     // this.gameOver = true;
     this.setGameOver(true, "Level Complete");
-    this.gameWon = true;
     this.stopLoop(); // Stop the game loop
 
     if (this.onWinCb) {
@@ -1103,7 +1132,6 @@ export class GameEngine {
   cleanup() {
     this.stopLoop();
     this.ctx = null;
-    this.canvas = null;
     this.defenders = [];
     this.enemies = [];
     this.explosions = [];
