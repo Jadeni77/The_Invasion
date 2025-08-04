@@ -6,6 +6,7 @@ import Card from "../common/Card"; // Correct path
 import "../../style/Lobby.css"; // Assuming some styles are shared
 import "../../style/UpgradeModal.css"; // Correct path
 import { getUpgradePreview } from "../GameLogic (MVC)/DefenderClassUtils";
+import Bow from "../../Icons/Bow.png";
 
 function UpgradeModal() {
   const { playerData, upgradeQueue, startCardUpgrade, closeUpgradeModal } =
@@ -124,6 +125,11 @@ function UpgradeModal() {
                         <div className="stat-change">
                           ⚡ {upgradePreview.current.cost} →{" "}
                           {upgradePreview.next.cost}
+                        </div>
+                        <div className="stat-change">
+                          <img className="resource-image" src={Bow} alt="attack-range"/>
+                          {upgradePreview.current.range} →{" "}
+                          {upgradePreview.next.range}
                         </div>
                       </div>
                     )}

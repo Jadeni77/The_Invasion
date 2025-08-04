@@ -7,13 +7,10 @@ export class DefenderUnit {
     this.y = y;
     this.level = cardData.level || 1;
 
-    console.log(`Creating ${cardData.name} at level ${this.level}`);
-
-
     //base data
     this.width = cardData.width || 40;
     this.height = cardData.height || 40;
-    this.range = cardData.range || 150;
+    this.range = cardData.range || 0;
     this.attackDamage = cardData.damage || 0;
     this.fireRate =cardData.fireRate || 60;
     this.health = cardData.health || 100;
@@ -42,8 +39,6 @@ export class DefenderUnit {
 
   applyLevelUpgrades() {
     const level = this.level;
-    console.log(`Applying level upgrades for ${this.name} at level ${level}`);
-
     const statMultiplier = 1 + (level - 1) * 0.15; //15% increase
 
     this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
@@ -92,8 +87,6 @@ export class DefenderUnit {
 
   draw(ctx) {
     if (!this.isAlive) return;
-    //console.log(`Drawing ${this.name} at (${this.x}, ${this.y})`); // Add debug log
-
     // Use fallback if image fails to load
     if (this.image && this.image.complete && this.image.naturalHeight !== 0) {
       try {
@@ -174,8 +167,6 @@ export class BasicDefender extends DefenderUnit {
       level: cardData.level || 1,
       image: cardData.image,
     };
-    console.log(`BasicDefender constructor - cardData.level: ${cardData.level}`);
-
     super(x, y, typeData);
 
     this.useProjectile = true;
@@ -185,15 +176,12 @@ export class BasicDefender extends DefenderUnit {
   applySpecialAbilities() {
     this.hasRapidFire = false;
     this.hasArmorPiercing = false;
-    console.log(`BasicDefender applySpecialAbilities - Level: ${this.level}`);
     if (this.level >= 3) {
       this.hasRapidFire = true;
       this.fireRate = Math.floor(this.fireRate * 0.5); // 50% faster
-      console.log(`BasicDefender: Rapid Fire enabled, new fireRate: ${this.fireRate}`);
     }
     if (this.level >= 5) {
       this.hasArmorPiercing = true;
-      console.log("BasicDefender: Armor Piercing enabled at level 5");
     }
   }
 
@@ -201,9 +189,6 @@ export class BasicDefender extends DefenderUnit {
     if (!this.isAlive || !target || !target.isAlive) {
       return;
     }
-
-    console.log(`BasicDefender attack - Level: ${this.level}, HasArmorPiercing: ${this.hasArmorPiercing}`);
-
     const died = target.takeDamage(this.attackDamage, this.hasArmorPiercing);
 
         if (died && this.gameEngine && !this.gameEngine.gameOver) {
