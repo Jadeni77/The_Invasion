@@ -205,7 +205,7 @@ export const GameProvider = ({ children }) => {
           {
             id: 6,
             name: "Sniper",
-            level: 100,
+            level: 5,
             pieces: 0,
             piecesNeeded: 25,
             cost: 80,

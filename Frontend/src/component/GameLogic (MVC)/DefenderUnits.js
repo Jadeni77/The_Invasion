@@ -382,7 +382,6 @@ export class GrenadeDefender extends DefenderUnit {
 
     this.grenadeRadius = 60;
     this.grenadeCountdown = this.fireRate;
-    this.useProjectile = false;
 
     //Special Ability Fields
     //TODO: Need to tackle the special ability logic for this class
@@ -678,24 +677,28 @@ export class Sniper extends DefenderUnit {
 
     this.critChance = 0.2;
     this.critMultiplier = 2.0;
-  //  this.useProjectile = true;
     this.lastTargetId = null;
+    this.laserDuration = 300; //show laser for 300ms
+    this.lastShotTime = 0;
 
     //for piercing shot tracking
     this.piercingTargets = new Set();
+    //Note: it is mark as unused but this is used
+    this.lastPiercingTargets = new Set(); // Store for drawing
 
     //special ability
   }
 
   applyLevelUpgrades() {
-    const level = this.level;
-    const statMultiplier = 1 + (level - 1) * 0.15; //15% increase
+    const statMultiplier = 1 + (this.level - 1) * 0.15; //15% increase
 
     this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
     this.health = Math.floor(this.health * statMultiplier);
     this.maxHealth = Math.floor(this.maxHealth * statMultiplier);
 
     this.critChance = 0.2 + (this.level - 1) * 0.08; //+8% every level
+    this.critChance = Math.min(1.0, this.critChance); //max 100%
+
 
     this.applySpecialAbilities();
   }
@@ -729,6 +732,14 @@ export class Sniper extends DefenderUnit {
 
     console.log(`Sniper attack - Level: ${this.level}, Piercing: ${this.hasPiercingShot}, Headshot: ${this.hasHeadshot}`);
 
+    // Store shot info for laser drawing
+    this.lastShotTime = Date.now();
+    this.lastTargetId = target.id;
+    this.lastTargetPosition = {
+      x: target.x + target.width / 2,
+      y: target.y + target.height / 2
+    };
+
     let damage = this.attackDamage;
     const isCrit = Math.random() < this.critChance;
 
@@ -736,14 +747,17 @@ export class Sniper extends DefenderUnit {
       damage *= this.critMultiplier;
       console.log("Critical hit!");
     }
+    // Clear previous piercing targets and track new ones
+    this.lastPiercingTargets = new Set(this.piercingTargets);
+    this.piercingTargets.clear();
+    this.piercingTargets.add(target.id);
+
     const targetDied = target.takeDamage(damage, true); //always have armor piercing
     if (targetDied && this.gameEngine && !this.gameEngine.gameOver) {
       this.handleEnemyDeath(target);
     }
     // Piercing Shot - hits all enemies in a line
     if (this.hasPiercingShot) {
-      this.piercingTargets.clear();
-      this.piercingTargets.add(target.id);
       const startX = this.x + this.width / 2;
       const startY = this.y + this.height / 2;
       const targetX = target.x + target.width / 2;
@@ -826,24 +840,37 @@ export class Sniper extends DefenderUnit {
   draw(ctx) {
     super.draw(ctx);
 
-    // Laser sight when recently fired
-    if (this.lastAttackTime && Date.now() - this.lastAttackTime < 200) {
+    // Draw laser sight only for a short duration after shooting
+    const timeSinceShot = Date.now() - this.lastShotTime;
+    if (timeSinceShot < this.laserDuration && this.lastTargetPosition) {
       ctx.save();
 
-      // Draw piercing line if has ability
-      if (this.hasPiercingShot && this.lastTargetId && this.gameEngine) {
-        const target = this.gameEngine.enemies.find(e => e.id === this.lastTargetId);
-        if (target) {
-          // Main laser
-          ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(this.x + this.width / 2, this.y + this.height / 2);
+      // Calculate fade effect
+      const fadeAlpha = 1 - (timeSinceShot / this.laserDuration);
 
-          // Extend line beyond target to show piercing
-          const dx = target.x + target.width / 2 - (this.x + this.width / 2);
-          const dy = target.y + target.height / 2 - (this.y + this.height / 2);
-          const length = Math.sqrt(dx * dx + dy * dy);
+      // Draw piercing line if has ability
+      if (this.hasPiercingShot) {
+        // Main laser beam
+        const gradient = ctx.createLinearGradient(
+            this.x + this.width / 2,
+            this.y + this.height / 2,
+            this.lastTargetPosition.x,
+            this.lastTargetPosition.y
+        );
+        gradient.addColorStop(0, `rgba(255, 0, 0, ${fadeAlpha})`);
+        gradient.addColorStop(1, `rgba(255, 100, 0, ${fadeAlpha * 0.5})`);
+
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 3 - (timeSinceShot / this.laserDuration) * 2; // Shrinking line
+        ctx.beginPath();
+        ctx.moveTo(this.x + this.width / 2, this.y + this.height / 2);
+
+        // Extend line to show piercing
+        const dx = this.lastTargetPosition.x - (this.x + this.width / 2);
+        const dy = this.lastTargetPosition.y - (this.y + this.height / 2);
+        const length = Math.sqrt(dx * dx + dy * dy);
+
+        if (length > 0) {
           const extendX = (dx / length) * this.range;
           const extendY = (dy / length) * this.range;
 
@@ -852,30 +879,39 @@ export class Sniper extends DefenderUnit {
               this.y + this.height / 2 + extendY
           );
           ctx.stroke();
+        }
 
-          // Draw hit markers on pierced enemies
-          ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
-          for (const enemyId of this.piercingTargets) {
-            const enemy = this.gameEngine.enemies.find(e => e.id === enemyId);
-            if (enemy) {
-              ctx.beginPath();
-              ctx.arc(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, 10, 0, Math.PI * 2);
-              ctx.fill();
-            }
+        // Draw hit markers on pierced enemies
+        ctx.fillStyle = `rgba(255, 0, 0, ${fadeAlpha * 0.7})`;
+        for (const enemyId of this.piercingTargets) {
+          const enemy = this.gameEngine.enemies.find(e => e.id === enemyId);
+          if (enemy) {
+            // Expanding circle effect
+            const expandRadius = 10 + (timeSinceShot / this.laserDuration) * 20;
+            ctx.beginPath();
+            ctx.arc(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, expandRadius, 0, Math.PI * 2);
+            ctx.fill();
           }
         }
       } else {
-        // Regular laser sight
-        ctx.strokeStyle = "rgba(255, 0, 0, 0.5)";
-        ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
+        // Regular laser sight (non-piercing)
+        ctx.strokeStyle = `rgba(255, 0, 0, ${fadeAlpha * 0.8})`;
+        ctx.lineWidth = 2 - (timeSinceShot / this.laserDuration);
         ctx.beginPath();
         ctx.moveTo(this.x + this.width / 2, this.y + this.height / 2);
-        ctx.lineTo(this.x + this.range, this.y + this.height / 2);
+        ctx.lineTo(this.lastTargetPosition.x, this.lastTargetPosition.y);
         ctx.stroke();
+
+        // Impact point
+        ctx.fillStyle = `rgba(255, 100, 0, ${fadeAlpha})`;
+        ctx.beginPath();
+        ctx.arc(this.lastTargetPosition.x, this.lastTargetPosition.y, 5 + timeSinceShot / 50, 0, Math.PI * 2);
+        ctx.fill();
       }
+
       ctx.restore();
     }
+
     // Scope indicator
     if (this.hasHeadshot) {
       ctx.strokeStyle = "rgba(255, 0, 0, 0.3)";
