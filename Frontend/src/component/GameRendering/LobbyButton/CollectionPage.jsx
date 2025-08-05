@@ -1,7 +1,7 @@
 // src/component/GameRendering/CollectionPage.jsx
 import React, { useState } from 'react';
-import { useGame } from '../GameLogic (MVC)/GameContext';
-import '../../style/CollectionPage.css';
+import { useGame } from '../../GameLogic (MVC)/GameContext.jsx';
+import '../../../style/CollectionPage.css';
 
 const CollectionPage = () => {
     const { closeCollection } = useGame();

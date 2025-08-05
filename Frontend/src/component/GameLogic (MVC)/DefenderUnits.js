@@ -765,6 +765,7 @@ export class Sniper extends DefenderUnit {
 
       const dx = targetX - startX;
       const dy = targetY - startY;
+      //length between the target and sniper
       const length = Math.sqrt(dx * dx + dy * dy);
       //direction vector
       const dirX = dx / length;

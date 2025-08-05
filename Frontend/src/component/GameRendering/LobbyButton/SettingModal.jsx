@@ -1,7 +1,7 @@
 // src/component/GameRendering/SettingsModal.jsx
 import React, { useState } from 'react';
-import { useGame } from '../GameLogic (MVC)/GameContext';
-import '../../style/SettingModal.css';
+import { useGame } from '../../GameLogic (MVC)/GameContext.jsx';
+import '../../../style/SettingModal.css';
 
 const SettingModal = () => {
     const { closeSettings } = useGame();

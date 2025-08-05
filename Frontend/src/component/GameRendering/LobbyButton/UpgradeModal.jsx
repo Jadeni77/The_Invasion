@@ -1,12 +1,12 @@
 // src/components/GameRendering/UpgradeModal.jsx
 import React, { useState, useEffect } from "react"; // Added useState, useEffect
-import { useGame } from "../GameLogic (MVC)/GameContext"; // Correct path
-import ResourceIcon from "./ResourceIcon"; // Correct path
-import Card from "../common/Card"; // Correct path
-import "../../style/Lobby.css"; // Assuming some styles are shared
-import "../../style/UpgradeModal.css"; // Correct path
-import { getUpgradePreview } from "../GameLogic (MVC)/DefenderClassUtils";
-import Bow from "../../Icons/Bow.png";
+import { useGame } from "../../GameLogic (MVC)/GameContext.jsx"; // Correct path
+import ResourceIcon from "../ResourceIcon.jsx"; // Correct path
+import Card from "../../common/Card.jsx"; // Correct path
+import "../../../style/Lobby.css"; // Assuming some styles are shared
+import "../../../style/UpgradeModal.css"; // Correct path
+import { getUpgradePreview } from "../../GameLogic (MVC)/DefenderClassUtils.js";
+import Bow from "../../../Icons/Bow.png";
 
 function UpgradeModal() {
   const { playerData, upgradeQueue, startCardUpgrade, closeUpgradeModal } =

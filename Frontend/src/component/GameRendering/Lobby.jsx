@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState, use } from "react";
 import { useGame } from "../GameLogic (MVC)/GameContext"; // Correct path
 import ResourceIcon from "./ResourceIcon"; // Correct path
 import EnergyBar from "./EnergyBar"; // Correct path
-import UpgradeModal from "./UpgradeModal"; // Correct path
+import UpgradeModal from "./LobbyButton/UpgradeModal.jsx"; // Correct path
 import { levelsMapData, connectionsData, chestsData } from "./MapLayout"; // New: Import map data from MapData.js
 import "../../style/Lobby.css"; // Correct path
 import "../../style/UpgradeModal.css"; // Correct path (if UpgradeModal.css is used by Lobby too)

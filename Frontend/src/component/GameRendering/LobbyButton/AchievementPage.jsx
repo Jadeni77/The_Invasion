@@ -1,7 +1,7 @@
 // src/component/GameRendering/AchievementPage.jsx
 import React, { useState } from 'react';
-import { useGame } from '../GameLogic (MVC)/GameContext';
-import '../../style/AchievementPage.css';
+import { useGame } from '../../GameLogic (MVC)/GameContext.jsx';
+import '../../../style/AchievementPage.css';
 
 const AchievementPage = () => {
     const { closeAchievements } = useGame();
