@@ -53,6 +53,8 @@ export class GameEngine {
     this.dropManager = new DropManager(this);
     this.combatManager = new CombatManager(this);
 
+   // this.trackTotalEnemyInGameBoard = this.currentLevelConfig.totalEnemiesToSpawn;
+
     // Mapping of card names to their respective DefenderUnit classes
     this.defenderUnitClasses = {
       "Basic Cop": BasicDefender,
@@ -1065,6 +1067,7 @@ export class GameEngine {
     ctx.textAlign = "center"; // Fix: Set text alignment
     ctx.textBaseline = "middle"; // Fix text baseline
     ctx.fillText(
+      //  `Total Enemy Left: ${this.currentLevelConfig.totalEnemiesToSpawn}`,
       `Wave: ${this.waveManager.currentWave}/${this.currentLevelConfig.waves}`,
       this.canvasWidth / 2 - 50,
       20

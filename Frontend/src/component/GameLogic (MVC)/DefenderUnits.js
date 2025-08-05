@@ -664,7 +664,7 @@ export class Sniper extends DefenderUnit {
       name: "Sniper",
       damage: 50,
       health: 80,
-      range: 800,
+      range: 600,
       fireRate: 120,
       cost: 80,
       width: 30,
@@ -678,8 +678,26 @@ export class Sniper extends DefenderUnit {
 
     this.critChance = 0.2;
     this.critMultiplier = 2.0;
+  //  this.useProjectile = true;
+    this.lastTargetId = null;
+
+    //for piercing shot tracking
+    this.piercingTargets = new Set();
 
     //special ability
+  }
+
+  applyLevelUpgrades() {
+    const level = this.level;
+    const statMultiplier = 1 + (level - 1) * 0.15; //15% increase
+
+    this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
+    this.health = Math.floor(this.health * statMultiplier);
+    this.maxHealth = Math.floor(this.maxHealth * statMultiplier);
+
+    this.critChance = 0.2 + (this.level - 1) * 0.08; //+8% every level
+
+    this.applySpecialAbilities();
   }
 
   applySpecialAbilities() {
@@ -703,40 +721,172 @@ export class Sniper extends DefenderUnit {
     if (this.level === 2) newAbilities.push("Piercing Shot (Level 3)");
     if (this.level === 4) newAbilities.push("Headshot (Level 5)");
 
-    return {...base, criticalIncrease: "+10%", newAbilities,};
+    return {...base, criticalIncrease: "+8% per level", newAbilities,};
   }
 
   attack(target, currentTime) {
-    if (!this.isAlive || !target || !target.isAlive) return;
+    if (!this.isAlive || !target || !target.isAlive || !this.gameEngine) return;
+
+    console.log(`Sniper attack - Level: ${this.level}, Piercing: ${this.hasPiercingShot}, Headshot: ${this.hasHeadshot}`);
 
     let damage = this.attackDamage;
+    const isCrit = Math.random() < this.critChance;
 
-    if (Math.random() < this.critChance) {
+    if (isCrit) {
       damage *= this.critMultiplier;
+      console.log("Critical hit!");
     }
+    const targetDied = target.takeDamage(damage, true); //always have armor piercing
+    if (targetDied && this.gameEngine && !this.gameEngine.gameOver) {
+      this.handleEnemyDeath(target);
+    }
+    // Piercing Shot - hits all enemies in a line
     if (this.hasPiercingShot) {
-      //TODO:
+      this.piercingTargets.clear();
+      this.piercingTargets.add(target.id);
+      const startX = this.x + this.width / 2;
+      const startY = this.y + this.height / 2;
+      const targetX = target.x + target.width / 2;
+      const targetY = target.y + target.height / 2;
+
+      const dx = targetX - startX;
+      const dy = targetY - startY;
+      const length = Math.sqrt(dx * dx + dy * dy);
+      //direction vector
+      const dirX = dx / length;
+      const dirY = dy / length;
+
+      for (const enemy of this.gameEngine.enemies) {
+        //enemy cannot be pierce twice
+        if (!enemy.isAlive || this.piercingTargets.has(enemy.id)) continue;
+
+        const enemyX = enemy.x + enemy.width / 2;
+        const enemyY = enemy.y + enemy.height / 2;
+
+        //calculate if enemy is on line
+        const toEnemyX = enemyX - startX;
+        const toEnemyY = enemyY - startY;
+        // Dot product to find projection length
+        const projLength = toEnemyX * dirX + toEnemyY * dirY;
+
+        //check if enemy is in front of the sniper and within range
+        if (projLength > 0 && projLength <= this.range) {
+          // Calculate perpendicular distance from line
+          const perpX = toEnemyX - projLength * dirX;
+          const perpY = toEnemyY - projLength * dirY;
+          const perpDist = Math.sqrt(perpX * perpX + perpY * perpY);
+
+          // If enemy is close enough to the line (within 20 pixels)
+          if (perpDist <= 20) {
+            const pierceDamage = damage * 0.7; //only apply 70%
+            const pierceDied = enemy.takeDamage(pierceDamage, true);
+            this.piercingTargets.add(enemy.id);
+            if (pierceDied && this.gameEngine && !this.gameEngine.gameOver) {
+              this.handleEnemyDeath(enemy)
+            }
+          }
+        }
+
+      }
     }
-    if (this.hasHeadshot) {
-      //TODO:
+    //crit kills will create explosion area
+    if (this.hasHeadshot && isCrit && targetDied) {
+      console.log("Explosive headshot!");
+
+      this.gameEngine.addExplosion(
+        target.x + target.width / 2,
+        target.y + target.height / 2,
+        damage * 0.5, //50%
+        80,)
+
+      //visual affect
+      this.gameEngine.explosions.push({
+        x: target.x + target.width / 2,
+        y: target.y + target.height / 2,
+        damage: 0,
+        radius: 120,
+        timer: 20,
+        color: "red"});
     }
-    target.takeDamage(damage);
     this.lastAttackTime = currentTime;
+    this.lastTargetId = target.id;
+  }
+
+  handleEnemyDeath(enemy) {
+    this.gameEngine.inGameScore += enemy.bounty;
+    this.gameEngine.updateScoreCb(this.gameEngine.inGameScore);
+    this.gameEngine.dropManager.handleEnemyDeath(enemy);
+
+    const enemyIndex = this.gameEngine.enemies.findIndex(e => e.id === enemy.id);
+    if (enemyIndex !== -1) {
+      this.gameEngine.enemies.splice(enemyIndex, 1);
+    }
   }
 
   draw(ctx) {
     super.draw(ctx);
 
-    // Laser sight when targeting
-    if (this.lastAttackTime && Date.now() - this.lastAttackTime < 100) {
+    // Laser sight when recently fired
+    if (this.lastAttackTime && Date.now() - this.lastAttackTime < 200) {
+      ctx.save();
+
+      // Draw piercing line if has ability
+      if (this.hasPiercingShot && this.lastTargetId && this.gameEngine) {
+        const target = this.gameEngine.enemies.find(e => e.id === this.lastTargetId);
+        if (target) {
+          // Main laser
+          ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(this.x + this.width / 2, this.y + this.height / 2);
+
+          // Extend line beyond target to show piercing
+          const dx = target.x + target.width / 2 - (this.x + this.width / 2);
+          const dy = target.y + target.height / 2 - (this.y + this.height / 2);
+          const length = Math.sqrt(dx * dx + dy * dy);
+          const extendX = (dx / length) * this.range;
+          const extendY = (dy / length) * this.range;
+
+          ctx.lineTo(
+              this.x + this.width / 2 + extendX,
+              this.y + this.height / 2 + extendY
+          );
+          ctx.stroke();
+
+          // Draw hit markers on pierced enemies
+          ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
+          for (const enemyId of this.piercingTargets) {
+            const enemy = this.gameEngine.enemies.find(e => e.id === enemyId);
+            if (enemy) {
+              ctx.beginPath();
+              ctx.arc(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, 10, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+      } else {
+        // Regular laser sight
+        ctx.strokeStyle = "rgba(255, 0, 0, 0.5)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(this.x + this.width / 2, this.y + this.height / 2);
+        ctx.lineTo(this.x + this.range, this.y + this.height / 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // Scope indicator
+    if (this.hasHeadshot) {
       ctx.strokeStyle = "rgba(255, 0, 0, 0.3)";
       ctx.lineWidth = 1;
-      ctx.setLineDash([5, 5]);
       ctx.beginPath();
-      ctx.moveTo(this.x + this.width / 2, this.y + this.height / 2);
-      ctx.lineTo(this.canvasWidth || 800, this.y + this.height / 2);
+      // Crosshair
+      ctx.moveTo(this.x + this.width / 2 - 10, this.y + this.height / 2);
+      ctx.lineTo(this.x + this.width / 2 + 10, this.y + this.height / 2);
+      ctx.moveTo(this.x + this.width / 2, this.y + this.height / 2 - 10);
+      ctx.lineTo(this.x + this.width / 2, this.y + this.height / 2 + 10);
       ctx.stroke();
-      ctx.setLineDash([]);
     }
   }
 }
