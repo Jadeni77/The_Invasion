@@ -1,0 +1,346 @@
+/* src/style/SettingsModal.css */
+.settings-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.settings-modal {
+    background-color: #16213e;
+    border: 2px solid #0f3460;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    animation: slideIn 0.3s ease;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    background-color: #0f3460;
+    border-radius: 18px 18px 0 0;
+}
+
+.settings-header h2 {
+    margin: 0;
+    color: #3498db;
+    font-size: 1.8rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.close-button {
+    background: none;
+    border: none;
+    color: #ffffff;
+    font-size: 1.8rem;
+    cursor: pointer;
+    transition: color 0.3s;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-button:hover {
+    color: #e74c3c;
+}
+
+.settings-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.settings-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    background-color: #1a1a2e;
+    border-radius: 10px;
+    border: 1px solid #0f3460;
+}
+
+.section-header {
+    margin: 0 0 20px 0;
+    color: #3498db;
+    font-size: 1.2rem;
+    text-align: center;
+    letter-spacing: 2px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #0f3460;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: #16213e;
+    border-radius: 8px;
+}
+
+.setting-item:last-child {
+    margin-bottom: 0;
+}
+
+.setting-item label {
+    color: #ecf0f1;
+    font-size: 1rem;
+    flex: 1;
+}
+
+.slider-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex: 1;
+    max-width: 300px;
+}
+
+.volume-slider {
+    flex: 1;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #0f3460;
+    outline: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #3498db;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.3s;
+}
+
+.volume-slider::-webkit-slider-thumb:hover {
+    background: #2980b9;
+    transform: scale(1.2);
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #3498db;
+    cursor: pointer;
+    border-radius: 50%;
+    border: none;
+    transition: all 0.3s;
+}
+
+.volume-value {
+    color: #3498db;
+    font-weight: bold;
+    min-width: 45px;
+    text-align: right;
+}
+
+.quality-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.quality-button {
+    padding: 8px 20px;
+    background-color: #0f3460;
+    border: 2px solid #0f3460;
+    border-radius: 20px;
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: bold;
+}
+
+.quality-button:hover {
+    background-color: #1a1a2e;
+    transform: translateY(-2px);
+}
+
+.quality-button.active {
+    background-color: #3498db;
+    border-color: #3498db;
+    color: #ffffff;
+    box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+}
+
+.toggle-button {
+    padding: 8px 20px;
+    background-color: #0f3460;
+    border: 2px solid #0f3460;
+    border-radius: 20px;
+    color: #7f8c8d;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: bold;
+    min-width: 100px;
+}
+
+.toggle-button:hover:not(.disabled) {
+    background-color: #1a1a2e;
+    transform: translateY(-2px);
+}
+
+.toggle-button.active {
+    background-color: #27ae60;
+    border-color: #27ae60;
+    color: #ffffff;
+    box-shadow: 0 4px 10px rgba(39, 174, 96, 0.3);
+}
+
+.toggle-button.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.settings-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    background-color: #0f3460;
+    border-radius: 0 0 18px 18px;
+}
+
+.reset-button {
+    padding: 10px 20px;
+    background-color: #95a5a6;
+    border: none;
+    border-radius: 20px;
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: bold;
+}
+
+.reset-button:hover {
+    background-color: #7f8c8d;
+    transform: translateY(-2px);
+}
+
+.action-buttons {
+    display: flex;
+    gap: 15px;
+}
+
+.cancel-button {
+    padding: 10px 30px;
+    background-color: #e74c3c;
+    border: none;
+    border-radius: 20px;
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: bold;
+}
+
+.cancel-button:hover {
+    background-color: #c0392b;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(231, 76, 60, 0.3);
+}
+
+.apply-button {
+    padding: 10px 30px;
+    background-color: #3498db;
+    border: none;
+    border-radius: 20px;
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: bold;
+}
+
+.apply-button:hover {
+    background-color: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+}
+
+/* Scrollbar styling */
+.settings-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.settings-content::-webkit-scrollbar-track {
+    background: #0f3460;
+    border-radius: 4px;
+}
+
+.settings-content::-webkit-scrollbar-thumb {
+    background: #3498db;
+    border-radius: 4px;
+}
+
+.settings-content::-webkit-scrollbar-thumb:hover {
+    background: #2980b9;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .settings-modal {
+        width: 95%;
+        max-height: 95vh;
+    }
+
+    .setting-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .slider-container {
+        width: 100%;
+        max-width: none;
+    }
+
+    .quality-buttons {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .quality-button {
+        flex: 1;
+        padding: 8px 10px;
+    }
+}

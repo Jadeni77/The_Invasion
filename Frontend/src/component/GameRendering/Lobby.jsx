@@ -14,7 +14,15 @@ import OpenChest from "../../Icons/OpenChest.png";
 
 
 const Lobby = () => {
-  const { gameState, playerData, startLevel, openUpgradeModal } = useGame();
+  const {
+    gameState,
+    playerData,
+    startLevel,
+    openUpgradeModal,
+    openAchievements,
+    openCollection,
+    openSettings
+  } = useGame();
   const [mapPosition, setMapPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -155,15 +163,15 @@ const Lobby = () => {
         </div>
 
         <div className="menu-buttons">
-          <button className="menu-button collection">
+          <button className="menu-button collection" onClick={openCollection}>
             <i className="icon-collection" />
             <span>Collection</span>
           </button>
-          <button className="menu-button achievement">
+          <button className="menu-button achievement" onClick={openAchievements}>
             <i className="icon-achievement" />
             <span>Achievement</span>
           </button>
-          <button className="menu-button settings">
+          <button className="menu-button settings" onClick={openSettings}>
             <i className="icon-setting" />
             <span>Setting</span>
           </button>

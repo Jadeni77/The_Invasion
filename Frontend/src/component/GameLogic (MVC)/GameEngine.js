@@ -170,7 +170,7 @@ export class GameEngine {
           //  "Exploder", "Skeleton Shooter", "Shielder",
           // "Healer", "Splitter", "Mini", "Swarm Witch",
           // "EMP", "Vampire"],
-      initialEnergy: 100,
+      initialEnergy: 1000,
       enemyAssets: {
         "Basic Zombie": null,
         "Fast Zombie": null,

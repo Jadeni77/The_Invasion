@@ -547,6 +547,33 @@ export const GameProvider = ({ children }) => {
     setGameState("lobby");
   }, []);
 
+  // Achievement page handlers
+  const openAchievements = useCallback(() => {
+    setGameState("achievements");
+  }, []);
+
+  const closeAchievements = useCallback(() => {
+    setGameState("lobby");
+  }, []);
+
+  // Collection page handlers
+  const openCollection = useCallback(() => {
+    setGameState("collection");
+  }, []);
+
+  const closeCollection = useCallback(() => {
+    setGameState("lobby");
+  }, []);
+
+  // Settings modal handlers
+  const openSettings = useCallback(() => {
+    setGameState("settings");
+  }, []);
+
+  const closeSettings = useCallback(() => {
+    setGameState("lobby");
+  }, []);
+
   // Public API and context values
   const gameAPI = {
     gameState,
@@ -569,6 +596,12 @@ export const GameProvider = ({ children }) => {
     updateScoreCb, // Add this
     onWinCb, // Add this
     onLoseCb, // Add this
+    openAchievements,
+    closeAchievements,
+    openCollection,
+    closeCollection,
+    openSettings,
+    closeSettings,
   };
 
   return (
