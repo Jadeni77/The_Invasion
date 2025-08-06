@@ -7,16 +7,21 @@ src/
 │        └── WorkerStatus.jsx
 │   ├── GameLogic (MVC)/
 |   |    |-- GameEngineBreakDown/
-|   |    |    |-- CombatManager.js
-|   |    |    |-- DropManager.js
-|   |    |    |-- GridManager.js
-|   |    |    |-- WaveManager.js
-|   |    |
-|   |    |-- CardPieceDrop.js
+|   |    |   |-- Draws/
+|   |    |   |   |-- DrawEntities.js
+|   |    |   |   |-- DrawExplosionEffect.js
+|   |    |   |   |-- DrawUIs.js
+|   |    |   |-- Drops/
+|   |    |   |   |-- CardPieceDrop.js
+|   |    |   |   |-- EnergyDrop.js
+|   |    |   |-- InGameManagerHandlers/
+|   |    |       |-- CombatManager.js
+|   |    |       |-- DropManager.js
+|   |    |       |-- GridManager.js
+|   |    |       |-- WaveManager.js
 |   |    |-- DefenderClassUtils.js
 │   │    ├── DefenderUnits.js
 │   │    ├── EnemyUnits.js
-|   |    |-- EnergyDrop.js
 │   │    ├── GameContext.jsx
 │   │    └── GameEngine.js
 │   ├── GameRendering/
@@ -29,12 +34,15 @@ src/
 │   │    ├── UpgradeModal.jsx
 |   |    |-- UseMobileOrientation.js
 ├── style/
+|   |-- AchievementPage.css
 |   |-- AllImage.css
 |   |-- Card.css
 |   |-- CardSelectionModal.css
+|   |-- CollectionPage.css
 |   |-- EnergyBar.css
 |   |-- GameBoard.css
 │   ├── Lobby.css
+|   |-- SettingModal.css
 |   |-- UpgradeModal.css
 |   |-- WorkerStatus.css
 |

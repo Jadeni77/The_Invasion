@@ -32,6 +32,9 @@ export class Enemy {
     this.buffed = typeData.buffed || false;
     this.buffedBy = typeData.buffedBy || null;
 
+    this.isSpawned = typeData.isSpawned || false;
+    this.spawnBy = typeData.spawnBy || null;
+
     this.gameEngine = null;
   }
 
@@ -43,10 +46,9 @@ export class Enemy {
   attack(target, currentTime) {
     if (!this.isAlive || !target || !target.isAlive) return;
 
-    if (!this.isRanged) {
-      target.takeDamage(this.attackDamage);
-    }
-    //range attacks are handle by gameEnging in the draw Projectile method
+    target.takeDamage(this.attackDamage);
+
+    //range attacks are handle by gameEngine in the draw Projectile method
     this.lastAttackTime = currentTime;
   }
 
@@ -111,6 +113,23 @@ export class Enemy {
       }
     } else {
       this.drawFallback(ctx);
+    }
+    //if enemy is spawn unnaturally
+    if (this.isSpawned) {
+      ctx.save();
+
+      // Draw a small symbol above the enemy
+      ctx.fillStyle = "rgba(255, 0, 255, 0.8)"; // Purple
+      ctx.font = "bold 12px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("◈", this.x + this.width / 2, this.y - 15);
+
+      // Alternative: Draw a border
+      ctx.strokeStyle = "rgba(255, 0, 255, 0.6)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(this.x - 2, this.y - 2, this.width + 4, this.height + 4);
+
+      ctx.restore();
     }
 
     // Health bar
@@ -269,10 +288,10 @@ export class BombEnemy extends Enemy {
       image: image,
       bounty: 20,
       isAttacker: false, // Primary interaction is explosion, not regular attack
-      attackDamage: 0,
+      attackDamage: 200,
     });
     this.explosionRadius = 100;
-    this.explosionDamage = 200;
+  //  this.explosionDamage = 200;
     this.shouldExplode = false; // Flag to tell GameEngine to handle explosion
   }
 
@@ -298,6 +317,7 @@ export class BombEnemy extends Enemy {
           this.explosionRadius / 2); //reduce range for explosion detection
     if (nearestDefender) {
       console.log(`${this.name} self-destructs near a defender!`);
+      console.log(`${this.name} deal ${this.attackDamage}`)
       this.shouldExplode = true; // Mark for explosion
       this.isAlive = false; // Enemy is consumed by the explosion
       this.health = 0;
@@ -539,6 +559,8 @@ export class SplitterEnemy extends Enemy {
           this.y + offsetY,
           null // no images
       );
+      mini.isSpawned = true;
+      mini.spawnBy = this.id;
       this.gameEngine.enemies.push(mini);
     }
   }
@@ -569,7 +591,7 @@ export class SwarmLeader extends Enemy {
   constructor(x, y, image) {
     super(x, y, {
       name: "Swarm Witch",
-      speed: 0.5,
+      speed: 0.2,
       health: 180,
       width: 40,
       height: 45,
@@ -587,6 +609,41 @@ export class SwarmLeader extends Enemy {
     this.speedBuff = 1.2;
     this.damageBuff = 1.3;
     this.isMoving = true;
+
+    this.splitCount = 5;
+    this.hasSplit = false;
+    this.spawnItselfChance = 0.3;
+    this.spawnTankChance = 0.5;
+  }
+
+  takeDamage(amount, ignoreArmor = false) {
+    const died = super.takeDamage(amount, ignoreArmor);
+    if (died && !this.hasSplit) {
+      this.splitIntoSplitter();
+      this.hasSplit = true;
+    }
+    return died;
+  }
+
+  splitIntoSplitter() {
+    if (!this.gameEngine) {
+      console.warn("Swarm Witch: No gameEngine reference!");
+      return;
+    }
+    console.log(`Split into ${this.splitCount}`);
+    for (let i = 0; i < this.splitCount; i++) {
+      const offsetX = (Math.random() - 0.5) * 60;
+      const offsetY = (Math.random() - 0.5) * 40;
+
+      const splitEnemy = new SplitterEnemy(
+          this.x + offsetX,
+          this.y + offsetY,
+          null // no images
+      );
+      splitEnemy.isSpawned = true;
+      splitEnemy.spawnBy = this.id;
+      this.gameEngine.enemies.push(splitEnemy);
+    }
   }
 
   update(defenderUnits) {
@@ -613,22 +670,32 @@ export class SwarmLeader extends Enemy {
     //spawn enemy
     this.currentSpawnCooldown--;
      if (this.currentSpawnCooldown <= 0) {
-       this.spawnMinion();
+       let spawnEnemy = null;
+       if (Math.random() < this.spawnTankChance && Math.random() > this.spawnItselfChance) {
+         spawnEnemy = new TankEnemy(
+             this.x - 30,
+             this.y + (Math.random() - 0.5) * 40,
+             null);
+       } else if (Math.random() < this.spawnItselfChance) {
+         spawnEnemy = new SwarmLeader(
+             this.x - 30,
+             this.y + (Math.random() - 0.5) * 40,
+             null);
+       } else {
+         spawnEnemy = new BasicEnemy(
+             this.x - 30,
+             this.y + (Math.random() - 0.5) * 40,
+             null
+         );
+       }
+       spawnEnemy.isSpawned = true;
+       spawnEnemy.spawnBy = this.id;
+       console.log(`SwarmLeader spawned ${spawnEnemy.name} - isSpawned: ${spawnEnemy.isSpawned}`);
+       this.gameEngine.enemies.push(spawnEnemy);
        this.currentSpawnCooldown = this.spawnCooldown;
      }
      //buff nearby enemy
     this.buffNearbyEnemies();
-  }
-
-  spawnMinion() {
-    if (!this.gameEngine) return;
-
-    const minion = new BasicEnemy(
-        this.x - 30,
-        this.y + (Math.random() - 0.5) * 40,
-        null
-    );
-    this.gameEngine.enemies.push(minion);
   }
 
   buffNearbyEnemies() {
@@ -702,12 +769,19 @@ export class EMPEnemy extends Enemy {
     if (!this.gameEngine) return;
 
     this.gameEngine.explosions.push({
-      x: this.x + this.width / 2,
-      y: this.y + this.height / 2,
-      damage: 0,
-      radius: this.empRadius,
-      timer: 30,
-      color: "cyan"});
+                                      x: this.x + this.width / 2,
+                                      y: this.y + this.height / 2,
+                                      damage: 0,
+                                      radius: this.empRadius,
+                                      timer: 30,
+                                      color: "cyan",
+                                      innerColor: "white",
+                                      particleColor: "rgba(0, 255, 255, 0.9)",
+                                      style: "electric",
+                                      type: "enemy",
+                                      source: "emp",
+                                      explodeBy: "EMP"
+                                    });
 
     //disable nearby defender
     for (const defender of this.gameEngine.defenders) {
@@ -718,7 +792,6 @@ export class EMPEnemy extends Enemy {
           this.y + this.height / 2 - (defender.y + defender.height / 2)
       );
       if (distance <= this.empRadius) {
-        //TODO: Need a method in defender class to handle disability
         defender.disabled = true;
         defender.disabledDuration = this.disabledDuration;
       }

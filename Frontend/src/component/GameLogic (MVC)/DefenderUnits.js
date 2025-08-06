@@ -132,6 +132,7 @@ export class DefenderUnit {
   }
 
   takeDamage(amount) {
+    console.log(`Damge took ${amount}`);
     this.health -= amount;
     if (this.health <= 0) {
       this.health = 0;
@@ -191,7 +192,7 @@ export class BasicDefender extends DefenderUnit {
     }
     const died = target.takeDamage(this.attackDamage, this.hasArmorPiercing);
 
-        if (died && this.gameEngine && !this.gameEngine.gameOver) {
+        if (died && !target.isSpawned && this.gameEngine && !this.gameEngine.gameOver) {
           this.gameEngine.inGameScore += target.bounty;
           this.gameEngine.updateScoreCb(this.gameEngine.inGameScore);
           this.gameEngine.dropManager.handleEnemyDeath(target);
@@ -245,6 +246,7 @@ export class HealerDefender extends DefenderUnit {
 
     this.healingAmount = Math.floor(this.healingAmount * statMultiplier);
     this.healingRange = Math.floor(this.healingRange * statMultiplier);
+    this.health = Math.floor(this.health * statMultiplier);
     this.applySpecialAbilities();
   }
 
@@ -384,7 +386,6 @@ export class GrenadeDefender extends DefenderUnit {
     this.grenadeCountdown = this.fireRate;
 
     //Special Ability Fields
-    //TODO: Need to tackle the special ability logic for this class
 
   }
 
@@ -427,12 +428,12 @@ export class GrenadeDefender extends DefenderUnit {
     console.log(`Grenadier has Napalm : ${this.hasNapalm} `);
 
     if (this.gameEngine) {
-      this.gameEngine.addExplosion(
+      this.gameEngine.addDefenderExplosion(
           target.x + target.width / 2, // Center explosion on target
           target.y + target.height / 2,
           this.attackDamage,
-          this.grenadeRadius
-      );
+          this.grenadeRadius,
+          "grenadier");
 
     if (this.hasClusterBomb) {
       for (let i = 0; i < 3; i++) {
@@ -441,11 +442,12 @@ export class GrenadeDefender extends DefenderUnit {
         const offsetY = Math.sin(angle) * 40;
 
         setTimeout(() => {
-          this.gameEngine.addExplosion(
+          this.gameEngine.addDefenderExplosion(
               target.x + target.width / 2 + offsetX,
               target.y + target.height / 2 + offsetY,
               this.attackDamage * 0.75, //75% damage
-              this.grenadeRadius * 0.8 //smaller radius
+              this.grenadeRadius * 0.8, //smaller radius,
+              "grenadier"
           );
         }, 200 + i * 100);
       }
@@ -459,12 +461,19 @@ export class GrenadeDefender extends DefenderUnit {
         setTimeout(() => {
           if (this.gameEngine && this.gameEngine.enemies) {
             this.gameEngine.explosions.push({
-              x: napalmX,
-              y: napalmY,
-              damage: 0,
-              radius: napalmRadius,
-              timer: 15,
-              color: "orange"});
+                                              x: napalmX,
+                                              y: napalmY,
+                                              damage: 0,
+                                              radius: napalmRadius,
+                                              timer: 15,
+                                              color: "orange",
+                                              innerColor: "red",
+                                              particleColor: "rgba(255, 100, 0, 0.9)",
+                                              style: "burst",
+                                              type: "defender",
+                                              source: "grenadier",
+                                              explodeBy: "grenadier"
+                                            });
 
             //apply burining damage
             for (const enemy of this.gameEngine.enemies) {
@@ -753,7 +762,7 @@ export class Sniper extends DefenderUnit {
     this.piercingTargets.add(target.id);
 
     const targetDied = target.takeDamage(damage, true); //always have armor piercing
-    if (targetDied && this.gameEngine && !this.gameEngine.gameOver) {
+    if (targetDied && !target.isSpawned && this.gameEngine && !this.gameEngine.gameOver) {
       this.handleEnemyDeath(target);
     }
     // Piercing Shot - hits all enemies in a line
@@ -796,7 +805,7 @@ export class Sniper extends DefenderUnit {
             const pierceDamage = damage * 0.7; //only apply 70%
             const pierceDied = enemy.takeDamage(pierceDamage, true);
             this.piercingTargets.add(enemy.id);
-            if (pierceDied && this.gameEngine && !this.gameEngine.gameOver) {
+            if (pierceDied && !enemy.isSpawned && this.gameEngine && !this.gameEngine.gameOver) {
               this.handleEnemyDeath(enemy)
             }
           }
@@ -808,21 +817,27 @@ export class Sniper extends DefenderUnit {
     if (this.hasHeadshot && isCrit && targetDied) {
       console.log("Explosive headshot!");
 
-      this.gameEngine.addExplosion(
+      this.gameEngine.addDefenderExplosion(
         target.x + target.width / 2,
         target.y + target.height / 2,
         damage * 0.5, //50%
-        80,)
+        80,
+        "sniper");
 
       //visual affect
       this.gameEngine.explosions.push({
-        x: target.x + target.width / 2,
-        y: target.y + target.height / 2,
-        damage: 0,
-        radius: 120,
-        timer: 20,
-        color: "red"});
-    }
+                                        x: target.x + target.width / 2,
+                                        y: target.y + target.height / 2,
+                                        damage: 0,
+                                        radius: 120,
+                                        timer: 20,
+                                        color: "crimson",
+                                        innerColor: "white",
+                                        particleColor: "rgba(220, 20, 60, 0.9)",
+                                        style: "piercing",
+                                        type: "defender",
+                                        source: "sniper",
+                                        explodeBy: "Sniper"});}
     this.lastAttackTime = currentTime;
     this.lastTargetId = target.id;
   }

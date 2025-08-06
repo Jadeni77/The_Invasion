@@ -6,12 +6,17 @@ import { BasicDefender, HealerDefender,
 import { BasicEnemy, FastEnemy, TankEnemy,
   BombEnemy, RangeEnemy, ShieldEnemy, HealerEnemy, EMPEnemy,
   MiniEnemy, SplitterEnemy, VampireEnemy, SwarmLeader} from "./EnemyUnits.js";
-import { EnergyDrop } from "./EnergyDrop.js";
-import { CardPieceDrop} from "./CardPieceDrop.js";
-import { CombatManager } from "./GameEngineBreakDown/CombatManager.js";
-import { DropManager } from "./GameEngineBreakDown/DropManager.js";
-import { GridManager } from "./GameEngineBreakDown/GridManager.js";
-import { WaveManager } from "./GameEngineBreakDown/WaveManager.js";
+import { EnergyDrop } from "./GameEngineBreakDown/Drops/EnergyDrop.js";
+import { CardPieceDrop} from "./GameEngineBreakDown/Drops/CardPieceDrop.js";
+import { CombatManager } from "./GameEngineBreakDown/InGameManagerHandlers/CombatManager.js";
+import { DropManager } from "./GameEngineBreakDown/InGameManagerHandlers/DropManager.js";
+import { GridManager } from "./GameEngineBreakDown/InGameManagerHandlers/GridManager.js";
+import { WaveManager } from "./GameEngineBreakDown/InGameManagerHandlers/WaveManager.js";
+import {
+  DrawExplosionEffect
+} from "./GameEngineBreakDown/Draws/DrawExplosionEffect.js";
+import {DrawEntities} from "./GameEngineBreakDown/Draws/DrawEntities.js";
+import {DrawUIs} from "./GameEngineBreakDown/Draws/DrawUIs.js";
 
 export class GameEngine {
   constructor(updateEnergyCb, updateScoreCb, onWinCb, onLoseCb, updateBaseHealthCb) {
@@ -52,6 +57,10 @@ export class GameEngine {
     this.gridManager = null;
     this.dropManager = new DropManager(this);
     this.combatManager = new CombatManager(this);
+    this.drawExplosionEffect = new DrawExplosionEffect(this);
+    this.drawEntities = new DrawEntities(this);
+    this.drawUIs = new DrawUIs(this);
+
 
    // this.trackTotalEnemyInGameBoard = this.currentLevelConfig.totalEnemiesToSpawn;
 
@@ -165,7 +174,7 @@ export class GameEngine {
       maxActiveEnemies: 8,
       totalEnemiesToSpawn: 50,
       waves: 3,
-      availableEnemyTypes: ["Tank Zombie"],
+      availableEnemyTypes: ["Exploder", "EMP"],
           // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
           //  "Exploder", "Skeleton Shooter", "Shielder",
           // "Healer", "Splitter", "Mini", "Swarm Witch",
@@ -517,10 +526,41 @@ export class GameEngine {
    * @param {number} damage - Damage dealt by explosion.
    * @param {number} radius - Radius of explosion effect.
    */
-  addExplosion(x, y, damage, radius) {
+  addDefenderExplosion(x, y, damage, radius, source = "default") {
     if (this.gameOver) return;
 
-    this.explosions.push({x, y, damage, radius, timer: 30,});
+    const explosionStyles = {
+      "grenadier": {
+        color: "orange",
+        innerColor: "yellow",
+        particleColor: "rgba(255, 200, 0, 0.8)",
+        style: "burst"
+      },
+      "sniper": {
+        color: "crimson",
+        innerColor: "white",
+        particleColor: "rgba(220, 20, 60, 0.9)",
+        style: "piercing"
+      },
+      "default": {
+        color: "orange",
+        innerColor: "yellow",
+        particleColor: "rgba(255, 165, 0, 0.8)",
+        style: "standard"
+      }
+    };
+
+    const style = explosionStyles[source] || explosionStyles.default;
+
+    this.explosions.push({
+                           x, y, damage, radius, timer: 30,
+                           color: style.color,
+                           innerColor: style.innerColor,
+                           particleColor: style.particleColor,
+                           style: style.style,
+                           type: "defender",
+                           source: source
+                         });
 
     // Apply damage to enemies within radius
     for (const enemy of this.enemies) {
@@ -533,13 +573,15 @@ export class GameEngine {
       if (distance <= radius) {
         const died = enemy.takeDamage(damage, false); //explosion does not ignore armor
         if (died && !this.gameOver) {
-          //only change game score when game still playing
-          this.inGameScore += enemy.bounty;
-          this.updateScoreCb(this.inGameScore);
+          if (!enemy.isSpawned) {
+            //only change game score when game still playing
+            this.inGameScore += enemy.bounty;
+            this.updateScoreCb(this.inGameScore);
+          }
+          this.dropManager.handleEnemyDeath(enemy);
         }
       }
     }
-
     // Apply reduced damage to defenders within radius (friendly fire)
     for (const defender of this.defenders) {
       if (!defender.isAlive) continue;
@@ -549,11 +591,59 @@ export class GameEngine {
         defender.y + defender.height / 2 - y
       ); // Distance from defender center to explosion center
       if (distance <= radius) {
-        const actualDamage = damage * 0.3;
+        const friendlyFire = damage * 0.3;
         console.log(`Defender ${defender.name} in explosion range, 
-        taking ${actualDamage} damage`); // Fix: Added debug logging
+        taking ${friendlyFire} damage`); // Fix: Added debug logging
 
-        defender.takeDamage(actualDamage); // 30% damage to allies
+        defender.takeDamage(friendlyFire); // 30% damage to allies
+      }
+    }
+  }
+
+  addEnemyExplosion(x, y, damage, radius, source = "default") {
+    if (this.gameOver) return;
+
+    const explosionStyles = {
+      "exploder": {
+        color: "purple",
+        innerColor: "magenta",
+        particleColor: "rgba(148, 0, 211, 0.9)",
+        style: "shockwave"
+      },
+      "emp": {
+        color: "cyan",
+        innerColor: "white",
+        particleColor: "rgba(0, 255, 255, 0.9)",
+        style: "electric"
+      },
+      "default": {
+        color: "purple",
+        innerColor: "red",
+        particleColor: "rgba(255, 0, 255, 0.8)",
+        style: "standard"
+      }
+    };
+
+    const style = explosionStyles[source] || explosionStyles.default;
+
+    this.explosions.push({
+                           x, y, damage, radius, timer: 30,
+                           color: style.color,
+                           innerColor: style.innerColor,
+                           particleColor: style.particleColor,
+                           style: style.style,
+                           type: "enemy",
+                           source: source
+                         });
+
+    for (const defender of this.defenders) {
+      const distance = Math.hypot(
+          defender.x + defender.width / 2 - x,
+          defender.y + defender.height / 2 - y
+      );
+      if (distance <= radius) {
+        defender.takeDamage(damage);
+        console.log(`Enemy explosion: ${defender.name} taking ${damage} damage`);
       }
     }
   }
@@ -687,25 +777,12 @@ export class GameEngine {
       // Handle special abilities (only for alive enemies)
       if (enemy.activateSpecialAbility) {
         enemy.activateSpecialAbility(this.defenders);
-      }
 
-      // Check if still alive after special ability
-      if (!enemy.isAlive) {
-        if (!this.gameOver) {
-          this.inGameScore += enemy.bounty;
-          this.updateScoreCb(this.inGameScore);
+        if (!enemy.isAlive) {
+          this.handleEnemyDeath(enemy);  // Use handleEnemyDeath instead of inline scoring
+          this.enemies.splice(i, 1);
+          continue;
         }
-
-        if (enemy.shouldExplode) {
-          this.addExplosion(
-              enemy.x + enemy.width / 2,
-              enemy.y + enemy.height / 2,
-              enemy.explosionDamage,
-              enemy.explosionRadius
-          );
-        }
-        this.enemies.splice(i, 1);
-        continue; // SKIP THE REST
       }
 
       // Double-check that enemy is actually alive (health > 0)
@@ -740,18 +817,26 @@ export class GameEngine {
 
   handleEnemyDeath(enemy) {
     if (!this.gameOver) {
-      this.inGameScore += enemy.bounty;
-      this.updateScoreCb(this.inGameScore);
-      this.dropManager.handleEnemyDeath(enemy);
+      if (!enemy.isSpawned && !enemy.shouldExplode) {
+        this.inGameScore += enemy.bounty;
+        this.updateScoreCb(this.inGameScore);
+        this.dropManager.handleEnemyDeath(enemy);
+      } else {
+        console.log(`Spawned enemy ${enemy.name} killed - no score awarded`);
+      }
     }
-
     if (enemy.shouldExplode) {
-      this.addExplosion(
+      //determine source style by enemy name
+      let source = "default";
+      if (enemy.name === "Exploder") {
+        source = "Exploder";
+      }
+      this.addEnemyExplosion(
           enemy.x + enemy.width / 2,
           enemy.y + enemy.height / 2,
-          enemy.explosionDamage,
-          enemy.explosionRadius
-      );
+          enemy.attackDamage,
+          enemy.explosionRadius,
+          source);
     }
   }
 
@@ -780,12 +865,12 @@ export class GameEngine {
           projectile.onHit();
         } else {
           const died = projectile.target.takeDamage(projectile.damage, projectile.ignoreArmor);
-          if (died) {
-            if (!this.gameOver) {
+          if (died && !this.gameOver) {
+            if (!projectile.target.isSpawned) {
               this.inGameScore += projectile.target.bounty;
               this.updateScoreCb(this.inGameScore);
-              this.dropManager.handleEnemyDeath(projectile.target);
             }
+            this.dropManager.handleEnemyDeath(projectile.target);
             const enemyIndex = this.enemies.findIndex(e => e.id === projectile.target.id);
             if (enemyIndex !== -1) {
               this.enemies.splice(enemyIndex, 1);
@@ -900,190 +985,17 @@ export class GameEngine {
 
     ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight); // Clear canvas
 
-    this.drawBackground(ctx);
+    this.drawUIs.drawBackground(ctx);
+    this.drawUIs.drawUI(ctx);
     this.gridManager.drawGrid(ctx);
-    this.drawDefenders(ctx);
-    this.drawEnemies(ctx);
-    this.drawProjectiles(ctx);
-    this.drawEnergyDrops(ctx);
-    this.drawCardPieceDrops(ctx);
-    this.drawExplosions(ctx);
-    this.drawUI(ctx);
+    this.drawEntities.drawDefenders(ctx);
+    this.drawEntities.drawEnemies(ctx);
+    this.drawEntities.drawProjectiles(ctx);
+    this.drawEntities.drawEnergyDrops(ctx);
+    this.drawEntities.drawCardPieceDrops(ctx);
+    this.drawExplosionEffect.drawExplosions(ctx);
   }
 
-  drawEnergyDrops(ctx) {
-    for (const drop of this.energyDrops) {
-      drop.draw(ctx);
-    }
-  }
-
-  drawCardPieceDrops(ctx) {
-    for (const drop of this.cardPieceDrops) {
-      drop.draw(ctx);
-    }
-  }
-
-  drawBackground(ctx) {
-    // Draw sky
-    ctx.fillStyle = "#1a3a5a";
-    ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-
-    // Draw grass (top and bottom)
-    ctx.fillStyle = "#2a5a3a";
-    ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight * 0.4); // Top grass
-    ctx.fillRect(
-      0,
-      this.canvasHeight * 0.6,
-      this.canvasWidth,
-      this.canvasHeight * 0.4
-    ); // Bottom grass
-
-    // Draw road
-    ctx.fillStyle = "#5a5a5a";
-    ctx.fillRect(
-      0,
-      this.canvasHeight * 0.4,
-      this.canvasWidth,
-      this.canvasHeight * 0.2
-    );
-
-    // Draw road markings
-    ctx.fillStyle = "#ffffff";
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 2;
-    for (let i = 20; i < this.canvasWidth; i += 40) {
-      ctx.beginPath();
-      ctx.moveTo(i, this.canvasHeight * 0.5 - 5);
-      ctx.lineTo(i + 20, this.canvasHeight * 0.5 - 5);
-      ctx.stroke();
-    }
-
-    // Draw defense line (right edge)
-    ctx.strokeStyle = "#ff3300";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(this.defenseLineX - 1, 0);
-    ctx.lineTo(this.defenseLineX - 1, this.canvasHeight);
-    ctx.stroke();
-
-    // Draw base building
-    ctx.fillStyle = "#8b6f4b";
-    ctx.fillRect(
-      this.defenseLineX - 30,
-      this.canvasHeight * 0.3,
-      30,
-      this.canvasHeight * 0.4
-    );
-
-    // Draw windows
-    ctx.fillStyle = "#ffcc00";
-    for (let i = 0; i < 3; i++) {
-      ctx.fillRect(
-        this.defenseLineX - 25,
-        this.canvasHeight * 0.35 + i * 40,
-        10,
-        20
-      );
-    }
-  }
-
-  /** Draws all active defender units. */
-  drawDefenders(ctx) {
-    for (const defender of this.defenders) {
-      if (defender.isAlive) {
-        defender.draw(ctx);
-      }
-    }
-  }
-
-  /** Draws all active enemy units. */
-  drawEnemies(ctx) {
-    for (const enemy of this.enemies) {
-      if (enemy.isAlive) {
-        enemy.draw(ctx);
-      }
-    }
-  }
-
-  /** Draws all active projectiles. */
-  drawProjectiles(ctx) {
-    ctx.fillStyle = "#FF0000"; // Red projectiles
-    //draw defender projectiles
-    for (const projectile of this.projectiles) {
-      // Projectile is drawn at its current startX/startY
-      ctx.beginPath();
-      ctx.arc(projectile.startX, projectile.startY, 5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Draw enemy projectiles
-    for (const projectile of this.enemyProjectiles) {
-      ctx.fillStyle = projectile.color || "#FF0000"; // Red for enemies
-      ctx.beginPath();
-      ctx.arc(projectile.startX, projectile.startY, 4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  /** Draws all active explosion effects. */
-  drawExplosions(ctx) {
-    for (const explosion of this.explosions) {
-      const radius = explosion.radius * (explosion.timer / 30); // Radius shrinks over time
-      const alpha = explosion.timer / 30; // Alpha fades over time
-
-      ctx.fillStyle = `rgba(255, 165, 0, ${alpha})`; // Fading orange
-      ctx.beginPath();
-      ctx.arc(explosion.x, explosion.y, radius, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  /** Draws the in-game UI (energy, score, wave). */
-  drawUI(ctx) {
-    // Fix: Save the current context state
-    ctx.save();
-
-    // Draw energy bar
-    const energyPercent =
-      this.inGameEnergy / this.currentLevelConfig.initialEnergy;
-    ctx.fillStyle = "#333"; // Background
-    ctx.fillRect(10, 10, 200, 20);
-    ctx.fillStyle = energyPercent > 0.3 ? "#4CAF50" : "#FF5722"; // Green or orange based on energy level
-    ctx.fillRect(10, 10, 200 * energyPercent, 20);
-    ctx.fillStyle = "#FFF"; // Text color
-    ctx.font = "16px Arial";
-    ctx.textAlign = "left"; // Set text alignment
-    ctx.textBaseline = "middle"; // Fix text baseline
-    ctx.fillText(`Energy: ${Math.floor(this.inGameEnergy)}`, 15, 26);
-
-    // Draw score
-    ctx.fillStyle = "#FFF";
-    ctx.font = "16px Arial";
-    ctx.textAlign = "right"; // Fix: Set text alignment
-    ctx.textBaseline = "middle"; // Fix text baseline
-    ctx.fillText(`Score: ${this.inGameScore}`, this.canvasWidth - 150, 26);
-
-    // Draw wave info
-    ctx.textAlign = "center"; // Fix: Set text alignment
-    ctx.textBaseline = "middle"; // Fix text baseline
-    ctx.fillText(
-      //  `Total Enemy Left: ${this.currentLevelConfig.totalEnemiesToSpawn}`,
-      `Wave: ${this.waveManager.currentWave}/${this.currentLevelConfig.waves}`,
-      this.canvasWidth / 2 - 50,
-      20
-    );
-
-    // Draw defense line indicator
-    ctx.strokeStyle = "#FF0000"; // Red line
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(this.defenseLineX, 0);
-    ctx.lineTo(this.defenseLineX, this.canvasHeight);
-    ctx.stroke();
-
-    //Restore the context state
-    ctx.restore();
-  }
 
   /** The main game animation loop. */
   gameLoop = () => {

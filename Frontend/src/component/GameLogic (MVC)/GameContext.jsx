@@ -158,7 +158,7 @@ export const GameProvider = ({ children }) => {
           {
             id: 1,
             name: "Basic Cop",
-            level: 5,
+            level: 1,
             pieces: 100,
             piecesNeeded: 10,
             upgradeCost: { gold: 100, iron: 5, water: 3 },

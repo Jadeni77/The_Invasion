@@ -237,8 +237,9 @@ const GameBoard = () => {
       "Basic Cop": 5000, //5 second
       "Healer Cop": 8000,
       "Grenadier": 10000,
-      "Barricade": 7000,
-      "Energy Generator": 5000
+      "Barricade": 1000,
+      "Energy Generator": 5000,
+      "Sniper": 20000,
     };
     return cooldowns[card.name] || 5000; //default at 5 seconds
   };
