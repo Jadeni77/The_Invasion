@@ -1,6 +1,8 @@
 // src/component/GameLogic (MVC)/DefenderUnits.js
 // Data for different types of Defender Units
 
+import {DrawNegativeEffect} from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
+
 export class DefenderUnit {
   constructor(x, y, cardData = {}) {
     this.x = x;
@@ -31,8 +33,13 @@ export class DefenderUnit {
     this.disabled = false;
     this.disabledDuration = 0;
 
+    this.burning = false;
+    this.burningDamage = 0;
+    this.burningDuration = 0;
+
     //game engine reference
     this.gameEngine = null;
+    this.drawNegativeEffect = new DrawNegativeEffect(this);
 
     this.applyLevelUpgrades();
   }
@@ -113,12 +120,9 @@ export class DefenderUnit {
     ctx.fillStyle = "lime";
     const healthWidth = (this.health / this.maxHealth) * this.width;
     ctx.fillRect(this.x, this.y - 10, healthWidth, 5); // Current health
+    ctx.fillText(this.health.toFixed(0), this.x, this.y - 15); // Show health value
 
-    // Show disabled status
-    if (this.disabled) {
-      ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
-      ctx.fillRect(this.x, this.y, this.width, this.height);
-    }
+    this.drawNegativeEffect.drawAllEffect(ctx);
   }
 
   drawFallback(ctx) {
@@ -322,10 +326,12 @@ export class HealerDefender extends DefenderUnit {
         if (deadUnits.length > 0) {
           const deadUnit = deadUnits[0];
             console.log(`Resurrecting ${deadUnit.name}`);
-            deadUnit.health = Math.floor(deadUnit.maxHealth * 0.2);
-            this.canResurrect = false;
-            deadUnit.hasBeenResurrected = true;
-            console.log("Resurrection successful!");
+            if (!deadUnit.occupied) {
+              deadUnit.health = Math.floor(deadUnit.maxHealth * 0.2);
+              this.canResurrect = false;
+              deadUnit.hasBeenResurrected = true;
+              console.log("Resurrection successful!");
+            }
         }
       }
       this.healingCountdown = this.healingRate;
@@ -821,7 +827,7 @@ export class Sniper extends DefenderUnit {
         target.x + target.width / 2,
         target.y + target.height / 2,
         damage * 0.5, //50%
-        80,
+        200,
         "sniper");
 
       //visual affect
@@ -829,7 +835,7 @@ export class Sniper extends DefenderUnit {
                                         x: target.x + target.width / 2,
                                         y: target.y + target.height / 2,
                                         damage: 0,
-                                        radius: 120,
+                                        radius: 200,
                                         timer: 20,
                                         color: "crimson",
                                         innerColor: "white",

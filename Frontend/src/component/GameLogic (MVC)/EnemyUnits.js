@@ -25,7 +25,7 @@ export class Enemy {
     this.attackCountdown = this.attackRate;
     this.isAttacking = false; // if entity is engage in attack
 
-    this.isRanged = typeData.isRanged || false;
+    this.isRanged = typeData.isRanged || false; //same as useProjectile check
     this.lastAttackTime = 0;
     this.attackRange = typeData.attackRange || 0;
 
@@ -357,10 +357,10 @@ export class RangeEnemy extends Enemy {
       isAttacker: true,
       attackDamage: 20,
       attackRate: 50,
-      attackRange: 150
+      attackRange: 150,
+      isRanged: true
     });
     this.lastAttackTime = 0;
-    this.isRanged = true;
     this.isMoving = true;
   }
 
@@ -551,7 +551,7 @@ export class SplitterEnemy extends Enemy {
 
     for (let i = 0; i < this.splitCount; i++) {
       console.log("Split into 3");
-      const offsetX = (Math.random() - 0.5) * 40;
+      const offsetX = (Math.random() - 0.5) * 80;
       const offsetY = (Math.random() - 0.5) * 40;
 
       const mini = new MiniEnemy(
@@ -647,7 +647,6 @@ export class SwarmLeader extends Enemy {
   }
 
   update(defenderUnits) {
-   //  super.update(defenderUnits);
     if (!this.isAlive || !this.gameEngine) return;
 
     if (this.health <= 0) {
@@ -830,7 +829,7 @@ export class VampireEnemy extends Enemy {
       isAttacker: true,
       attackDamage: 15,
       attackRate: 50,
-      attackRange: 100
+      attackRange: 120
     });
     this.lifeStealPercent = 1.0; //100% heal from attack damage
     this.isMoving = true;
@@ -889,3 +888,1003 @@ export class VampireEnemy extends Enemy {
   }
 }
 
+export class GhostEnemy extends Enemy {
+  constructor(x, y, image) {
+    super(x, y, {
+      name: "Ghost",
+      speed: 1.0,
+      health: 80,
+      width: 30,
+      height: 35,
+      color: 'rgba(200, 200, 255, 0.6)',
+      image: image,
+      bounty: 25,
+      isAttacker: false,
+      attackDamage: 0,
+      attackRate: 0,
+      attackRange: 0
+    });
+    this.phaseShiftCooldown = 180; // 3 seconds
+    this.currentPhaseShiftCooldown = 0;
+    this.isPhased = false;
+    this.phaseDuration = 150; // 2.5 second
+    this.currentPhaseDuration = 0;
+  }
+
+  update(defenderUnits) {
+    super.update(defenderUnits);
+
+    if (!this.isAlive) return;
+
+    //phase shift logic
+    this.currentPhaseShiftCooldown--;
+    if (this.currentPhaseShiftCooldown <= 0 && !this.isPhased) {
+      //check if there is a defender to phase through
+      const nearByDefender = defenderUnits.find(defender => {
+        if (!defender.isAlive) return;
+        const distance = Math.hypot(
+            this.x + this.width / 2 - (defender.x + defender.width / 2),
+            this.y + this.height / 2 - (defender.y + defender.height / 2)
+        );
+        return distance <= 100;
+      });
+      if (nearByDefender) {
+        this.isPhased = true;
+        this.currentPhaseDuration = this.phaseDuration;
+        this.currentPhaseShiftCooldown = this.phaseShiftCooldown;
+      }
+    }
+    //handle phase duration
+    if (this.isPhased) {
+      this.currentPhaseDuration--;
+      if (this.currentPhaseDuration <= 0) {
+        this.isPhased = false;
+      }
+    }
+  }
+
+  takeDamage(amount, ignoreArmor = false) {
+    //70% to dodge attack
+    if (this.isPhased && Math.random() < 0.7) {
+      return false;
+    }
+    return super.takeDamage(amount, ignoreArmor);
+  }
+
+  draw(ctx) {
+    super.draw(ctx);
+    if (!this.isAlive) return;
+
+    ctx.save();
+
+    // Transparency effect when phased
+    if (this.isPhased) {
+      ctx.globalAlpha = 0.3;
+    }
+
+    // Draw the ghost
+    if (this.image && this.image.complete && this.image.naturalHeight !== 0) {
+      try {
+        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+      } catch (e) {
+        this.drawFallback(ctx);
+      }
+    } else {
+      this.drawFallback(ctx);
+    }
+
+    ctx.restore();
+
+    // Phase shift aura
+    if (this.isPhased) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(200, 200, 255, 0.6)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.width / 2 + 10,
+          0,
+          Math.PI * 2
+      );
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Health bar
+    ctx.fillStyle = "red";
+    ctx.fillRect(this.x, this.y - 10, this.width, 5);
+    ctx.fillStyle = "lime";
+    const healthWidth = (this.health / this.maxHealth) * this.width;
+    ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
+
+    // Name
+    ctx.fillStyle = "white";
+    ctx.font = "10px Arial";
+    ctx.fillText(this.name, this.x, this.y + this.height + 10);
+  }
+}
+
+export class BerserkerEnemy extends Enemy {
+  constructor(x, y, image) {
+    super(x, y, {
+      name: "Berserker",
+      speed: 0.6,
+      health: 200,
+      width: 35,
+      height: 40,
+      color: 'darkred',
+      image: image,
+      bounty: 35,
+      isAttacker: true,
+      attackDamage: 25,
+      attackRate: 40,
+      attackRange: 100
+    });
+    this.killCount = 0;
+    this.damageBonus = 0;
+    this.speedBonus = 0;
+    this.healthBonus = 0;
+    this.maxKillCount = 10;
+    this.isMoving = true;
+  }
+
+  update(defenderUnits) {
+    if (!this.isAlive) return;
+
+    if (this.health <= 0) {
+      this.isAlive = false;
+      this.health = 0;
+      return;
+    }
+    //find closest defender within range
+    const targetDefender = this.findClosestDefender(defenderUnits);
+
+    if (targetDefender && this.getDistanceTo(targetDefender) <= this.attackRange) {
+      this.isMoving = false;
+    } else {
+      this.isMoving = true;
+    }
+    if (this.isMoving) {
+      this.x += this.speed;
+    }
+  }
+
+  attack(target, currentTime) {
+    if (!this.isAlive || !target || !target.isAlive) return;
+
+    const totalDamage = this.attackDamage + this.damageBonus;
+    const died = target.takeDamage(totalDamage);
+    console.log(`Berserker does ${totalDamage}damage`);
+    console.log(`Berserker move ${this.speed} speed`);
+    console.log(`${this.killCount} killCount`)
+
+    if (died && this.killCount < this.maxKillCount) {
+      this.killCount++;
+      this.damageBonus += 20;
+      this.speedBonus += 0.3;
+      this.healthBonus += 100;
+      this.speed = this.initialSpeed + this.speedBonus;
+      this.maxHealth += this.healthBonus;
+      this.health = this.health + this.healthBonus;
+
+      //visual feedback for a kill
+      if (this.gameEngine) {
+        this.gameEngine.explosions.push({
+          x: this.x + this.width / 2,
+          y: this.y + this.height / 2,
+          damage: 0,
+          radius: 40,
+          timer: 50,
+          color: "darkred",
+          innerColor: "red",
+          particleColor: "rgba(139, 0, 0, 0.8)",
+          style: "rage",
+          type: "effect",
+          source: "berserker"})
+      }
+    }
+    this.lastAttackTime = currentTime;
+  }
+
+  draw(ctx) {
+    super.draw(ctx);
+    //draw rage stack
+    if (this.killCount > 0) {
+      ctx.save();
+      ctx.fillStyle = "red";
+      ctx.font = "bold 12px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(`x${this.killCount}`, this.x + this.width / 2, this.y - 20);
+
+      // Rage aura
+      ctx.strokeStyle = `rgba(255, 0, 0, ${0.3 + this.killCount * 0.1})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.width / 2 + 5 + this.killCount * 2,
+          0,
+          Math.PI * 2
+      );
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
+
+export class NecromancerEnemy extends Enemy {
+  constructor(x, y, image) {
+    super(x, y, {
+      name: "Necromancer",
+      speed: 0.2,
+      health: 100,
+      width: 35,
+      height: 40,
+      color: 'darkviolet',
+      image: image,
+      bounty: 35,
+      isAttacker: true,
+      attackDamage: 10,
+      attackRate: 100,
+      attackRange: 250
+    });
+    this.reviveCooldown = 360; //6 sec
+    this.currentReviveCooldown = 120; //2 sec
+    this.reviveCount = 0;
+    this.isMoving = true;
+  }
+
+  update(defenderUnits) {
+    if (!this.isAlive || !this.gameEngine) return;
+
+    if (this.health <= 0) {
+      this.isAlive = false;
+      this.health = 0;
+      return;
+    }
+    //find closest defender within range
+    const targetDefender = this.findClosestDefender(defenderUnits);
+
+    if (targetDefender && this.getDistanceTo(targetDefender) <= this.attackRange) {
+      this.isMoving = false;
+    } else {
+      this.isMoving = true;
+    }
+    if (this.isMoving) {
+      this.x += this.speed;
+    }
+
+    //revive logic
+    this.currentReviveCooldown--;
+    if (this.currentReviveCooldown <= 0) {
+      // Find a dead enemy position (simulate corpse)
+      const reviveX = this.x + 50 - Math.random() * 100;
+      const reviveY = this.y + (Math.random() - 0.5) * 100;
+
+      //revive as skeleton
+      const skeleton = new RangeEnemy(reviveX, reviveY,null);
+      skeleton.name = "Skeleton";
+      skeleton.health = 50;
+      skeleton.attackDamage /= 2;
+      skeleton.attackRange = 100;
+      skeleton.maxHealth = 50;
+      skeleton.color = "lightgray";
+      skeleton.isSpawned = true;
+      skeleton.spawnBy = this.id;
+
+      this.gameEngine.enemies.push(skeleton);
+      this.reviveCount++;
+      this.currentReviveCooldown = this.reviveCooldown;
+
+      //revive effect
+      this.gameEngine.explosions.push({
+        x: reviveX + skeleton.width / 2,
+        y: reviveY + skeleton.height / 2,
+        damage: 0,
+        radius: 50,
+        timer: 30,
+        color: "darkviolet",
+        innerColor: "purple",
+        particleColor: "rgba(148, 0, 211, 0.8)",
+        style: "necromancy",
+        type: "effect",
+        source: "necromancer"});
+    }
+  }
+
+  draw(ctx) {
+    super.draw(ctx);
+
+    // Necromantic aura
+    if (this.currentReviveCooldown < 60) {
+      ctx.save();
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = "darkviolet";
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.attackRange,
+          0,
+          Math.PI * 2
+      );
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Show revive count
+    ctx.fillStyle = "purple";
+    ctx.font = "10px Arial";
+    ctx.fillText(`Revives: ${this.reviveCount}`, this.x, this.y - 20);
+  }
+
+}
+
+export class AssassinEnemy extends Enemy {
+  constructor(x, y, image) {
+    super(x, y, {
+      name: "Assassin",
+      speed: 1.3,
+      health: 70,
+      width: 25,
+      height: 30,
+      color: 'black',
+      image: image,
+      bounty: 15,
+      isAttacker: true,
+      attackDamage: 60,
+      attackRate: 60,
+      attackRange: 30
+    });
+    this.isStealthed = true;
+    this.stealthDuration = 360; //6sec
+    this.currentStealthDuration = this.stealthDuration;
+    this.hasStruck = false;
+    this.dashSpeed = 5;
+  }
+
+  update(defenderUnits) {
+    if (!this.isAlive) return;
+
+    if (this.health <= 0) {
+      this.isAlive = false;
+      this.speed = 0;
+      return;
+    }
+
+    //stealth countdown
+    if (this.isStealthed) {
+      this.currentStealthDuration--;
+      if (this.currentStealthDuration <= 0 ) {
+        this.isStealthed = false;
+      }
+    }
+
+    //find target for assassination
+    if (!this.hasStruck && this.isAttacker) {
+      const targetDefender = defenderUnits.find(defender => {
+        return(
+            defender.isAlive &&
+        this.x + this.width >= defender.x &&
+        this.x <= defender.x + defender.width &&
+        this.y + this.height >= defender.y &&
+        this.y <= defender.y + defender.height
+        );
+      });
+
+      if (targetDefender) {
+        this.isAttacking = true;
+        this.isStealthed = false;
+        this.hasStruck = true;
+
+        //critical strike damage
+        const critDamage = this.attackDamage * 5;
+        targetDefender.takeDamage(critDamage);
+
+        //strike effect
+        if (this.gameEngine) {
+          this.gameEngine.explosions.push({
+            x: targetDefender.x + targetDefender.width / 2,
+            y: targetDefender.y + targetDefender.height / 2,
+            damage: 0,
+            radius: 40,
+            timer: 20,
+            color: "darkred",
+            innerColor: "black",
+            particleColor: "rgba(139, 0, 0, 0.9)",
+            style: "slash",
+            type: "effect",
+            source: "assassin"});
+        }
+      }
+    } else {
+      super.update(defenderUnits);
+    }
+    if (!this.isAttacking) {
+      this.x += this.isStealthed ? this.dashSpeed : this.speed;
+    }
+  }
+
+  takeDamage(amount, ignoreArmor = false) {
+    if (this.isStealthed && Math.random() < 0.1) {
+      return false; //90% dodge
+    }
+    //break stealth on damage
+    if (this.isStealthed) {
+      this.isStealthed = false;
+    }
+    super.takeDamage(amount, ignoreArmor);
+  }
+
+  draw(ctx) {
+    if (!this.isAlive) return;
+
+    ctx.save();
+
+    // Stealth effect
+    if (this.isStealthed) {
+      ctx.globalAlpha = 0.4;
+
+      // Shadow trail
+      for (let i = 1; i <= 3; i++) {
+        ctx.globalAlpha = 0.1 * (4 - i) / 4;
+        if (this.image && this.image.complete) {
+          ctx.drawImage(this.image, this.x - i * 10, this.y, this.width, this.height);
+        } else {
+          ctx.fillStyle = this.color;
+          ctx.fillRect(this.x - i * 10, this.y, this.width, this.height);
+        }
+      }
+      ctx.globalAlpha = 0.4;
+    }
+
+    // Draw enemy
+    if (this.image && this.image.complete && this.image.naturalHeight !== 0) {
+      try {
+        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
+      } catch (e) {
+        this.drawFallback(ctx);
+      }
+    } else {
+      this.drawFallback(ctx);
+    }
+
+    ctx.restore();
+
+    // Health bar (visible even when stealthed)
+    ctx.fillStyle = "red";
+    ctx.fillRect(this.x, this.y - 10, this.width, 5);
+    ctx.fillStyle = "lime";
+    const healthWidth = (this.health / this.maxHealth) * this.width;
+    ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
+
+    // Name
+    ctx.fillStyle = "white";
+    ctx.font = "10px Arial";
+    ctx.fillText(this.name, this.x, this.y + this.height + 10);
+  }
+
+}
+
+export class MageEnemy extends Enemy {
+  constructor(x, y, image) {
+    super(x, y, {
+      name: "Mage",
+      speed: 0.5,
+      health: 90,
+      width: 30,
+      height: 35,
+      color: 'blue',
+      image: image,
+      bounty: 15,
+      isAttacker: true,
+      attackDamage: 80,
+      attackRate: 120,
+      attackRange: 300,
+    });
+    this.spellType = "fireball";
+    this.currentSpellIndex = 0;
+    this.spells = ["fireball", "icebolt", "lightning",];
+    this.isMoving = true;
+    this.isCasting = false;
+    this.castingTimer = 0;
+    this.currentTarget = null;
+  }
+
+  update(defenderUnits) {
+    if (!this.isAlive) return;
+
+    if (this.health <= 0) {
+      this.isAlive = false;
+      this.health = 0;
+      return;
+    }
+
+    if (this.isCasting) {
+      this.castingTimer--;
+      if (this.castingTimer <= 0) {
+        this.isCasting = false;
+        this.performSpellAttack();
+      }
+      return;
+    }
+    const targetDefender = this.findClosestDefender(defenderUnits);
+
+    if (targetDefender && this.getDistanceTo(targetDefender) <= this.attackRange) {
+      this.isMoving = false;
+      this.currentTarget = targetDefender;
+    } else {
+      this.isMoving = true;
+      this.currentTarget = null;
+    }
+
+    if (this.isMoving) {
+      this.x += this.speed;
+    }
+  }
+
+  attack(target, currentTime) {
+    if (!this.isAlive || !target || !target.isAlive || !this.gameEngine) return;
+
+    this.isCasting = true;
+    this.castingTimer = 30; //0.5 casting time
+    this.currentTarget = target;
+
+    //cycle spells
+    this.spellType = this.spells[this.currentSpellIndex];
+    this.currentSpellIndex = (this.currentSpellIndex + 1) & this.spells.length;
+    this.lastAttackTime = currentTime;
+  }
+
+  performSpellAttack() {
+    if (!this.currentTarget || !this.currentTarget.isAlive || !this.gameEngine) return;
+
+    switch (this.spellType) {
+      case "fireball":
+        this.castFireball();
+        break;
+      case "icebolt":
+        this.castIcebolt();
+        break;
+      case "lightning":
+        this.castLightning();
+        break;
+    }
+  }
+
+  castFireball() {
+    if (!this.gameEngine || !this.currentTarget) return;
+
+    const fireBall = {
+      startX: -50,
+      startY: this.currentTarget.y + this.currentTarget.height / 2,
+      currentX: -50,
+      currentY: this.currentTarget.y + this.currentTarget.height / 2,
+      targetX: this.currentTarget.x + this.currentTarget.width / 2,
+      targetY: this.currentTarget.y + this.currentTarget.height / 2,
+      speed: 12,
+      damage: this.attackDamage,
+      type: "fireball",
+      caster: this,
+      target: this.currentTarget,
+      trail: []
+    };
+
+    if (!this.gameEngine.spellProjectiles) {
+      this.gameEngine.spellProjectiles = [];
+    }
+    this.gameEngine.spellProjectiles.push(fireBall);
+  }
+
+  castIcebolt() {
+    if (!this.gameEngine || !this.currentTarget) return;
+
+    const icebolt = {
+      startX: -50,
+      startY: this.currentTarget.y + this.currentTarget.height / 2,
+      currentX: -50,
+      currentY: this.currentTarget.y + this.currentTarget.height / 2,
+      targetX: this.currentTarget.x + this.currentTarget.width / 2,
+      targetY: this.currentTarget.y + this.currentTarget.height / 2,
+      speed: 12,
+      damage: this.attackDamage,
+      type: "icebolt",
+      caster: this,
+      target: this.currentTarget,
+      trail: []
+    };
+
+    if (!this.gameEngine.spellProjectiles) {
+      this.gameEngine.spellProjectiles = [];
+    }
+    this.gameEngine.spellProjectiles.push(icebolt);
+  }
+
+  castLightning() {
+    if (!this.gameEngine || !this.currentTarget) return;
+
+    const targetX = this.currentTarget.x + this.currentTarget.width / 2;
+    const targetY = this.currentTarget.y + this.currentTarget.height / 2;
+
+    //lightning strike effect
+    this.gameEngine.explosions.push({
+      x: targetX,
+      y: targetY,
+      damage: 0,
+      radius: 60,
+      timer: 30,
+      color: "purple",
+      innerColor: "white",
+      particleColor: "rgba(138, 43, 226, 0.9)",
+      style: "lightning_strike",
+      type: "effect",
+      source: "mage"
+                                    });
+
+    this.currentTarget.takeDamage(this.attackDamage);
+
+    //chaining
+    for (const defender of this.gameEngine.defenders) {
+      if (defender.id !== this.currentTarget.id && defender.isAlive) {
+        const distance = Math.hypot(
+            defender.x - this.currentTarget.x,
+            defender.y - this.currentTarget.y
+        );
+        if (distance <= 150) {
+          //create chaining visual effect
+          setTimeout(() => {
+            if (this.gameEngine) {
+              this.gameEngine.explosions.push({
+                x: defender.x + defender.width / 2,
+                y: defender.y + defender.height / 2,
+                damage: 0,
+                radius: 40,
+                timer: 20,
+                color: "purple",
+                innerColor: "white",
+                particleColor: "rgba(138, 43, 226, 0.7)",
+                style: "lightning_strike",
+                type: "effect",
+                source: "mage"
+
+                                              });
+            }
+          }, 100);
+          defender.takeDamage(this.attackDamage * 2);
+        }
+      }
+    }
+
+  }
+
+  getSpellColor() {
+    switch (this.spellType) {
+      case "fireball": return "orange";
+      case "icebolt": return "lightblue";
+      case "lightning": return "purple";
+      default: return "purple";
+    }
+  }
+
+  draw(ctx) {
+    super.draw(ctx);
+
+    // Spell indicator
+    ctx.save();
+    ctx.fillStyle = this.getSpellColor();
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.arc(
+        this.x + this.width / 2,
+        this.y - 5,
+        5,
+        0,
+        Math.PI * 2
+    );
+    ctx.fill();
+    ctx.restore();
+
+    // Casting animation
+    if (this.isCasting) {
+      ctx.save();
+
+      // Magical circle under mage
+      const castProgress = 1 - (this.castingTimer / 30);
+      ctx.globalAlpha = 0.6;
+      ctx.strokeStyle = this.getSpellColor();
+      ctx.lineWidth = 2;
+
+      // Inner circle
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.width + 10 * castProgress,
+          0,
+          Math.PI * 2 * castProgress
+      );
+      ctx.stroke();
+
+      // Outer circle
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.width + 20 * castProgress,
+          0,
+          Math.PI * 2 * castProgress
+      );
+      ctx.stroke();
+
+      // Runes or symbols
+      const runeCount = 6;
+      for (let i = 0; i < runeCount; i++) {
+        const angle = (Math.PI * 2 * i) / runeCount - Math.PI / 2;
+        const runeX = this.x + this.width / 2 + Math.cos(angle) * (this.width + 15 * castProgress);
+        const runeY = this.y + this.height / 2 + Math.sin(angle) * (this.width + 15 * castProgress);
+
+        ctx.fillStyle = this.getSpellColor();
+        ctx.globalAlpha = castProgress;
+        ctx.beginPath();
+        ctx.arc(runeX, runeY, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    // Aura when not moving
+    if (!this.isMoving && !this.isCasting) {
+      ctx.save();
+      ctx.strokeStyle = this.getSpellColor();
+      ctx.globalAlpha = 0.3;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.width / 2 + 10,
+          0,
+          Math.PI * 2
+      );
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+}
+
+/**
+ * Little Boss
+ */
+export class TitanEnemy extends Enemy {
+  constructor(x, y, image) {
+    super(x, y, {
+      name: "Titan",
+      speed: 0.1,
+      health: 5000,
+      width: 120,
+      height: 120,
+      color: 'darkslategray',
+      image: image,
+      bounty: 100,
+      isAttacker: true,
+      attackDamage: 50,
+      attackRate: 120,
+      attackRange: 50
+    });
+    this.groundPoundCooldown = 300;
+    this.currentGroundPoundCooldown = 150;
+    this.isGroundPounding = false;
+    this.earthquakeRadius = 350;
+
+    //phase at health thresholds
+    this.phase = 1;
+    this.hasArmor = true;
+    this.armorDamageReduction = 0.2; //80% reduction
+
+    this.baseSpeed = 0.1;
+  }
+
+  takeDamage(amount, ignoreArmor = false) {
+    if (!this.gameEngine) return;
+    //either take 20% or 50% damage
+    const actualDamage = (this.hasArmor && !ignoreArmor) ?
+                         amount * this.armorDamageReduction :
+                         amount * 0.5;
+    const died = super.takeDamage(actualDamage, ignoreArmor);
+
+    //phase transition
+    const healthPercent = this.health / this.maxHealth;
+    if (healthPercent <= 0.66 && this.phase === 1) {
+      this.phase = 2;
+      this.speed = this.baseSpeed * 1.3; //0.13
+      this.attackDamage = 150;
+      this.attackRate *= 0.8;
+      console.log(`Titan enters Phase 2! Speed: ${this.speed}`);
+      this.createPhaseTransition();
+    } else if (healthPercent <= 0.33 && this.phase === 2) {
+      this.phase = 3;
+      this.speed = this.baseSpeed * 2; // 0.2
+      this.attackDamage = 300;
+      this.attackRate *= 0.8;
+      this.hasArmor = false; //lose armor reduction
+      console.log(`Titan enters Phase 3! Speed: ${this.speed}`);
+      this.createPhaseTransition();
+    }
+    return died;
+  }
+
+  createPhaseTransition() {
+    if (!this.gameEngine) return;
+    console.log("Phase transition triggered!");
+
+    //shockwave effect
+    this.gameEngine.explosions.push({
+      x: this.x + this.width / 2,
+      y: this.y + this.height / 2,
+      damage: 0,
+      radius: 1500,
+      timer: 40,
+      color: "darkslategray",
+      innerColor: "gray",
+      particleColor: "rgba(105, 105, 105, 0.8)",
+      style: "shockwave",
+      type: "effect",
+      source: "titan"
+                                    });
+    //stun nearby defender
+    for (const defender of this.gameEngine.defenders) {
+      const distance = Math.hypot(
+          this.x + this.width / 2 - (defender.x + defender.width / 2),
+          this.y + this.height / 2 - (defender.y + defender.height / 2)
+      );
+      if (distance <= 1500) {
+        defender.disabled = true;
+        defender.disabledDuration = 300; //5sec
+        defender.takeDamage(40)
+      }
+
+    }
+  }
+
+  update(defenderUnits) {
+    super.update(defenderUnits);
+    console.log(`Titan move at ${this.speed} speed`);
+
+    if (!this.isAlive || !this.gameEngine) return;
+
+    this.currentGroundPoundCooldown--;
+    if (this.currentGroundPoundCooldown <= 0 && !this.isGroundPounding) {
+      const nearbyDefender = defenderUnits.find(defender => {
+        if (!defender.isAlive) return;
+        const distance = Math.hypot(
+            this.x + this.width / 2 - (defender.x + defender.width / 2),
+            this.y + this.height / 2 - (defender.y + defender.height / 2)
+        );
+        return distance <= this.earthquakeRadius;
+      });
+      if (nearbyDefender) {
+        this.performGroundPound();
+      }
+    }
+  }
+
+  performGroundPound() {
+    if (!this.gameEngine) return;
+
+    this.isGroundPounding = true;
+    const originalSpeed = this.speed;
+    this.speed = 0;
+
+    //charge up animation
+    setTimeout(() => {
+      if (!this.isAlive || !this.gameEngine) return;
+      //earthequake effect
+      for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+          if (!this.gameEngine) return;
+          const radius = this.earthquakeRadius * (i + 1) / 3;
+          this.gameEngine.explosions.push({
+            x: this.x + this.width / 2,
+            y: this.y + this.height / 2,
+            damage: 0,
+            radius: radius,
+            timer: 20,
+            color: "brown",
+            innerColor: "darkgoldenrod",
+            particleColor: "rgba(139, 69, 19, 0.8)",
+            style: "earthquake",
+            type: "effect",
+            source: "titan",
+            wave: i //track which earthquake wave it is
+                                          });
+
+          //damage all defender in radius
+          for (const defender of this.gameEngine.defenders) {
+            if (!defender.isAlive) return;
+
+            const distance = Math.hypot(
+                this.x + this.width / 2 - (defender.x + defender.width / 2),
+                this.y + this.height / 2 - (defender.y + defender.height / 2)
+            );
+            if (distance <= radius) {
+              defender.takeDamage(30 * (i + 1));
+            }
+          }
+        }, i * 200);
+      }
+      //resume moving
+      setTimeout(() => {
+        this.isGroundPounding = false;
+        this.speed = originalSpeed;
+        this.currentGroundPoundCooldown = this.groundPoundCooldown;
+        console.log(`Titan move at ${this.speed}`);
+      }, 800);
+    }, 500);
+  }
+
+  draw(ctx) {
+    super.draw(ctx);
+
+    // Phase indicator
+    ctx.save();
+    ctx.strokeStyle = this.phase === 3 ? "red" : this.phase === 2 ? "orange" : "gray";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(this.x - 2, this.y - 2, this.width + 4, this.height + 4);
+
+    // Ground pound charge indicator
+    if (this.isGroundPounding) {
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = "brown";
+      const chargeRadius = this.earthquakeRadius * Math.sin(Date.now() / 100);
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          Math.abs(chargeRadius),
+          0,
+          Math.PI * 2
+      );
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    // Armor indicator
+    if (this.hasArmor) {
+      ctx.fillStyle = "silver";
+      ctx.fillRect(this.x + this.width - 10, this.y, 8, 8);
+    }
+    // Phase indicator text
+    ctx.fillStyle = this.phase === 3 ? "red" : this.phase === 2 ? "orange" : "white";
+    ctx.font = "bold 12px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText(`P${this.phase}`, this.x + this.width / 2, this.y - 15);
+  }
+}
+
+export class BossEnemy extends Enemy {
+  constructor(x, y, image) {
+    super(x, y, {
+      name: "Marina",
+      speed: 0, //TODO: Think of 僵王博士
+      health: 80000,
+      width: 100,
+      height: 100,
+      color: "",
+      image: image,
+      bounty: 1000,
+      isAttacker: true, //not sure yet
+      attackDamage: 1000, //not sure yet
+      attackRate: 100, //not sure yet
+      attackRange: 1000, //not sure yet
+    });
+    this.summon = null;
+    this.destroy = null;
+  }
+}

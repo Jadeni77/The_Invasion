@@ -33,7 +33,6 @@ export class WaveManager {
                     this.waveCooldown = 180;
                     console.log(`Wave ${this.currentWave} complete! Next wave in 3 seconds...`);
                 }
-                return;
             }
         }
         //handle wave cooldown
@@ -45,7 +44,6 @@ export class WaveManager {
                 this.waveEnemiesSpawned = 0;
                 console.log(`Starting Wave ${this.currentWave}!`);
             }
-            return;
         }
         //spawn enemy
         if (this.enemiesSpawnedThisLevel < this.config.totalEnemiesToSpawn &&

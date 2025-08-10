@@ -1,20 +1,21 @@
 // src/component/GameLogic (MVC)/GameEngine.js
 // This file serves as the Model (game state, entities) and Controller (game logic, updates)
 
-import { BasicDefender, HealerDefender,
-  GrenadeDefender, BarricadeDefender, EnergyGenerator, Sniper } from "./DefenderUnits.js";
-import { BasicEnemy, FastEnemy, TankEnemy,
-  BombEnemy, RangeEnemy, ShieldEnemy, HealerEnemy, EMPEnemy,
-  MiniEnemy, SplitterEnemy, VampireEnemy, SwarmLeader} from "./EnemyUnits.js";
+import { BasicDefender, HealerDefender, GrenadeDefender,
+  BarricadeDefender, EnergyGenerator, Sniper } from "./DefenderUnits.js";
+import {
+  BasicEnemy, FastEnemy, TankEnemy, BombEnemy, RangeEnemy, ShieldEnemy,
+  HealerEnemy, EMPEnemy, MiniEnemy, SplitterEnemy, VampireEnemy,
+  SwarmLeader, GhostEnemy, BerserkerEnemy, NecromancerEnemy, AssassinEnemy,
+  MageEnemy, TitanEnemy
+} from "./EnemyUnits.js";
 import { EnergyDrop } from "./GameEngineBreakDown/Drops/EnergyDrop.js";
 import { CardPieceDrop} from "./GameEngineBreakDown/Drops/CardPieceDrop.js";
 import { CombatManager } from "./GameEngineBreakDown/InGameManagerHandlers/CombatManager.js";
 import { DropManager } from "./GameEngineBreakDown/InGameManagerHandlers/DropManager.js";
 import { GridManager } from "./GameEngineBreakDown/InGameManagerHandlers/GridManager.js";
 import { WaveManager } from "./GameEngineBreakDown/InGameManagerHandlers/WaveManager.js";
-import {
-  DrawExplosionEffect
-} from "./GameEngineBreakDown/Draws/DrawExplosionEffect.js";
+import { DrawExplosionEffect } from "./GameEngineBreakDown/Draws/DrawExplosionEffect.js";
 import {DrawEntities} from "./GameEngineBreakDown/Draws/DrawEntities.js";
 import {DrawUIs} from "./GameEngineBreakDown/Draws/DrawUIs.js";
 
@@ -38,6 +39,7 @@ export class GameEngine {
     this.explosions = [];
     this.projectiles = [];
     this.enemyProjectiles = [];
+    this.spellProjectiles = [];
 
     // In-game state
     this.inGameEnergy = 0; // Will be set by level config
@@ -87,7 +89,13 @@ export class GameEngine {
       "Mini": MiniEnemy,
       "Swarm Witch": SwarmLeader,
       "EMP": EMPEnemy,
-      "Vampire": VampireEnemy
+      "Vampire": VampireEnemy,
+      "Ghost": GhostEnemy,
+      "Berserker": BerserkerEnemy,
+      "Necromancer": NecromancerEnemy,
+      "Assassin": AssassinEnemy,
+      "Mage": MageEnemy,
+      "Titan": TitanEnemy
     };
 
     // Level configurations and loaded assets
@@ -126,7 +134,6 @@ export class GameEngine {
         return true; //energy is collected
       }
     }
-
     return false;
   }
 
@@ -172,13 +179,14 @@ export class GameEngine {
       levelNumber: 1,
       enemySpawnInterval: 3000, // 3 seconds
       maxActiveEnemies: 8,
-      totalEnemiesToSpawn: 50,
+      totalEnemiesToSpawn: 1,
       waves: 3,
-      availableEnemyTypes: ["Exploder", "EMP"],
-          // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
-          //  "Exploder", "Skeleton Shooter", "Shielder",
-          // "Healer", "Splitter", "Mini", "Swarm Witch",
-          // "EMP", "Vampire"],
+      availableEnemyTypes: // ["Mage"],
+          ["Basic Zombie", "Fast Zombie", "Tank Zombie",
+           "Exploder", "Skeleton Shooter", "Shielder",
+          "Healer", "Splitter", "Mini", "Swarm Witch",
+          "EMP", "Vampire", "Ghost", "Berserker", "Necromancer",
+           "Assassin", "Mage", "Titan"],
       initialEnergy: 1000,
       enemyAssets: {
         "Basic Zombie": null,
@@ -195,6 +203,10 @@ export class GameEngine {
     });
 
     /*
+      BasicEnemy, FastEnemy, TankEnemy, BombEnemy, RangeEnemy, ShieldEnemy,
+  HealerEnemy, EMPEnemy, MiniEnemy, SplitterEnemy, VampireEnemy,
+  SwarmLeader, GhostEnemy, BerserkerEnemy, NecromancerEnemy, AssassinEnemy,
+  MageEnemy, TitanEnemy
         "Basic Zombie": BasicEnemy,
       "Fast Zombie": FastEnemy,
       "Tank Zombie": TankEnemy,
@@ -658,6 +670,7 @@ export class GameEngine {
     // UPDATE PROJECTILES FIRST (before enemies move)
     this.updateProjectiles();
     this.updateEnemyProjectiles();
+    this.updateSpellProjectiles();
 
     this.updateDefenders(now);
     this.updateEnemies(now);
@@ -668,7 +681,6 @@ export class GameEngine {
     this.updateExplosions();
     this.checkGameConditions();
   }
-
 
   updateEnergyDrops() {
     for (let i = this.energyDrops.length - 1; i >= 0; i--) {
@@ -719,12 +731,21 @@ export class GameEngine {
 
     this.combatManager.updateDefenderCombat(this.defenders, this.enemies, now);
 
-    //handle disabled
+    //handle disabled and other nagative effects
     for (const defender of this.defenders) {
       if (defender.disabled && defender.disabledDuration) {
         defender.disabledDuration--;
         if (defender.disabledDuration <= 0) {
           defender.disabled = false;
+        }
+      }
+      if (defender.burning && defender.burningDuration) {
+        defender.burningDuration--;
+        if (defender.burningDuration % 30 === 0) {
+          defender.takeDamage(defender.burningDamage);
+        }
+        if (defender.burningDuration <= 0) {
+          defender.burning = false;
         }
       }
     }
@@ -921,6 +942,112 @@ export class GameEngine {
     }
   }
 
+  updateSpellProjectiles() {
+    if (this.gameOver) return;
+
+    for (let i = this.spellProjectiles.length - 1; i >= 0; i--) {
+      const spell = this.spellProjectiles[i];
+
+      //add to trail for visual effect
+      spell.trail.push({ x: spell.currentX, y: spell.currentY, timer: 20});
+
+      //clean up old trial points
+      spell.trail = spell.trail.filter(point => {
+        point.timer--;
+        return point.timer > 0; //timer reach zero, the effect be gone in its draw method
+      });
+
+      //move projectile
+      const dx = spell.targetX - spell.currentX;
+      const dy = spell.targetY - spell.currentY;
+      const distance = Math.hypot(dx, dy);
+
+      if (distance <= spell.speed) {
+        //spell has reach target
+        this.handleSpellImpact(spell);
+        this.spellProjectiles.splice(i, 1);
+      } else {
+        //move toward target
+        const angle = Math.atan2(dy, dx);
+        spell.currentX += Math.cos(angle) * spell.speed;
+        spell.currentY += Math.sin(angle) * spell.speed;
+      }
+
+    }
+  }
+
+  handleSpellImpact(spell) {
+    if (!spell.target || !spell.target.isAlive) return;
+
+    switch (spell.type) {
+      case "fireball":
+        //create fire explosion
+        this.explosions.push({
+                               x: spell.targetX,
+                               y: spell.targetY,
+                               damage: 0,
+                               radius: 180,
+                               timer: 30,
+                               color: "orange",
+                               innerColor: "yellow",
+                               particleColor: "rgba(255, 165, 0, 0.9)",
+                               style: "fireball",
+                               type: "effect",
+                               source: "mage"
+                             });
+        for (const defender of this.defenders) {
+          if (!defender.isAlive || defender.id === spell.target.id) continue;
+          const distance = Math.hypot(
+              defender.x - spell.targetX,
+              defender.y - spell.targetY
+          );
+          if (distance <= 180) {
+            defender.takeDamage(spell.damage);
+            defender.burning = true;
+            defender.burningDamage = 10;
+            defender.burningDuration = 180;
+          }
+        }
+        spell.target.takeDamage(spell.damage);
+        spell.target.burning = true;
+        spell.target.burningDamage = 10;
+        spell.target.burningDuration = 180;
+            break;
+      case "icebolt":
+        // Create ice explosion
+        this.explosions.push({
+                               x: spell.targetX,
+                               y: spell.targetY,
+                               damage: 0,
+                               radius: 150,
+                               timer: 30,
+                               color: "lightblue",
+                               innerColor: "white",
+                               particleColor: "rgba(173, 216, 230, 0.9)",
+                               style: "ice",
+                               type: "effect",
+                               source: "mage"
+                             });
+        for (const defender of this.defenders) {
+          if (!defender.isAlive || defender.id === spell.target.id) continue;
+          const distance = Math.hypot(
+              defender.x - spell.targetX,
+              defender.y - spell.targetY
+          );
+          if (distance <= 150) {
+            defender.takeDamage(spell.damage);
+            defender.disabled = true;
+            defender.disabledDuration = 200;
+          }
+        }
+        // Apply damage and freeze
+        spell.target.takeDamage(spell.damage);
+        spell.target.disabled = true;
+        spell.target.disabledDuration = 200;
+        break;
+    }
+  }
+
   /** Updates and removes expired explosion effects. */
   updateExplosions() {
     for (let i = this.explosions.length - 1; i >= 0; i--) {
@@ -991,6 +1118,7 @@ export class GameEngine {
     this.drawEntities.drawDefenders(ctx);
     this.drawEntities.drawEnemies(ctx);
     this.drawEntities.drawProjectiles(ctx);
+    this.drawEntities.drawSpellProjectiles(ctx);
     this.drawEntities.drawEnergyDrops(ctx);
     this.drawEntities.drawCardPieceDrops(ctx);
     this.drawExplosionEffect.drawExplosions(ctx);
