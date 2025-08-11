@@ -240,7 +240,7 @@ export class HealerDefender extends DefenderUnit {
     //healer stats
     this.healingAmount = 10;
     this.healingRate = 120;
-    this.healingRange = 80;
+    this.healingRange = 100;
     this.healingCountdown = this.healingRate;
   }
 
@@ -701,7 +701,6 @@ export class Sniper extends DefenderUnit {
     //Note: it is mark as unused but this is used
     this.lastPiercingTargets = new Set(); // Store for drawing
 
-    //special ability
   }
 
   applyLevelUpgrades() {
@@ -713,7 +712,6 @@ export class Sniper extends DefenderUnit {
 
     this.critChance = 0.2 + (this.level - 1) * 0.08; //+8% every level
     this.critChance = Math.min(1.0, this.critChance); //max 100%
-
 
     this.applySpecialAbilities();
   }
@@ -949,4 +947,6 @@ export class Sniper extends DefenderUnit {
   }
 }
 
+export class Mortor extends DefenderUnit {
 
+}

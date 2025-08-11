@@ -144,6 +144,7 @@ export class Enemy {
     ctx.font = "10px Arial";
     ctx.fillText(this.health.toFixed(0), this.x, this.y - 15); // Show health value
     ctx.fillText(this.name.substring(0, 8), this.x, this.y + this.height + 10);
+
   }
 
   drawFallback(ctx) {
@@ -291,7 +292,6 @@ export class BombEnemy extends Enemy {
       attackDamage: 200,
     });
     this.explosionRadius = 100;
-  //  this.explosionDamage = 200;
     this.shouldExplode = false; // Flag to tell GameEngine to handle explosion
   }
 
@@ -814,6 +814,7 @@ export class EMPEnemy extends Enemy {
     }
   }
 }
+
 // attack will contain life steal
 export class VampireEnemy extends Enemy {
   constructor(x, y, image) {
@@ -926,7 +927,7 @@ export class GhostEnemy extends Enemy {
             this.x + this.width / 2 - (defender.x + defender.width / 2),
             this.y + this.height / 2 - (defender.y + defender.height / 2)
         );
-        return distance <= 100;
+        return distance <= 200;
       });
       if (nearByDefender) {
         this.isPhased = true;
@@ -1746,7 +1747,7 @@ export class TitanEnemy extends Enemy {
       if (distance <= 1500) {
         defender.disabled = true;
         defender.disabledDuration = 300; //5sec
-        defender.takeDamage(40)
+        defender.takeDamage(40);
       }
 
     }
@@ -1813,7 +1814,7 @@ export class TitanEnemy extends Enemy {
                 this.y + this.height / 2 - (defender.y + defender.height / 2)
             );
             if (distance <= radius) {
-              defender.takeDamage(30 * (i + 1));
+              defender.takeDamage(45);
             }
           }
         }, i * 200);

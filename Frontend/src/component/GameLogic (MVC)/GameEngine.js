@@ -16,8 +16,8 @@ import { DropManager } from "./GameEngineBreakDown/InGameManagerHandlers/DropMan
 import { GridManager } from "./GameEngineBreakDown/InGameManagerHandlers/GridManager.js";
 import { WaveManager } from "./GameEngineBreakDown/InGameManagerHandlers/WaveManager.js";
 import { DrawExplosionEffect } from "./GameEngineBreakDown/Draws/DrawExplosionEffect.js";
-import {DrawEntities} from "./GameEngineBreakDown/Draws/DrawEntities.js";
-import {DrawUIs} from "./GameEngineBreakDown/Draws/DrawUIs.js";
+import { DrawEntities } from "./GameEngineBreakDown/Draws/DrawEntities.js";
+import { DrawUIs } from "./GameEngineBreakDown/Draws/DrawUIs.js";
 
 export class GameEngine {
   constructor(updateEnergyCb, updateScoreCb, onWinCb, onLoseCb, updateBaseHealthCb) {
@@ -62,9 +62,6 @@ export class GameEngine {
     this.drawExplosionEffect = new DrawExplosionEffect(this);
     this.drawEntities = new DrawEntities(this);
     this.drawUIs = new DrawUIs(this);
-
-
-   // this.trackTotalEnemyInGameBoard = this.currentLevelConfig.totalEnemiesToSpawn;
 
     // Mapping of card names to their respective DefenderUnit classes
     this.defenderUnitClasses = {
@@ -179,15 +176,15 @@ export class GameEngine {
       levelNumber: 1,
       enemySpawnInterval: 3000, // 3 seconds
       maxActiveEnemies: 8,
-      totalEnemiesToSpawn: 1,
+      totalEnemiesToSpawn: 20,
       waves: 3,
-      availableEnemyTypes: // ["Mage"],
-          ["Basic Zombie", "Fast Zombie", "Tank Zombie",
-           "Exploder", "Skeleton Shooter", "Shielder",
-          "Healer", "Splitter", "Mini", "Swarm Witch",
-          "EMP", "Vampire", "Ghost", "Berserker", "Necromancer",
-           "Assassin", "Mage", "Titan"],
-      initialEnergy: 1000,
+      availableEnemyTypes:  ["Assassin"],
+          // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
+          //  "Exploder", "Skeleton Shooter", "Shielder",
+          // "Healer", "Splitter", "Mini", "Swarm Witch",
+          // "EMP", "Vampire", "Ghost", "Berserker", "Necromancer",
+          //  "Assassin", "Mage", "Titan"],
+      initialEnergy: 100000,
       enemyAssets: {
         "Basic Zombie": null,
         "Fast Zombie": null,
