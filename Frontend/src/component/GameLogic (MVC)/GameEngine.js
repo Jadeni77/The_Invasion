@@ -1,8 +1,10 @@
 // src/component/GameLogic (MVC)/GameEngine.js
 // This file serves as the Model (game state, entities) and Controller (game logic, updates)
 
-import { BasicDefender, HealerDefender, GrenadeDefender,
-  BarricadeDefender, EnergyGenerator, Sniper } from "./DefenderUnits.js";
+import {
+  BasicDefender, HealerDefender, GrenadeDefender,
+  BarricadeDefender, EnergyGenerator, Sniper, Mortar
+} from "./DefenderUnits.js";
 import {
   BasicEnemy, FastEnemy, TankEnemy, BombEnemy, RangeEnemy, ShieldEnemy,
   HealerEnemy, EMPEnemy, MiniEnemy, SplitterEnemy, VampireEnemy,
@@ -70,7 +72,8 @@ export class GameEngine {
       "Grenadier": GrenadeDefender,
       "Barricade": BarricadeDefender,
       "Energy Generator": EnergyGenerator,
-      "Sniper": Sniper
+      "Sniper": Sniper,
+      "Mortar": Mortar
     };
 
     // Mapping of enemy names to their respective Enemy classes
@@ -142,7 +145,7 @@ export class GameEngine {
   dropCardPieces(x, y) {
     if (this.gameOver) return;
     const cardType = ['Basic Cop', 'Healer Cop', 'Grenadier',
-                      'Barricade', 'Energy Generator', "Sniper"];
+                      'Barricade', 'Energy Generator', "Sniper", "Mortar"];
     const randomCard = cardType[Math.floor(Math.random() * cardType.length)];
     this.cardPieceDrops.push(new CardPieceDrop(x, y, randomCard));
   }
@@ -178,7 +181,7 @@ export class GameEngine {
       maxActiveEnemies: 8,
       totalEnemiesToSpawn: 20,
       waves: 3,
-      availableEnemyTypes:  ["Assassin"],
+      availableEnemyTypes:  ["Basic Zombie"],
           // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
           //  "Exploder", "Skeleton Shooter", "Shielder",
           // "Healer", "Splitter", "Mini", "Swarm Witch",

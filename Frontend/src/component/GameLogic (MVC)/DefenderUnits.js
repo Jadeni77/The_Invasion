@@ -947,6 +947,307 @@ export class Sniper extends DefenderUnit {
   }
 }
 
-export class Mortor extends DefenderUnit {
+export class Mortar extends DefenderUnit {
+  constructor(x, y, cardData) {
+    const typeData = {
+      name: "Mortar",
+      damage: 120,        // Increased from 80
+      health: 100,
+      range: 700,
+      fireRate: 240,      // 4 seconds at 60fps
+      cost: 120,
+      width: 45,
+      height: 50,
+      color: "darkgray",
+      isRanged: true,
+      level: cardData.level || 1,
+      image: cardData.image,
+    };
+    super(x, y, typeData);
 
+    // Mortar-specific properties
+    this.minimumRange = 250;     // Increased from 150
+    this.explosionRadius = 150;   // Increased from 100
+    this.shellTravelTime = 1500;  // 1.5 seconds for shell to land
+    this.pendingShells = [];      // Track shells in flight
+
+    // Visual properties
+    this.showRangeIndicators = false;
+    this.lastFireAngle = 0;
+  }
+
+  applyLevelUpgrades() {
+    const level = this.level;
+    const statMultiplier = 1 + (level - 1) * 0.2; // 20% increase per level
+
+    this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
+    this.health = Math.floor(this.health * statMultiplier);
+    this.maxHealth = Math.floor(this.maxHealth * statMultiplier);
+    this.explosionRadius = Math.floor(this.explosionRadius * (1 + (level - 1) * 0.15)); // 15% radius increase
+
+    this.applySpecialAbilities();
+  }
+
+  applySpecialAbilities() {
+    this.hasImprovedFuses = false;
+    this.hasClusterShells = false;
+    this.hasSiegeMode = false;
+
+    if (this.level >= 3) {
+      this.hasImprovedFuses = true;
+      this.minimumRange = Math.floor(this.minimumRange * 0.7); // 30% reduction
+    }
+    if (this.level >= 5) {
+      this.hasSiegeMode = true;
+      this.hasClusterShells = true;
+      this.range = Math.floor(this.range * 1.3); // 30% range increase
+      this.explosionRadius = Math.floor(this.explosionRadius * 1.2); // Extra 20% radius at level 5
+    }
+  }
+
+  getUpgradeInfo() {
+    const base = super.getUpgradeInfo();
+    const newAbilities = [];
+
+    if (this.level === 2) newAbilities.push("Improved Fuses - Reduced minimum range (Level 3)");
+    if (this.level === 4) newAbilities.push("Siege Mode - Cluster shells & increased range (Level 5)");
+
+    return {
+      ...base,
+      damageIncrease: "+20%",
+      explosionRadius: "+15%",
+      newAbilities
+    };
+  }
+
+  // Check if an enemy is in valid attack range
+  isValidTarget(enemy) {
+    if (!enemy || !enemy.isAlive) return false;
+
+    const distance = Math.hypot(
+        enemy.x + enemy.width/2 - (this.x + this.width/2),
+        enemy.y + enemy.height/2 - (this.y + this.height/2)
+    );
+
+    return distance >= this.minimumRange && distance <= this.range;
+  }
+
+  // Find the best target (closest valid enemy)
+  findBestTarget(enemies) {
+    let bestTarget = null;
+    let closestDistance = Infinity;
+
+    for (const enemy of enemies) {
+      if (!this.isValidTarget(enemy)) continue;
+
+      const distance = Math.hypot(
+          enemy.x + enemy.width/2 - (this.x + this.width/2),
+          enemy.y + enemy.height/2 - (this.y + this.height/2)
+      );
+
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        bestTarget = enemy;
+      }
+    }
+
+    return bestTarget;
+  }
+
+  update(enemies, defenderUnits) {
+    if (!this.isAlive) return;
+
+    // Process pending shells - NOW THEY TRACK ENEMIES
+    this.pendingShells = this.pendingShells.filter(shell => {
+      shell.timeRemaining -= 16.67; // Assuming 60fps, reduce by ~16.67ms per frame
+
+      // Update target position if enemy is still alive
+      if (shell.target && shell.target.isAlive) {
+        shell.targetX = shell.target.x + shell.target.width/2;
+        shell.targetY = shell.target.y + shell.target.height/2;
+      }
+
+      if (shell.timeRemaining <= 0) {
+        // Shell lands - create explosion at current target position
+        this.createExplosion(shell.targetX, shell.targetY);
+        return false; // Remove from pending
+      }
+      return true; // Keep in array
+    });
+  }
+
+  attack(target, currentTime) {
+    if (!this.isAlive || !target || !target.isAlive) return;
+
+    // Verify target is in valid range
+    if (!this.isValidTarget(target)) {
+      console.log("Mortar: Target too close or too far");
+      return;
+    }
+
+    // Calculate angle for visual effect
+    this.lastFireAngle = Math.atan2(
+        target.y + target.height/2 - (this.y + this.height/2),
+        target.x + target.width/2 - (this.x + this.width/2)
+    );
+
+    // Add shell to pending - NOW INCLUDES TARGET REFERENCE
+    this.pendingShells.push({
+                              target: target,  // Store enemy reference
+                              targetX: target.x + target.width/2,  // Current position
+                              targetY: target.y + target.height/2,
+                              timeRemaining: this.shellTravelTime,
+                              startX: this.x + this.width/2,
+                              startY: this.y + this.height/2
+                            });
+
+    this.lastAttackTime = currentTime;
+  }
+
+  createExplosion(x, y) {
+    if (!this.gameEngine) return;
+
+    // Main explosion with increased damage and radius
+    this.gameEngine.addDefenderExplosion(
+        x,
+        y,
+        this.attackDamage,
+        this.explosionRadius,
+        "mortar"
+    );
+
+    // Enhanced visual effect
+    this.gameEngine.explosions.push({
+                                      x: x,
+                                      y: y,
+                                      damage: 0,
+                                      radius: this.explosionRadius,
+                                      timer: 30,
+                                      color: "orange",
+                                      innerColor: "yellow",
+                                      particleColor: "rgba(255, 200, 0, 0.9)",
+                                      style: "burst",
+                                      type: "defender",
+                                      source: "mortar",
+                                      explodeBy: "mortar"
+                                    });
+
+    // Cluster shells at level 5
+    if (this.hasClusterShells) {
+      for (let i = 0; i < 4; i++) {
+        const angle = (Math.PI * 2 * i) / 4;
+        const offsetX = Math.cos(angle) * 60;  // Slightly larger spread
+        const offsetY = Math.sin(angle) * 60;
+
+        setTimeout(() => {
+          if (this.gameEngine) {
+            this.gameEngine.addDefenderExplosion(
+                x + offsetX,
+                y + offsetY,
+                this.attackDamage * 0.5,
+                this.explosionRadius * 0.6,
+                "mortar"
+            );
+          }
+        }, 200 + i * 100);
+      }
+    }
+  }
+
+  draw(ctx) {
+    super.draw(ctx);
+
+    // Draw range indicators when placed or selected
+    if (this.showRangeIndicators || this.fireCountdown < 10) {
+      // Minimum range (dead zone) - red
+      ctx.strokeStyle = "rgba(255, 0, 0, 0.3)";
+      ctx.fillStyle = "rgba(255, 0, 0, 0.05)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width/2,
+          this.y + this.height/2,
+          this.minimumRange,
+          0,
+          Math.PI * 2
+      );
+      ctx.fill();
+      ctx.stroke();
+
+      // Maximum range - green
+      ctx.strokeStyle = "rgba(0, 255, 0, 0.2)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width/2,
+          this.y + this.height/2,
+          this.range,
+          0,
+          Math.PI * 2
+      );
+      ctx.stroke();
+    }
+
+    // Draw pending shells with tracking
+    ctx.save();
+    for (const shell of this.pendingShells) {
+      // Calculate shell position in arc
+      const progress = 1 - (shell.timeRemaining / this.shellTravelTime);
+      const arcHeight = 150; // Higher arc for better visibility
+
+      // Update target position for moving enemies
+      const targetX = shell.target && shell.target.isAlive ?
+                      shell.target.x + shell.target.width/2 : shell.targetX;
+      const targetY = shell.target && shell.target.isAlive ?
+                      shell.target.y + shell.target.height/2 : shell.targetY;
+
+      // Parabolic trajectory to current target position
+      const currentX = shell.startX + (targetX - shell.startX) * progress;
+      const currentY = shell.startY + (targetY - shell.startY) * progress
+                       - arcHeight * 4 * progress * (1 - progress);
+
+      // Draw shell
+      ctx.fillStyle = "black";
+      ctx.beginPath();
+      ctx.arc(currentX, currentY, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw shell trail
+      ctx.strokeStyle = `rgba(128, 128, 128, ${0.5 - progress * 0.4})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(shell.startX, shell.startY);
+      ctx.quadraticCurveTo(
+          shell.startX + (targetX - shell.startX) * 0.5,
+          shell.startY + (targetY - shell.startY) * 0.5 - arcHeight,
+          currentX,
+          currentY
+      );
+      ctx.stroke();
+
+      // Draw target indicator at current enemy position
+      ctx.strokeStyle = `rgba(255, 0, 0, ${0.3 + progress * 0.5})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(targetX, targetY, 30 - progress * 15, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Draw impact zone preview
+      ctx.fillStyle = `rgba(255, 165, 0, ${0.1 + progress * 0.2})`;
+      ctx.beginPath();
+      ctx.arc(targetX, targetY, this.explosionRadius * progress, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Draw barrel direction
+    if (this.lastFireAngle !== 0) {
+      ctx.save();
+      ctx.translate(this.x + this.width/2, this.y + this.height/2);
+      ctx.rotate(this.lastFireAngle);
+      ctx.fillStyle = "darkgray";
+      ctx.fillRect(0, -5, 30, 10); // Barrel
+      ctx.restore();
+    }
+  }
 }
