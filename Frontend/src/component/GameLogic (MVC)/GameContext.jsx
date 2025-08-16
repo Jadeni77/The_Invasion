@@ -215,7 +215,7 @@ export const GameProvider = ({ children }) => {
           {
             id: 7,
             name: "Mortar",
-            level: 1,
+            level: 5,
             pieces: 0,
             piecesNeeded: 15,
             upgradeCost: { gold: 250, iron: 30, water: 20, gem: 1 },

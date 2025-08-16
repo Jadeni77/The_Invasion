@@ -439,7 +439,22 @@ export class GrenadeDefender extends DefenderUnit {
           target.y + target.height / 2,
           this.attackDamage,
           this.grenadeRadius,
-          "grenadier");
+          );
+      // Create visual effect
+      this.gameEngine.explosions.push({
+                                        x: target.x + target.width / 2,
+                                        y: target.y + target.height / 2,
+                                        damage: 0,
+                                        radius: this.grenadeRadius,
+                                        timer: 30,
+                                        color: "orange",
+                                        innerColor: "yellow",
+                                        particleColor: "rgba(255, 200, 0, 0.8)",
+                                        style: "burst",
+                                        type: "defender",
+                                        source: "grenadier",
+                                        explodeBy: "grenadier"
+                                      });
 
     if (this.hasClusterBomb) {
       for (let i = 0; i < 3; i++) {
@@ -453,8 +468,21 @@ export class GrenadeDefender extends DefenderUnit {
               target.y + target.height / 2 + offsetY,
               this.attackDamage * 0.75, //75% damage
               this.grenadeRadius * 0.8, //smaller radius,
-              "grenadier"
           );
+          this.gameEngine.explosions.push({
+                                            x: target.x + target.width / 2 + offsetX,
+                                            y: target.y + target.height / 2 + offsetY,
+                                            damage: 0,
+                                            radius: this.grenadeRadius * 0.8,
+                                            timer: 25,
+                                            color: "orange",
+                                            innerColor: "yellow",
+                                            particleColor: "rgba(255, 200, 0, 0.8)",
+                                            style: "burst",
+                                            type: "defender",
+                                            source: "grenadier",
+                                            explodeBy: "grenadier"
+                                          });
         }, 200 + i * 100);
       }
     }
@@ -826,7 +854,7 @@ export class Sniper extends DefenderUnit {
         target.y + target.height / 2,
         damage * 0.5, //50%
         200,
-        "sniper");
+        );
 
       //visual affect
       this.gameEngine.explosions.push({
@@ -834,7 +862,7 @@ export class Sniper extends DefenderUnit {
                                         y: target.y + target.height / 2,
                                         damage: 0,
                                         radius: 200,
-                                        timer: 20,
+                                        timer: 30,
                                         color: "crimson",
                                         innerColor: "white",
                                         particleColor: "rgba(220, 20, 60, 0.9)",
@@ -954,7 +982,7 @@ export class Mortar extends DefenderUnit {
       damage: 120,        // Increased from 80
       health: 100,
       range: 700,
-      fireRate: 240,      // 4 seconds at 60fps
+      fireRate: 360,
       cost: 120,
       width: 45,
       height: 50,
@@ -968,12 +996,18 @@ export class Mortar extends DefenderUnit {
     // Mortar-specific properties
     this.minimumRange = 250;     // Increased from 150
     this.explosionRadius = 150;   // Increased from 100
-    this.shellTravelTime = 1500;  // 1.5 seconds for shell to land
+    this.shellTravelTime = 200;  // 1.5 seconds for shell to land
     this.pendingShells = [];      // Track shells in flight
 
     // Visual properties
     this.showRangeIndicators = false;
     this.lastFireAngle = 0;
+    this.barrelRecoil = 0;
+
+    //targeting system
+    this.currentTarget = null;
+    this.nextTarget = null;
+    this.targetLockTime = 0;
   }
 
   applyLevelUpgrades() {
@@ -996,6 +1030,7 @@ export class Mortar extends DefenderUnit {
     if (this.level >= 3) {
       this.hasImprovedFuses = true;
       this.minimumRange = Math.floor(this.minimumRange * 0.7); // 30% reduction
+      this.shellTravelTime = 75; // Faster shells
     }
     if (this.level >= 5) {
       this.hasSiegeMode = true;
@@ -1035,70 +1070,122 @@ export class Mortar extends DefenderUnit {
   // Find the best target (closest valid enemy)
   findBestTarget(enemies) {
     let bestTarget = null;
-    let closestDistance = Infinity;
-
+    let highestPriority = -1;
     for (const enemy of enemies) {
       if (!this.isValidTarget(enemy)) continue;
 
       const distance = Math.hypot(
-          enemy.x + enemy.width/2 - (this.x + this.width/2),
-          enemy.y + enemy.height/2 - (this.y + this.height/2)
+          enemy.x + enemy.width / 2 - (this.x + this.width / 2),
+          enemy.y + enemy.height / 2 - (this.y + this.height / 2)
       );
 
-      if (distance < closestDistance) {
-        closestDistance = distance;
+      //prioritize base on threat level and distance
+      const priority = (enemy.health / enemy.maxHealth) * 100 +
+                       (1 - distance / this.range) * 50 +
+                       (enemy.attackDamage || 0);
+      if (priority > highestPriority) {
+        highestPriority = priority;
         bestTarget = enemy;
       }
     }
-
     return bestTarget;
+  }
+
+  canAttack(currentTime) {
+    //override to check if the target is valid
+    if (!super.canAttack(currentTime)) return false;
+
+    //chekc if there are valid tarhet
+    if (this.gameEngine) {
+      this.nextTarget = this.findBestTarget(this.gameEngine.enemies);
+      return this.nextTarget !== null;
+    }
+    return false;
   }
 
   update(enemies, defenderUnits) {
     if (!this.isAlive) return;
 
+    //update barrel recoil animation
+    if (this.barrelRecoil > 0) {
+      this.barrelRecoil -= 0.5;
+    }
+    //update target lock visual
+    if (this.targetLockTime > 0) {
+      this.targetLockTime--;
+    }
+
     // Process pending shells - NOW THEY TRACK ENEMIES
     this.pendingShells = this.pendingShells.filter(shell => {
-      shell.timeRemaining -= 16.67; // Assuming 60fps, reduce by ~16.67ms per frame
-
-      // Update target position if enemy is still alive
-      if (shell.target && shell.target.isAlive) {
-        shell.targetX = shell.target.x + shell.target.width/2;
-        shell.targetY = shell.target.y + shell.target.height/2;
+      //fire the shell after targeting phase
+      if (!shell.fired && this.targetLockTime <= 0) {
+        shell.fired = true;
+        shell.currentY = -100; // launch upward
       }
+      if (shell.fired) {
+        shell.timeRemaining--;
 
-      if (shell.timeRemaining <= 0) {
-        // Shell lands - create explosion at current target position
-        this.createExplosion(shell.targetX, shell.targetY);
-        return false; // Remove from pending
+        // Update target position if enemy is still alive
+        if (shell.target && shell.target.isAlive) {
+          shell.targetX = shell.target.x + shell.target.width / 2;
+          shell.targetY = shell.target.y + shell.target.height / 2;
+        }
+
+        const progress = 1 - (shell.timeRemaining / this.shellTravelTime);
+        const arcHeight = 300;
+
+        //parabolic path
+        shell.currentX = shell.startX + (shell.targetX - shell.startX) * progress;
+        shell.currentY = shell.startY + (shell.targetY - shell.startY) * progress
+                         - arcHeight * 4 * progress * (1 - progress);
+
+        if (shell.timeRemaining <= 0) {
+          this.createExplosion(shell.targetX, shell.targetY);
+          return false;
+        }
       }
-      return true; // Keep in array
+      return true;
     });
+    //clear current target if its dead or out of range
+    if (this.currentTarget && (!this.currentTarget.isAlive || !this.isValidTarget(this.currentTarget))) {
+      this.currentTarget = null;
+    }
   }
 
   attack(target, currentTime) {
-    if (!this.isAlive || !target || !target.isAlive) return;
+    const actualTarget = this.nextTarget || target;
+
+    if (!this.isAlive || !actualTarget || !actualTarget.isAlive) return;
 
     // Verify target is in valid range
-    if (!this.isValidTarget(target)) {
+    if (!this.isValidTarget(actualTarget)) {
       console.log("Mortar: Target too close or too far");
       return;
     }
+    //lock onto target
+    this.currentTarget = actualTarget;
+    this.targetLockTime = 30; // Show targeting for 0.5 seconds before firing
 
     // Calculate angle for visual effect
     this.lastFireAngle = Math.atan2(
-        target.y + target.height/2 - (this.y + this.height/2),
-        target.x + target.width/2 - (this.x + this.width/2)
+        actualTarget.y + actualTarget.height / 2 - (this.y + this.height / 2),
+        actualTarget.x + actualTarget.width / 2 - (this.x + this.width / 2)
     );
+
+    // Add barrel recoil effect
+    this.barrelRecoil = 10;
 
     // Add shell to pending - NOW INCLUDES TARGET REFERENCE
     this.pendingShells.push({
-                              target: target,  // Store enemy reference
-                              targetX: target.x + target.width/2,  // Current position
-                              targetY: target.y + target.height/2,
+                              target: actualTarget,  // Store enemy reference
+                              targetX: actualTarget.x + actualTarget.width / 2,  // Current position
+                              targetY: actualTarget.y + actualTarget.height / 2,
                               timeRemaining: this.shellTravelTime,
-                              startX: this.x + this.width/2,
-                              startY: this.y + this.height/2
+                              startX: this.x + this.width / 2,
+                              startY: this.y + this.height / 2,
+                              currentX: this.x + this.width/2,
+                              currentY: this.y + this.height/2,
+                              fired: false // Will be set to true after targeting phase
                             });
 
     this.lastAttackTime = currentTime;
@@ -1113,9 +1200,7 @@ export class Mortar extends DefenderUnit {
         y,
         this.attackDamage,
         this.explosionRadius,
-        "mortar"
     );
-
     // Enhanced visual effect
     this.gameEngine.explosions.push({
                                       x: x,
@@ -1131,7 +1216,6 @@ export class Mortar extends DefenderUnit {
                                       source: "mortar",
                                       explodeBy: "mortar"
                                     });
-
     // Cluster shells at level 5
     if (this.hasClusterShells) {
       for (let i = 0; i < 4; i++) {
@@ -1146,8 +1230,21 @@ export class Mortar extends DefenderUnit {
                 y + offsetY,
                 this.attackDamage * 0.5,
                 this.explosionRadius * 0.6,
-                "mortar"
             );
+            this.gameEngine.explosions.push({
+                                              x: x,
+                                              y: y,
+                                              damage: 0,
+                                              radius: this.explosionRadius,
+                                              timer: 30,
+                                              color: "orange",
+                                              innerColor: "yellow",
+                                              particleColor: "rgba(255, 200, 0, 0.9)",
+                                              style: "burst",
+                                              type: "defender",
+                                              source: "mortar",
+                                              explodeBy: "mortar"
+                                            });
           }
         }, 200 + i * 100);
       }
@@ -1157,12 +1254,29 @@ export class Mortar extends DefenderUnit {
   draw(ctx) {
     super.draw(ctx);
 
-    // Draw range indicators when placed or selected
-    if (this.showRangeIndicators || this.fireCountdown < 10) {
-      // Minimum range (dead zone) - red
-      ctx.strokeStyle = "rgba(255, 0, 0, 0.3)";
-      ctx.fillStyle = "rgba(255, 0, 0, 0.05)";
+    // Draw range indicators
+    this.drawRangeIndicators(ctx);
+
+    // Draw barrel with recoil
+    this.drawBarrel(ctx);
+
+    // Draw targeting system
+    this.drawTargetingSystem(ctx);
+
+    // Draw shells in flight
+    this.drawShells(ctx);
+  }
+
+  drawRangeIndicators(ctx) {
+    // Show ranges when hovering or during cooldown
+    if (this.showRangeIndicators || this.fireCountdown > this.fireRate - 60) {
+      ctx.save();
+
+      // Dead zone (minimum range) - red with pattern
+      ctx.strokeStyle = "rgba(255, 0, 0, 0.4)";
+      ctx.fillStyle = "rgba(255, 0, 0, 0.1)";
       ctx.lineWidth = 2;
+      ctx.setLineDash([10, 5]);
       ctx.beginPath();
       ctx.arc(
           this.x + this.width/2,
@@ -1174,9 +1288,16 @@ export class Mortar extends DefenderUnit {
       ctx.fill();
       ctx.stroke();
 
+      // Label for dead zone
+      ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
+      ctx.font = "12px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("DEAD ZONE", this.x + this.width/2, this.y + this.height/2 - this.minimumRange - 10);
+
       // Maximum range - green
-      ctx.strokeStyle = "rgba(0, 255, 0, 0.2)";
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(0, 255, 0, 0.3)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
       ctx.beginPath();
       ctx.arc(
           this.x + this.width/2,
@@ -1186,67 +1307,148 @@ export class Mortar extends DefenderUnit {
           Math.PI * 2
       );
       ctx.stroke();
+
+      ctx.restore();
+    }
+  }
+
+  drawBarrel(ctx) {
+    ctx.save();
+    ctx.translate(this.x + this.width/2, this.y + this.height/2);
+
+    if (this.lastFireAngle !== 0) {
+      ctx.rotate(this.lastFireAngle);
     }
 
-    // Draw pending shells with tracking
-    ctx.save();
+    // Barrel with recoil
+    const barrelLength = 35 - this.barrelRecoil;
+    ctx.fillStyle = "#444";
+    ctx.fillRect(5, -6, barrelLength, 12);
+
+    // Barrel end
+    ctx.fillStyle = "#222";
+    ctx.fillRect(barrelLength + 5, -8, 5, 16);
+
+    ctx.restore();
+  }
+
+  drawTargetingSystem(ctx) {
+    // Draw targeting on current target
+    if (this.currentTarget && this.currentTarget.isAlive && this.targetLockTime > 0) {
+      const targetX = this.currentTarget.x + this.currentTarget.width/2;
+      const targetY = this.currentTarget.y + this.currentTarget.height/2;
+
+      ctx.save();
+
+      // Pulsing effect
+      const pulse = Math.sin(Date.now() / 100) * 0.2 + 0.8;
+
+      // Target reticle
+      ctx.strokeStyle = `rgba(255, 0, 0, ${pulse})`;
+      ctx.lineWidth = 3;
+
+      // Outer circle
+      ctx.beginPath();
+      ctx.arc(targetX, targetY, 40, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Crosshairs
+      const crossSize = 50;
+      ctx.beginPath();
+      ctx.moveTo(targetX - crossSize, targetY);
+      ctx.lineTo(targetX - 20, targetY);
+      ctx.moveTo(targetX + 20, targetY);
+      ctx.lineTo(targetX + crossSize, targetY);
+      ctx.moveTo(targetX, targetY - crossSize);
+      ctx.lineTo(targetX, targetY - 20);
+      ctx.moveTo(targetX, targetY + 20);
+      ctx.lineTo(targetX, targetY + crossSize);
+      ctx.stroke();
+
+      // Target lock text
+      ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`;
+      ctx.font = "bold 14px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("LOCKED", targetX, targetY - 60);
+
+      ctx.restore();
+    }
+  }
+
+  drawShells(ctx) {
     for (const shell of this.pendingShells) {
-      // Calculate shell position in arc
-      const progress = 1 - (shell.timeRemaining / this.shellTravelTime);
-      const arcHeight = 150; // Higher arc for better visibility
+      if (!shell.fired) continue;
 
       // Update target position for moving enemies
       const targetX = shell.target && shell.target.isAlive ?
-                      shell.target.x + shell.target.width/2 : shell.targetX;
+                      shell.target.x + shell.target.width / 2 : shell.targetX;
       const targetY = shell.target && shell.target.isAlive ?
-                      shell.target.y + shell.target.height/2 : shell.targetY;
+                      shell.target.y + shell.target.height / 2 : shell.targetY;
 
-      // Parabolic trajectory to current target position
-      const currentX = shell.startX + (targetX - shell.startX) * progress;
-      const currentY = shell.startY + (targetY - shell.startY) * progress
-                       - arcHeight * 4 * progress * (1 - progress);
+      // Draw target marker that follows enemy
+      ctx.save();
 
-      // Draw shell
-      ctx.fillStyle = "black";
+      // Target circle on ground
+      const progress = 1 - (shell.timeRemaining / this.shellTravelTime);
+      ctx.strokeStyle = `rgba(255, 0, 0, ${0.5 + progress * 0.5})`;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([10, 5]);
+      ctx.lineDashOffset = -Date.now() / 50;
+
       ctx.beginPath();
-      ctx.arc(currentX, currentY, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Draw shell trail
-      ctx.strokeStyle = `rgba(128, 128, 128, ${0.5 - progress * 0.4})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(shell.startX, shell.startY);
-      ctx.quadraticCurveTo(
-          shell.startX + (targetX - shell.startX) * 0.5,
-          shell.startY + (targetY - shell.startY) * 0.5 - arcHeight,
-          currentX,
-          currentY
-      );
+      ctx.arc(targetX, targetY, 30, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Draw target indicator at current enemy position
-      ctx.strokeStyle = `rgba(255, 0, 0, ${0.3 + progress * 0.5})`;
-      ctx.lineWidth = 2;
+      // X mark
+      const markSize = 20;
+      ctx.lineWidth = 4;
+      ctx.setLineDash([]);
+      ctx.lineCap = "round";
+
       ctx.beginPath();
-      ctx.arc(targetX, targetY, 30 - progress * 15, 0, Math.PI * 2);
+      ctx.moveTo(targetX - markSize, targetY - markSize);
+      ctx.lineTo(targetX + markSize, targetY + markSize);
+      ctx.moveTo(targetX + markSize, targetY - markSize);
+      ctx.lineTo(targetX - markSize, targetY + markSize);
       ctx.stroke();
 
-      // Draw impact zone preview
+      // Impact zone preview
       ctx.fillStyle = `rgba(255, 165, 0, ${0.1 + progress * 0.2})`;
       ctx.beginPath();
       ctx.arc(targetX, targetY, this.explosionRadius * progress, 0, Math.PI * 2);
       ctx.fill();
-    }
-    ctx.restore();
 
-    // Draw barrel direction
-    if (this.lastFireAngle !== 0) {
-      ctx.save();
-      ctx.translate(this.x + this.width/2, this.y + this.height/2);
-      ctx.rotate(this.lastFireAngle);
-      ctx.fillStyle = "darkgray";
-      ctx.fillRect(0, -5, 30, 10); // Barrel
+      // Draw shell in air
+      if (shell.currentY < shell.targetY - 50) { // Only draw if high enough
+        // Shell trail
+        const trailLength = 5;
+        const gradient = ctx.createLinearGradient(
+            shell.currentX, shell.currentY,
+            shell.currentX, shell.currentY + trailLength * 10
+        );
+        gradient.addColorStop(0, "rgba(100, 100, 100, 0.8)");
+        gradient.addColorStop(1, "rgba(100, 100, 100, 0)");
+
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(shell.currentX, shell.currentY);
+        ctx.lineTo(shell.currentX, shell.currentY + trailLength * 10);
+        ctx.stroke();
+
+        // Shell body
+        ctx.fillStyle = "#222";
+        ctx.beginPath();
+        ctx.arc(shell.currentX, shell.currentY, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Shell tip
+        ctx.fillStyle = "#ff6600";
+        ctx.beginPath();
+        ctx.arc(shell.currentX, shell.currentY - 3, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       ctx.restore();
     }
   }

@@ -321,6 +321,20 @@ export class BombEnemy extends Enemy {
       this.shouldExplode = true; // Mark for explosion
       this.isAlive = false; // Enemy is consumed by the explosion
       this.health = 0;
+      this.gameEngine.explosions.push({
+                                        x: this.x + this.width / 2,
+                                        y: this.y + this.height / 2,
+                                        damage: 0,
+                                        radius: this.explosionRadius,
+                                        timer: 40,
+                                        color: this.color,
+                                        innerColor: "magenta",
+                                        particleColor: "rgba(148, 0, 211, 0.9)",
+                                        style: "shockwave",
+                                        type: "enemy",
+                                        source: "exploder",
+                                        explodeBy: "exploder"
+                                      });
     }
   }
 

@@ -181,7 +181,7 @@ export class GameEngine {
       maxActiveEnemies: 8,
       totalEnemiesToSpawn: 20,
       waves: 3,
-      availableEnemyTypes:  ["Basic Zombie"],
+      availableEnemyTypes:  ["EMP", "Exploder"],
           // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
           //  "Exploder", "Skeleton Shooter", "Shielder",
           // "Healer", "Splitter", "Mini", "Swarm Witch",
@@ -538,41 +538,8 @@ export class GameEngine {
    * @param {number} damage - Damage dealt by explosion.
    * @param {number} radius - Radius of explosion effect.
    */
-  addDefenderExplosion(x, y, damage, radius, source = "default") {
+  addDefenderExplosion(x, y, damage, radius, ) {
     if (this.gameOver) return;
-
-    const explosionStyles = {
-      "grenadier": {
-        color: "orange",
-        innerColor: "yellow",
-        particleColor: "rgba(255, 200, 0, 0.8)",
-        style: "burst"
-      },
-      "sniper": {
-        color: "crimson",
-        innerColor: "white",
-        particleColor: "rgba(220, 20, 60, 0.9)",
-        style: "piercing"
-      },
-      "default": {
-        color: "orange",
-        innerColor: "yellow",
-        particleColor: "rgba(255, 165, 0, 0.8)",
-        style: "standard"
-      }
-    };
-
-    const style = explosionStyles[source] || explosionStyles.default;
-
-    this.explosions.push({
-                           x, y, damage, radius, timer: 30,
-                           color: style.color,
-                           innerColor: style.innerColor,
-                           particleColor: style.particleColor,
-                           style: style.style,
-                           type: "defender",
-                           source: source
-                         });
 
     // Apply damage to enemies within radius
     for (const enemy of this.enemies) {
@@ -612,41 +579,8 @@ export class GameEngine {
     }
   }
 
-  addEnemyExplosion(x, y, damage, radius, source = "default") {
+  addEnemyExplosion(x, y, damage, radius, ) {
     if (this.gameOver) return;
-
-    const explosionStyles = {
-      "exploder": {
-        color: "purple",
-        innerColor: "magenta",
-        particleColor: "rgba(148, 0, 211, 0.9)",
-        style: "shockwave"
-      },
-      "emp": {
-        color: "cyan",
-        innerColor: "white",
-        particleColor: "rgba(0, 255, 255, 0.9)",
-        style: "electric"
-      },
-      "default": {
-        color: "purple",
-        innerColor: "red",
-        particleColor: "rgba(255, 0, 255, 0.8)",
-        style: "standard"
-      }
-    };
-
-    const style = explosionStyles[source] || explosionStyles.default;
-
-    this.explosions.push({
-                           x, y, damage, radius, timer: 30,
-                           color: style.color,
-                           innerColor: style.innerColor,
-                           particleColor: style.particleColor,
-                           style: style.style,
-                           type: "enemy",
-                           source: source
-                         });
 
     for (const defender of this.defenders) {
       const distance = Math.hypot(
@@ -847,17 +781,12 @@ export class GameEngine {
       }
     }
     if (enemy.shouldExplode) {
-      //determine source style by enemy name
-      let source = "default";
-      if (enemy.name === "Exploder") {
-        source = "Exploder";
-      }
       this.addEnemyExplosion(
           enemy.x + enemy.width / 2,
           enemy.y + enemy.height / 2,
           enemy.attackDamage,
           enemy.explosionRadius,
-          source);
+          );
     }
   }
 
