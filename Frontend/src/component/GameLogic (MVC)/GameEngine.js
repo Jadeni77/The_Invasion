@@ -20,6 +20,14 @@ import { WaveManager } from "./GameEngineBreakDown/InGameManagerHandlers/WaveMan
 import { DrawExplosionEffect } from "./GameEngineBreakDown/Draws/DrawExplosionEffect.js";
 import { DrawEntities } from "./GameEngineBreakDown/Draws/DrawEntities.js";
 import { DrawUIs } from "./GameEngineBreakDown/Draws/DrawUIs.js";
+import {AnimationManager} from "./Animation/AnimationManager.js";
+import {AnimatedEnemyWrapper} from "./Animation/AnimatedEnemyWrapper.js";
+
+import BasicZombieIdle from '../../assets/enemies/Enemy3No-Move-Idle.png';
+import BasicZombieHit from '../../assets/enemies/Enemy3No-Move-Hit.png';
+import BasicZombieDeath from '../../assets/enemies/Enemy3No-Move-Die.png';
+import BasicZombieAttack from '../../assets/enemies/Enemy3No-Move-AttackSmashStart.png';
+import BasicZombieMove from '../../assets/enemies/Enemy3No-Move-Fly.png';
 
 export class GameEngine {
   constructor(updateEnergyCb, updateScoreCb, onWinCb, onLoseCb, updateBaseHealthCb) {
@@ -64,6 +72,7 @@ export class GameEngine {
     this.drawExplosionEffect = new DrawExplosionEffect(this);
     this.drawEntities = new DrawEntities(this);
     this.drawUIs = new DrawUIs(this);
+    this.animationManager = null;
 
     // Mapping of card names to their respective DefenderUnit classes
     this.defenderUnitClasses = {
@@ -179,9 +188,9 @@ export class GameEngine {
       levelNumber: 1,
       enemySpawnInterval: 3000, // 3 seconds
       maxActiveEnemies: 8,
-      totalEnemiesToSpawn: 20,
+      totalEnemiesToSpawn: 2,
       waves: 3,
-      availableEnemyTypes:  ["EMP", "Exploder"],
+      availableEnemyTypes:  ["Basic Zombie"],
           // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
           //  "Exploder", "Skeleton Shooter", "Shielder",
           // "Healer", "Splitter", "Mini", "Swarm Witch",
@@ -308,7 +317,7 @@ export class GameEngine {
    * @param {number} height - The height of the canvas.
    * @param {number} levelNumber - The number of the level to initialize.
    */
-  initialize(canvas, width, height, levelNumber) {
+  async initialize(canvas, width, height, levelNumber) {
     // CRITICAL: Stop any existing game loop FIRST
     this.stopLoop();
 
@@ -344,6 +353,8 @@ export class GameEngine {
                                        (enemyType) => this.spawnEnemyOfType(enemyType),
                                        this);
 
+    await this.loadEnemyAnimations();
+
     // Preload all necessary images for the current level
     const allImages = {
       ...this.currentLevelConfig.enemyAssets,
@@ -371,6 +382,43 @@ export class GameEngine {
         });
   }
 
+  async loadEnemyAnimations() {
+    this.animationManager = new AnimationManager();
+
+    //TODO: Define sprite sheet for each enemy type
+    const enemyAnimations = {
+      'Basic Zombie': {
+        idle: {
+          path: BasicZombieIdle,
+          frameCount: 1, frameWidth: 64, frameHeight: 64
+        },
+
+        move: {
+          path: BasicZombieMove,
+          frameCount: 8, frameWidth: 64, frameHeight: 64
+        },
+        attack: {
+          path: BasicZombieAttack,
+          frameCount: 12, frameWidth: 64, frameHeight: 64
+        },
+        hit: {
+          path: BasicZombieHit,
+          frameCount: 4, frameWidth: 64, frameHeight: 64
+        },
+        death: {
+          path: BasicZombieDeath,
+          frameCount: 6, frameWidth: 64, frameHeight: 64
+        }
+      }
+    };
+    //load only animation for enemy in current level
+    for (const enemyType of this.currentLevelConfig.availableEnemyTypes) {
+      if (enemyAnimations[enemyType]) {
+        await this.animationManager.loadUnitAnimation(enemyType, enemyAnimations[enemyType]);
+      }
+    }
+  }
+
   spawnEnemyOfType(enemyType) {
     const EnemyClass = this.enemyClasses[enemyType];
     if (!EnemyClass) {
@@ -379,9 +427,14 @@ export class GameEngine {
     }
     const spawnX = -100;
     const spawnY = this.gridManager.getRandomSpawnY();
-    const enemy = new EnemyClass(spawnX, spawnY, this.getImage(enemyType));
 
-    if (enemy.setGameEngine()) {
+    let enemy;
+    if (this.animationManager?.hasAnimation(enemyType)) {
+      enemy = new AnimatedEnemyWrapper(EnemyClass, spawnX, spawnY, this.animationManager);
+    } else {
+      enemy = new EnemyClass(spawnX, spawnY, this.getImage(enemyType));
+    }
+    if (enemy.setGameEngine) {
       enemy.setGameEngine(this);
     }
     this.enemies.push(enemy);
@@ -712,6 +765,22 @@ export class GameEngine {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
 
+      //handle animated enemies with death animation
+      if (enemy instanceof AnimatedEnemyWrapper) {
+        if (enemy.deathComplete) {
+          this.enemies.splice(i, 1);
+          continue;
+        }
+        //check actual enemy alive state
+        if (!enemy.enemy.isAlive && !enemy.isAnimationDeath) {
+          //let animation play out
+          continue;
+        }
+      } else if (!enemy || !enemy.isAlive) {
+        this.enemies.splice(i, 1);
+        continue;
+      }
+
       // REMOVE DEAD ENEMIES FIRST
       if (!enemy || !enemy.isAlive) {
         this.enemies.splice(i, 1);
@@ -730,15 +799,15 @@ export class GameEngine {
         continue;
       }
       // Handle special abilities (only for alive enemies)
-      if (enemy.activateSpecialAbility) {
-        enemy.activateSpecialAbility(this.defenders);
-
-        if (!enemy.isAlive) {
-          this.handleEnemyDeath(enemy);  // Use handleEnemyDeath instead of inline scoring
-          this.enemies.splice(i, 1);
-          continue;
-        }
-      }
+      // if (enemy.activateSpecialAbility) {
+      //   enemy.activateSpecialAbility(this.defenders);
+      //
+      //   if (!enemy.isAlive) {
+      //     this.handleEnemyDeath(enemy);  // Use handleEnemyDeath instead of inline scoring
+      //     this.enemies.splice(i, 1);
+      //     continue;
+      //   }
+      // }
 
       // Double-check that enemy is actually alive (health > 0)
       if (enemy.health <= 0) {

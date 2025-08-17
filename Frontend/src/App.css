@@ -10,6 +10,7 @@ src/
 |   |    |   |-- Draws/
 |   |    |   |   |-- DrawEntities.js
 |   |    |   |   |-- DrawExplosionEffect.js
+|   |    |   |   |-- DrawNegativeEffect.js
 |   |    |   |   |-- DrawUIs.js
 |   |    |   |-- Drops/
 |   |    |   |   |-- CardPieceDrop.js
@@ -25,13 +26,17 @@ src/
 │   │    ├── GameContext.jsx
 │   │    └── GameEngine.js
 │   ├── GameRendering/
+|   |    |-- LobbyButton/
+|   |    |   |-- AchievementPage.jsx
+|   |    |   |-- CollectionPage.jsx
+|   |    |   |-- SettingModal.jsx
+|   |    |   |-- UpgradeModal.jsx
 |   |    |-- CardSelectionModal.jsx
 |   |    |-- EnergyBar.jsx
 │   │    ├── GameBoard.jsx
 │   │    ├── Lobby.jsx
 │   │    ├── MapLayout.jsx
 │   │    └── ResourceIcon.jsx
-│   │    ├── UpgradeModal.jsx
 |   |    |-- UseMobileOrientation.js
 ├── style/
 |   |-- AchievementPage.css

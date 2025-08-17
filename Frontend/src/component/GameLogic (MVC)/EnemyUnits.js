@@ -167,10 +167,6 @@ export class Enemy {
     return false; // Indicate that enemy did not die
   }
 
-  activateSpecialAbility(gameEntities) {
-    // Default does not have any but can be overridden
-  }
-
   findClosestDefender(defenderUnits) {
     let closest = null;
     let minDistance = Infinity;
@@ -207,8 +203,8 @@ export class BasicEnemy extends Enemy {
       speed: 0.8,
       health: 100,
       color: "darkgreen",
-      width: 30,
-      height: 30,
+      width: 80,
+      height: 80,
       image: image,
       bounty: 10,
       isAttacker: true, // Basic Zombie attacks
@@ -264,7 +260,7 @@ export class TankEnemy extends Enemy {
     const actualDamage = (this.hasArmor && !ignoreArmor)
                          ? amount * this.armorReduction : amount;
 
-    const died = super.takeDamage(actualDamage);
+    const died = super.takeDamage(actualDamage, ignoreArmor);
 
     if (this.isAlive && !this.raged && this.health / this.maxHealth <= this.rageThreshold) {
       this.speed *= this.rageSpeedMultiplier;
@@ -296,25 +292,23 @@ export class BombEnemy extends Enemy {
   }
 
   // Explode on death
-  takeDamage(amount) {
-    const died = super.takeDamage(amount);
+  takeDamage(amount, ignoreArmor = false) {
+    const died = super.takeDamage(amount, ignoreArmor);
     if (died) {
       this.shouldExplode = true; // Mark for explosion
     }
     return died;
   }
 
-  // This method should be called by GameEngine's update loop if BombEnemy needs to explode when near a defender
-  // even if it hasn't died yet.
-  activateSpecialAbility(defenders) {
-    // Check if alive AND not already marked for explosion
+  update(defenderUnits) {
+    super.update(defenderUnits);
     if (!this.isAlive || this.shouldExplode) return;
 
     // If close then explode
-    const nearestDefender = defenders.find(
-      (defender) => defender.isAlive &&
-        Math.hypot(this.x - defender.x, this.y - defender.y) <
-          this.explosionRadius / 2); //reduce range for explosion detection
+    const nearestDefender = defenderUnits.find(
+        (defender) => defender.isAlive &&
+                      Math.hypot(this.x - defender.x, this.y - defender.y) <
+                      this.explosionRadius / 2); //reduce range for explosion detection
     if (nearestDefender) {
       console.log(`${this.name} self-destructs near a defender!`);
       console.log(`${this.name} deal ${this.attackDamage}`)
@@ -423,18 +417,18 @@ export class ShieldEnemy extends Enemy {
     this.blockChance = 0.7; // to block frontal projectile damage
   }
 
-  takeDamage(amount) {
+  takeDamage(amount, ignoreArmor = false) {
     if (this.shieldActive && Math.random() < this.blockChance) {
       this.shieldHealth -= amount;
       if (this.shieldHealth <= 0) {
         this.shieldActive = false;
         const excess = Math.abs(this.shieldHealth);
         this.shieldHealth = 0;
-        return super.takeDamage(excess);
+        return super.takeDamage(excess, ignoreArmor);
       }
       return false; //didnt die
     }
-    return super.takeDamage(amount);
+    return super.takeDamage(amount, ignoreArmor);
   }
 
   draw(ctx) {
@@ -548,8 +542,8 @@ export class SplitterEnemy extends Enemy {
     this.hasSplit = false;
   }
 
-  takeDamage(amount) {
-    const died = super.takeDamage(amount);
+  takeDamage(amount, ignoreArmor = false) {
+    const died = super.takeDamage(amount, ignoreArmor);
     if (died && !this.hasSplit) {
       this.splitIntoMinis();
       this.hasSplit = true;
@@ -769,8 +763,8 @@ export class EMPEnemy extends Enemy {
     this.hasExploded = false;
   }
 
-  takeDamage(amount) {
-    const died = super.takeDamage(amount);
+  takeDamage(amount, ignoreArmor = false) {
+    const died = super.takeDamage(amount, ignoreArmor);
     if (died && !this.hasExploded) {
       this.triggerEMP();
       this.hasExploded = true;
