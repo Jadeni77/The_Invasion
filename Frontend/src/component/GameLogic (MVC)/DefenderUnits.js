@@ -136,7 +136,7 @@ export class DefenderUnit {
   }
 
   takeDamage(amount) {
-    console.log(`Damge took ${amount}`);
+    console.log(`Damage took ${amount}`);
     this.health -= amount;
     if (this.health <= 0) {
       this.health = 0;
@@ -144,11 +144,6 @@ export class DefenderUnit {
       return true; // Indicate defender died
     }
     return false; // Indicate defender alive
-  }
-
-  activateSpecialAbility(allGameEntities) {
-    // Pass all entities for flexibility
-    // Default: no special ability or ability that requires no specific targets
   }
 
   setGameEngine(engine) {

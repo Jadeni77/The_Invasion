@@ -20,10 +20,6 @@ export class AnimatedEnemyWrapper {
 
         this.onAnimationComplete = null;
 
-        //track to detect state
-        this.wasAttacking = false;
-        this.wasMoving = true;
-
         //make the warpper to act like enemy
         this.proxyEnemyProperties();
     }
@@ -63,8 +59,9 @@ export class AnimatedEnemyWrapper {
     }
 
     attack(target, currentTime) {
-        this.enemy.attack(target, currentTime);
-
+        if (!this.enemy.isRanged) {
+            this.enemy.attack(target, currentTime);
+        }
         //play attack animation
         if (this.enemy.isAlive && !this.isAnimationDeath) {
             console.log(`${this.enemy.name} is attacking - playing attack animation`);

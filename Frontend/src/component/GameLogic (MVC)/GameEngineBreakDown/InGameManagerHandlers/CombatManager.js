@@ -14,7 +14,12 @@ export class CombatManager {
      * @param now the current real time
      */
     updateDefenderCombat(defenders, enemies, now) {
-        for (const defender of defenders) {
+        for (const defenderWrapper of defenders) {
+            //get the actual class (handles both wrap and unwrap
+            const isWrapped = defenderWrapper.defender !== undefined;
+            const defender = isWrapped ? defenderWrapper.defender : defenderWrapper;
+
+
             if (!defender.isAlive || defender.disabled) continue;
 
             //handle defender attack if they can
@@ -54,7 +59,10 @@ export class CombatManager {
      * @param now the current real time
      */
     updateEnemyCombat(defenders, enemies, now) {
-        for (const enemy of enemies) {
+        for (const enemyWrapper of enemies) {
+            const isWrapped = enemyWrapper.enemy !== undefined;
+            const enemy = isWrapped ? enemyWrapper.enemy : enemyWrapper;
+
             if (!enemy.isAttacker || !enemy.isAlive) continue;
 
             if (enemy.isAttacker && enemy.canAttack(now)) {
