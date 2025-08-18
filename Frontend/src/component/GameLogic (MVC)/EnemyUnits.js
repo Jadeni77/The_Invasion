@@ -208,7 +208,7 @@ export class BasicEnemy extends Enemy {
       image: image,
       bounty: 10,
       isAttacker: true, // Basic Zombie attacks
-      attackDamage: 10,
+      attackDamage: 30,
       attackRate: 60,
     });
   }

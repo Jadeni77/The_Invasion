@@ -1,3 +1,5 @@
+import {AnimatedEnemyWrapper} from "../../Animation/AnimatedEnemyWrapper.js";
+
 export class DrawEntities {
     constructor(gameEngine) {
         this.gameEngine = gameEngine;
@@ -15,7 +17,11 @@ export class DrawEntities {
     /** Draws all active enemy units. */
     drawEnemies(ctx) {
         for (const enemy of this.gameEngine.enemies) {
-            if (enemy.isAlive) {
+            if (enemy instanceof AnimatedEnemyWrapper) {
+                enemy.draw(ctx);
+            }
+            //regular enemy
+            else if (enemy.isAlive) {
                 enemy.draw(ctx);
             }
         }

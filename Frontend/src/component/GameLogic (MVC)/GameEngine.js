@@ -24,7 +24,6 @@ import {AnimationManager} from "./Animation/AnimationManager.js";
 import {AnimatedEnemyWrapper} from "./Animation/AnimatedEnemyWrapper.js";
 
 import BasicZombieIdle from '../../assets/enemies/Enemy3No-Move-Idle.png';
-import BasicZombieHit from '../../assets/enemies/Enemy3No-Move-Hit.png';
 import BasicZombieDeath from '../../assets/enemies/Enemy3No-Move-Die.png';
 import BasicZombieAttack from '../../assets/enemies/Enemy3No-Move-AttackSmashStart.png';
 import BasicZombieMove from '../../assets/enemies/Enemy3No-Move-Fly.png';
@@ -188,7 +187,7 @@ export class GameEngine {
       levelNumber: 1,
       enemySpawnInterval: 3000, // 3 seconds
       maxActiveEnemies: 8,
-      totalEnemiesToSpawn: 2,
+      totalEnemiesToSpawn: 20,
       waves: 3,
       availableEnemyTypes:  ["Basic Zombie"],
           // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
@@ -401,13 +400,9 @@ export class GameEngine {
           path: BasicZombieAttack,
           frameCount: 12, frameWidth: 64, frameHeight: 64
         },
-        hit: {
-          path: BasicZombieHit,
-          frameCount: 4, frameWidth: 64, frameHeight: 64
-        },
         death: {
           path: BasicZombieDeath,
-          frameCount: 6, frameWidth: 64, frameHeight: 64
+          frameCount: 15, frameWidth: 64, frameHeight: 64
         }
       }
     };
@@ -767,57 +762,62 @@ export class GameEngine {
 
       //handle animated enemies with death animation
       if (enemy instanceof AnimatedEnemyWrapper) {
+        //remove enemy only when the death animation is completed
         if (enemy.deathComplete) {
+          console.log(`🗑️ Removing ${enemy.enemy.name} - death animation complete`);
           this.enemies.splice(i, 1);
           continue;
         }
-        //check actual enemy alive state
-        if (!enemy.enemy.isAlive && !enemy.isAnimationDeath) {
-          //let animation play out
+        //always call update
+        enemy.update(this.defenders);
+
+        // If enemy just died, handle game effects but DON'T remove
+        const actualEnemy = enemy.enemy;
+        if (!actualEnemy.isAlive && actualEnemy.health <= 0 && !enemy.isAnimationDeath) {
+          // This case shouldn't happen as death is handled in takeDamage
+          console.log(`⚠️ Enemy died without animation starting`);
+          this.handleEnemyDeath(enemy);
+        }
+
+        // Skip further processing if death animation is playing
+        // if (enemy.isAnimationDeath) {
+        //   continue;
+        // }
+      } else {
+        //regular enemy without animation
+        if (!enemy || !enemy.isAlive) {
+          this.enemies.splice(i, 1);
           continue;
         }
-      } else if (!enemy || !enemy.isAlive) {
-        this.enemies.splice(i, 1);
-        continue;
+        enemy.update(this.defenders);
       }
 
-      // REMOVE DEAD ENEMIES FIRST
-      if (!enemy || !enemy.isAlive) {
-        this.enemies.splice(i, 1);
-        continue;
-      }
       if (!enemy.gameEngine) {
         console.warn(`Enemy ${enemy.name} lost gameEngine reference, restoring...`);
         enemy.gameEngine = this;
       }
-      // Update enemy (movement and attacks)
-      enemy.update(this.defenders);
-      // Check if enemy died during update
-      if (!enemy.isAlive) {
-        this.handleEnemyDeath(enemy);
-        this.enemies.splice(i, 1);
-        continue;
-      }
-      // Handle special abilities (only for alive enemies)
-      // if (enemy.activateSpecialAbility) {
-      //   enemy.activateSpecialAbility(this.defenders);
-      //
-      //   if (!enemy.isAlive) {
-      //     this.handleEnemyDeath(enemy);  // Use handleEnemyDeath instead of inline scoring
-      //     this.enemies.splice(i, 1);
-      //     continue;
-      //   }
-      // }
 
-      // Double-check that enemy is actually alive (health > 0)
-      if (enemy.health <= 0) {
-        enemy.isAlive = false;
-        this.enemies.splice(i, 1);
-        continue;
+      const actualEnemy = enemy instanceof AnimatedEnemyWrapper ? enemy.enemy : enemy;
+
+      // Check if enemy died during update
+      if (!actualEnemy.isAlive && actualEnemy.health <= 0) {
+        // For animated enemies, DON'T remove yet - let death animation play in next cycle
+        if (enemy instanceof AnimatedEnemyWrapper) {
+          if (!enemy.isAnimationDeath) {
+            console.log(`🎬 Enemy ${actualEnemy.name} just died, death animation will start next frame`);
+            // Animation will be handled in next update cycle
+          }
+          continue;
+        } else {
+          // Regular enemies get removed immediately
+          this.handleEnemyDeath(enemy);
+          this.enemies.splice(i, 1);
+          continue;
+        }
       }
 
       // Only check defense line for ALIVE enemies
-      if (enemy.x + enemy.width >= this.defenseLineX) {
+      if (actualEnemy.isAlive && actualEnemy.x + actualEnemy.width >= this.defenseLineX) {
         if (!this.gameOver) {
           const damage = 10;
           this.baseHealth = Math.max(0, this.baseHealth - damage);
@@ -840,21 +840,24 @@ export class GameEngine {
   }
 
   handleEnemyDeath(enemy) {
+    // Get the actual enemy (unwrap if it's an AnimatedEnemyWrapper)
+    const actualEnemy = enemy instanceof AnimatedEnemyWrapper ? enemy.enemy : enemy;
+
     if (!this.gameOver) {
-      if (!enemy.isSpawned && !enemy.shouldExplode) {
-        this.inGameScore += enemy.bounty;
+      if (!actualEnemy.isSpawned && !actualEnemy.shouldExplode) {
+        this.inGameScore += actualEnemy.bounty;
         this.updateScoreCb(this.inGameScore);
-        this.dropManager.handleEnemyDeath(enemy);
+        this.dropManager.handleEnemyDeath(actualEnemy);
       } else {
-        console.log(`Spawned enemy ${enemy.name} killed - no score awarded`);
+        console.log(`Spawned enemy ${actualEnemy.name} killed - no score awarded`);
       }
     }
-    if (enemy.shouldExplode) {
+    if (actualEnemy.shouldExplode) {
       this.addEnemyExplosion(
-          enemy.x + enemy.width / 2,
-          enemy.y + enemy.height / 2,
-          enemy.attackDamage,
-          enemy.explosionRadius,
+          actualEnemy.x + actualEnemy.width / 2,
+          actualEnemy.y + actualEnemy.height / 2,
+          actualEnemy.attackDamage,
+          actualEnemy.explosionRadius,
           );
     }
   }

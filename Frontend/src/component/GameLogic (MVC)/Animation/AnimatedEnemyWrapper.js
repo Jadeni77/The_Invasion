@@ -1,6 +1,3 @@
-/**
- * Wrap existing enemies with animation
- */
 export class AnimatedEnemyWrapper {
     constructor(enemyClass, x, y, animationManager) {
         //create the actual enemy
@@ -11,7 +8,7 @@ export class AnimatedEnemyWrapper {
         this.currentAnimation = 'move'; //enemy move from spawn
         this.currentFrame = 0;
         this.frameTimer = 0;
-        this.animationSpeed = 4; //low = faster animation
+        this.animationSpeed = 8; //low = faster animation
 
         //state flag
         this.isAnimationAttack = false;
@@ -20,7 +17,11 @@ export class AnimatedEnemyWrapper {
 
         this.onAnimationComplete = null;
 
-        //make the warpper to act like enemy
+        //track to detect state
+        this.wasAttacking = false;
+        this.wasMoving = true;
+
+        //make the wrapper to act like enemy
         this.proxyEnemyProperties();
     }
 
@@ -29,7 +30,7 @@ export class AnimatedEnemyWrapper {
         const props = ['x', 'y', 'width', 'height', 'isAlive', 'health', 'maxHealth',
                        'name', 'id', 'isSpawned', 'speed', 'isAttacker', 'attackDamage',
                        'isAttacking', 'gameEngine', 'shouldExplode', 'explosionRadius',
-                       'isRanged', 'attackRange', 'isMoving'];
+                       'isRanged', 'attackRange', 'isMoving', 'bounty'];
         props.forEach(prop => {
             Object.defineProperty(this, prop, {
                 get: () => this.enemy[prop],
@@ -38,25 +39,28 @@ export class AnimatedEnemyWrapper {
         });
     }
 
-    //delete the method to actual enemy
+    //delegate the method to actual enemy
     setGameEngine(engine) {
-        //?. can access properties that is null or undefine without causing error
         this.enemy.setGameEngine?.(engine);
     }
 
     takeDamage(amount, ignoreArmor) {
-        const wasAlive = this.enemy.isAlive;
         const died = this.enemy.takeDamage(amount, ignoreArmor);
 
-        //play hit animation if there is one and enemy is alive
-        if (wasAlive && this.enemy.isAlive && !this.isAnimationDeath) {
-            const frames = this.animationManager.getFrames(this.enemy.name, 'hit');
-            if (frames.length > 0) {
-                this.playAnimation('hit', () => {
-                    //return to move/idle after hit
-                    this.currentAnimation = this.enemy.isMoving ? 'move' : 'idle';
-                });
+        if (died && !this.isAnimationDeath) {
+            console.log(`💀 ${this.enemy.name} died from damage - starting death animation`);
+            this.isAnimationDeath = true;
+
+            // Handle game effects immediately (score, drops, etc.)
+            // Comment this out temporarily to test if it's causing issues
+            if (this.enemy.gameEngine) {
+                this.enemy.gameEngine.handleEnemyDeath(this);
             }
+
+            this.playAnimation('death', () => {
+                console.log(`✓ ${this.enemy.name} death animation complete`);
+                this.deathComplete = true;
+            });
         }
         return died;
     }
@@ -65,9 +69,13 @@ export class AnimatedEnemyWrapper {
         this.enemy.attack(target, currentTime);
 
         //play attack animation
-        if (this.enemy.isAlive) {
+        if (this.enemy.isAlive && !this.isAnimationDeath) {
+            console.log(`${this.enemy.name} is attacking - playing attack animation`);
+            this.isAnimationAttack = true;
             this.playAnimation('attack', () => {
-                // Return to previous animation after attack
+                console.log(`${this.enemy.name} attack animation complete`);
+                this.isAnimationAttack = false;
+                // Return to move animation after attack
                 this.currentAnimation = this.enemy.isMoving ? 'move' : 'idle';
             });
         }
@@ -92,78 +100,127 @@ export class AnimatedEnemyWrapper {
             this.currentFrame = 0;
             this.frameTimer = 0;
             this.onAnimationComplete = onComplete;
+            console.log(`🎬 Starting ${animName} animation for ${this.enemy.name} with ${frames.length} frames`);
+        } else {
+            console.warn(`❌ No frames found for ${animName} animation of ${this.enemy.name}`);
+            // If no frames, immediately complete the animation
+            if (onComplete) {
+                onComplete();
+            }
         }
     }
 
     update(defenderUnits) {
-        //dont update if deadAnimation is complete
-        if (this.deathComplete) return;
-
-        //update enemy logic
-        this.enemy.update(defenderUnits);
-
-        //handle deadth animation
-        if (!this.enemy.isAlive && !this.isAnimationDeath) {
-            this.isAnimationDeath = true;
-            this.playAnimation('death', () => {
-                this.deathComplete = true;
-            });
+        // Don't update if death animation is complete
+        if (this.deathComplete) {
             return;
         }
 
-        // Update animation state based on enemy behavior
-        if (!this.isAnimationDeath &&
-            this.currentAnimation !== 'attack' &&
-            this.currentAnimation !== 'hit') {
-
-            const newAnimation = this.enemy.isMoving ? 'move' : 'idle';
-
-            // Only change animation if it's different (prevents resetting mid-cycle)
-            if (this.currentAnimation !== newAnimation) {
-                this.currentAnimation = newAnimation;
-                this.currentFrame = 0;
-                this.frameTimer = 0;
-            }
+        // PRIORITY 1: Handle death animation if it's playing
+        if (this.isAnimationDeath) {
+            console.log(`🎬 Death animation playing for ${this.enemy.name}, updating animation`);
+            this.updateAnimation();
+            return;  // Don't update enemy logic during death
         }
 
-        // //update animation base on enemy state
-        // if (!this.isAnimationDeath &&
-        //     this.currentAnimation !== 'attack' &&
-        //     this.currentAnimation !== 'hit') {
-        //
-        //     if (this.enemy.isAttacking) {
-        //         this.currentAnimation = 'attack'; //TODO: Check this later
-        //     } else if (this.enemy.isMoving) {
-        //         this.currentAnimation = 'move';
-        //     } else {
-        //         this.currentAnimation = 'idle';
-        //     }
-        // }
-        this.updateAnimation();
+        // PRIORITY 2: Update enemy logic only if alive
+        if (this.enemy.isAlive) {
+            this.enemy.update(defenderUnits);
+        }
+
+        // PRIORITY 3: Check if enemy just died (and death animation hasn't started)
+        if (!this.enemy.isAlive && !this.isAnimationDeath) {
+            console.log(`💀 ${this.enemy.name} died during update - starting death animation NOW`);
+            this.isAnimationDeath = true;
+
+            // Handle game effects
+            if (this.enemy.gameEngine) {
+                this.enemy.gameEngine.handleEnemyDeath(this);
+            }
+
+            this.playAnimation('death', () => {
+                console.log(`✓ ${this.enemy.name} death animation complete`);
+                this.deathComplete = true;
+            });
+            return; // Important: return here so we don't update other animations
+        }
+
+        // PRIORITY 4: Handle attack animations
+        if (this.isAnimationAttack) {
+            this.updateAnimation();
+            return;
+        }
+
+        // PRIORITY 5: Handle movement/idle animations only if alive and not dying
+        if (this.enemy.isAlive && !this.isAnimationDeath) {
+            const isCurrentlyMoving = this.enemy.isMoving !== false;
+            const isCurrentlyAttacking = this.enemy.isAttacking === true;
+
+            // Determine what animation to play
+            let desiredAnimation = 'move';
+            if (isCurrentlyAttacking) {
+                desiredAnimation = 'attack';
+            } else if (isCurrentlyMoving) {
+                desiredAnimation = 'move';
+            } else {
+                desiredAnimation = 'idle';
+            }
+
+            // Change animation if needed
+            if (this.currentAnimation !== desiredAnimation) {
+                console.log(`${this.enemy.name} changing animation: ${this.currentAnimation} -> ${desiredAnimation}`);
+                this.currentAnimation = desiredAnimation;
+                this.currentFrame = 0;
+                this.frameTimer = 0;
+                this.onAnimationComplete = null;
+            }
+
+            // Update the current animation
+            this.updateAnimation();
+        }
     }
 
     updateAnimation() {
         const frames = this.animationManager.getFrames(this.enemy.name, this.currentAnimation);
-        if (frames.length === 0) return;
+
+        // Log every frame update for death animation
+        if (this.currentAnimation === 'death') {
+            console.log(`⏱️ Death animation update - Frame: ${this.currentFrame}/${frames.length}, Timer: ${this.frameTimer}/${this.animationSpeed}`);
+        }
+
+        // If no frames, mark as complete if it's a death animation
+        if (frames.length === 0) {
+            console.warn(`⚠️ No frames for ${this.currentAnimation} animation of ${this.enemy.name}`);
+            if (this.currentAnimation === 'death' && this.onAnimationComplete) {
+                this.onAnimationComplete();
+                this.onAnimationComplete = null;
+            }
+            return;
+        }
 
         this.frameTimer++;
+
         if (this.frameTimer >= this.animationSpeed) {
             this.frameTimer = 0;
             this.currentFrame++;
 
-            //handle animation complete
+            // Log frame progress for death animation
+            if (this.currentAnimation === 'death') {
+                console.log(`💀 ${this.enemy.name} death frame advanced to: ${this.currentFrame}/${frames.length}`);
+            }
+
+            // Handle animation completion
             if (this.currentFrame >= frames.length) {
-                if (this.currentAnimation === 'death' ||
-                this.currentAnimation === 'attack' ||
-                this.currentAnimation === 'hit') {
-                    //non-looping animation
-                    this.currentFrame = frames.length - 1;
+                if (this.currentAnimation === 'death' || this.currentAnimation === 'attack') {
+                    // Non-looping animations
+                    this.currentFrame = frames.length - 1;  // Stay on last frame
                     if (this.onAnimationComplete) {
+                        console.log(`✅ ${this.currentAnimation} animation completed for ${this.enemy.name}`);
                         this.onAnimationComplete();
-                        this.onAnimationComplete = null; // Clear callback
+                        this.onAnimationComplete = null;
                     }
                 } else {
-                    //loop animation
+                    // Looping animations (move, idle)
                     this.currentFrame = 0;
                 }
             }
@@ -171,12 +228,14 @@ export class AnimatedEnemyWrapper {
     }
 
     draw(ctx) {
-        if (this.deathComplete) return;
+        if (this.deathComplete) {
+            return;
+        }
 
         const frames = this.animationManager.getFrames(this.enemy.name, this.currentAnimation);
 
         if (frames.length > 0 && frames[this.currentFrame]) {
-            //draw animate sprite
+            // Draw animated sprite
             ctx.drawImage(
                 frames[this.currentFrame],
                 this.enemy.x,
@@ -184,28 +243,42 @@ export class AnimatedEnemyWrapper {
                 this.enemy.width,
                 this.enemy.height
             );
-            //TODO: remove after bug fix
-            ctx.strokeStyle = 'red';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(this.enemy.x, this.enemy.y, this.enemy.width, this.enemy.height);
 
+            // Debug info for death animation
+            if (this.isAnimationDeath) {
+                ctx.fillStyle = 'yellow';
+                ctx.font = '12px Arial';
+                ctx.fillText(`Death: ${this.currentFrame}/${frames.length}`, this.enemy.x, this.enemy.y - 20);
+            }
         } else {
-            //fallback to enemy default draw (the rectangle block)
+            // Fallback to enemy default draw
             this.enemy.draw(ctx);
             return;
         }
-        //draw UI element (health bar, name, etc)
-        this.drawUI(ctx);
+
+        // Draw UI elements only if not dead
+        if (!this.isAnimationDeath) {
+            this.drawUI(ctx);
+        }
     }
 
     drawUI(ctx) {
-        // Health bar
-        if (this.enemy.health < this.enemy.maxHealth) {
+        // Health bar - only show if damaged and alive
+        if (this.enemy.health < this.enemy.maxHealth && this.enemy.health > 0) {
             ctx.fillStyle = "red";
             ctx.fillRect(this.enemy.x, this.enemy.y - 10, this.enemy.width, 5);
             ctx.fillStyle = "lime";
-            const healthWidth = (this.enemy.health / this.enemy.maxHealth) * this.enemy.width;
+            const healthWidth = Math.max(0, (this.enemy.health / this.enemy.maxHealth) * this.enemy.width);
             ctx.fillRect(this.enemy.x, this.enemy.y - 10, healthWidth, 5);
+
+            // Health value
+            const healthValue = Math.max(0, Math.floor(this.enemy.health));
+            if (!isNaN(healthValue)) {
+                ctx.fillStyle = "white";
+                ctx.font = "10px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText(healthValue.toString(), this.enemy.x + this.enemy.width / 2, this.enemy.y - 15);
+            }
         }
 
         // Name
