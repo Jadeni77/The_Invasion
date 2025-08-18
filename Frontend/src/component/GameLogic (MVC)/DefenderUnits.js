@@ -200,11 +200,6 @@ export class BasicDefender extends DefenderUnit {
           this.gameEngine.inGameScore += target.bounty;
           this.gameEngine.updateScoreCb(this.gameEngine.inGameScore);
           this.gameEngine.dropManager.handleEnemyDeath(target);
-          //remove from enemy array
-          const enemyIndex = this.gameEngine.enemies.findIndex(e => e.id === target.id);
-          if (enemyIndex !== -1) {
-            this.gameEngine.enemies.splice(enemyIndex, 1);
-          }
         }
     }
 
@@ -878,11 +873,6 @@ export class Sniper extends DefenderUnit {
     this.gameEngine.inGameScore += enemy.bounty;
     this.gameEngine.updateScoreCb(this.gameEngine.inGameScore);
     this.gameEngine.dropManager.handleEnemyDeath(enemy);
-
-    const enemyIndex = this.gameEngine.enemies.findIndex(e => e.id === enemy.id);
-    if (enemyIndex !== -1) {
-      this.gameEngine.enemies.splice(enemyIndex, 1);
-    }
   }
 
   draw(ctx) {

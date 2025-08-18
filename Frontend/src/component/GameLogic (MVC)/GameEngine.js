@@ -391,7 +391,24 @@ export class GameEngine {
           path: BasicZombieIdle,
           frameCount: 1, frameWidth: 64, frameHeight: 64
         },
-
+        move: {
+          path: BasicZombieMove,
+          frameCount: 8, frameWidth: 64, frameHeight: 64
+        },
+        attack: {
+          path: BasicZombieAttack,
+          frameCount: 12, frameWidth: 64, frameHeight: 64
+        },
+        death: {
+          path: BasicZombieDeath,
+          frameCount: 15, frameWidth: 64, frameHeight: 64
+        }
+      },
+      'Fast Zombie': {
+        idle: {
+          path: BasicZombieIdle,
+          frameCount: 1, frameWidth: 64, frameHeight: 64
+        },
         move: {
           path: BasicZombieMove,
           frameCount: 8, frameWidth: 64, frameHeight: 64
