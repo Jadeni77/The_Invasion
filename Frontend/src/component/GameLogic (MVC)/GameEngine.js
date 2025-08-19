@@ -192,7 +192,7 @@ export class GameEngine {
       maxActiveEnemies: 8,
       totalEnemiesToSpawn: 20,
       waves: 3,
-      availableEnemyTypes:  ["Basic Zombie"],
+      availableEnemyTypes:  ["Skeleton Shooter"],
           // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
           //  "Exploder", "Skeleton Shooter", "Shielder",
           // "Healer", "Splitter", "Mini", "Swarm Witch",
@@ -737,13 +737,13 @@ export class GameEngine {
         actualDefender = defender;
         shouldRemove = !actualDefender.isAlive && actualDefender.health <= 0;
         if (shouldRemove) {
-          console.log(`Removing non-animated defender ${actualDefender.name}`);
+        //  console.log(`Removing non-animated defender ${actualDefender.name}`);
           newRecentlyDied.push(defender);
         }
       }
       //free the grid cell
       if (shouldRemove) {
-        console.log('free cell');
+      //  console.log('free cell');
         const gridCell = this.gridManager.getGridCell(
             actualDefender.x + actualDefender.width / 2,
             actualDefender.y + actualDefender.height / 2

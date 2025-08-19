@@ -62,13 +62,21 @@ export class AnimatedEnemyWrapper {
         if (!this.enemy.isRanged) {
             this.enemy.attack(target, currentTime);
         }
+        this.enemy.lastAttackTime = currentTime;
         //play attack animation
-        if (this.enemy.isAlive && !this.isAnimationDeath) {
+        if (this.enemy.isAlive && !this.isAnimationDeath &&  !this.isAnimationAttack) {
             console.log(`${this.enemy.name} is attacking - playing attack animation`);
             this.isAnimationAttack = true;
             this.playAnimation('attack', () => {
                 console.log(`${this.enemy.name} attack animation complete`);
                 this.isAnimationAttack = false;
+
+                // Reset to appropriate animation after attack
+                if (this.enemy.isAlive && !this.isAnimationDeath) {
+                    this.currentAnimation = 'move';
+                    this.currentFrame = 0;
+                    this.frameTimer = 0;
+                }
             });
         }
     }
@@ -106,9 +114,17 @@ export class AnimatedEnemyWrapper {
         //dont update if deadAnimation is complete
         if (this.deathComplete) return;
 
-        if (this.isAnimationDeath || this.isAnimationAttack) {
+        if (this.isAnimationDeath) {
             this.updateAnimation();
             return;  // Don't update enemy logic during death
+        }
+
+        if (this.isAnimationAttack) {
+            this.updateAnimation();
+            if (this.enemy.isAlive && this.enemy.isRanged) {
+                this.enemy.update(defenderUnits);
+            }
+            return;
         }
         //update enemy logic
         if (this.enemy.isAlive) {
@@ -123,16 +139,15 @@ export class AnimatedEnemyWrapper {
                 this.deathComplete = true;
             });
             this.updateAnimation();
+            return;
         }
 
-        const isCurrentlyMoving = this.enemy.isMoving;
-        const isCurrentlyAttacking = this.enemy.isAttacking;
-
-        //determine what animation to play
+        if (!this.isAnimationAttack && !this.isAnimationDeath && this.enemy.isAlive) {
+            //determine what animation to play
         let desireAnimation = 'move';
-        if (isCurrentlyAttacking) {
+        if (this.enemy.isAttacking) {
             desireAnimation = 'attack';
-        } else if (isCurrentlyMoving) {
+        } else if (this.enemy.isMoving) {
             desireAnimation = 'move';
         }
         //animation change
@@ -143,7 +158,7 @@ export class AnimatedEnemyWrapper {
             this.frameTimer = 0;
             this.onAnimationComplete = null;
         }
-
+}
         this.updateAnimation();
     }
 
@@ -171,7 +186,7 @@ export class AnimatedEnemyWrapper {
 
             //handle animation complete
             if (this.currentFrame >= frames.length) {
-                if (this.currentAnimation === 'death') {
+                if (this.currentAnimation === 'death' ) {
                     //non-looping animation
                     this.currentFrame = frames.length - 1;
                     if (this.onAnimationComplete) {

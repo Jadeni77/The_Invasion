@@ -7,7 +7,7 @@ export class AnimationSources {
 
     enemyAnimation() {
         return {
-            'Basic Zombie': {
+            'Skeleton Shooter': {
                 idle: {
                     path: BasicZombieIdle,
                     frameCount: 1, frameWidth: 64, frameHeight: 64
