@@ -40,12 +40,18 @@ export class CombatManager {
                             onHit: () => {
                                 defender.attack(target, now);
                             }});
-                            defender.lastAttackTime = now;
+                            if (isWrapped) {
+                                defenderWrapper.attack(target, now);
+                            } else {
+                                defender.lastAttackTime = now;
+                            }
                         } else {
-                            defender.attack(target, now);
+                            if (isWrapped) {
+                                defenderWrapper.attack(target, now);
+                            } else {
+                                defender.attack(target, now);
+                            }
                         }
-                    } else {
-                        defender.attack(target, now); // Defender performs its attack
                     }
                 }
             }
@@ -80,10 +86,17 @@ export class CombatManager {
                         onHit: () => {
                             enemy.attack(target, now);
                         }});
-                        enemy.lastAttackTime = now;
+                        if (isWrapped) {
+                            enemyWrapper.attack(target, now);
+                        } else {
+                            enemy.lastAttackTime = now;
+                        }
                     } else {
-                        enemy.attack(target, now);
-                    }
+                        if (isWrapped) {
+                            enemyWrapper.attack(target, now);
+                        } else {
+                            enemy.lastAttackTime = now;
+                        }                    }
                 }
             }
         }
@@ -99,7 +112,8 @@ export class CombatManager {
         let closestEnemy = null;
         let closestDistance = Infinity;
 
-        for (const enemy of enemies) {
+        for (const enemyWrapper of enemies) {
+            const enemy = enemyWrapper.enemy || enemyWrapper;
             if (!enemy.isAlive) continue;
 
             // Calculate distance from defender's center to enemy's center
@@ -109,7 +123,7 @@ export class CombatManager {
             );
 
             if (distance <= defender.range && distance < closestDistance) {
-                closestEnemy = enemy;
+                closestEnemy = enemyWrapper;
                 closestDistance = distance;
             }
         }
@@ -126,7 +140,8 @@ export class CombatManager {
         let closestDefender = null;
         let closestDistance = Infinity;
 
-        for (const defender of defenders) {
+        for (const defenderWrapper of defenders) {
+            const defender = defenderWrapper.defender || defenderWrapper;
             if (!defender.isAlive) continue;
 
             const distance = Math.hypot(
@@ -135,7 +150,7 @@ export class CombatManager {
             );
 
             if (distance <= enemy.attackRange && distance < closestDistance) {
-                closestDefender = defender;
+                closestDefender = defenderWrapper;
                 closestDistance = distance;
             }
         }
