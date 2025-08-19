@@ -106,7 +106,7 @@ export class AnimatedEnemyWrapper {
         //dont update if deadAnimation is complete
         if (this.deathComplete) return;
 
-        if (this.isAnimationDeath) {
+        if (this.isAnimationDeath || this.isAnimationAttack) {
             this.updateAnimation();
             return;  // Don't update enemy logic during death
         }
@@ -123,12 +123,6 @@ export class AnimatedEnemyWrapper {
                 this.deathComplete = true;
             });
             this.updateAnimation();
-        }
-
-        // Skip animation state changes during death or attack animations
-        if (this.isAnimationAttack) {
-            this.updateAnimation();
-            return;
         }
 
         const isCurrentlyMoving = this.enemy.isMoving;

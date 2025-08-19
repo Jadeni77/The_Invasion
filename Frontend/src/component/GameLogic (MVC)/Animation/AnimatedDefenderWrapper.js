@@ -30,7 +30,9 @@ export class AnimatedDefenderWrapper {
         const props = ['x', 'y', 'width', 'height', 'isAlive', 'health', 'maxHealth',
                        'name', 'id', 'range', 'attackDamage', 'fireRate', 'cost',
                        'isRanged', 'gameEngine', 'disabled', 'disabledDuration',
-                       'lastAttackTime', 'level'];
+                       'lastAttackTime', 'level', 'useProjectile', 'hasArmorPiercing',
+                       'burning', 'burningDamage', 'burningDuration'];
+
         props.forEach(prop => {
             Object.defineProperty(this, prop, {
                 get: () => this.defender[prop],
@@ -49,11 +51,12 @@ export class AnimatedDefenderWrapper {
         const died = this.defender.takeDamage(amount);
 
         if (died && !this.isAnimationDeath) {
+            console.log("Debug Logging")
             this.isAnimationDeath = true;
             this.playAnimation('death', () => {
                 console.log(`✓ ${this.defender.name} death animation complete`);
                 this.deathComplete = true;
-            })
+            });
         }
         return died;
     }
@@ -64,6 +67,7 @@ export class AnimatedDefenderWrapper {
         }
         //play attack animation
         if (this.defender.isAlive && !this.isAnimationDeath && !this.isAnimationAttack) {
+            console.log("Debug Logging 2") //TODO: Not call
             this.isAnimationAttack = true;
             this.playAnimation('attack', () => {
                 console.log(`${this.defender.name} attack animation complete`);
@@ -89,12 +93,14 @@ export class AnimatedDefenderWrapper {
     }
 
     playAnimation(animName, onComplete) {
+        console.log(`PLay ANimation being call here for ${animName}`);
         const frames = this.animationManager.getFrames(this.defender.name, animName);
         if (frames.length > 0) {
             this.currentAnimation = animName;
             this.currentFrame = 0;
             this.frameTimer = 0;
             this.onAnimationComplete = onComplete;
+            console.log(`🎬 Starting ${animName} animation for ${this.defender.name} with ${frames.length} frames`);
         } else {
             if (onComplete) {
                 onComplete();
@@ -103,11 +109,16 @@ export class AnimatedDefenderWrapper {
     }
 
     update(enemies, defenderUnits) {
-        if (this.deathComplete) {
+        if (this.deathComplete) return;
+
+        if (this.isAnimationDeath || this.isAnimationAttack) {
+            this.updateAnimation();
             return;
         }
 
-        this.defender.update(enemies, defenderUnits);
+        if (this.defender.isAlive) {
+            this.defender.update(enemies, defenderUnits);
+        }
 
         //handle death animation
         if (!this.defender.isAlive && !this.isAnimationDeath) {
@@ -116,12 +127,7 @@ export class AnimatedDefenderWrapper {
                 console.log(`Death Animation for ${this.defender.name} is complete`);
                 this.deathComplete = true;
             });
-        }
-
-        // Don't change animation state if death or attack animation is playing
-        if (this.isAnimationDeath || this.isAnimationAttack) {
             this.updateAnimation();
-            return;
         }
 
         //defender are idling or attacking
