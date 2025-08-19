@@ -73,7 +73,11 @@ export class AnimatedEnemyWrapper {
 
                 // Reset to appropriate animation after attack
                 if (this.enemy.isAlive && !this.isAnimationDeath) {
-                    this.currentAnimation = 'move';
+                    if (this.enemy.isMoving === false) {
+                        this.currentAnimation = 'idle';
+                    } else if (this.enemy.isMoving === true) {
+                        this.currentAnimation = 'move';
+                    }
                     this.currentFrame = 0;
                     this.frameTimer = 0;
                 }
@@ -145,9 +149,11 @@ export class AnimatedEnemyWrapper {
         if (!this.isAnimationAttack && !this.isAnimationDeath && this.enemy.isAlive) {
             //determine what animation to play
         let desireAnimation = 'move';
-        if (this.enemy.isAttacking) {
+        if (this.enemy.isAttacking === true) {
             desireAnimation = 'attack';
-        } else if (this.enemy.isMoving) {
+        } else if (this.enemy.isMoving === false) {
+            desireAnimation = 'idle';
+        } else {
             desireAnimation = 'move';
         }
         //animation change
@@ -169,7 +175,15 @@ export class AnimatedEnemyWrapper {
             if (this.currentAnimation === 'death' && this.onAnimationComplete) {
                 this.onAnimationComplete();
                 this.onAnimationComplete = null;
-                console.log("UpdateAnimation() with no frame");
+                console.log("UpdateAnimation() with no frame for death");
+            } else if (this.currentAnimation === 'idle') {
+                // If no idle animation, fall back to move
+                this.currentAnimation = 'move';
+                console.log(`No idle animation for ${this.enemy.name}, falling back to move`);
+            } else if (this.currentAnimation === 'attack' && this.onAnimationComplete) {
+                this.onAnimationComplete();
+                this.onAnimationComplete = null;
+                console.log("UpdateAnimation() with no frame for attack");
             }
             return;
         }

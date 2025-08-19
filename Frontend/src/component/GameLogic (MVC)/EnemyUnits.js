@@ -70,12 +70,12 @@ export class Enemy {
       // Find the first defender in its path/collision range
       targetDefender = defenderUnits.find((defender) => {
         return (
-          // <--- CRITICAL FIX: Added return statement
-          defender.isAlive &&
-          this.x + this.width >= defender.x && // Enemy's right edge past defender's left edge
-          this.x <= defender.x + defender.width && // Enemy's left edge before defender's right edge
-          this.y + this.height >= defender.y && // Enemy's bottom edge past defender's top edge
-          this.y <= defender.y + defender.height // Enemy's top edge before defender's bottom edge
+            // <--- CRITICAL FIX: Added return statement
+            defender.isAlive &&
+            this.x + this.width >= defender.x && // Enemy's right edge past defender's left edge
+            this.x <= defender.x + defender.width && // Enemy's left edge before defender's right edge
+            this.y + this.height >= defender.y && // Enemy's bottom edge past defender's top edge
+            this.y <= defender.y + defender.height // Enemy's top edge before defender's bottom edge
         );
       });
 
@@ -133,18 +133,22 @@ export class Enemy {
     }
 
     // Health bar
-    ctx.fillStyle = "red";
-    ctx.fillRect(this.x, this.y - 10, this.width, 5); // Background of health bar
-    ctx.fillStyle = "lime";
-    const healthWidth = (this.health / this.maxHealth) * this.width;
-    ctx.fillRect(this.x, this.y - 10, healthWidth, 5); // Current health
+    if (this.health < this.maxHealth) {
+      ctx.fillStyle = "red";
+      ctx.fillRect(this.x, this.y - 10, this.width, 5);
+      ctx.fillStyle = "lime";
+      const healthWidth = (this.health / this.maxHealth) * this.width;
+      ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
 
-    // Debug Text (can be removed for production)
-    ctx.fillStyle = "white";
-    ctx.font = "10px Arial";
-    ctx.fillText(this.health.toFixed(0), this.x, this.y - 15); // Show health value
-    ctx.fillText(this.name.substring(0, 8), this.x, this.y + this.height + 10);
-
+      // Health value (ensure it's not NaN)
+      const healthValue = Math.max(0, Math.floor(this.health));
+      if (!isNaN(healthValue)) {
+        ctx.fillStyle = "white";
+        ctx.font = "10px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(healthValue.toString(), this.x + this.width / 2, this.y - 15);
+      }
+    }
   }
 
   drawFallback(ctx) {
@@ -338,11 +342,11 @@ export class BombEnemy extends Enemy {
       // Health less than 40%
       ctx.beginPath();
       ctx.arc(
-        this.x + this.width / 2,
-        this.y + this.height / 2,
-        this.width / 2 + Math.sin(Date.now() / 100) * 5, // Pulsating effect
-        0,
-        Math.PI * 2
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.width / 2 + Math.sin(Date.now() / 100) * 5, // Pulsating effect
+          0,
+          Math.PI * 2
       );
       ctx.strokeStyle = "rgba(255, 255, 0, 0.8)"; // Yellow pulsating border
       ctx.lineWidth = 2;
@@ -474,11 +478,11 @@ export class HealerEnemy extends Enemy {
   }
 
   update(defenderUnits) {
-     super.update(defenderUnits);
+    super.update(defenderUnits);
 
-     if (!this.isAlive) return;
+    if (!this.isAlive) return;
 
-     //healing logic
+    //healing logic
     this.currentHealCooldown--;
     if (this.currentHealCooldown <= 0) {
       this.healNearbyEnemy();
@@ -678,32 +682,32 @@ export class SwarmLeader extends Enemy {
 
     //spawn enemy
     this.currentSpawnCooldown--;
-     if (this.currentSpawnCooldown <= 0) {
-       let spawnEnemy = null;
-       if (Math.random() < this.spawnTankChance && Math.random() > this.spawnItselfChance) {
-         spawnEnemy = new TankEnemy(
-             this.x - 30,
-             this.y + (Math.random() - 0.5) * 40,
-             null);
-       } else if (Math.random() < this.spawnItselfChance) {
-         spawnEnemy = new SwarmLeader(
-             this.x - 30,
-             this.y + (Math.random() - 0.5) * 40,
-             null);
-       } else {
-         spawnEnemy = new BasicEnemy(
-             this.x - 30,
-             this.y + (Math.random() - 0.5) * 40,
-             null
-         );
-       }
-       spawnEnemy.isSpawned = true;
-       spawnEnemy.spawnBy = this.id;
-       console.log(`SwarmLeader spawned ${spawnEnemy.name} - isSpawned: ${spawnEnemy.isSpawned}`);
-       this.gameEngine.enemies.push(spawnEnemy);
-       this.currentSpawnCooldown = this.spawnCooldown;
-     }
-     //buff nearby enemy
+    if (this.currentSpawnCooldown <= 0) {
+      let spawnEnemy = null;
+      if (Math.random() < this.spawnTankChance && Math.random() > this.spawnItselfChance) {
+        spawnEnemy = new TankEnemy(
+            this.x - 30,
+            this.y + (Math.random() - 0.5) * 40,
+            null);
+      } else if (Math.random() < this.spawnItselfChance) {
+        spawnEnemy = new SwarmLeader(
+            this.x - 30,
+            this.y + (Math.random() - 0.5) * 40,
+            null);
+      } else {
+        spawnEnemy = new BasicEnemy(
+            this.x - 30,
+            this.y + (Math.random() - 0.5) * 40,
+            null
+        );
+      }
+      spawnEnemy.isSpawned = true;
+      spawnEnemy.spawnBy = this.id;
+      console.log(`SwarmLeader spawned ${spawnEnemy.name} - isSpawned: ${spawnEnemy.isSpawned}`);
+      this.gameEngine.enemies.push(spawnEnemy);
+      this.currentSpawnCooldown = this.spawnCooldown;
+    }
+    //buff nearby enemy
     this.buffNearbyEnemies();
   }
 
@@ -734,10 +738,10 @@ export class SwarmLeader extends Enemy {
     // Draw buff aura
     ctx.beginPath();
     ctx.arc(this.x + this.width / 2,
-        this.y + this.height / 2,
-        this.buffRange,
-        0,
-        Math.PI * 2);
+            this.y + this.height / 2,
+            this.buffRange,
+            0,
+            Math.PI * 2);
     ctx.strokeStyle = "rgba(255, 0, 0, 0.2)";
     ctx.lineWidth = 2;
     ctx.stroke();
@@ -808,7 +812,7 @@ export class EMPEnemy extends Enemy {
   }
 
   draw(ctx) {
-     super.draw(ctx);
+    super.draw(ctx);
 
     // Electricity effect
     if (Math.random() < 0.3) {
@@ -1084,17 +1088,17 @@ export class BerserkerEnemy extends Enemy {
       //visual feedback for a kill
       if (this.gameEngine) {
         this.gameEngine.explosions.push({
-          x: this.x + this.width / 2,
-          y: this.y + this.height / 2,
-          damage: 0,
-          radius: 40,
-          timer: 50,
-          color: "darkred",
-          innerColor: "red",
-          particleColor: "rgba(139, 0, 0, 0.8)",
-          style: "rage",
-          type: "effect",
-          source: "berserker"})
+                                          x: this.x + this.width / 2,
+                                          y: this.y + this.height / 2,
+                                          damage: 0,
+                                          radius: 40,
+                                          timer: 50,
+                                          color: "darkred",
+                                          innerColor: "red",
+                                          particleColor: "rgba(139, 0, 0, 0.8)",
+                                          style: "rage",
+                                          type: "effect",
+                                          source: "berserker"})
       }
     }
     this.lastAttackTime = currentTime;
@@ -1193,17 +1197,17 @@ export class NecromancerEnemy extends Enemy {
 
       //revive effect
       this.gameEngine.explosions.push({
-        x: reviveX + skeleton.width / 2,
-        y: reviveY + skeleton.height / 2,
-        damage: 0,
-        radius: 50,
-        timer: 30,
-        color: "darkviolet",
-        innerColor: "purple",
-        particleColor: "rgba(148, 0, 211, 0.8)",
-        style: "necromancy",
-        type: "effect",
-        source: "necromancer"});
+                                        x: reviveX + skeleton.width / 2,
+                                        y: reviveY + skeleton.height / 2,
+                                        damage: 0,
+                                        radius: 50,
+                                        timer: 30,
+                                        color: "darkviolet",
+                                        innerColor: "purple",
+                                        particleColor: "rgba(148, 0, 211, 0.8)",
+                                        style: "necromancy",
+                                        type: "effect",
+                                        source: "necromancer"});
     }
   }
 
@@ -1280,10 +1284,10 @@ export class AssassinEnemy extends Enemy {
       const targetDefender = defenderUnits.find(defender => {
         return(
             defender.isAlive &&
-        this.x + this.width >= defender.x &&
-        this.x <= defender.x + defender.width &&
-        this.y + this.height >= defender.y &&
-        this.y <= defender.y + defender.height
+            this.x + this.width >= defender.x &&
+            this.x <= defender.x + defender.width &&
+            this.y + this.height >= defender.y &&
+            this.y <= defender.y + defender.height
         );
       });
 
@@ -1299,17 +1303,17 @@ export class AssassinEnemy extends Enemy {
         //strike effect
         if (this.gameEngine) {
           this.gameEngine.explosions.push({
-            x: targetDefender.x + targetDefender.width / 2,
-            y: targetDefender.y + targetDefender.height / 2,
-            damage: 0,
-            radius: 40,
-            timer: 20,
-            color: "darkred",
-            innerColor: "black",
-            particleColor: "rgba(139, 0, 0, 0.9)",
-            style: "slash",
-            type: "effect",
-            source: "assassin"});
+                                            x: targetDefender.x + targetDefender.width / 2,
+                                            y: targetDefender.y + targetDefender.height / 2,
+                                            damage: 0,
+                                            radius: 40,
+                                            timer: 20,
+                                            color: "darkred",
+                                            innerColor: "black",
+                                            particleColor: "rgba(139, 0, 0, 0.9)",
+                                            style: "slash",
+                                            type: "effect",
+                                            source: "assassin"});
         }
       }
     } else {
@@ -1523,17 +1527,17 @@ export class MageEnemy extends Enemy {
 
     //lightning strike effect
     this.gameEngine.explosions.push({
-      x: targetX,
-      y: targetY,
-      damage: 0,
-      radius: 60,
-      timer: 30,
-      color: "purple",
-      innerColor: "white",
-      particleColor: "rgba(138, 43, 226, 0.9)",
-      style: "lightning_strike",
-      type: "effect",
-      source: "mage"
+                                      x: targetX,
+                                      y: targetY,
+                                      damage: 0,
+                                      radius: 60,
+                                      timer: 30,
+                                      color: "purple",
+                                      innerColor: "white",
+                                      particleColor: "rgba(138, 43, 226, 0.9)",
+                                      style: "lightning_strike",
+                                      type: "effect",
+                                      source: "mage"
                                     });
 
     this.currentTarget.takeDamage(this.attackDamage);
@@ -1550,17 +1554,17 @@ export class MageEnemy extends Enemy {
           setTimeout(() => {
             if (this.gameEngine) {
               this.gameEngine.explosions.push({
-                x: defender.x + defender.width / 2,
-                y: defender.y + defender.height / 2,
-                damage: 0,
-                radius: 40,
-                timer: 20,
-                color: "purple",
-                innerColor: "white",
-                particleColor: "rgba(138, 43, 226, 0.7)",
-                style: "lightning_strike",
-                type: "effect",
-                source: "mage"
+                                                x: defender.x + defender.width / 2,
+                                                y: defender.y + defender.height / 2,
+                                                damage: 0,
+                                                radius: 40,
+                                                timer: 20,
+                                                color: "purple",
+                                                innerColor: "white",
+                                                particleColor: "rgba(138, 43, 226, 0.7)",
+                                                style: "lightning_strike",
+                                                type: "effect",
+                                                source: "mage"
 
                                               });
             }
@@ -1736,17 +1740,17 @@ export class TitanEnemy extends Enemy {
 
     //shockwave effect
     this.gameEngine.explosions.push({
-      x: this.x + this.width / 2,
-      y: this.y + this.height / 2,
-      damage: 0,
-      radius: 1500,
-      timer: 40,
-      color: "darkslategray",
-      innerColor: "gray",
-      particleColor: "rgba(105, 105, 105, 0.8)",
-      style: "shockwave",
-      type: "effect",
-      source: "titan"
+                                      x: this.x + this.width / 2,
+                                      y: this.y + this.height / 2,
+                                      damage: 0,
+                                      radius: 1500,
+                                      timer: 40,
+                                      color: "darkslategray",
+                                      innerColor: "gray",
+                                      particleColor: "rgba(105, 105, 105, 0.8)",
+                                      style: "shockwave",
+                                      type: "effect",
+                                      source: "titan"
                                     });
     //stun nearby defender
     for (const defender of this.gameEngine.defenders) {
@@ -1801,18 +1805,18 @@ export class TitanEnemy extends Enemy {
           if (!this.gameEngine) return;
           const radius = this.earthquakeRadius * (i + 1) / 3;
           this.gameEngine.explosions.push({
-            x: this.x + this.width / 2,
-            y: this.y + this.height / 2,
-            damage: 0,
-            radius: radius,
-            timer: 20,
-            color: "brown",
-            innerColor: "darkgoldenrod",
-            particleColor: "rgba(139, 69, 19, 0.8)",
-            style: "earthquake",
-            type: "effect",
-            source: "titan",
-            wave: i //track which earthquake wave it is
+                                            x: this.x + this.width / 2,
+                                            y: this.y + this.height / 2,
+                                            damage: 0,
+                                            radius: radius,
+                                            timer: 20,
+                                            color: "brown",
+                                            innerColor: "darkgoldenrod",
+                                            particleColor: "rgba(139, 69, 19, 0.8)",
+                                            style: "earthquake",
+                                            type: "effect",
+                                            source: "titan",
+                                            wave: i //track which earthquake wave it is
                                           });
 
           //damage all defender in radius

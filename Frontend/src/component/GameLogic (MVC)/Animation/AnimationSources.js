@@ -7,7 +7,7 @@ export class AnimationSources {
 
     enemyAnimation() {
         return {
-            'Vampire': {
+            'Shielder': {
                 idle: {
                     path: BasicZombieIdle,
                     frameCount: 1, frameWidth: 64, frameHeight: 64
@@ -25,7 +25,7 @@ export class AnimationSources {
                     frameCount: 15, frameWidth: 64, frameHeight: 64
                 }
             },
-            'Fast Zombie': {
+            'Basic Zombie': {
                 idle: {
                     path: BasicZombieIdle,
                     frameCount: 1, frameWidth: 64, frameHeight: 64
