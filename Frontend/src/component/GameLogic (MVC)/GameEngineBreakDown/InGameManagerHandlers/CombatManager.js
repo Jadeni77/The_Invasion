@@ -75,7 +75,6 @@ export class CombatManager {
                 const target = this.findTargetForEnemy(enemy, defenders);
                 if (target) {
                     if (enemy.isRanged) {
-                        if (enemy.useProjectile) {
                             this.gameEngine.enemyProjectiles.push({
                                 startX: enemy.x + enemy.width / 2,
                                 startY: enemy.y + enemy.height / 2,
@@ -100,7 +99,7 @@ export class CombatManager {
                             }
                         }
                     }
-                }
+
             }
             }
         }
