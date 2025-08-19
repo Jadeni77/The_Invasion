@@ -75,32 +75,35 @@ export class CombatManager {
                 const target = this.findTargetForEnemy(enemy, defenders);
                 if (target) {
                     if (enemy.isRanged) {
-                        this.gameEngine.enemyProjectiles.push({
-                        startX: enemy.x + enemy.width / 2,
-                        startY: enemy.y + enemy.height / 2,
-                        target: target,
-                        speed: 8,
-                        damage: enemy.attackDamage,
-                        color: "#FF4444",
-                        attacker: enemy,
-                        onHit: () => {
-                            enemy.attack(target, now);
-                        }});
-                        if (isWrapped) {
-                            enemyWrapper.attack(target, now);
+                        if (enemy.useProjectile) {
+                            this.gameEngine.enemyProjectiles.push({
+                                startX: enemy.x + enemy.width / 2,
+                                startY: enemy.y + enemy.height / 2,
+                                target: target,
+                                speed: 8,
+                                damage: enemy.attackDamage,
+                                color: "#FF4444",
+                                attacker: enemy,
+                                onHit: () => {
+                                enemy.attack(target, now);
+                                }});
+                            if (isWrapped) {
+                                enemyWrapper.attack(target, now);
+                            } else {
+                                enemy.lastAttackTime = now;
+                            }
                         } else {
-                            enemy.lastAttackTime = now;
+                            if (isWrapped) {
+                                enemyWrapper.attack(target, now);
+                            } else {
+                                enemy.lastAttackTime = now;
+                            }
                         }
-                    } else {
-                        if (isWrapped) {
-                            enemyWrapper.attack(target, now);
-                        } else {
-                            enemy.lastAttackTime = now;
-                        }                    }
+                    }
                 }
             }
+            }
         }
-    }
 
     /**
      * Finds the closest valid target (enemies) for given defender.

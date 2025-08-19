@@ -368,6 +368,7 @@ export class RangeEnemy extends Enemy {
       attackRange: 150,
       isRanged: true
     });
+    this.useProjectile = true;
     this.lastAttackTime = 0;
     this.isMoving = true;
   }
@@ -454,7 +455,7 @@ export class HealerEnemy extends Enemy {
   constructor(x, y, image) {
     super(x, y, {
       name: "Healer",
-      speed: 0.7,
+      speed: 0.1,
       health: 80,
       width: 30,
       height: 35,
@@ -467,7 +468,7 @@ export class HealerEnemy extends Enemy {
       attackRange: 0
     });
     this.healAmount = 20;
-    this.healRange = 80;
+    this.healRange = 200;
     this.healCooldown = 120; //2 second
     this.currentHealCooldown = 0;
   }
@@ -496,6 +497,7 @@ export class HealerEnemy extends Enemy {
             this.y + this.height / 2 - (enemy.y + enemy.height / 2)
         )
         if (distance <= this.healRange) {
+          enemy.maxHealth += this.healAmount;
           enemy.health = Math.min(enemy.maxHealth, enemy.health + this.healAmount);
         }
       }
