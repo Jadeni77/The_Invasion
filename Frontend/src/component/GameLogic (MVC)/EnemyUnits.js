@@ -1,6 +1,17 @@
 // src/component/GameLogic (MVC)/EnemyUnits.js
 // Data for different types of Enemy types
 
+
+/*
+TODO:
+ 1.把wrapper的东西合并在每一个enemy class里面
+ 2.AnimationManager可以留可以不留 （尽量保留
+ 3.看看能不能把每一个subclass constructor里面的image parameter用上，目前image parameter
+ 没有任何作用因为都是null value
+ 4.DrawEntities.js, CombatManager.js (done revert), GameEngine, DefenderUnits.js, EnemyUnit.js
+ 5.加油！
+*/
+
 export class Enemy {
   constructor(x, y, typeData = {}) {
     this.x = x;

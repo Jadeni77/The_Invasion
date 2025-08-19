@@ -9,9 +9,9 @@ export class DrawEntities {
     /** Draws all active defender units. */
     drawDefenders(ctx) {
         for (const defender of this.gameEngine.defenders) {
-            if (defender instanceof AnimatedDefenderWrapper) {
-                defender.draw(ctx);
-            }
+            // if (defender instanceof AnimatedDefenderWrapper) {
+            //     defender.draw(ctx);
+            // }
             if (defender.isAlive) {
                 defender.draw(ctx);
             }
@@ -21,11 +21,11 @@ export class DrawEntities {
     /** Draws all active enemy units. */
     drawEnemies(ctx) {
         for (const enemy of this.gameEngine.enemies) {
-            if (enemy instanceof AnimatedEnemyWrapper) {
-                enemy.draw(ctx);
-            }
+            // if (enemy instanceof AnimatedEnemyWrapper) {
+            //     enemy.draw(ctx);
+            // }
             //regular enemy
-            else if (enemy.isAlive) {
+            if (enemy.isAlive) {
                 enemy.draw(ctx);
             }
         }

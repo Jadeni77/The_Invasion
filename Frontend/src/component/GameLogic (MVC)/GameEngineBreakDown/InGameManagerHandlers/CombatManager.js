@@ -14,12 +14,7 @@ export class CombatManager {
      * @param now the current real time
      */
     updateDefenderCombat(defenders, enemies, now) {
-        for (const defenderWrapper of defenders) {
-            //get the actual class (handles both wrap and unwrap
-            const isWrapped = defenderWrapper.defender !== undefined;
-            const defender = isWrapped ? defenderWrapper.defender : defenderWrapper;
-
-
+        for (const defender of defenders) {
             if (!defender.isAlive || defender.disabled) continue;
 
             //handle defender attack if they can
@@ -30,28 +25,22 @@ export class CombatManager {
                     if (defender.isRanged) {
                         if (defender.useProjectile) {
                             this.gameEngine.projectiles.push({
-                            startX: defender.x + defender.width / 2,
-                            startY: defender.y + defender.height / 2,
-                            target: target, // Store reference to the target enemy
-                            speed: 10,
-                            damage: defender.attackDamage,
-                            attacker: defender,
-                            ignoreArmor: defender.hasArmorPiercing || false,
-                            onHit: () => {
-                                defender.attack(target, now);
-                            }});
-                            if (isWrapped) {
-                                defenderWrapper.attack(target, now);
-                            } else {
-                                defender.lastAttackTime = now;
-                            }
+                                                                 startX: defender.x + defender.width / 2,
+                                                                 startY: defender.y + defender.height / 2,
+                                                                 target: target, // Store reference to the target enemy
+                                                                 speed: 10,
+                                                                 damage: defender.attackDamage,
+                                                                 attacker: defender,
+                                                                 ignoreArmor: defender.hasArmorPiercing || false,
+                                                                 onHit: () => {
+                                                                     defender.attack(target, now);
+                                                                 }});
+                            defender.lastAttackTime = now;
                         } else {
-                            if (isWrapped) {
-                                defenderWrapper.attack(target, now);
-                            } else {
-                                defender.attack(target, now);
-                            }
+                            defender.attack(target, now);
                         }
+                    } else {
+                        defender.attack(target, now); // Defender performs its attack
                     }
                 }
             }
@@ -65,44 +54,32 @@ export class CombatManager {
      * @param now the current real time
      */
     updateEnemyCombat(defenders, enemies, now) {
-        for (const enemyWrapper of enemies) {
-            const isWrapped = enemyWrapper.enemy !== undefined;
-            const enemy = isWrapped ? enemyWrapper.enemy : enemyWrapper;
-
+        for (const enemy of enemies) {
             if (!enemy.isAttacker || !enemy.isAlive) continue;
 
             if (enemy.isAttacker && enemy.canAttack(now)) {
                 const target = this.findTargetForEnemy(enemy, defenders);
                 if (target) {
                     if (enemy.isRanged) {
-                            this.gameEngine.enemyProjectiles.push({
-                                startX: enemy.x + enemy.width / 2,
-                                startY: enemy.y + enemy.height / 2,
-                                target: target,
-                                speed: 8,
-                                damage: enemy.attackDamage,
-                                color: "#FF4444",
-                                attacker: enemy,
-                                onHit: () => {
-                                enemy.attack(target, now);
-                                }});
-                            if (isWrapped) {
-                                enemyWrapper.attack(target, now);
-                            } else {
-                                enemy.lastAttackTime = now;
-                            }
-                        } else {
-                            if (isWrapped) {
-                                enemyWrapper.attack(target, now);
-                            } else {
-                                enemy.lastAttackTime = now;
-                            }
-                        }
+                        this.gameEngine.enemyProjectiles.push({
+                                                                  startX: enemy.x + enemy.width / 2,
+                                                                  startY: enemy.y + enemy.height / 2,
+                                                                  target: target,
+                                                                  speed: 8,
+                                                                  damage: enemy.attackDamage,
+                                                                  color: "#FF4444",
+                                                                  attacker: enemy,
+                                                                  onHit: () => {
+                                                                      enemy.attack(target, now);
+                                                                  }});
+                        enemy.lastAttackTime = now;
+                    } else {
+                        enemy.attack(target, now);
                     }
-
-            }
+                }
             }
         }
+    }
 
     /**
      * Finds the closest valid target (enemies) for given defender.
@@ -114,8 +91,7 @@ export class CombatManager {
         let closestEnemy = null;
         let closestDistance = Infinity;
 
-        for (const enemyWrapper of enemies) {
-            const enemy = enemyWrapper.enemy || enemyWrapper;
+        for (const enemy of enemies) {
             if (!enemy.isAlive) continue;
 
             // Calculate distance from defender's center to enemy's center
@@ -125,7 +101,7 @@ export class CombatManager {
             );
 
             if (distance <= defender.range && distance < closestDistance) {
-                closestEnemy = enemyWrapper;
+                closestEnemy = enemy;
                 closestDistance = distance;
             }
         }
@@ -142,8 +118,7 @@ export class CombatManager {
         let closestDefender = null;
         let closestDistance = Infinity;
 
-        for (const defenderWrapper of defenders) {
-            const defender = defenderWrapper.defender || defenderWrapper;
+        for (const defender of defenders) {
             if (!defender.isAlive) continue;
 
             const distance = Math.hypot(
@@ -152,7 +127,7 @@ export class CombatManager {
             );
 
             if (distance <= enemy.attackRange && distance < closestDistance) {
-                closestDefender = defenderWrapper;
+                closestDefender = defender;
                 closestDistance = distance;
             }
         }
