@@ -192,7 +192,7 @@ export class GameEngine {
       maxActiveEnemies: 8,
       totalEnemiesToSpawn: 20,
       waves: 3,
-      availableEnemyTypes:  ["Skeleton Shooter"],
+      availableEnemyTypes:  ["Basic Zombie"],
           // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
           //  "Exploder", "Skeleton Shooter", "Shielder",
           // "Healer", "Splitter", "Mini", "Swarm Witch",
@@ -677,9 +677,7 @@ export class GameEngine {
       const actualDefender = defender instanceof AnimatedDefenderWrapper ?
                              defender.defender : defender;
       // Skip update for dead defenders, but keep them in array
-      if (actualDefender.isAlive) {
         defender.update(this.enemies, this.defenders); // Pass all defenders including dead ones
-      }
     }
     //check for resurrect units
     for (const defender of this.defenders) {
@@ -714,7 +712,7 @@ export class GameEngine {
       if (actualDefender.burning && actualDefender.burningDuration) {
         actualDefender.burningDuration--;
         if (actualDefender.burningDuration % 30 === 0) {
-          defender.takeDamage(defender.burningDamage); //TODO:
+          actualDefender.takeDamage(actualDefender.burningDamage);
         }
         if (actualDefender.burningDuration <= 0) {
           actualDefender.burning = false;
@@ -731,10 +729,15 @@ export class GameEngine {
       if (defender instanceof AnimatedDefenderWrapper) {
         actualDefender = defender.defender;
         shouldRemove = defender.deathComplete;
+        if (shouldRemove) {
+          console.log(`Removing ${actualDefender.name} - death animation complete`);
+        }
       } else {
+        //for non-animated defenders
         actualDefender = defender;
         shouldRemove = !actualDefender.isAlive && actualDefender.health <= 0;
         if (shouldRemove) {
+          console.log(`Removing non-animated defender ${actualDefender.name}`);
           newRecentlyDied.push(defender);
         }
       }
@@ -742,8 +745,8 @@ export class GameEngine {
       if (shouldRemove) {
         console.log('free cell');
         const gridCell = this.gridManager.getGridCell(
-            defender.x + defender.width / 2,
-            defender.y + defender.height / 2
+            actualDefender.x + actualDefender.width / 2,
+            actualDefender.y + actualDefender.height / 2
         );
         if (gridCell) {
           gridCell.occupied = false;
@@ -872,29 +875,32 @@ export class GameEngine {
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const projectile = this.projectiles[i];
 
+      //get the actualTarget (handle the wrapper class as well)
+      const actualTarget = projectile.target.enemy || projectile.target;
+
       // Check if target still exists and is alive
-      if (!projectile.target || !projectile.target.isAlive) {
+      if (!actualTarget || !actualTarget.isAlive) {
         this.projectiles.splice(i, 1);
         continue;
       }
 
       // Calculate direction and move projectile
-      const dx = projectile.target.x + projectile.target.width / 2 - projectile.startX;
-      const dy = projectile.target.y + projectile.target.height / 2 - projectile.startY;
+      const dx = actualTarget.x + actualTarget.width / 2 - projectile.startX;
+      const dy = actualTarget.y + actualTarget.height / 2 - projectile.startY;
       const distance = Math.hypot(dx, dy);
 
       if (distance <= projectile.speed) {
         if (projectile.onHit) {
           projectile.onHit();
         } else {
-          const died = projectile.target.takeDamage(projectile.damage, projectile.ignoreArmor);
+          const died = actualTarget.takeDamage(projectile.damage, projectile.ignoreArmor);
           if (died && !this.gameOver) {
-            if (!projectile.target.isSpawned) {
-              this.inGameScore += projectile.target.bounty;
+            if (!actualTarget.isSpawned) {
+              this.inGameScore += actualTarget.bounty;
               this.updateScoreCb(this.inGameScore);
             }
-            this.dropManager.handleEnemyDeath(projectile.target);
-            const enemyIndex = this.enemies.findIndex(e => e.id === projectile.target.id);
+            this.dropManager.handleEnemyDeath(actualTarget);
+            const enemyIndex = this.enemies.findIndex(e => e.id === actualTarget.id);
             if (enemyIndex !== -1) {
               this.enemies.splice(enemyIndex, 1);
             }
@@ -916,15 +922,17 @@ export class GameEngine {
     for (let i = this.enemyProjectiles.length - 1; i >= 0; i--) {
       const projectile = this.enemyProjectiles[i];
 
+      const actualTarget = projectile.target.defender || projectile.target;
+
       //check if target exist and alive
-      if (!projectile.target || !projectile.target.isAlive) {
+      if (!actualTarget || !actualTarget.isAlive) {
         this.enemyProjectiles.splice(i, 1);
         continue;
       }
 
       // Calculate direction and move projectile
-      const dx = projectile.target.x + projectile.target.width / 2 - projectile.startX;
-      const dy = projectile.target.y + projectile.target.height / 2 - projectile.startY;
+      const dx = actualTarget.x + actualTarget.width / 2 - projectile.startX;
+      const dy = actualTarget.y + actualTarget.height / 2 - projectile.startY;
       const distance = Math.hypot(dx, dy);
 
       if (distance <= projectile.speed) {
@@ -932,7 +940,7 @@ export class GameEngine {
           projectile.onHit();
         } else {
           //hit target
-          projectile.target.takeDamage(projectile.damage);
+          actualTarget.takeDamage(projectile.damage);
         }
         this.enemyProjectiles.splice(i, 1);
       } else {
