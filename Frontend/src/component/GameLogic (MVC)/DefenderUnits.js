@@ -1,6 +1,13 @@
 // src/component/GameLogic (MVC)/DefenderUnits.js
 // Data for different types of Defender Units
 
+/* TODO:
+    1.Implement the Animation fields in the main defender class similar to
+    the Enemy class.
+    2. Fix the bug of long range Enemy attacking not having Attack Animation
+    3. Find more asset
+*/
+
 import {DrawNegativeEffect} from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
 
 export class DefenderUnit {

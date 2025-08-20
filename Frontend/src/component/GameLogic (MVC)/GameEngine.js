@@ -21,14 +21,7 @@ import { DrawExplosionEffect } from "./GameEngineBreakDown/Draws/DrawExplosionEf
 import { DrawEntities } from "./GameEngineBreakDown/Draws/DrawEntities.js";
 import { DrawUIs } from "./GameEngineBreakDown/Draws/DrawUIs.js";
 import {AnimationManager} from "./Animation/AnimationManager.js";
-import {AnimatedEnemyWrapper} from "./Animation/AnimatedEnemyWrapper.js";
-
-import BasicZombieIdle from '../../assets/enemies/Enemy3No-Move-Idle.png';
-import BasicZombieDeath from '../../assets/enemies/Enemy3No-Move-Die.png';
-import BasicZombieAttack from '../../assets/enemies/Enemy3No-Move-AttackSmashStart.png';
-import BasicZombieMove from '../../assets/enemies/Enemy3No-Move-Fly.png';
 import {AnimationSources} from "./Animation/AnimationSources.js";
-import {AnimatedDefenderWrapper} from "./Animation/AnimatedDefenderWrapper.js";
 import {AssetManifest} from "../../assets/AssetManifest.js";
 
 export class GameEngine {
