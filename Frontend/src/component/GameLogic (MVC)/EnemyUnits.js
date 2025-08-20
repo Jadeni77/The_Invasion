@@ -47,6 +47,84 @@ export class Enemy {
     this.spawnBy = typeData.spawnBy || null;
 
     this.gameEngine = null;
+
+    this.currentAnimation = 'idle';
+    this.animationFrame = 0;
+    this.animationTimer = 0;
+    this.animationFrames = null;
+    this.animationConfig = null;
+
+    this.isPlayingDeathAnimation = false;
+    this.deathAnimationComplete = false;
+    this.deathHandled = false; // Add this flag
+
+  }
+
+  // In Enemy class
+  setAnimation(animationName) {
+    if (this.currentAnimation !== animationName && this.animationFrames) {
+      console.log(`${this.name} switching animation from ${this.currentAnimation} to ${animationName}`);
+      this.currentAnimation = animationName;
+      this.animationFrame = 0;
+      this.animationTimer = 0;
+
+      // Mark when death animation starts
+      if (animationName === 'death') {
+        this.isPlayingDeathAnimation = true;
+        console.log(`${this.name} started death animation`);
+
+        // Check if we have death animation frames
+        if (!this.animationFrames.death || this.animationFrames.death.length === 0) {
+          console.warn(`${this.name} has no death animation frames!`);
+          // Immediately mark as complete if no frames
+          this.deathAnimationComplete = true;
+        }
+      }
+    }
+  }
+
+// In Enemy class - updateAnimation method
+  updateAnimation(deltaTime) {
+    if (!this.animationConfig || !this.animationFrames) {
+      return;
+    }
+
+    const config = this.animationConfig[this.currentAnimation];
+    if (!config) {
+      return;
+    }
+
+    // Debug death animation speed
+    if (this.currentAnimation === 'death' && this.animationFrame === 0) {
+      console.log(`Starting death animation: ${config.frameCount} frames at ${config.fps} fps = ${config.frameCount/config.fps} seconds`);
+    }
+
+    this.animationTimer += deltaTime;
+    const frameDuration = 1000 / config.fps;
+
+    // Debug log for death animation
+    if (this.currentAnimation === 'death') {
+      console.log(`Death frame ${this.animationFrame}/${config.frameCount}, timer: ${this.animationTimer}/${frameDuration}`);
+    }
+
+    if (this.animationTimer >= frameDuration) {
+      this.animationTimer -= frameDuration; // Use subtraction instead of reset to maintain timing
+      this.animationFrame++;
+
+      if (this.animationFrame >= config.frameCount) {
+        if (config.loop !== false) {
+          this.animationFrame = 0;
+        } else {
+          this.animationFrame = config.frameCount - 1;
+
+          // Mark death animation as complete
+          if (this.currentAnimation === 'death') {
+            console.log(`${this.name} death animation complete at frame ${this.animationFrame}`);
+            this.deathAnimationComplete = true;
+          }
+        }
+      }
+    }
   }
 
   canAttack(currentTime) {
@@ -68,6 +146,27 @@ export class Enemy {
    * @param {Array<DefenderUnit>} defenderUnits - Array of active defender units
    */
   update(defenderUnits) {
+    if (!this.isAlive) {
+      if (this.currentAnimation !== 'death') {
+        this.setAnimation('death');
+      }
+      // Update animation but don't do anything else
+      this.updateAnimation(16);
+      return;
+    }
+
+    // Determine animation state
+    if (this.isAttacking) {
+      this.setAnimation('attack');
+    } else if (this.speed > 0) {
+      this.setAnimation('move');
+    } else {
+      this.setAnimation('idle');
+    }
+
+    // Update animation
+    this.updateAnimation(16); // Assuming 60fps
+
     if (!this.isAlive) return;
 
     if (this.health <= 0) {
@@ -113,20 +212,31 @@ export class Enemy {
   }
 
   draw(ctx) {
-    if (!this.isAlive) return;
-
-    // Use fallback if image fails to load
-    if (this.image && this.image.complete && this.image.naturalHeight !== 0) {
-      try {
-        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
-      } catch (e) {
+    if (this.animationFrames && this.animationFrames[this.currentAnimation]) {
+      const frames = this.animationFrames[this.currentAnimation];
+      if (frames && frames[this.animationFrame]) {
+        try {
+          ctx.drawImage(
+              frames[this.animationFrame],
+              this.x,
+              this.y,
+              this.width,
+              this.height
+          );
+        } catch (e) {
+          console.error('Failed to draw frame:', e);
+          this.drawFallback(ctx);
+        }
+      } else {
+        console.warn(`No frame for ${this.currentAnimation}[${this.animationFrame}]`);
         this.drawFallback(ctx);
       }
     } else {
       this.drawFallback(ctx);
     }
+
     //if enemy is spawn unnaturally
-    if (this.isSpawned) {
+    if (this.isSpawned && this.isAlive) {
       ctx.save();
 
       // Draw a small symbol above the enemy
@@ -144,7 +254,7 @@ export class Enemy {
     }
 
     // Health bar
-    if (this.health < this.maxHealth) {
+    if (this.health < this.maxHealth && this.isAlive) {
       ctx.fillStyle = "red";
       ctx.fillRect(this.x, this.y - 10, this.width, 5);
       ctx.fillStyle = "lime";
@@ -389,6 +499,27 @@ export class RangeEnemy extends Enemy {
   }
 
   update(defenderUnits) {
+
+    if (!this.isAlive) {
+      if (this.currentAnimation !== 'death') {
+        this.setAnimation('death');
+      }
+      // Update animation but don't do anything else
+      this.updateAnimation(16);
+      return;
+    }
+    // Determine animation state
+    if (this.isAttacking) {
+      this.setAnimation('attack');
+    } else if (this.speed > 0) {
+      this.setAnimation('move');
+    } else {
+      this.setAnimation('idle');
+    }
+    // Update animation
+    this.updateAnimation(16); // Assuming 60fps
+
+
     if (!this.isAlive) return;
 
     if (this.health <= 0) {
@@ -1422,6 +1553,29 @@ export class MageEnemy extends Enemy {
   }
 
   update(defenderUnits) {
+
+    if (!this.isAlive) {
+      if (this.currentAnimation !== 'death') {
+        this.setAnimation('death');
+      }
+      // Update animation but don't do anything else
+      this.updateAnimation(16);
+      return;
+    }
+
+    // Determine animation state
+    if (this.isAttacking) {
+      this.setAnimation('attack');
+    } else if (this.speed > 0) {
+      this.setAnimation('move');
+    } else {
+      this.setAnimation('idle');
+    }
+
+    // Update animation
+    this.updateAnimation(16); // Assuming 60fps
+
+
     if (!this.isAlive) return;
 
     if (this.health <= 0) {

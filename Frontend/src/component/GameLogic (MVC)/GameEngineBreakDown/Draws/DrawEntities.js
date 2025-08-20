@@ -1,6 +1,3 @@
-import {AnimatedEnemyWrapper} from "../../Animation/AnimatedEnemyWrapper.js";
-import {AnimatedDefenderWrapper} from "../../Animation/AnimatedDefenderWrapper.js";
-
 export class DrawEntities {
     constructor(gameEngine) {
         this.gameEngine = gameEngine;
@@ -9,25 +6,14 @@ export class DrawEntities {
     /** Draws all active defender units. */
     drawDefenders(ctx) {
         for (const defender of this.gameEngine.defenders) {
-            // if (defender instanceof AnimatedDefenderWrapper) {
-            //     defender.draw(ctx);
-            // }
-            if (defender.isAlive) {
                 defender.draw(ctx);
-            }
         }
     }
 
     /** Draws all active enemy units. */
     drawEnemies(ctx) {
         for (const enemy of this.gameEngine.enemies) {
-            // if (enemy instanceof AnimatedEnemyWrapper) {
-            //     enemy.draw(ctx);
-            // }
-            //regular enemy
-            if (enemy.isAlive) {
                 enemy.draw(ctx);
-            }
         }
     }
 

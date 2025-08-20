@@ -29,6 +29,7 @@ import BasicZombieAttack from '../../assets/enemies/Enemy3No-Move-AttackSmashSta
 import BasicZombieMove from '../../assets/enemies/Enemy3No-Move-Fly.png';
 import {AnimationSources} from "./Animation/AnimationSources.js";
 import {AnimatedDefenderWrapper} from "./Animation/AnimatedDefenderWrapper.js";
+import {AssetManifest} from "../../assets/AssetManifest.js";
 
 export class GameEngine {
   constructor(updateEnergyCb, updateScoreCb, onWinCb, onLoseCb, updateBaseHealthCb) {
@@ -192,12 +193,12 @@ export class GameEngine {
       maxActiveEnemies: 8,
       totalEnemiesToSpawn: 20,
       waves: 3,
-      availableEnemyTypes:  //["Skeleton Shooter"],
-          ["Basic Zombie", "Fast Zombie", "Tank Zombie",
-           "Exploder", "Skeleton Shooter", "Shielder",
-          "Healer", "Splitter", "Mini", "Swarm Witch",
-          "EMP", "Vampire", "Ghost", "Berserker", "Necromancer",
-           "Assassin", "Mage", "Titan"],
+      availableEnemyTypes:  ["Mage"],
+          // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
+          //  "Exploder", "Skeleton Shooter", "Shielder",
+          // "Healer", "Splitter", "Mini", "Swarm Witch",
+          // "EMP", "Vampire", "Ghost", "Berserker", "Necromancer",
+          //  "Assassin", "Mage", "Titan"],
       initialEnergy: 100000,
       enemyAssets: {
         "Basic Zombie": null,
@@ -363,7 +364,7 @@ export class GameEngine {
       ...this.currentLevelConfig.defenderAssets,
     };
 
-    this.preloadImages(allImages)
+    await this.preloadImages(allImages)
         .then(() => {
           // Double-check we're still supposed to be running
           if (this.gameOver) {
@@ -385,22 +386,30 @@ export class GameEngine {
 
   async loadAllAnimations() {
     this.animationManager = new AnimationManager();
+    this.animationSources = new AnimationSources();
 
-    //TODO: Define sprite sheet for each enemy type
-     const enemyAnimations = this.animationSources.enemyAnimation();
+    // Load only animations for enemies/defenders in current level
+    const enemyAnimations = await this.animationSources.getEnemyAnimations(
+        this.currentLevelConfig.availableEnemyTypes
+    );
 
-    //load only animation for enemy in current level
-    for (const enemyType of this.currentLevelConfig.availableEnemyTypes) {
-      if (enemyAnimations[enemyType]) {
-        await this.animationManager.loadUnitAnimation(enemyType, enemyAnimations[enemyType]);
+    // Get defender types from available cards
+    const defenderTypes = Object.keys(this.defenderUnitClasses);
+    const defenderAnimations = await this.animationSources.getDefenderAnimations(
+        defenderTypes
+    );
+
+    // Load into AnimationManager
+    for (const [enemyType, animations] of Object.entries(enemyAnimations)) {
+      if (animations) {
+        await this.animationManager.loadUnitAnimation(enemyType, animations);
       }
     }
 
-    //TODO: Define sprite sheet for each defender type
-    const defenderAnimations = this.animationSources.defenderAnimation();
-
-    for (const [defenderType, animation] of Object.entries(defenderAnimations)) {
-      await this.animationManager.loadUnitAnimation(defenderType, animation);
+    for (const [defenderType, animations] of Object.entries(defenderAnimations)) {
+      if (animations) {
+        await this.animationManager.loadUnitAnimation(defenderType, animations);
+      }
     }
   }
 
@@ -410,36 +419,29 @@ export class GameEngine {
       console.warn(`Unknown enemy type: ${enemyType}`);
       return;
     }
+
     const spawnX = -100;
     const spawnY = this.gridManager.getRandomSpawnY();
-    const enemy = new EnemyClass(spawnX, spawnY, this.getImage(enemyType));
+    const enemy = new EnemyClass(spawnX, spawnY, null);
 
-    if (enemy.setGameEngine()) {
+  if (this.animationManager.hasAnimation(enemyType)) {
+      const frames = {
+        idle: this.animationManager.getFrames(enemyType, 'idle'),
+        move: this.animationManager.getFrames(enemyType, 'move'),
+        attack: this.animationManager.getFrames(enemyType, 'attack'),
+        death: this.animationManager.getFrames(enemyType, 'death')
+      };
+
+      enemy.animationFrames = frames;
+      enemy.animationConfig = AssetManifest.enemies[enemyType]?.config;
+    }
+
+    if (enemy.setGameEngine) {
       enemy.setGameEngine(this);
     }
+
     this.enemies.push(enemy);
   }
-  //
-  // spawnEnemyOfType(enemyType) {
-  //   const EnemyClass = this.enemyClasses[enemyType];
-  //   if (!EnemyClass) {
-  //     console.warn(`Unknown enemy type: ${enemyType}`);
-  //     return;
-  //   }
-  //   const spawnX = -100;
-  //   const spawnY = this.gridManager.getRandomSpawnY();
-  //
-  //   let enemy;
-  //   if (this.animationManager?.hasAnimation(enemyType)) {
-  //     enemy = new AnimatedEnemyWrapper(EnemyClass, spawnX, spawnY, this.animationManager);
-  //   } else {
-  //     enemy = new EnemyClass(spawnX, spawnY, this.getImage(enemyType));
-  //   }
-  //   if (enemy.setGameEngine) {
-  //     enemy.setGameEngine(this);
-  //   }
-  //   this.enemies.push(enemy);
-  // }
 
   // Resets the game state to its initial values for the current level
   resetGame() {
@@ -454,6 +456,7 @@ export class GameEngine {
 
     if (this.waveManager) {
       this.waveManager.reset();
+      this.waveManager.lastSpawnTime = Date.now() + 1000; // 1 second delay
     }
 
     this.baseHealth = 100;
@@ -475,78 +478,6 @@ export class GameEngine {
     console.log("Game reset complete");
   }
 
-  /**
-   * Deploys a defender unit onto the game board.
-   * @param {object} cardData - The data of the card being deployed.
-   * @param {number} x - X coordinate for deployment.
-   * @param {number} y - Y coordinate for deployment.
-   * @returns {boolean} True if deployment was successful, false otherwise.
-   */
-  // deployDefenderUnit(cardData, x, y) {
-  //   if (this.gameOver) return false;
-  //
-  //   //get grid cell
-  //   const gridCell = this.gridManager.getGridCell(x, y);
-  //   console.log("Grid cell:", gridCell); // Add this debug line
-  //
-  //   if (!gridCell || gridCell.occupied) {
-  //     console.log("Invalid grid cell or cell is occupied/road");
-  //     return false;
-  //   }
-  //
-  //   const UnitClass = this.defenderUnitClasses[cardData.name];
-  //   if (!UnitClass) {
-  //     console.error(`Unknown defender type: ${cardData.name}`);
-  //     return false;
-  //   }
-  //
-  //   //create temporary units - it will calculate its stat base on levels
-  //   const tempUnit = new UnitClass(0, 0, {
-  //     ...cardData,
-  //     image: this.getImage(cardData.name),
-  //   });
-  //
-  //   if (this.inGameEnergy < cardData.cost) {
-  //     console.log(`Not enough energy: ${this.inGameEnergy}/${cardData.cost}`);
-  //     return false;
-  //   }
-  //
-  //   // Adjust position to center of card
-  //   let deployX = gridCell.x + (this.gridManager.gridSize - tempUnit.width) / 2;
-  //   let deployY = gridCell.y + (this.gridManager.gridSize - tempUnit.height) / 2;
-  //
-  //   // Ensure the unit stays within the deployment area
-  //   if (deployX < this.gridManager.gridOffsetX) {
-  //     deployX = this.gridManager.gridOffsetX;
-  //   }
-  //
-  //   // Check if position is valid (not on path, not overlapping other defenders)
-  //   if (!this.isValidDeploymentPosition(deployX, deployY, tempUnit.width, tempUnit.height)) {
-  //     console.log("Invalid deployment position");
-  //     return false;
-  //   }
-  //
-  //   let newUnit;
-  //   if (this.animationManager?.hasAnimation(cardData.name)) {
-  //     newUnit = new AnimatedDefenderWrapper(UnitClass, deployX, deployY,
-  //                                           cardData, this.animationManager);
-  //   } else {
-  //     newUnit = new UnitClass(deployX, deployY, cardData);
-  //   }
-  //
-  //   // Pass GameEngine reference for special abilities (e.g., Grenadier's explosion)
-  //   if (newUnit.setGameEngine) {
-  //     newUnit.setGameEngine(this);
-  //   }
-  //
-  //   this.defenders.push(newUnit);
-  //   this.inGameEnergy -= newUnit.cost;
-  //   this.updateEnergyCb(this.inGameEnergy); // Update UI
-  //
-  //   //mark cell occupy
-  //   gridCell.occupied = true;
-  //   return true;
-  // }
   /**
    * Deploys a defender unit onto the game board.
    * @param {object} cardData - The data of the card being deployed.
@@ -616,14 +547,6 @@ export class GameEngine {
     //mark cell occupy
     gridCell.occupied = true;
 
-    console.log(`Defender deployed with level ${newUnit.level} stats:`, {
-      damage: newUnit.attackDamage,
-      health: newUnit.health,
-      fireRate: newUnit.fireRate,
-      cost: newUnit.cost,
-      hasRapidFire: newUnit.hasRapidFire,
-      hasArmorPiercing: newUnit.hasArmorPiercing,
-    });
     return true;
   }
 
@@ -758,99 +681,6 @@ export class GameEngine {
     }
   }
 
-  // updateDefenders(now) {
-  //   if (this.gameOver) return;
-  //
-  //   //add recent dead enemies back to main defender for resurrection check
-  //   if (this.recentlyDiedDefenders.length > 0) {
-  //     this.defenders.push(...this.recentlyDiedDefenders);
-  //     this.recentlyDiedDefenders = [];
-  //   }
-  //   //update all alive defenders
-  //   for (const defender of this.defenders) {
-  //     const actualDefender = defender instanceof AnimatedDefenderWrapper ?
-  //                            defender.defender : defender;
-  //     // Skip update for dead defenders, but keep them in array
-  //     if (actualDefender.isAlive) {
-  //       defender.update(this.enemies, this.defenders); // Pass all defenders including dead ones
-  //     }
-  //   }
-  //   //check for resurrect units
-  //   for (const defender of this.defenders) {
-  //     const actualDefender = defender instanceof AnimatedDefenderWrapper ?
-  //                            defender.defender : defender;
-  //     if (!actualDefender.isAlive && actualDefender.health > 0) {
-  //       actualDefender.isAlive = true;
-  //       console.log(`${actualDefender.name} resurrected!`);
-  //
-  //       const gridCell = this.gridManager.getGridCell(
-  //           actualDefender.x + actualDefender.width / 2,
-  //           actualDefender.y + actualDefender.height / 2
-  //       );
-  //       if (gridCell && !gridCell.occupied) {
-  //         gridCell.occupied = true;
-  //       }
-  //     }
-  //   }
-  //
-  //   this.combatManager.updateDefenderCombat(this.defenders, this.enemies, now);
-  //
-  //   //handle disabled and other nagative effects
-  //   for (const defender of this.defenders) {
-  //     const actualDefender = defender instanceof AnimatedDefenderWrapper ?
-  //                            defender.defender : defender;
-  //     if (actualDefender.disabled && actualDefender.disabledDuration) {
-  //       actualDefender.disabledDuration--;
-  //       if (actualDefender.disabledDuration <= 0) {
-  //         actualDefender.disabled = false;
-  //       }
-  //     }
-  //     if (actualDefender.burning && actualDefender.burningDuration) {
-  //       actualDefender.burningDuration--;
-  //       if (actualDefender.burningDuration % 30 === 0) {
-  //         actualDefender.takeDamage(actualDefender.burningDamage); //TODO:
-  //       }
-  //       if (actualDefender.burningDuration <= 0) {
-  //         actualDefender.burning = false;
-  //       }
-  //     }
-  //   }
-  //   //remove dead defenders and clear grid logic but keep them for one frame
-  //   const newRecentlyDied = [];
-  //   for (let i = this.defenders.length - 1; i >= 0; i--) {
-  //     const defender = this.defenders[i];
-  //     let shouldRemove;
-  //     let actualDefender;
-  //     //handle wrapper
-  //     if (defender instanceof AnimatedDefenderWrapper) {
-  //       actualDefender = defender.defender;
-  //       shouldRemove = defender.deathComplete;
-  //      console.log("Debug check ")
-  //     } else {
-  //    //   console.log("debug bg"); Not being console at all
-  //       actualDefender = defender;
-  //       shouldRemove = !actualDefender.isAlive && actualDefender.health <= 0;
-  //       if (shouldRemove) {
-  //         console.log("debug")
-  //         newRecentlyDied.push(defender);
-  //       }
-  //     }
-  //     //free the grid cell
-  //     if (shouldRemove) {
-  //       console.log('free cell');
-  //       const gridCell = this.gridManager.getGridCell(
-  //           actualDefender.x + actualDefender.width / 2,
-  //           actualDefender.y + actualDefender.height / 2
-  //       );
-  //       if (gridCell) {
-  //         gridCell.occupied = false;
-  //       }
-  //       this.defenders.splice(i, 1);
-  //     }
-  //   }
-  //   this.recentlyDiedDefenders = newRecentlyDied;
-  // }
-
   updateDefenders(now) {
     if (this.gameOver) return;
 
@@ -925,124 +755,40 @@ export class GameEngine {
   }
 
   /** Updates all enemy units. */
-  // updateEnemies(now) {
-  //   if (this.gameOver) return;
-  //
-  //   for (let i = this.enemies.length - 1; i >= 0; i--) {
-  //     const enemy = this.enemies[i];
-  //
-  //     //handle animated enemies with death animation
-  //     if (enemy instanceof AnimatedEnemyWrapper) {
-  //       //remove enemy only when the death animation is completed
-  //       if (enemy.deathComplete) {
-  //         console.log(`🗑️ Removing ${enemy.enemy.name} - death animation complete`);
-  //         this.enemies.splice(i, 1);
-  //         continue;
-  //       }
-  //       //always call update
-  //       enemy.update(this.defenders);
-  //
-  //       // If enemy just died, handle game effects but DON'T remove
-  //       const actualEnemy = enemy.enemy;
-  //       if (!actualEnemy.isAlive && actualEnemy.health <= 0 && !enemy.isAnimationDeath) {
-  //         // This case shouldn't happen as death is handled in takeDamage
-  //         console.log(`⚠️ Enemy died without animation starting`);
-  //         this.handleEnemyDeath(enemy);
-  //       }
-  //
-  //       // Skip further processing if death animation is playing
-  //       // if (enemy.isAnimationDeath) {
-  //       //   continue;
-  //       // }
-  //     } else {
-  //       //regular enemy without animation
-  //       if (!enemy || !enemy.isAlive) {
-  //         this.enemies.splice(i, 1);
-  //         continue;
-  //       }
-  //       enemy.update(this.defenders);
-  //     }
-  //
-  //     if (!enemy.gameEngine) {
-  //       console.warn(`Enemy ${enemy.name} lost gameEngine reference, restoring...`);
-  //       enemy.gameEngine = this;
-  //     }
-  //
-  //     const actualEnemy = enemy instanceof AnimatedEnemyWrapper ? enemy.enemy : enemy;
-  //
-  //     // Check if enemy died during update
-  //     if (!actualEnemy.isAlive && actualEnemy.health <= 0) {
-  //       // For animated enemies, DON'T remove yet - let death animation play in next cycle
-  //       if (enemy instanceof AnimatedEnemyWrapper) {
-  //         if (!enemy.isAnimationDeath) {
-  //           console.log(`🎬 Enemy ${actualEnemy.name} just died, death animation will start next frame`);
-  //           // Animation will be handled in next update cycle
-  //         }
-  //         continue;
-  //       } else {
-  //         // Regular enemies get removed immediately
-  //         this.handleEnemyDeath(enemy);
-  //         this.enemies.splice(i, 1);
-  //         continue;
-  //       }
-  //     }
-  //
-  //     // Only check defense line for ALIVE enemies
-  //     if (actualEnemy.isAlive && actualEnemy.x + actualEnemy.width >= this.defenseLineX) {
-  //       if (!this.gameOver) {
-  //         const damage = 10;
-  //         this.baseHealth = Math.max(0, this.baseHealth - damage);
-  //
-  //         if (this.updateBaseHealthCb) {
-  //           this.updateBaseHealthCb(this.baseHealth);
-  //         }
-  //
-  //         if (this.baseHealth <= 0) {
-  //           this.handleDefenseBreached();
-  //         }
-  //       }
-  //       this.enemies.splice(i, 1);
-  //     }
-  //   }
-  //   this.combatManager.updateEnemyCombat(this.defenders, this.enemies, now);
-  //
-  //   //handle slow/freeze duration
-  //
-  // }
-
   updateEnemies(now) {
     if (this.gameOver) return;
 
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
 
-      // REMOVE DEAD ENEMIES FIRST
-      if (!enemy || !enemy.isAlive) {
+      // Remove enemy only if death animation is complete
+      if (enemy.deathAnimationComplete) {
         this.enemies.splice(i, 1);
         continue;
       }
+
       if (!enemy.gameEngine) {
         console.warn(`Enemy ${enemy.name} lost gameEngine reference, restoring...`);
         enemy.gameEngine = this;
       }
-      // Update enemy (movement and attacks)
+
+      // Update enemy (movement, attacks, and animations)
       enemy.update(this.defenders);
-      // Check if enemy died during update
-      if (!enemy.isAlive) {
+
+      // Check if enemy just died and hasn't been handled yet
+      if (!enemy.isAlive && !enemy.deathHandled) {
         this.handleEnemyDeath(enemy);
-        this.enemies.splice(i, 1);
+        enemy.deathHandled = true; // Mark as handled
         continue;
       }
 
-      // Double-check that enemy is actually alive (health > 0)
-      if (enemy.health <= 0) {
-        enemy.isAlive = false;
-        this.enemies.splice(i, 1);
+      // Skip further checks if enemy is playing death animation
+      if (enemy.isPlayingDeathAnimation) {
         continue;
       }
 
       // Only check defense line for ALIVE enemies
-      if (enemy.x + enemy.width >= this.defenseLineX) {
+      if (enemy.isAlive && enemy.x + enemy.width >= this.defenseLineX) {
         if (!this.gameOver) {
           const damage = 10;
           this.baseHealth = Math.max(0, this.baseHealth - damage);
@@ -1055,13 +801,12 @@ export class GameEngine {
             this.handleDefenseBreached();
           }
         }
+        // Remove enemy that reached defense line immediately
         this.enemies.splice(i, 1);
       }
     }
+
     this.combatManager.updateEnemyCombat(this.defenders, this.enemies, now);
-
-    //handle slow/freeze duration
-
   }
 
   handleEnemyDeath(enemy) {

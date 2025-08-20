@@ -83,6 +83,17 @@ export class AnimationManager {
                 0, 0, frameWidth, frameHeight, //destination
             );
 
+            // Debug: Check if frame has any visible content
+            const imageData = ctx.getImageData(0, 0, frameWidth, frameHeight);
+            const hasContent = imageData.data.some((value, index) => {
+                // Check alpha channel (every 4th value)
+                return index % 4 === 3 && value > 0;
+            });
+
+            if (!hasContent) {
+                console.warn(`Frame ${i} appears to be empty/transparent`);
+            }
+
             frames.push(canvas);
         }
 
