@@ -499,7 +499,6 @@ export class RangeEnemy extends Enemy {
   }
 
   update(defenderUnits) {
-
     if (!this.isAlive) {
       if (this.currentAnimation !== 'death') {
         this.setAnimation('death');
@@ -508,33 +507,45 @@ export class RangeEnemy extends Enemy {
       this.updateAnimation(16);
       return;
     }
-    // Determine animation state
-    if (this.isAttacking) {
-      this.setAnimation('attack');
-    } else if (this.speed > 0) {
-      this.setAnimation('move');
-    } else {
-      this.setAnimation('idle');
-    }
-    // Update animation
-    this.updateAnimation(16); // Assuming 60fps
-
-
-    if (!this.isAlive) return;
 
     if (this.health <= 0) {
       this.isAlive = false;
       this.health = 0;
       return;
     }
-    //find closest defender within range
+
+    // Find closest defender within range
     const targetDefender = this.findClosestDefender(defenderUnits);
 
     if (targetDefender && this.getDistanceTo(targetDefender) <= this.attackRange) {
       this.isMoving = false;
+      // FIX: Set isAttacking to true when in range with a target
+      this.isAttacking = true;
+
+      // Optional: Handle attack countdown here if you want immediate visual feedback
+      this.attackCountdown--;
+      if (this.attackCountdown <= 0) {
+        // The actual attack is handled by CombatManager
+        this.attackCountdown = this.attackRate;
+      }
     } else {
       this.isMoving = true;
+      // FIX: Set isAttacking to false when no target in range
+      this.isAttacking = false;
     }
+
+    // Determine animation state AFTER setting isAttacking
+    if (this.isAttacking) {
+      this.setAnimation('attack');
+    } else if (this.speed > 0 && this.isMoving) {
+      this.setAnimation('move');
+    } else {
+      this.setAnimation('idle');
+    }
+
+    // Update animation
+    this.updateAnimation(16); // Assuming 60fps
+
     if (this.isMoving) {
       this.x += this.speed;
     }
@@ -993,21 +1004,43 @@ export class VampireEnemy extends Enemy {
   }
 
   update(defenderUnits) {
-    if (!this.isAlive) return;
+    if (!this.isAlive) {
+      if (this.currentAnimation !== 'death') {
+        this.setAnimation('death');
+      }
+      this.updateAnimation(16);
+      return;
+    }
 
     if (this.health <= 0) {
       this.isAlive = false;
       this.health = 0;
       return;
     }
-    //find closest defender within range
+
+    // Find closest defender within range
     const targetDefender = this.findClosestDefender(defenderUnits);
 
     if (targetDefender && this.getDistanceTo(targetDefender) <= this.attackRange) {
       this.isMoving = false;
+      this.isAttacking = true; // FIX: Set attacking state
     } else {
       this.isMoving = true;
+      this.isAttacking = false; // FIX: Clear attacking state
     }
+
+    // Determine animation state
+    if (this.isAttacking) {
+      this.setAnimation('attack');
+    } else if (this.speed > 0 && this.isMoving) {
+      this.setAnimation('move');
+    } else {
+      this.setAnimation('idle');
+    }
+
+    // Update animation
+    this.updateAnimation(16);
+
     if (this.isMoving) {
       this.x += this.speed;
     }
@@ -1542,41 +1575,28 @@ export class MageEnemy extends Enemy {
       attackDamage: 80,
       attackRate: 120,
       attackRange: 300,
+      isRanged: true  // Keep this so CombatManager knows it's ranged
     });
     this.spellType = "fireball";
     this.currentSpellIndex = 0;
-    this.spells = ["fireball", "icebolt", "lightning",];
+    this.spells = ["fireball", "icebolt", "lightning"];
     this.isMoving = true;
     this.isCasting = false;
     this.castingTimer = 0;
     this.currentTarget = null;
+
+    // FIX: Track our own attack cooldown
+    this.attackCooldown = 0;
   }
 
   update(defenderUnits) {
-
     if (!this.isAlive) {
       if (this.currentAnimation !== 'death') {
         this.setAnimation('death');
       }
-      // Update animation but don't do anything else
       this.updateAnimation(16);
       return;
     }
-
-    // Determine animation state
-    if (this.isAttacking) {
-      this.setAnimation('attack');
-    } else if (this.speed > 0) {
-      this.setAnimation('move');
-    } else {
-      this.setAnimation('idle');
-    }
-
-    // Update animation
-    this.updateAnimation(16); // Assuming 60fps
-
-
-    if (!this.isAlive) return;
 
     if (this.health <= 0) {
       this.isAlive = false;
@@ -1584,44 +1604,109 @@ export class MageEnemy extends Enemy {
       return;
     }
 
+    // Update cooldowns
+    if (this.attackCooldown > 0) {
+      this.attackCooldown--;
+    }
+
+    // Handle casting animation
     if (this.isCasting) {
       this.castingTimer--;
-      if (this.castingTimer <= 0) {
-        this.isCasting = false;
-        this.performSpellAttack();
+
+      // Keep attack animation playing while casting
+      if (this.currentAnimation !== 'attack') {
+        this.setAnimation('attack');
       }
-      return;
+
+      if (this.castingTimer <= 0) {
+        // Casting complete - fire the spell
+        this.performSpellAttack();
+        this.isCasting = false;
+        this.isAttacking = false;
+      }
+
+      this.updateAnimation(16);
+      return; // Don't move while casting
     }
+
+    // Find target
     const targetDefender = this.findClosestDefender(defenderUnits);
 
     if (targetDefender && this.getDistanceTo(targetDefender) <= this.attackRange) {
       this.isMoving = false;
       this.currentTarget = targetDefender;
+
+      // FIX: Handle our own attack timing instead of relying on CombatManager
+      if (this.attackCooldown <= 0 && !this.isCasting) {
+        // Start casting immediately
+        this.startCasting(targetDefender);
+      }
+
+      // If we have a target in range, we're either attacking or about to attack
+      if (this.attackCooldown <= 30) { // About to attack soon
+        this.isAttacking = true;
+      }
     } else {
       this.isMoving = true;
       this.currentTarget = null;
+      this.isAttacking = false;
     }
+
+    // Determine animation state
+    if (this.isAttacking || this.isCasting) {
+      this.setAnimation('attack');
+    } else if (this.speed > 0 && this.isMoving) {
+      this.setAnimation('move');
+    } else {
+      this.setAnimation('idle');
+    }
+
+    // Update animation
+    this.updateAnimation(16);
 
     if (this.isMoving) {
       this.x += this.speed;
     }
   }
 
-  attack(target, currentTime) {
-    if (!this.isAlive || !target || !target.isAlive || !this.gameEngine) return;
+  // NEW: Separate method to start casting
+  startCasting(target) {
+    if (!this.isAlive || !target || !target.isAlive) return;
 
     this.isCasting = true;
-    this.castingTimer = 30; //0.5 casting time
+    this.isAttacking = true;
+    this.castingTimer = 30; // 0.5 second cast time
     this.currentTarget = target;
+    this.attackCooldown = this.attackRate; // Reset cooldown
 
-    //cycle spells
+    // Immediately switch to attack animation
+    this.setAnimation('attack');
+
+    // Cycle through spells
     this.spellType = this.spells[this.currentSpellIndex];
-    this.currentSpellIndex = (this.currentSpellIndex + 1) & this.spells.length;
-    this.lastAttackTime = currentTime;
+    this.currentSpellIndex = (this.currentSpellIndex + 1) % this.spells.length;
+
+    console.log(`Mage starting to cast ${this.spellType} at ${target.name}`);
+  }
+
+  // Override canAttack to prevent CombatManager from handling our attacks
+  canAttack(currentTime) {
+    // Return false so CombatManager doesn't try to create projectiles for us
+    return false;
+  }
+
+  // Keep the original attack method in case something else calls it
+  attack(target, currentTime) {
+    // Redirect to our casting system
+    if (this.attackCooldown <= 0 && !this.isCasting) {
+      this.startCasting(target);
+    }
   }
 
   performSpellAttack() {
     if (!this.currentTarget || !this.currentTarget.isAlive || !this.gameEngine) return;
+
+    console.log(`Mage casting ${this.spellType}!`);
 
     switch (this.spellType) {
       case "fireball":
@@ -1636,14 +1721,15 @@ export class MageEnemy extends Enemy {
     }
   }
 
+  // Rest of the spell methods remain the same...
   castFireball() {
     if (!this.gameEngine || !this.currentTarget) return;
 
     const fireBall = {
-      startX: -50,
-      startY: this.currentTarget.y + this.currentTarget.height / 2,
-      currentX: -50,
-      currentY: this.currentTarget.y + this.currentTarget.height / 2,
+      startX: this.x + this.width / 2,  // FIX: Start from mage position, not -50
+      startY: this.y + this.height / 2,
+      currentX: this.x + this.width / 2,
+      currentY: this.y + this.height / 2,
       targetX: this.currentTarget.x + this.currentTarget.width / 2,
       targetY: this.currentTarget.y + this.currentTarget.height / 2,
       speed: 12,
@@ -1664,10 +1750,10 @@ export class MageEnemy extends Enemy {
     if (!this.gameEngine || !this.currentTarget) return;
 
     const icebolt = {
-      startX: -50,
-      startY: this.currentTarget.y + this.currentTarget.height / 2,
-      currentX: -50,
-      currentY: this.currentTarget.y + this.currentTarget.height / 2,
+      startX: this.x + this.width / 2,  // FIX: Start from mage position
+      startY: this.y + this.height / 2,
+      currentX: this.x + this.width / 2,
+      currentY: this.y + this.height / 2,
       targetX: this.currentTarget.x + this.currentTarget.width / 2,
       targetY: this.currentTarget.y + this.currentTarget.height / 2,
       speed: 12,

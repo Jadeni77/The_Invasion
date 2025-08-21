@@ -20,6 +20,20 @@ export const AssetManifest = {
                 death: { frameCount: 15, frameWidth: 64, frameHeight: 64, fps: 10, loop: false }
             }
         },
+        'Basic Zombie': {
+            sprites: {
+                idle: () => BasicZombieIdle,
+                move: () => BasicZombieMove,
+                attack: () => BasicZombieAttack,
+                death: () => BasicZombieDeath
+            },
+            config: {
+                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
+                move: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
+                attack: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 15 },
+                death: { frameCount: 15, frameWidth: 64, frameHeight: 64, fps: 10, loop: false }
+            }
+        },
         'Fast Zombie': {
             sprites: {
                 idle: () => BasicZombieIdle,
