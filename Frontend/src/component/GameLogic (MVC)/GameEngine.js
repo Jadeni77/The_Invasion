@@ -186,7 +186,7 @@ export class GameEngine {
       maxActiveEnemies: 8,
       totalEnemiesToSpawn: 20,
       waves: 3,
-      availableEnemyTypes:  ["Mage", "Basic Zombie"],
+      availableEnemyTypes:  ["Titan", "Basic Zombie"],
           // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
           //  "Exploder", "Skeleton Shooter", "Shielder",
           // "Healer", "Splitter", "Mini", "Swarm Witch",
@@ -481,9 +481,8 @@ export class GameEngine {
   deployDefenderUnit(cardData, x, y) {
     if (this.gameOver) return false;
 
-    //get grid cell
     const gridCell = this.gridManager.getGridCell(x, y);
-    console.log("Grid cell:", gridCell); // Add this debug line
+    console.log("Grid cell:", gridCell);
 
     if (!gridCell || gridCell.occupied) {
       console.log("Invalid grid cell or cell is occupied/road");
@@ -496,7 +495,6 @@ export class GameEngine {
       return false;
     }
 
-    //create temporary units - it will calculate its stat base on levels
     const tempUnit = new UnitClass(0, 0, {
       ...cardData,
       image: this.getImage(cardData.name),
@@ -507,37 +505,44 @@ export class GameEngine {
       return false;
     }
 
-    // Adjust position to center of card
     let deployX = gridCell.x + (this.gridManager.gridSize - tempUnit.width) / 2;
     let deployY = gridCell.y + (this.gridManager.gridSize - tempUnit.height) / 2;
 
-    // Ensure the unit stays within the deployment area
     if (deployX < this.gridManager.gridOffsetX) {
       deployX = this.gridManager.gridOffsetX;
     }
 
-    // Check if position is valid (not on path, not overlapping other defenders)
     if (!this.isValidDeploymentPosition(deployX, deployY, tempUnit.width, tempUnit.height)) {
       console.log("Invalid deployment position");
       return false;
     }
 
-    //the actual unit
     const newUnit = new UnitClass(deployX, deployY, {
       ...cardData,
       image: this.getImage(cardData.name),
     });
 
-    // Pass GameEngine reference for special abilities (e.g., Grenadier's explosion)
+    // ADD THIS: Attach animation frames if available
+    if (this.animationManager && this.animationManager.hasAnimation(cardData.name)) {
+      const frames = {
+        idle: this.animationManager.getFrames(cardData.name, 'idle'),
+        attack: this.animationManager.getFrames(cardData.name, 'attack'),
+        death: this.animationManager.getFrames(cardData.name, 'death')
+      };
+
+      newUnit.animationFrames = frames;
+      newUnit.animationConfig = AssetManifest.defenders[cardData.name]?.config;
+      console.log(`Attached animations to ${cardData.name}`, newUnit.animationConfig);
+    }
+
     if (newUnit.setGameEngine) {
       newUnit.setGameEngine(this);
     }
 
     this.defenders.push(newUnit);
     this.inGameEnergy -= newUnit.cost;
-    this.updateEnergyCb(this.inGameEnergy); // Update UI
+    this.updateEnergyCb(this.inGameEnergy);
 
-    //mark cell occupy
     gridCell.occupied = true;
 
     return true;
@@ -677,22 +682,37 @@ export class GameEngine {
   updateDefenders(now) {
     if (this.gameOver) return;
 
-    //add recent dead enemies back to main defender for resurrection check
+    // Re-add recently died defenders ONLY for resurrection check
     if (this.recentlyDiedDefenders.length > 0) {
       this.defenders.push(...this.recentlyDiedDefenders);
       this.recentlyDiedDefenders = [];
     }
-    //update all alive defenders
+
+    // Update all defenders (alive and dead playing animations)
     for (const defender of this.defenders) {
-      // Skip update for dead defenders, but keep them in array
       if (defender.isAlive) {
-        defender.update(this.enemies, this.defenders); // Pass all defenders including dead ones
+        defender.update(this.enemies, this.defenders);
+      } else {
+        // Dead defenders only update their animation
+        if (!defender.deathHandled) {
+          defender.deathHandled = true;
+          console.log(`${defender.name} died, playing death animation`);
+        }
+        // Still update animation for dead units
+        if (defender.currentAnimation !== 'death') {
+          defender.setAnimation('death');
+        }
+        defender.updateAnimation(16);
       }
     }
-    //check for resurrect units
+
+    // Check for resurrection
     for (const defender of this.defenders) {
       if (!defender.isAlive && defender.health > 0) {
         defender.isAlive = true;
+        defender.isPlayingDeathAnimation = false;
+        defender.deathAnimationComplete = false;
+        defender.deathHandled = false;
         console.log(`${defender.name} resurrected!`);
 
         const gridCell = this.gridManager.getGridCell(
@@ -705,10 +725,13 @@ export class GameEngine {
       }
     }
 
-    this.combatManager.updateDefenderCombat(this.defenders, this.enemies, now);
+    // Combat updates for alive defenders only
+    this.combatManager.updateDefenderCombat(this.defenders.filter(d => d.isAlive), this.enemies, now);
 
-    //handle disabled and other nagative effects
+    // Handle status effects for alive defenders
     for (const defender of this.defenders) {
+      if (!defender.isAlive) continue;
+
       if (defender.disabled && defender.disabledDuration) {
         defender.disabledDuration--;
         if (defender.disabledDuration <= 0) {
@@ -725,26 +748,31 @@ export class GameEngine {
         }
       }
     }
-    //remove dead defenders and clear grid logic but keep them for one frame
-    const newRecentlyDied = [];
+
+    // Remove dead defenders - FIXED LOGIC
     for (let i = this.defenders.length - 1; i >= 0; i--) {
       const defender = this.defenders[i];
-      if (!defender.isAlive && defender.health <= 0) {
-        // Keep dead units for one frame so healers can resurrect them
-        newRecentlyDied.push(defender);
 
-        //find and free the grid cell
-        const gridCell = this.gridManager.getGridCell(
-            defender.x + defender.width / 2,
-            defender.y + defender.height / 2
-        );
-        if (gridCell) {
-          gridCell.occupied = false;
+      // Only check dead defenders
+      if (!defender.isAlive && defender.health <= 0) {
+        if (defender.deathAnimationComplete) {
+          // Animation complete, remove the defender
+          const gridCell = this.gridManager.getGridCell(
+              defender.x + defender.width / 2,
+              defender.y + defender.height / 2
+          );
+          if (gridCell) {
+            gridCell.occupied = false;
+          }
+          this.defenders.splice(i, 1);
+          console.log(`${defender.name} removed after death animation`);
         }
-        this.defenders.splice(i, 1); // Remove dead defender
+        // If death animation not complete, keep the defender in array
       }
     }
-    this.recentlyDiedDefenders = newRecentlyDied;
+
+    // Clear the recently died array - don't keep them
+    this.recentlyDiedDefenders = [];
   }
 
   /** Updates all enemy units. */

@@ -53,9 +53,9 @@ export const AssetManifest = {
     defenders: {
         'Basic Cop': {
             sprites: {
-                idle: () => null,
-                attack: () => null,
-                death: () => null
+                idle: () => BasicZombieIdle,
+                attack: () => BasicZombieAttack,
+                death: () => BasicZombieDeath
             },
             config: {
                 idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8 },
@@ -63,6 +63,78 @@ export const AssetManifest = {
                 death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
             }
         },
+        'Healer Cop': {
+            sprites: {
+                idle: () => BasicZombieIdle,
+                attack: () => BasicZombieAttack,  // Will play when healing
+                death: () => BasicZombieDeath
+            },
+            config: {
+                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 6 },
+                attack: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 10 },
+                death: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
+            }
+        },
+        'Grenadier': {
+            sprites: {
+                idle: () => BasicZombieIdle,
+                attack: () => BasicZombieAttack,
+                death: () => BasicZombieDeath
+            },
+            config: {
+                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8 },
+                attack: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 15 },
+                death: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
+            }
+        },
+        'Barricade': {
+            sprites: {
+                idle: () => BasicZombieIdle,
+                attack: () => BasicZombieAttack,  // Barricade doesn't attack, use idle
+                death: () => BasicZombieDeath
+            },
+            config: {
+                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
+                attack: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
+                death: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12, loop: false }
+            }
+        },
+        'Energy Generator': {
+            sprites: {
+                idle: () => BasicZombieIdle,
+                attack: () => BasicZombieAttack,  // Doesn't attack, use idle
+                death: () => BasicZombieDeath
+            },
+            config: {
+                idle: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 10 },
+                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 10 },
+                death: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
+            }
+        },
+        'Sniper': {
+            sprites: {
+                idle: () => BasicZombieIdle,
+                attack: () => BasicZombieAttack,
+                death: () => BasicZombieDeath
+            },
+            config: {
+                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 6 },
+                attack: { frameCount: 6, frameWidth: 64, frameHeight: 64, fps: 20 },
+                death: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
+            }
+        },
+        'Mortar': {
+            sprites: {
+                idle: () => BasicZombieIdle,
+                attack: () => BasicZombieAttack,
+                death: () => BasicZombieDeath
+            },
+            config: {
+                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 4 },
+                attack: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 8 },
+                death: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
+            }
+        }
         // ... more defenders
     }
 };

@@ -21,7 +21,7 @@ export class DefenderUnit {
     this.height = cardData.height || 40;
     this.range = cardData.range || 0;
     this.attackDamage = cardData.damage || 0;
-    this.fireRate =cardData.fireRate || 60;
+    this.fireRate = cardData.fireRate || 60;
     this.health = cardData.health || 100;
     this.maxHealth = cardData.health || 100;
     this.cost = cardData.cost || 0;
@@ -31,10 +31,11 @@ export class DefenderUnit {
 
     //combat properties
     this.fireCountdown = this.fireRate;
-    this.lastAttackTime = 0; // New: To track last attack for canAttack
-    this.isRanged = cardData.isRanged || false; // New: Flag for ranged units
+    this.lastAttackTime = 0;
+    this.isRanged = cardData.isRanged || false;
     this.isAlive = true;
     this.id = Math.random();
+    this.isAttacking = false; // ADD THIS: Track attack state for animation
 
     //status effect
     this.disabled = false;
@@ -48,25 +49,104 @@ export class DefenderUnit {
     this.gameEngine = null;
     this.drawNegativeEffect = new DrawNegativeEffect(this);
 
+    // ADD THESE: Animation properties
+    this.currentAnimation = 'idle';
+    this.animationFrame = 0;
+    this.animationTimer = 0;
+    this.animationFrames = null;
+    this.animationConfig = null;
+
+    this.isPlayingDeathAnimation = false;
+    this.deathAnimationComplete = false;
+    this.deathHandled = false;
+
     this.applyLevelUpgrades();
+  }
+
+  // ADD THIS: Animation state management
+  setAnimation(animationName) {
+    // Add safety check
+    if (!this.animationFrames || !animationName) {
+      return;
+    }
+
+    if (this.currentAnimation !== animationName) {
+      console.log(`${this.name} switching animation from ${this.currentAnimation} to ${animationName}`);
+      this.currentAnimation = animationName;
+      this.animationFrame = 0;
+      this.animationTimer = 0;
+
+      if (animationName === 'death') {
+        this.isPlayingDeathAnimation = true;
+        console.log(`${this.name} started death animation`);
+
+        // Check if we have death animation frames
+        if (!this.animationFrames.death || this.animationFrames.death.length === 0) {
+          console.warn(`${this.name} has no death animation frames!`);
+          this.deathAnimationComplete = true;
+        }
+      }
+    }
+  }
+
+  // ADD THIS: Animation frame updates
+  updateAnimation(deltaTime) {
+    if (!this.animationConfig || !this.animationFrames) {
+      // If no animation data, mark death as complete if dead
+      if (!this.isAlive && this.currentAnimation === 'death') {
+        this.deathAnimationComplete = true;
+      }
+      return;
+    }
+
+    const config = this.animationConfig[this.currentAnimation];
+    if (!config) {
+      // If no config for current animation, mark death as complete if dead
+      if (!this.isAlive && this.currentAnimation === 'death') {
+        this.deathAnimationComplete = true;
+      }
+      return;
+    }
+
+    this.animationTimer += deltaTime;
+    const frameDuration = 1000 / config.fps;
+
+    if (this.animationTimer >= frameDuration) {
+      this.animationTimer -= frameDuration;
+      this.animationFrame++;
+
+      if (this.animationFrame >= config.frameCount) {
+        if (config.loop !== false) {
+          this.animationFrame = 0;
+          // Reset attack state after attack animation completes
+          if (this.currentAnimation === 'attack') {
+            this.isAttacking = false;
+          }
+        } else {
+          this.animationFrame = config.frameCount - 1;
+
+          if (this.currentAnimation === 'death') {
+            console.log(`${this.name} death animation complete at frame ${this.animationFrame}`);
+            this.deathAnimationComplete = true;
+          }
+        }
+      }
+    }
   }
 
   applyLevelUpgrades() {
     const level = this.level;
-    const statMultiplier = 1 + (level - 1) * 0.15; //15% increase
+    const statMultiplier = 1 + (level - 1) * 0.15;
 
     this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
     this.health = Math.floor(this.health * statMultiplier);
     this.maxHealth = Math.floor(this.maxHealth * statMultiplier);
     this.range = Math.floor(this.range * statMultiplier);
-    //Apply special ability base on level
     this.applySpecialAbilities();
   }
 
-  //this is the special ability being unlock at a certain level
   applySpecialAbilities() {
-    ////base class does not have any special ability
-    //subclasses can have
+    // Base class has no special abilities
   }
 
   getUpgradeInfo() {
@@ -78,65 +158,102 @@ export class DefenderUnit {
     };
   }
 
-  // Default logic for all
+  // UPDATE THIS METHOD: Add animation state management
   update(enemies, defenderUnits) {
-    // This update method will primarily handle non-attack logic (like movement if any)
-    // Attack logic is now separated into canAttack and attack methods, called by GameEngine
-    if (!this.isAlive) return;
-    // Subclasses can add their specific update logic here
+    if (!this.isAlive) {
+      if (this.currentAnimation !== 'death') {
+        this.setAnimation('death');
+      }
+      this.updateAnimation(16);
+      return;
+    }
+
+    // Determine animation state
+    if (this.disabled) {
+      this.setAnimation('idle');
+    } else if (this.isAttacking) {
+      this.setAnimation('attack');
+    } else {
+      this.setAnimation('idle');
+    }
+
+    // Update animation
+    this.updateAnimation(16);
   }
 
-  // Checks if the defender can attack based on fireRate
   canAttack(currentTime) {
-    return currentTime - this.lastAttackTime >= (this.fireRate * 1000) / 60; // Convert frames to milliseconds
+    return currentTime - this.lastAttackTime >= (this.fireRate * 1000) / 60;
   }
 
-  // Performs an attack on a target
+  // UPDATE THIS METHOD: Set attacking state
   attack(target, currentTime) {
     if (!this.isAlive || !target || !target.isAlive) return;
 
+    this.isAttacking = true; // ADD THIS
     target.takeDamage(this.attackDamage);
-    this.lastAttackTime = currentTime; // Update last attack time
+    this.lastAttackTime = currentTime;
   }
 
+  // REPLACE THE ENTIRE draw METHOD
   draw(ctx) {
-    if (!this.isAlive) return;
-    // Use fallback if image fails to load
-    if (this.image && this.image.complete && this.image.naturalHeight !== 0) {
-      try {
-        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
-      } catch (e) {
+    // Draw animation frames if available
+    if (this.animationFrames && this.animationFrames[this.currentAnimation]) {
+      const frames = this.animationFrames[this.currentAnimation];
+      if (frames && frames[this.animationFrame]) {
+        try {
+          ctx.drawImage(
+              frames[this.animationFrame],
+              this.x,
+              this.y,
+              this.width,
+              this.height
+          );
+        } catch (e) {
+          console.error('Failed to draw frame:', e);
+          this.drawFallback(ctx);
+        }
+      } else {
+        console.warn(`No frame for ${this.currentAnimation}[${this.animationFrame}]`);
         this.drawFallback(ctx);
       }
     } else {
       this.drawFallback(ctx);
     }
 
-    // Unit name text
-    ctx.fillStyle = "black";
-    ctx.font = "12px Arial";
-    ctx.fillText(
-      this.name.substring(0, 8),
-      this.x + 2,
-      this.y + this.height + 15
-    );
+    // Don't draw UI elements for dead units playing death animation
+    if (!this.isAlive && this.isPlayingDeathAnimation && !this.deathAnimationComplete) {
+      return;
+    }
 
-    // Health bar
-    ctx.fillStyle = "red";
-    ctx.fillRect(this.x, this.y - 10, this.width, 5); // Background of health bar
-    ctx.fillStyle = "lime";
-    const healthWidth = (this.health / this.maxHealth) * this.width;
-    ctx.fillRect(this.x, this.y - 10, healthWidth, 5); // Current health
-    ctx.fillText(this.health.toFixed(0), this.x, this.y - 15); // Show health value
+    // Only draw health bar and name for alive units
+    if (this.isAlive) {
+      // Unit name text
+      ctx.fillStyle = "black";
+      ctx.font = "12px Arial";
+      ctx.fillText(
+          this.name.substring(0, 8),
+          this.x + 2,
+          this.y + this.height + 15
+      );
 
-    this.drawNegativeEffect.drawAllEffect(ctx);
+      // Health bar
+      if (this.health < this.maxHealth) {
+        ctx.fillStyle = "red";
+        ctx.fillRect(this.x, this.y - 10, this.width, 5);
+        ctx.fillStyle = "lime";
+        const healthWidth = (this.health / this.maxHealth) * this.width;
+        ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
+        ctx.fillText(this.health.toFixed(0), this.x, this.y - 15);
+      }
+
+      this.drawNegativeEffect.drawAllEffect(ctx);
+    }
   }
 
   drawFallback(ctx) {
     ctx.fillStyle = this.color;
     ctx.fillRect(this.x, this.y, this.width, this.height);
 
-    // Draw unit type initial
     ctx.fillStyle = "black";
     ctx.font = "12px Arial";
     ctx.fillText(this.name.charAt(0), this.x + 5, this.y + 15);
@@ -148,9 +265,9 @@ export class DefenderUnit {
     if (this.health <= 0) {
       this.health = 0;
       this.isAlive = false;
-      return true; // Indicate defender died
+      return true;
     }
-    return false; // Indicate defender alive
+    return false;
   }
 
   setGameEngine(engine) {
@@ -196,14 +313,18 @@ export class BasicDefender extends DefenderUnit {
     if (!this.isAlive || !target || !target.isAlive) {
       return;
     }
+
+    this.isAttacking = true; // ADD THIS
     const died = target.takeDamage(this.attackDamage, this.hasArmorPiercing);
 
-        if (died && !target.isSpawned && this.gameEngine && !this.gameEngine.gameOver) {
-          this.gameEngine.inGameScore += target.bounty;
-          this.gameEngine.updateScoreCb(this.gameEngine.inGameScore);
-          this.gameEngine.dropManager.handleEnemyDeath(target);
-        }
+    if (died && !target.isSpawned && this.gameEngine && !this.gameEngine.gameOver) {
+      this.gameEngine.inGameScore += target.bounty;
+      this.gameEngine.updateScoreCb(this.gameEngine.inGameScore);
+      this.gameEngine.dropManager.handleEnemyDeath(target);
     }
+
+    this.lastAttackTime = currentTime; // ADD THIS
+  }
 
   getUpgradeInfo() {
     const base = super.getUpgradeInfo();
@@ -277,41 +398,53 @@ export class HealerDefender extends DefenderUnit {
   }
 
   update(enemies, defenderUnits) {
-    if (!this.isAlive) return;
+    if (!this.isAlive) {
+      // Handle death animation
+      if (this.animationFrames && this.animationFrames.death) {
+        if (this.currentAnimation !== 'death') {
+          this.setAnimation('death');
+        }
+        this.updateAnimation(16);
+      } else {
+        this.deathAnimationComplete = true;
+      }
+      return;
+    }
 
     // Healing Logic
     this.healingCountdown--;
     if (this.healingCountdown <= 0) {
-      // Find friendly units in healing range that need healing
       const unitsToHeal = defenderUnits.filter(
-        (unit) =>
-          unit.id !== this.id && // No self-healing
-          unit.isAlive &&
-          unit.health < unit.maxHealth &&
-          Math.hypot(
-            this.x + this.width / 2 - (unit.x + unit.width / 2),
-            this.y + this.height / 2 - (unit.y + unit.height / 2)
-          ) <= this.healingRange // In range
+          (unit) =>
+              unit.id !== this.id &&
+              unit.isAlive &&
+              unit.health < unit.maxHealth &&
+              Math.hypot(
+                  this.x + this.width / 2 - (unit.x + unit.width / 2),
+                  this.y + this.height / 2 - (unit.y + unit.height / 2)
+              ) <= this.healingRange
       );
 
-      //group healing special ability
+      // Group healing special ability
       if (this.hasGroupHeal && unitsToHeal.length > 0) {
-        //heal up to three units
+        this.isAttacking = true; // Show attack animation when healing
         const toHeal = unitsToHeal.slice(0, 3);
-        toHeal.forEach(unit => { unit.health = Math.min(unit.maxHealth,
-                                                        unit.health + this.healingAmount);});
+        toHeal.forEach(unit => {
+          unit.health = Math.min(unit.maxHealth, unit.health + this.healingAmount);
+        });
       } else if (unitsToHeal.length > 0) {
-        // Sort by lowest health percentage to prioritize
+        this.isAttacking = true; // Show attack animation when healing
         unitsToHeal.sort((a, b) => a.health / a.maxHealth - b.health / b.maxHealth);
         const targetUnit = unitsToHeal[0];
         targetUnit.health = Math.min(targetUnit.maxHealth, targetUnit.health + this.healingAmount);
+      } else {
+        this.isAttacking = false; // Not healing anyone
       }
 
-      //check for resurreltion ability
+      // Check for resurrection ability
       if (this.hasResurrection && this.canResurrect) {
         console.log(`Healer checking for dead units...`);
 
-        //check all defenders including recent died
         let allDefender = [...defenderUnits];
         if (this.gameEngine && this.gameEngine.recentlyDiedDefenders) {
           allDefender = [...defenderUnits, ...this.gameEngine.recentlyDiedDefenders];
@@ -322,16 +455,35 @@ export class HealerDefender extends DefenderUnit {
         console.log(`Found ${deadUnits.length} dead units`);
         if (deadUnits.length > 0) {
           const deadUnit = deadUnits[0];
-            console.log(`Resurrecting ${deadUnit.name}`);
-            if (!deadUnit.occupied) {
-              deadUnit.health = Math.floor(deadUnit.maxHealth * 0.2);
-              this.canResurrect = false;
-              deadUnit.hasBeenResurrected = true;
-              console.log("Resurrection successful!");
-            }
+          console.log(`Resurrecting ${deadUnit.name}`);
+          if (!deadUnit.occupied) {
+            this.isAttacking = true; // Show attack animation when resurrecting
+            deadUnit.health = Math.floor(deadUnit.maxHealth * 0.2);
+            this.canResurrect = false;
+            deadUnit.hasBeenResurrected = true;
+            console.log("Resurrection successful!");
+          }
         }
       }
+
       this.healingCountdown = this.healingRate;
+    }
+
+    // Animation state management
+    if (this.animationFrames) {
+      if (this.disabled) {
+        this.setAnimation('idle');
+      } else if (this.isAttacking) {
+        this.setAnimation('attack');
+      } else {
+        this.setAnimation('idle');
+      }
+      this.updateAnimation(16);
+    }
+
+    // Reset attack state after animation
+    if (this.isAttacking && this.healingCountdown < this.healingRate - 10) {
+      this.isAttacking = false;
     }
   }
 
@@ -427,16 +579,20 @@ export class GrenadeDefender extends DefenderUnit {
   // Override attack to trigger explosion via GameEngine
   attack(target, currentTime) {
     if (!this.isAlive || !target || !target.isAlive) return;
+
+    this.isAttacking = true; // ADD THIS
+
     console.log(`Grenadier has ClusterBomb : ${this.hasClusterBomb} `);
     console.log(`Grenadier has Napalm : ${this.hasNapalm} `);
 
     if (this.gameEngine) {
       this.gameEngine.addDefenderExplosion(
-          target.x + target.width / 2, // Center explosion on target
+          target.x + target.width / 2,
           target.y + target.height / 2,
           this.attackDamage,
           this.grenadeRadius,
-          );
+      );
+
       // Create visual effect
       this.gameEngine.explosions.push({
                                         x: target.x + target.width / 2,
@@ -650,23 +806,37 @@ export class EnergyGenerator extends DefenderUnit {
   }
 
   update(enemies, defenderUnits) {
-    if (!this.isAlive) return;
+    if (!this.isAlive) {
+      // Handle death animation
+      if (this.animationFrames && this.animationFrames.death) {
+        if (this.currentAnimation !== 'death') {
+          this.setAnimation('death');
+        }
+        this.updateAnimation(16);
+      } else {
+        this.deathAnimationComplete = true;
+      }
+      return;
+    }
 
     if (this.hasEnergyBurst) {
-      this.energyDropAmount *= 1.5; //50% increase
+      this.energyDropAmount *= 1.5;
     }
     if (this.hasEnergyField) {
-      //TODO:
+      // TODO: Energy field logic
     }
     if (this.autoCollect) {
-      //TODO:
+      // TODO: Auto-collect logic
     }
-    //energy drop logic
+
+    // Energy drop logic
     this.energyDropCountDown--;
     if (this.energyDropCountDown <= 0) {
       if (this.gameEngine) {
-        //drop energy at random position near this defender
-        const offsetX = (Math.random() - 0.5 ) * 60;
+        // Play "attack" animation when generating energy
+        this.isAttacking = true;
+
+        const offsetX = (Math.random() - 0.5) * 60;
         const offsetY = (Math.random() - 0.5) * 60;
         this.gameEngine.dropEnergy(
             this.x + this.width / 2 + offsetX,
@@ -676,7 +846,23 @@ export class EnergyGenerator extends DefenderUnit {
       }
       this.energyDropCountDown = this.energyDropRate;
     }
+
+    // Animation state management
+    if (this.animationFrames) {
+      if (this.isAttacking) {
+        this.setAnimation('attack');
+      } else {
+        this.setAnimation('idle');
+      }
+      this.updateAnimation(16);
+    }
+
+    // Reset attack animation after a short time
+    if (this.isAttacking && this.energyDropCountDown > this.energyDropRate - 30) {
+      this.isAttacking = false;
+    }
   }
+
 
   draw(ctx) {
     super.draw(ctx);
@@ -767,6 +953,8 @@ export class Sniper extends DefenderUnit {
 
   attack(target, currentTime) {
     if (!this.isAlive || !target || !target.isAlive || !this.gameEngine) return;
+
+    this.isAttacking = true; // ADD THIS
 
     console.log(`Sniper attack - Level: ${this.level}, Piercing: ${this.hasPiercingShot}, Headshot: ${this.hasHeadshot}`);
 
@@ -1096,28 +1284,38 @@ export class Mortar extends DefenderUnit {
   }
 
   update(enemies, defenderUnits) {
-    if (!this.isAlive) return;
+    if (!this.isAlive) {
+      // Handle death animation
+      if (this.animationFrames && this.animationFrames.death) {
+        if (this.currentAnimation !== 'death') {
+          this.setAnimation('death');
+        }
+        this.updateAnimation(16);
+      } else {
+        this.deathAnimationComplete = true;
+      }
+      return;
+    }
 
-    //update barrel recoil animation
+    // Update barrel recoil animation
     if (this.barrelRecoil > 0) {
       this.barrelRecoil -= 0.5;
     }
-    //update target lock visual
+
+    // Update target lock visual
     if (this.targetLockTime > 0) {
       this.targetLockTime--;
     }
 
-    // Process pending shells - NOW THEY TRACK ENEMIES
+    // Process pending shells
     this.pendingShells = this.pendingShells.filter(shell => {
-      //fire the shell after targeting phase
       if (!shell.fired && this.targetLockTime <= 0) {
         shell.fired = true;
-        shell.currentY = -100; // launch upward
+        shell.currentY = -100;
       }
       if (shell.fired) {
         shell.timeRemaining--;
 
-        // Update target position if enemy is still alive
         if (shell.target && shell.target.isAlive) {
           shell.targetX = shell.target.x + shell.target.width / 2;
           shell.targetY = shell.target.y + shell.target.height / 2;
@@ -1126,7 +1324,6 @@ export class Mortar extends DefenderUnit {
         const progress = 1 - (shell.timeRemaining / this.shellTravelTime);
         const arcHeight = 300;
 
-        //parabolic path
         shell.currentX = shell.startX + (shell.targetX - shell.startX) * progress;
         shell.currentY = shell.startY + (shell.targetY - shell.startY) * progress
                          - arcHeight * 4 * progress * (1 - progress);
@@ -1138,9 +1335,25 @@ export class Mortar extends DefenderUnit {
       }
       return true;
     });
-    //clear current target if its dead or out of range
+
+    // Clear current target if dead or out of range
     if (this.currentTarget && (!this.currentTarget.isAlive || !this.isValidTarget(this.currentTarget))) {
       this.currentTarget = null;
+    }
+
+    // Animation state management
+    if (this.animationFrames) {
+      if (this.isAttacking && this.targetLockTime > 0) {
+        this.setAnimation('attack');
+      } else {
+        this.setAnimation('idle');
+      }
+      this.updateAnimation(16);
+    }
+
+    // Reset attack animation after firing
+    if (this.isAttacking && this.targetLockTime <= 0) {
+      this.isAttacking = false;
     }
   }
 
@@ -1149,14 +1362,16 @@ export class Mortar extends DefenderUnit {
 
     if (!this.isAlive || !actualTarget || !actualTarget.isAlive) return;
 
-    // Verify target is in valid range
     if (!this.isValidTarget(actualTarget)) {
       console.log("Mortar: Target too close or too far");
       return;
     }
-    //lock onto target
+
+    this.isAttacking = true; // ADD THIS
+
+    // Lock onto target
     this.currentTarget = actualTarget;
-    this.targetLockTime = 30; // Show targeting for 0.5 seconds before firing
+    this.targetLockTime = 30;
 
     // Calculate angle for visual effect
     this.lastFireAngle = Math.atan2(
@@ -1167,17 +1382,17 @@ export class Mortar extends DefenderUnit {
     // Add barrel recoil effect
     this.barrelRecoil = 10;
 
-    // Add shell to pending - NOW INCLUDES TARGET REFERENCE
+    // Add shell to pending
     this.pendingShells.push({
-                              target: actualTarget,  // Store enemy reference
-                              targetX: actualTarget.x + actualTarget.width / 2,  // Current position
+                              target: actualTarget,
+                              targetX: actualTarget.x + actualTarget.width / 2,
                               targetY: actualTarget.y + actualTarget.height / 2,
                               timeRemaining: this.shellTravelTime,
                               startX: this.x + this.width / 2,
                               startY: this.y + this.height / 2,
                               currentX: this.x + this.width/2,
                               currentY: this.y + this.height/2,
-                              fired: false // Will be set to true after targeting phase
+                              fired: false
                             });
 
     this.lastAttackTime = currentTime;
