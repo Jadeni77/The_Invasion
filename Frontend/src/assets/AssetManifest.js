@@ -119,7 +119,7 @@ export const AssetManifest = {
             },
             config: {
                 idle: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 6 },
-                attack: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 10 },
+                attack: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20 },
                 death: { frameCount: 15, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
             }
         },

@@ -102,11 +102,6 @@ export class Enemy {
     this.animationTimer += deltaTime;
     const frameDuration = 1000 / config.fps;
 
-    // Debug log for death animation
-    if (this.currentAnimation === 'death') {
-      console.log(`Death frame ${this.animationFrame}/${config.frameCount}, timer: ${this.animationTimer}/${frameDuration}`);
-    }
-
     if (this.animationTimer >= frameDuration) {
       this.animationTimer -= frameDuration; // Use subtraction instead of reset to maintain timing
       this.animationFrame++;

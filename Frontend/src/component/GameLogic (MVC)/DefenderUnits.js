@@ -140,7 +140,7 @@ export class DefenderUnit {
 
     this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
     this.health = Math.floor(this.health * statMultiplier);
-    this.maxHealth = Math.floor(this.maxHealth * statMultiplier);
+    this.maxHealth = this.health;
     this.range = Math.floor(this.range * statMultiplier);
     this.applySpecialAbilities();
   }
@@ -237,7 +237,7 @@ export class DefenderUnit {
       );
 
       // Health bar
-      if (this.health < this.maxHealth) {
+     if (this.health < this.maxHealth) {
         ctx.fillStyle = "red";
         ctx.fillRect(this.x, this.y - 10, this.width, 5);
         ctx.fillStyle = "lime";
@@ -369,6 +369,7 @@ export class HealerDefender extends DefenderUnit {
     this.healingAmount = Math.floor(this.healingAmount * statMultiplier);
     this.healingRange = Math.floor(this.healingRange * statMultiplier);
     this.health = Math.floor(this.health * statMultiplier);
+    this.maxHealth = this.health;
     this.applySpecialAbilities();
   }
 
@@ -712,6 +713,7 @@ export class BarricadeDefender extends DefenderUnit {
     const healthMultiplier = 1 + (level - 1) * 0.3; // 30% health increase per level
 
     this.health = Math.floor(this.health * healthMultiplier);
+    this.maxHealth = this.health;
     //this.baseCost = Math.floor(this.baseCost * (1 + (level - 1) * 0.1));
 
     this.applySpecialAbilities();
@@ -1205,27 +1207,10 @@ export class Mortar extends DefenderUnit {
     this.currentTarget = null;
     this.nextTarget = null;
     this.targetLockTime = 0;
-    this.debugAnimation = true;
+
+    this.attackAnimationLock = 0;
+    this.attackAnimationDuration = 60;
   }
-  setAnimation(animationName) {
-    console.log(`🎯 Mortar animation change attempt: ${this.currentAnimation} -> ${animationName}`);
-
-    if (this.animationFrames) {
-      console.log(`  Available animations:`, Object.keys(this.animationFrames));
-      console.log(`  Frame counts:`, {
-        idle: this.animationFrames.idle?.length,
-        attack: this.animationFrames.attack?.length,
-        death: this.animationFrames.death?.length
-      });
-    }
-
-    if (this.animationConfig) {
-      console.log(`  Config for ${animationName}:`, this.animationConfig[animationName]);
-    }
-
-    super.setAnimation(animationName);
-  }
-
 
   applyLevelUpgrades() {
     const level = this.level;
@@ -1378,10 +1363,12 @@ export class Mortar extends DefenderUnit {
       this.currentTarget = null;
     }
 
-    // Animation state management
+    // Animation state management - FIX: Keep attack animation playing during lock
     if (this.animationFrames) {
-      if (this.isAttacking && this.targetLockTime > 0) {
+      if (this.attackAnimationLock > 0) {
         this.setAnimation('attack');
+      } else if (this.disabled) {
+        this.setAnimation('idle');
       } else {
         this.setAnimation('idle');
       }
@@ -1389,7 +1376,7 @@ export class Mortar extends DefenderUnit {
     }
 
     // Reset attack animation after firing
-    if (this.isAttacking && this.targetLockTime <= 0) {
+    if (this.isAttacking && this.attackAnimationLock <= 0) {
       this.isAttacking = false;
     }
   }
@@ -1405,6 +1392,8 @@ export class Mortar extends DefenderUnit {
     }
 
     this.isAttacking = true; // ADD THIS
+    // FIX: Set animation lock to keep attack animation playing
+    this.attackAnimationLock = this.attackAnimationDuration;
 
     // Lock onto target
     this.currentTarget = actualTarget;
@@ -1697,3 +1686,4 @@ export class Mortar extends DefenderUnit {
     }
   }
 }
+
