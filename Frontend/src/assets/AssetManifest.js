@@ -59,7 +59,7 @@ export const AssetManifest = {
             },
             config: {
                 idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8 },
-                attack: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 12 },
+                attack: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 20 },
                 death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
             }
         },
@@ -118,9 +118,9 @@ export const AssetManifest = {
                 death: () => BasicZombieDeath
             },
             config: {
-                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 6 },
-                attack: { frameCount: 6, frameWidth: 64, frameHeight: 64, fps: 20 },
-                death: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
+                idle: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 6 },
+                attack: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 10 },
+                death: { frameCount: 15, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
             }
         },
         'Mortar': {
@@ -130,9 +130,9 @@ export const AssetManifest = {
                 death: () => BasicZombieDeath
             },
             config: {
-                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 4 },
-                attack: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 8 },
-                death: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
+                idle: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 4 },
+                attack: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 10 },
+                death: { frameCount: 15, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
             }
         }
         // ... more defenders

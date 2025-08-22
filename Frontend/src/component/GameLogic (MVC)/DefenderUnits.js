@@ -52,7 +52,7 @@ export class DefenderUnit {
     // ADD THESE: Animation properties
     this.currentAnimation = 'idle';
     this.animationFrame = 0;
-    this.animationTimer = 0;
+    this.frameCounter = 0;
     this.animationFrames = null;
     this.animationConfig = null;
 
@@ -74,7 +74,7 @@ export class DefenderUnit {
       console.log(`${this.name} switching animation from ${this.currentAnimation} to ${animationName}`);
       this.currentAnimation = animationName;
       this.animationFrame = 0;
-      this.animationTimer = 0;
+      this.frameCounter = 0;
 
       if (animationName === 'death') {
         this.isPlayingDeathAnimation = true;
@@ -90,7 +90,7 @@ export class DefenderUnit {
   }
 
   // ADD THIS: Animation frame updates
-  updateAnimation(deltaTime) {
+  updateAnimation() {
     if (!this.animationConfig || !this.animationFrames) {
       // If no animation data, mark death as complete if dead
       if (!this.isAlive && this.currentAnimation === 'death') {
@@ -108,11 +108,11 @@ export class DefenderUnit {
       return;
     }
 
-    this.animationTimer += deltaTime;
-    const frameDuration = 1000 / config.fps;
+    this.frameCounter++;
+    const gameFramesPerAnimFrame = Math.floor(60 / config.fps);
 
-    if (this.animationTimer >= frameDuration) {
-      this.animationTimer -= frameDuration;
+    if (this.frameCounter >= gameFramesPerAnimFrame) {
+      this.frameCounter = 0;
       this.animationFrame++;
 
       if (this.animationFrame >= config.frameCount) {
@@ -164,7 +164,7 @@ export class DefenderUnit {
       if (this.currentAnimation !== 'death') {
         this.setAnimation('death');
       }
-      this.updateAnimation(16);
+      this.updateAnimation();
       return;
     }
 
@@ -178,7 +178,7 @@ export class DefenderUnit {
     }
 
     // Update animation
-    this.updateAnimation(16);
+    this.updateAnimation();
   }
 
   canAttack(currentTime) {
@@ -231,7 +231,7 @@ export class DefenderUnit {
       ctx.fillStyle = "black";
       ctx.font = "12px Arial";
       ctx.fillText(
-          this.name.substring(0, 8),
+          this.name.substring(0, this.name.length),
           this.x + 2,
           this.y + this.height + 15
       );
@@ -404,7 +404,7 @@ export class HealerDefender extends DefenderUnit {
         if (this.currentAnimation !== 'death') {
           this.setAnimation('death');
         }
-        this.updateAnimation(16);
+        this.updateAnimation();
       } else {
         this.deathAnimationComplete = true;
       }
@@ -478,7 +478,7 @@ export class HealerDefender extends DefenderUnit {
       } else {
         this.setAnimation('idle');
       }
-      this.updateAnimation(16);
+      this.updateAnimation();
     }
 
     // Reset attack state after animation
@@ -690,7 +690,7 @@ export class BarricadeDefender extends DefenderUnit {
     const typeData = {
       name: "Barricade",
       damage: 0,
-      health: 500,
+      health: 1000,
       range: 0,
       fireRate: 0,
       cost: 30,
@@ -741,6 +741,23 @@ export class BarricadeDefender extends DefenderUnit {
   }
 
   update(enemies, defenderUnits) {
+    if (!this.isAlive) {
+      if (this.currentAnimation !== 'death') {
+        this.setAnimation('death');
+      }
+      this.updateAnimation();
+      return;
+    }
+
+    // Determine animation state
+    if (this.disabled) {
+      this.setAnimation('idle');
+    } else if (this.isAttacking) {
+      this.setAnimation('attack');
+    } else {
+      this.setAnimation('idle');
+    }
+
     if (this.hasSpikes) {
       //TODO:
     }
@@ -812,7 +829,7 @@ export class EnergyGenerator extends DefenderUnit {
         if (this.currentAnimation !== 'death') {
           this.setAnimation('death');
         }
-        this.updateAnimation(16);
+        this.updateAnimation();
       } else {
         this.deathAnimationComplete = true;
       }
@@ -854,7 +871,7 @@ export class EnergyGenerator extends DefenderUnit {
       } else {
         this.setAnimation('idle');
       }
-      this.updateAnimation(16);
+      this.updateAnimation();
     }
 
     // Reset attack animation after a short time
@@ -1188,7 +1205,27 @@ export class Mortar extends DefenderUnit {
     this.currentTarget = null;
     this.nextTarget = null;
     this.targetLockTime = 0;
+    this.debugAnimation = true;
   }
+  setAnimation(animationName) {
+    console.log(`🎯 Mortar animation change attempt: ${this.currentAnimation} -> ${animationName}`);
+
+    if (this.animationFrames) {
+      console.log(`  Available animations:`, Object.keys(this.animationFrames));
+      console.log(`  Frame counts:`, {
+        idle: this.animationFrames.idle?.length,
+        attack: this.animationFrames.attack?.length,
+        death: this.animationFrames.death?.length
+      });
+    }
+
+    if (this.animationConfig) {
+      console.log(`  Config for ${animationName}:`, this.animationConfig[animationName]);
+    }
+
+    super.setAnimation(animationName);
+  }
+
 
   applyLevelUpgrades() {
     const level = this.level;
@@ -1290,7 +1327,7 @@ export class Mortar extends DefenderUnit {
         if (this.currentAnimation !== 'death') {
           this.setAnimation('death');
         }
-        this.updateAnimation(16);
+        this.updateAnimation();
       } else {
         this.deathAnimationComplete = true;
       }
@@ -1348,7 +1385,7 @@ export class Mortar extends DefenderUnit {
       } else {
         this.setAnimation('idle');
       }
-      this.updateAnimation(16);
+      this.updateAnimation();
     }
 
     // Reset attack animation after firing
