@@ -19,13 +19,42 @@ export class DrawEntities {
 
     /** Draws all active projectiles. */
     drawProjectiles(ctx) {
-        ctx.fillStyle = "#FF0000"; // Red projectiles
         //draw defender projectiles
         for (const projectile of this.gameEngine.projectiles) {
-            // Projectile is drawn at its current startX/startY
+            ctx.save();
+
+            // Draw trail for frost projectiles
+            if (projectile.color === "lightblue" && projectile.trail) {
+                for (let i = 0; i < projectile.trail.length; i++) {
+                    const point = projectile.trail[i];
+                    const opacity = (i / projectile.trail.length) * 0.5;
+                    ctx.fillStyle = `rgba(173, 216, 230, ${opacity})`;
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Add to trail
+                projectile.trail.push({
+                                          x: projectile.startX,
+                                          y: projectile.startY
+                                      });
+
+                // Limit trail length
+                if (projectile.trail.length > 10) {
+                    projectile.trail.shift();
+                }
+            }
+
+            // Draw projectile
+            ctx.fillStyle = projectile.color || "red";
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = projectile.color || "yellow";
             ctx.beginPath();
-            ctx.arc(projectile.startX, projectile.startY, 5, 0, Math.PI * 2);
+            ctx.arc(projectile.startX, projectile.startY, 4, 0, Math.PI * 2);
             ctx.fill();
+
+            ctx.restore();
         }
         // Draw enemy projectiles
         for (const projectile of this.gameEngine.enemyProjectiles) {

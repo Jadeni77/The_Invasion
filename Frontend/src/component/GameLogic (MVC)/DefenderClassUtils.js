@@ -1,6 +1,6 @@
 import {
   DefenderUnit, BasicDefender, HealerDefender, GrenadeDefender,
-  BarricadeDefender, EnergyGenerator, Sniper, Mortar,
+  BarricadeDefender, EnergyGenerator, Sniper, Mortar, FrostArcher,
 } from "./DefenderUnits";
 
 export const defenderUnitClasses = {
@@ -10,7 +10,8 @@ export const defenderUnitClasses = {
   "Barricade": BarricadeDefender,
   "Energy Generator": EnergyGenerator,
   "Sniper": Sniper,
-  "Mortar": Mortar
+  "Mortar": Mortar,
+  "Frost Archer": FrostArcher
 };
 
 export const calculateCardStats = (card) => {

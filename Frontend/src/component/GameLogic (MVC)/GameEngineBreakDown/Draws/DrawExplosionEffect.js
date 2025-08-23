@@ -35,6 +35,7 @@ export class DrawExplosionEffect {
                     break;
 
                 case "rage":
+                    //Berserker style - after kill
                     this.drawRageExplosion(ctx, explosion, radius, alpha);
                     break;
 
@@ -51,11 +52,12 @@ export class DrawExplosionEffect {
                     this.drawLightningStrikeExplosion(ctx, explosion, radius, alpha);
                     break;
                 case "earthquake":
+                    //Titan style
                     this.drawEarthquakeExplosion(ctx, explosion, radius, alpha);
                     break;
 
                 default:
-                    // Standard explosion
+                    // Standard explosion - Handles color and inner color
                     this.drawStandardExplosion(ctx, explosion, radius, alpha);
             }
 

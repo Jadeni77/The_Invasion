@@ -55,7 +55,7 @@ export class CombatManager {
      */
     updateEnemyCombat(defenders, enemies, now) {
         for (const enemy of enemies) {
-            if (!enemy.isAttacker || !enemy.isAlive) continue;
+            if (!enemy.isAttacker || !enemy.isAlive || enemy.frozen) continue;
 
             if (enemy.isAttacker && enemy.canAttack(now)) {
                 const target = this.findTargetForEnemy(enemy, defenders);

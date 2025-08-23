@@ -240,6 +240,7 @@ const GameBoard = () => {
       "Barricade": 1000,
       "Energy Generator": 5000,
       "Sniper": 1000,
+      "Frost Archer": 1000
     };
     return cooldowns[card.name] || 5000; //default at 5 seconds
   };

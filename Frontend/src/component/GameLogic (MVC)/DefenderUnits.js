@@ -243,7 +243,7 @@ export class DefenderUnit {
         ctx.fillStyle = "lime";
         const healthWidth = (this.health / this.maxHealth) * this.width;
         ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
-        ctx.fillText(this.health.toFixed(0), this.x, this.y - 15);
+        ctx.fillText(this.health.toFixed(0), this.x + this.width / 2, this.y - 15);
       }
 
       this.drawNegativeEffect.drawAllEffect(ctx);
@@ -1686,4 +1686,152 @@ export class Mortar extends DefenderUnit {
     }
   }
 }
+
+export class FrostArcher extends DefenderUnit {
+  constructor(x, y, cardData) {
+    const typeData = {
+      name: "Frost Archer",
+      damage: 2,        // Increased from 80
+      health: 90,
+      range: 250,
+      fireRate: 75,
+      cost: 35,
+      width: 30,
+      height: 40,
+      color: "lightblue",
+      isRanged: true,
+      level: cardData.level || 1,
+      image: cardData.image,
+    }
+    super(x, y, typeData);
+
+    this.slowAmount = 0.5; //50%
+    this.slowDuration = 120; //2 sec
+    this.freezeChance = 0.1; //10%
+    this.freezeDuration = 60; //1 sec
+  }
+
+  applyLevelUpgrades() {
+    const level = this.level;
+    const statMultiplier = 1 + (level - 1) * 0.15; //15%
+
+    this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
+    this.health = Math.floor(this.health * statMultiplier);
+    this.maxHealth = this.health;
+    this.range = Math.floor(this.range * statMultiplier);
+
+    this.freezeChance = Math.min(0.5, 0.1 + (level - 1) * 0.08); // Up to 50% freeze chance
+    this.applySpecialAbilities();
+  }
+
+  applySpecialAbilities() {
+    this.hasPermaFrost = false;
+    this.hasIceShards = false;
+
+    if (this.level >= 3) {
+      this.hasPermaFrost = true; //slowed enemy took extra damage
+    }
+    if (this.level >= 5) {
+      this.hasIceShards = true; //explosion upon death froze enemy
+    }
+  }
+
+  attack(target, currentTime) {
+    if (!this.isAlive || !target || !target.isAlive || !this.gameEngine) return;
+
+    this.isAttacking = true;
+
+    //frost projectile
+    const projectile = {
+      startX: this.x + this.width / 2,
+      startY: this.y + this.height / 2,
+      target: target,
+      damage: this.attackDamage,
+      speed: 8,
+      color: "lightblue",
+      trail: [],
+      onHit: () => this.onProjectileHit(target)
+    };
+    this.gameEngine.projectiles.push(projectile);
+    this.lastAttackTime = currentTime;
+  }
+
+  onProjectileHit(enemy) {
+    if (!enemy || !enemy.isAlive) return;
+
+    //apply damage
+    const extraDamage = (this.hasPermaFrost && enemy.slowed) ? this.attackDamage * 0.5 : 0;
+    const died = enemy.takeDamage(this.attackDamage + extraDamage, false);
+
+    //apply slow effect
+    if (!enemy.frozen) {
+      enemy.slowed = true;
+      enemy.slowDuration = this.slowDuration;
+    }
+
+    //check for freeze
+    if (Math.random() < this.freezeChance) {
+      enemy.frozen = true;
+      enemy.frozenDuration = this.freezeDuration;
+
+      // Visual effect
+      if (this.gameEngine) {
+        this.gameEngine.explosions.push({
+                                          x: enemy.x + enemy.width / 2,
+                                          y: enemy.y + enemy.height / 2,
+                                          damage: 0,
+                                          radius: 40,
+                                          timer: 20,
+                                          color: "lightblue",
+                                          innerColor: "white",
+                                          particleColor: "rgba(173, 216, 230, 0.9)",
+                                          style: "freeze",
+                                          type: "effect",
+                                          source: "frost_archer"
+                                        });
+      }
+    }
+    //ice shard explosion on enemy death
+    if (died && this.hasIceShards && enemy.frozen && this.gameEngine) {
+      this.gameEngine.addDefenderExplosion(
+          enemy.x + enemy.width / 2,
+          enemy.y + enemy.height / 2,
+          this.attackDamage,
+          100
+      );
+      for (const enemy of this.gameEngine.enemies) {
+        const distance = Math.hypot(enemy.x + enemy.width / 2,
+                                    enemy.y + enemy.height / 2);
+        if (distance <= 100) {
+          enemy.slowed = true;
+          enemy.slowDuration = this.slowDuration
+        }
+      }
+      this.gameEngine.explosions.push({
+                                        x: enemy.x + enemy.width / 2,
+                                        y: enemy.y + enemy.height / 2,
+                                        damage: 0,
+                                        radius: 100,
+                                        timer: 30,
+                                        color: "lightblue",
+                                        innerColor: "white",
+                                        particleColor: "rgba(135, 206, 235, 0.9)",
+                                        style: "ice_shatter",
+                                        type: "defender",
+                                        source: "frost_archer"
+                                      });
+    }
+  }
+
+  getUpgradeInfo() {
+    const base = super.getUpgradeInfo();
+    const newAbilities = [];
+
+    if (this.level === 2) newAbilities.push("Permafrost & Pierce (Level 3)");
+    if (this.level === 4) newAbilities.push("Ice Shards (Level 5)");
+
+    return { ...base, slowEffect: `${Math.round((1-this.slowAmount)*100)}% slow`, newAbilities };
+  }
+}
+
 

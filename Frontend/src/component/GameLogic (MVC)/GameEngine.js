@@ -3,7 +3,7 @@
 
 import {
   BasicDefender, HealerDefender, GrenadeDefender,
-  BarricadeDefender, EnergyGenerator, Sniper, Mortar
+  BarricadeDefender, EnergyGenerator, Sniper, Mortar, FrostArcher
 } from "./DefenderUnits.js";
 import {
   BasicEnemy, FastEnemy, TankEnemy, BombEnemy, RangeEnemy, ShieldEnemy,
@@ -78,7 +78,8 @@ export class GameEngine {
       "Barricade": BarricadeDefender,
       "Energy Generator": EnergyGenerator,
       "Sniper": Sniper,
-      "Mortar": Mortar
+      "Mortar": Mortar,
+      "Frost Archer": FrostArcher
     };
 
     // Mapping of enemy names to their respective Enemy classes
@@ -184,9 +185,9 @@ export class GameEngine {
       levelNumber: 1,
       enemySpawnInterval: 3000, // 3 seconds
       maxActiveEnemies: 8,
-      totalEnemiesToSpawn: 20,
+      totalEnemiesToSpawn: 10,
       waves: 3,
-      availableEnemyTypes:  ["Mage", "Basic Zombie"],
+      availableEnemyTypes:  ["Mage"],
           // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
           //  "Exploder", "Skeleton Shooter", "Shielder",
           // "Healer", "Splitter", "Mini", "Swarm Witch",
@@ -417,7 +418,7 @@ export class GameEngine {
     const spawnY = this.gridManager.getRandomSpawnY();
     const enemy = new EnemyClass(spawnX, spawnY, null);
 
-  if (this.animationManager.hasAnimation(enemyType)) {
+  if (this.animationManager && this.animationManager.hasAnimation(enemyType)) {
       const frames = {
         idle: this.animationManager.getFrames(enemyType, 'idle'),
         move: this.animationManager.getFrames(enemyType, 'move'),
@@ -434,6 +435,21 @@ export class GameEngine {
     }
 
     this.enemies.push(enemy);
+  }
+
+  attachAnimationsToEnemy(enemy, enemyType) {
+    if (this.animationManager && this.animationManager.hasAnimation(enemyType)) {
+      const frames = {
+        idle: this.animationManager.getFrames(enemyType, 'idle'),
+        move: this.animationManager.getFrames(enemyType, 'move'),
+        attack: this.animationManager.getFrames(enemyType, 'attack'),
+        death: this.animationManager.getFrames(enemyType, 'death')
+      };
+
+      enemy.animationFrames = frames;
+      enemy.animationConfig = AssetManifest.enemies[enemyType]?.config;
+      console.log(`Attached animations to ${enemyType}`);
+    }
   }
 
   // Resets the game state to its initial values for the current level
@@ -702,7 +718,7 @@ export class GameEngine {
         if (defender.currentAnimation !== 'death') {
           defender.setAnimation('death');
         }
-        defender.updateAnimation(16);
+        defender.updateAnimation();
       }
     }
 
@@ -781,6 +797,26 @@ export class GameEngine {
 
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
+
+      //Handle Enemy negative effects
+      if (enemy.slowed && enemy.slowDuration) {
+        enemy.slowDuration--;
+        if (enemy.slowDuration <= 0) {
+          enemy.slowed = false;
+          if (enemy.initialSpeed) {
+            enemy.speed = enemy.initialSpeed;
+          }
+        }
+      }
+      if (enemy.frozen && enemy.frozenDuration) {
+        enemy.frozenDuration--;
+        if (enemy.frozenDuration <= 0) {
+          enemy.frozen = false;
+          if (enemy.initialSpeed) {
+            enemy.speed = enemy.initialSpeed;
+          }
+        }
+      }
 
       // Remove enemy only if death animation is complete
       if (enemy.deathAnimationComplete) {

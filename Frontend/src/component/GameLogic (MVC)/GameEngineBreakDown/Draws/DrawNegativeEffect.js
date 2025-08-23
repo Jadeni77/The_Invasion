@@ -11,6 +11,15 @@ export class DrawNegativeEffect {
         if (this.unit.burning) {
             this.drawBurningEffect(ctx);
         }
+        if (this.unit.isSpawned) {
+            this.drawSpawnedEffect(ctx);
+        }
+        if (this.unit.frozen) {
+            this.drawFrozenEffect(ctx);
+        }
+        if (this.unit.slowed) {
+            this.drawSlowedEffect(ctx);
+        }
     }
 
     drawBurningEffect(ctx) {
@@ -110,7 +119,10 @@ export class DrawNegativeEffect {
                 ctx.fill();
             }
         }
+        ctx.restore();
+
         //  Unit overlay effect - makes the unit appear slightly reddish
+        ctx.save();
         ctx.globalCompositeOperation = "multiply";
         ctx.fillStyle = "rgba(255, 100, 50, 0.3)";
         ctx.fillRect(this.unit.x, this.unit.y, this.unit.width, this.unit.height);
@@ -211,6 +223,52 @@ export class DrawNegativeEffect {
             ctx.fillText("DISABLED", centerX, this.unit.y + this.unit.height + 20);
         }
 
+        ctx.restore();
+    }
+
+    drawSpawnedEffect(ctx) {
+        ctx.save();
+        // Draw a small symbol above the enemy
+        ctx.fillStyle = "rgba(255, 0, 255, 0.8)"; // Purple
+        ctx.font = "bold 12px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("◈", this.unit.x + this.unit.width / 2, this.unit.y - 15);
+
+        // Alternative: Draw a border
+        ctx.strokeStyle = "rgba(255, 0, 255, 0.6)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.unit.x - 2, this.unit.y - 2, this.unit.width + 4, this.unit.height + 4);
+
+        ctx.restore();
+    }
+
+    drawFrozenEffect(ctx) {
+        ctx.save();
+        ctx.strokeStyle = "lightblue";
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = 0.6;
+        ctx.strokeRect(this.unit.x - 2, this.unit.y - 2, this.unit.width + 4, this.unit.height + 4);
+
+        // Ice crystals
+        ctx.fillStyle = "rgba(173, 216, 230, 0.8)";
+        for (let i = 0; i < 3; i++) {
+            const x = this.unit.x + Math.random() * this.unit.width;
+            const y = this.unit.y + Math.random() * this.unit.height;
+            ctx.fillRect(x, y, 4, 4);
+        }
+        ctx.restore();
+    }
+
+    drawSlowedEffect(ctx) {
+        ctx.save();
+        ctx.fillStyle = "rgba(173, 216, 230, 0.3)";
+        ctx.fillRect(this.unit.x, this.unit.y, this.unit.width, this.unit.height);
+
+        // Snowflake icon above
+        ctx.fillStyle = "lightblue";
+        ctx.font = "16px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("❄", this.unit.x + this.unit.width / 2, this.unit.y - 5);
         ctx.restore();
     }
 }

@@ -12,6 +12,8 @@ TODO:
  5.加油！
 */
 
+import {DrawNegativeEffect} from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
+
 export class Enemy {
   constructor(x, y, typeData = {}) {
     this.x = x;
@@ -31,6 +33,7 @@ export class Enemy {
 
     // Attack properties
     this.isAttacker = typeData.isAttacker || false;
+    this.baseAttackDamage = typeData.attackDamage || 0;
     this.attackDamage = typeData.attackDamage || 0;
     this.attackRate = typeData.attackRate || 60; // frames per attack
     this.attackCountdown = this.attackRate;
@@ -41,12 +44,14 @@ export class Enemy {
     this.attackRange = typeData.attackRange || 0;
 
     this.buffed = typeData.buffed || false;
+    this.buffApplied = false;
     this.buffedBy = typeData.buffedBy || null;
 
     this.isSpawned = typeData.isSpawned || false;
     this.spawnBy = typeData.spawnBy || null;
 
     this.gameEngine = null;
+    this.drawNegativeEffect = new DrawNegativeEffect(this);
 
     this.currentAnimation = 'idle';
     this.animationFrame = 0;
@@ -57,6 +62,13 @@ export class Enemy {
     this.isPlayingDeathAnimation = false;
     this.deathAnimationComplete = false;
     this.deathHandled = false; // Add this flag
+
+    //negative effect
+    this.slowed = false;
+    this.slowDuration = 0;
+    this.frozen = false;
+    this.frozenDuration = 0;
+
 
   }
 
@@ -150,58 +162,104 @@ export class Enemy {
       return;
     }
 
+    this.updateBehavior(defenderUnits);
+
+    this.updateMovementSpeed();
+
     // Determine animation state
-    if (this.isAttacking) {
+    this.determineAnimationState();
+
+    // Update animation
+    this.updateAnimation(16);
+
+    // Handle movement
+    this.handleMovement();
+  }
+
+  updateBehavior(defenderUnits) {
+    // Default behavior for basic enemies
+    let targetDefender = null;
+
+    if (this.isAttacker) {
+      targetDefender = defenderUnits.find((defender) => {
+        return (
+            defender.isAlive &&
+            this.x + this.width >= defender.x &&
+            this.x <= defender.x + defender.width &&
+            this.y + this.height >= defender.y &&
+            this.y <= defender.y + defender.height
+        );
+      });
+
+      if (targetDefender && !this.frozen) {
+        this.speed = 0;
+        this.isAttacking = true;
+        this.attackCountdown--;
+
+        if (this.attackCountdown <= 0) {
+          targetDefender.takeDamage(this.attackDamage);
+          this.attackCountdown = this.attackRate;
+        }
+      } else {
+        this.isAttacking = false;
+        this.attackCountdown = this.attackRate;
+      }
+    }
+  }
+
+  /**
+   * Handle the movement base on special effects given by defender
+   */
+  updateMovementSpeed() {
+    // Start with base speed
+    let currentSpeed = this.initialSpeed;
+
+    // Apply status effects
+    if (this.frozen || this.stunned) {
+      this.speed = 0;
+      return;
+    } else if (this.slowed) {
+      currentSpeed = this.initialSpeed * 0.5;
+    }
+
+    // Apply buff ONLY if not already applied
+    if (this.buffed && !this.buffApplied) {
+      // Mark as applied to prevent re-application
+      this.buffApplied = true;
+      // Store the buffed values
+      this.attackDamage = this.baseAttackDamage * 1.3;
+      currentSpeed = currentSpeed * 1.2;
+    } else if (!this.buffed && this.buffApplied) {
+      // Remove buff if no longer buffed
+      this.buffApplied = false;
+      this.attackDamage = this.baseAttackDamage;
+    }
+
+    // Set the final speed
+    if (this.buffApplied) {
+      this.speed = currentSpeed * 1.2;
+    } else {
+      this.speed = currentSpeed;
+    }
+  }
+
+  /**
+   * Determine animation state based on current status
+   */
+  determineAnimationState() {
+    if (this.frozen || this.stunned) {
+      this.setAnimation('idle');
+    } else if (this.isAttacking) {
       this.setAnimation('attack');
     } else if (this.speed > 0) {
       this.setAnimation('move');
     } else {
       this.setAnimation('idle');
     }
+  }
 
-    // Update animation
-    this.updateAnimation(16); // Assuming 60fps
-
-    if (!this.isAlive) return;
-
-    if (this.health <= 0) {
-      this.isAlive = false;
-      this.speed = 0;
-      return;
-    }
-    let targetDefender = null;
-
-    if (this.isAttacker) {
-      // Find the first defender in its path/collision range
-      targetDefender = defenderUnits.find((defender) => {
-        return (
-            // <--- CRITICAL FIX: Added return statement
-            defender.isAlive &&
-            this.x + this.width >= defender.x && // Enemy's right edge past defender's left edge
-            this.x <= defender.x + defender.width && // Enemy's left edge before defender's right edge
-            this.y + this.height >= defender.y && // Enemy's bottom edge past defender's top edge
-            this.y <= defender.y + defender.height // Enemy's top edge before defender's bottom edge
-        );
-      });
-
-      if (targetDefender) {
-        this.speed = 0; // Stop moving when attacking
-        this.isAttacking = true;
-
-        this.attackCountdown--;
-
-        if (this.attackCountdown <= 0) {
-          targetDefender.takeDamage(this.attackDamage);
-          this.attackCountdown = this.attackRate; // Reset attack cooldown
-        }
-      } else {
-        this.speed = this.initialSpeed; // Resume movement if no target
-        this.isAttacking = false;
-        this.attackCountdown = this.attackRate; // Reset cooldown when not attacking
-      }
-    }
-    // Move only if not attacking or if not an attacker type
-    if (!this.isAttacking) {
+  handleMovement() {
+    if (!this.isAttacking && !this.frozen && !this.stunned) {
       this.x += this.speed;
     }
   }
@@ -230,40 +288,26 @@ export class Enemy {
       this.drawFallback(ctx);
     }
 
-    //if enemy is spawn unnaturally
-    if (this.isSpawned && this.isAlive) {
-      ctx.save();
+    if (this.isAlive) {
+      // Unit name text
+      ctx.fillStyle = "black";
+      ctx.font = "12px Arial";
+      ctx.fillText(
+          this.name.substring(0, this.name.length),
+          this.x + 2,
+          this.y + this.height + 15
+      );
 
-      // Draw a small symbol above the enemy
-      ctx.fillStyle = "rgba(255, 0, 255, 0.8)"; // Purple
-      ctx.font = "bold 12px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText("◈", this.x + this.width / 2, this.y - 15);
-
-      // Alternative: Draw a border
-      ctx.strokeStyle = "rgba(255, 0, 255, 0.6)";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(this.x - 2, this.y - 2, this.width + 4, this.height + 4);
-
-      ctx.restore();
-    }
-
-    // Health bar
-    if (this.health < this.maxHealth && this.isAlive) {
-      ctx.fillStyle = "red";
-      ctx.fillRect(this.x, this.y - 10, this.width, 5);
-      ctx.fillStyle = "lime";
-      const healthWidth = (this.health / this.maxHealth) * this.width;
-      ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
-
-      // Health value (ensure it's not NaN)
-      const healthValue = Math.max(0, Math.floor(this.health));
-      if (!isNaN(healthValue)) {
-        ctx.fillStyle = "white";
-        ctx.font = "10px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(healthValue.toString(), this.x + this.width / 2, this.y - 15);
+      // Health bar and value
+      if (this.health < this.maxHealth) {
+        ctx.fillStyle = "red";
+        ctx.fillRect(this.x, this.y - 10, this.width, 5);
+        ctx.fillStyle = "lime";
+        const healthWidth = (this.health / this.maxHealth) * this.width;
+        ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
+        ctx.fillText(this.health.toFixed(0), this.x + this.width / 2, this.y - 15);
       }
+      this.drawNegativeEffect.drawAllEffect(ctx);
     }
   }
 
@@ -278,6 +322,7 @@ export class Enemy {
   }
 
   takeDamage(amount, ignoreArmor = false) {
+    console.log(`${this.name} took damage: ${amount}`);
     this.health -= amount;
     if (this.health <= 0) {
       this.health = 0;
@@ -493,55 +538,24 @@ export class RangeEnemy extends Enemy {
     this.isMoving = true;
   }
 
-  update(defenderUnits) {
-    if (!this.isAlive) {
-      if (this.currentAnimation !== 'death') {
-        this.setAnimation('death');
-      }
-      // Update animation but don't do anything else
-      this.updateAnimation(16);
-      return;
-    }
-
-    if (this.health <= 0) {
-      this.isAlive = false;
-      this.health = 0;
-      return;
-    }
-
-    // Find closest defender within range
+  updateBehavior(defenderUnits) {
     const targetDefender = this.findClosestDefender(defenderUnits);
 
-    if (targetDefender && this.getDistanceTo(targetDefender) <= this.attackRange) {
+    if (targetDefender && !this.frozen && this.getDistanceTo(targetDefender) <= this.attackRange) {
       this.isMoving = false;
-      // FIX: Set isAttacking to true when in range with a target
       this.isAttacking = true;
-
-      // Optional: Handle attack countdown here if you want immediate visual feedback
       this.attackCountdown--;
       if (this.attackCountdown <= 0) {
-        // The actual attack is handled by CombatManager
         this.attackCountdown = this.attackRate;
       }
     } else {
       this.isMoving = true;
-      // FIX: Set isAttacking to false when no target in range
       this.isAttacking = false;
     }
+  }
 
-    // Determine animation state AFTER setting isAttacking
-    if (this.isAttacking) {
-      this.setAnimation('attack');
-    } else if (this.speed > 0 && this.isMoving) {
-      this.setAnimation('move');
-    } else {
-      this.setAnimation('idle');
-    }
-
-    // Update animation
-    this.updateAnimation(16); // Assuming 60fps
-
-    if (this.isMoving) {
+  handleMovement() {
+    if (this.isMoving && !this.frozen && !this.stunned) {
       this.x += this.speed;
     }
   }
@@ -621,7 +635,7 @@ export class HealerEnemy extends Enemy {
     });
     this.healAmount = 20;
     this.healRange = 200;
-    this.healCooldown = 120; //2 second
+    this.healCooldown = 240; //5 second
     this.currentHealCooldown = 0;
   }
 
@@ -723,6 +737,16 @@ export class SplitterEnemy extends Enemy {
       );
       mini.isSpawned = true;
       mini.spawnBy = this.id;
+
+      // Attach animations to mini
+      if (this.gameEngine.animationManager) {
+        this.gameEngine.attachAnimationsToEnemy(mini, "Mini");
+      }
+
+      // Set game engine reference
+      if (mini.setGameEngine) {
+        mini.setGameEngine(this.gameEngine);
+      }
       this.gameEngine.enemies.push(mini);
     }
   }
@@ -776,15 +800,8 @@ export class SwarmLeader extends Enemy {
     this.hasSplit = false;
     this.spawnItselfChance = 0.3;
     this.spawnTankChance = 0.5;
-  }
 
-  takeDamage(amount, ignoreArmor = false) {
-    const died = super.takeDamage(amount, ignoreArmor);
-    if (died && !this.hasSplit) {
-      this.splitIntoSplitter();
-      this.hasSplit = true;
-    }
-    return died;
+    this.buffedEnemies = new Set();
   }
 
   splitIntoSplitter() {
@@ -804,80 +821,155 @@ export class SwarmLeader extends Enemy {
       );
       splitEnemy.isSpawned = true;
       splitEnemy.spawnBy = this.id;
+
+      // Attach animations
+      if (this.gameEngine.animationManager) {
+        this.gameEngine.attachAnimationsToEnemy(splitEnemy, "Splitter");
+      }
+
+      // Set game engine reference
+      if (splitEnemy.setGameEngine) {
+        splitEnemy.setGameEngine(this.gameEngine);
+      }
+
       this.gameEngine.enemies.push(splitEnemy);
     }
   }
 
-  update(defenderUnits) {
-    if (!this.isAlive || !this.gameEngine) return;
+  updateBehavior(defenderUnits) {
+    if (!this.gameEngine) return;
 
-    if (this.health <= 0) {
-      this.isAlive = false;
-      this.health = 0;
-      return;
-    }
-    //find closest defender within range
     const targetDefender = this.findClosestDefender(defenderUnits);
 
-    if (targetDefender && this.getDistanceTo(targetDefender) <= this.attackRange) {
+    if (targetDefender && !this.frozen && this.getDistanceTo(targetDefender) <= this.attackRange) {
       this.isMoving = false;
+      this.isAttacking = true;
     } else {
       this.isMoving = true;
-    }
-    if (this.isMoving) {
-      this.x += this.speed;
+      this.isAttacking = false;
     }
 
-    //spawn enemy
-    this.currentSpawnCooldown--;
-    if (this.currentSpawnCooldown <= 0) {
-      let spawnEnemy = null;
-      if (Math.random() < this.spawnTankChance && Math.random() > this.spawnItselfChance) {
-        spawnEnemy = new TankEnemy(
-            this.x - 30,
-            this.y + (Math.random() - 0.5) * 40,
-            null);
-      } else if (Math.random() < this.spawnItselfChance) {
-        spawnEnemy = new SwarmLeader(
-            this.x - 30,
-            this.y + (Math.random() - 0.5) * 40,
-            null);
-      } else {
-        spawnEnemy = new BasicEnemy(
-            this.x - 30,
-            this.y + (Math.random() - 0.5) * 40,
-            null
-        );
+    // Only spawn if not frozen/stunned
+    if (!this.frozen && !this.stunned) {
+      this.currentSpawnCooldown--;
+      if (this.currentSpawnCooldown <= 0) {
+        this.spawnEnemy();
+        this.currentSpawnCooldown = this.spawnCooldown;
       }
-      spawnEnemy.isSpawned = true;
-      spawnEnemy.spawnBy = this.id;
-      console.log(`SwarmLeader spawned ${spawnEnemy.name} - isSpawned: ${spawnEnemy.isSpawned}`);
-      this.gameEngine.enemies.push(spawnEnemy);
-      this.currentSpawnCooldown = this.spawnCooldown;
+      this.buffNearbyEnemies();
     }
-    //buff nearby enemy
-    this.buffNearbyEnemies();
+  }
+
+  handleMovement() {
+    if (this.isMoving && !this.frozen && !this.stunned) {
+      this.x += this.speed;
+    }
+  }
+
+  spawnEnemy() {
+    if (!this.gameEngine || this.frozen || this.stunned) return;
+
+    let spawnEnemy = null;
+    let enemyType = null;
+    if (Math.random() < this.spawnTankChance && Math.random() > this.spawnItselfChance) {
+      spawnEnemy = new TankEnemy(this.x - 30, this.y + (Math.random() - 0.5) * 40, null);
+      enemyType = "Tank Zombie";
+    } else if (Math.random() < this.spawnItselfChance) {
+      spawnEnemy = new SwarmLeader(this.x - 30, this.y + (Math.random() - 0.5) * 40, null);
+      enemyType = "Swarm Witch";
+    } else {
+      spawnEnemy = new BasicEnemy(this.x - 30, this.y + (Math.random() - 0.5) * 40, null);
+      enemyType = "Basic Zombie";
+    }
+    spawnEnemy.isSpawned = true;
+    spawnEnemy.spawnBy = this.id;
+
+    // Attach animations to spawned enemy
+    if (this.gameEngine.animationManager && enemyType) {
+      this.gameEngine.attachAnimationsToEnemy(spawnEnemy, enemyType);
+    }
+
+    // Set game engine reference
+    if (spawnEnemy.setGameEngine) {
+      spawnEnemy.setGameEngine(this.gameEngine);
+    }
+    this.gameEngine.enemies.push(spawnEnemy);
   }
 
   buffNearbyEnemies() {
-    if (!this.gameEngine) return;
+    if (!this.gameEngine || this.frozen || this.stunned) return;
 
+    // First, remove buff from enemies that are too far away
+    for (const enemyId of this.buffedEnemies) {
+      const enemy = this.gameEngine.enemies.find(e => e.id === enemyId);
+      if (enemy) {
+        const distance = Math.hypot(
+            this.x + this.width / 2 - (enemy.x + enemy.width / 2),
+            this.y + this.height / 2 - (enemy.y + enemy.height / 2)
+        );
+
+        // Remove buff if out of range or dead
+        if (distance > this.buffRange || !enemy.isAlive) {
+          enemy.buffed = false;
+          enemy.buffedBy = null;
+          enemy.buffApplied = false;
+          enemy.attackDamage = enemy.baseAttackDamage;
+          enemy.speed = enemy.initialSpeed;
+          this.buffedEnemies.delete(enemyId);
+        }
+      }
+    }
+
+    // Apply buff to nearby enemies
     for (const enemy of this.gameEngine.enemies) {
       if (enemy.id === this.id || !enemy.isAlive) continue;
 
       const distance = Math.hypot(
           this.x + this.width / 2 - (enemy.x + enemy.width / 2),
           this.y + this.height / 2 - (enemy.y + enemy.height / 2)
-      )
+      );
+
       if (distance <= this.buffRange) {
-        if (!enemy.buffed) {
-          enemy.speed *= this.speedBuff;
-          enemy.attackDamage *= this.damageBuff;
+        // Only apply buff if not already buffed by this SwarmLeader
+        if (!this.buffedEnemies.has(enemy.id)) {
+          // Store base values if this is the first buff
+          if (!enemy.buffed) {
+            enemy.baseAttackDamage = enemy.attackDamage;
+            enemy.initialSpeed = enemy.speed;
+          }
           enemy.buffed = true;
           enemy.buffedBy = this.id;
+          this.buffedEnemies.add(enemy.id);
+
+          // The actual buff multiplication will happen in updateMovementSpeed
+          console.log(`Buffing ${enemy.name}: base damage ${enemy.baseAttackDamage} -> buffed damage will be ${enemy.baseAttackDamage * 1.3}`);
         }
       }
     }
+  }
+
+  // Override takeDamage to clean up buffs when SwarmLeader dies
+  takeDamage(amount, ignoreArmor = false) {
+    const died = super.takeDamage(amount, ignoreArmor);
+
+    if (died && this.gameEngine && !this.hasSplit) {
+      this.splitIntoSplitter();
+      this.hasSplit = true;
+      // Remove all buffs when SwarmLeader dies
+      for (const enemyId of this.buffedEnemies) {
+        const enemy = this.gameEngine.enemies.find(e => e.id === enemyId);
+        if (enemy) {
+          enemy.buffed = false;
+          enemy.buffedBy = null;
+          enemy.buffApplied = false;
+          enemy.attackDamage = enemy.baseAttackDamage;
+          enemy.speed = enemy.initialSpeed;
+        }
+      }
+      this.buffedEnemies.clear();
+    }
+
+    return died;
   }
 
   draw(ctx) {
@@ -998,51 +1090,26 @@ export class VampireEnemy extends Enemy {
     this.isMoving = true;
   }
 
-  update(defenderUnits) {
-    if (!this.isAlive) {
-      if (this.currentAnimation !== 'death') {
-        this.setAnimation('death');
-      }
-      this.updateAnimation(16);
-      return;
-    }
-
-    if (this.health <= 0) {
-      this.isAlive = false;
-      this.health = 0;
-      return;
-    }
-
-    // Find closest defender within range
+  updateBehavior(defenderUnits) {
     const targetDefender = this.findClosestDefender(defenderUnits);
 
-    if (targetDefender && this.getDistanceTo(targetDefender) <= this.attackRange) {
+    if (targetDefender && !this.frozen && this.getDistanceTo(targetDefender) <= this.attackRange) {
       this.isMoving = false;
-      this.isAttacking = true; // FIX: Set attacking state
+      this.isAttacking = true;
     } else {
       this.isMoving = true;
-      this.isAttacking = false; // FIX: Clear attacking state
+      this.isAttacking = false;
     }
+  }
 
-    // Determine animation state
-    if (this.isAttacking) {
-      this.setAnimation('attack');
-    } else if (this.speed > 0 && this.isMoving) {
-      this.setAnimation('move');
-    } else {
-      this.setAnimation('idle');
-    }
-
-    // Update animation
-    this.updateAnimation(16);
-
-    if (this.isMoving) {
+  handleMovement() {
+    if (this.isMoving && !this.frozen && !this.stunned) {
       this.x += this.speed;
     }
   }
 
   attack(target, currentTime) {
-    if (!this.isAlive || !target || !target.isAlive) return;
+    if (!this.isAlive || !target || !target.isAlive || this.frozen || this.stunned) return;
 
     const damageDealt = Math.min(target.health, this.attackDamage);
     target.takeDamage(this.attackDamage);
@@ -1323,62 +1390,76 @@ export class NecromancerEnemy extends Enemy {
     this.isMoving = true;
   }
 
-  update(defenderUnits) {
-    if (!this.isAlive || !this.gameEngine) return;
+  updateBehavior(defenderUnits) {
+    if (!this.gameEngine) return;
 
-    if (this.health <= 0) {
-      this.isAlive = false;
-      this.health = 0;
-      return;
-    }
-    //find closest defender within range
     const targetDefender = this.findClosestDefender(defenderUnits);
 
-    if (targetDefender && this.getDistanceTo(targetDefender) <= this.attackRange) {
+    if (targetDefender && !this.frozen && this.getDistanceTo(targetDefender) <= this.attackRange) {
       this.isMoving = false;
+      this.isAttacking = true;
     } else {
       this.isMoving = true;
+      this.isAttacking = false;
     }
-    if (this.isMoving) {
+
+    // Only revive if not frozen/stunned
+    if (!this.frozen && !this.stunned) {
+      this.currentReviveCooldown--;
+      if (this.currentReviveCooldown <= 0) {
+        this.reviveSkeletons();
+        this.currentReviveCooldown = this.reviveCooldown;
+      }
+    }
+  }
+
+  handleMovement() {
+    if (this.isMoving && !this.frozen && !this.stunned) {
       this.x += this.speed;
     }
+  }
 
-    //revive logic
-    this.currentReviveCooldown--;
-    if (this.currentReviveCooldown <= 0) {
-      // Find a dead enemy position (simulate corpse)
-      const reviveX = this.x + 50 - Math.random() * 100;
-      const reviveY = this.y + (Math.random() - 0.5) * 100;
+  reviveSkeletons() {
+    if (!this.gameEngine || this.frozen || this.stunned) return;
 
-      //revive as skeleton
-      const skeleton = new RangeEnemy(reviveX, reviveY,null);
-      skeleton.name = "Skeleton";
-      skeleton.health = 50;
-      skeleton.attackDamage /= 2;
-      skeleton.attackRange = 100;
-      skeleton.maxHealth = 50;
-      skeleton.color = "lightgray";
-      skeleton.isSpawned = true;
-      skeleton.spawnBy = this.id;
+    const reviveX = this.x + 50 - Math.random() * 100;
+    const reviveY = this.y + (Math.random() - 0.5) * 100;
 
-      this.gameEngine.enemies.push(skeleton);
-      this.reviveCount++;
-      this.currentReviveCooldown = this.reviveCooldown;
+    const skeleton = new RangeEnemy(reviveX, reviveY, null);
+    skeleton.name = "Skeleton";
+    skeleton.health = 50;
+    skeleton.attackDamage /= 2;
+    skeleton.attackRange = 100;
+    skeleton.maxHealth = 50;
+    skeleton.color = "lightgray";
+    skeleton.isSpawned = true;
+    skeleton.spawnBy = this.id;
 
-      //revive effect
-      this.gameEngine.explosions.push({
-                                        x: reviveX + skeleton.width / 2,
-                                        y: reviveY + skeleton.height / 2,
-                                        damage: 0,
-                                        radius: 50,
-                                        timer: 30,
-                                        color: "darkviolet",
-                                        innerColor: "purple",
-                                        particleColor: "rgba(148, 0, 211, 0.8)",
-                                        style: "necromancy",
-                                        type: "effect",
-                                        source: "necromancer"});
+    if (this.gameEngine.animationManager) {
+      this.gameEngine.attachAnimationsToEnemy(skeleton, "Skeleton Shooter");
     }
+
+    // Set game engine reference
+    if (skeleton.setGameEngine) {
+      skeleton.setGameEngine(this.gameEngine);
+    }
+
+    this.gameEngine.enemies.push(skeleton);
+    this.reviveCount++;
+
+    this.gameEngine.explosions.push({
+                                      x: reviveX + skeleton.width / 2,
+                                      y: reviveY + skeleton.height / 2,
+                                      damage: 0,
+                                      radius: 50,
+                                      timer: 30,
+                                      color: "darkviolet",
+                                      innerColor: "purple",
+                                      particleColor: "rgba(148, 0, 211, 0.8)",
+                                      style: "necromancy",
+                                      type: "effect",
+                                      source: "necromancer"
+                                    });
   }
 
   draw(ctx) {
@@ -1584,44 +1665,36 @@ export class MageEnemy extends Enemy {
     this.attackCooldown = 0;
   }
 
-  update(defenderUnits) {
-    if (!this.isAlive) {
-      if (this.currentAnimation !== 'death') {
-        this.setAnimation('death');
-      }
-      this.updateAnimation(16);
-      return;
-    }
-
-    if (this.health <= 0) {
-      this.isAlive = false;
-      this.health = 0;
-      return;
-    }
-
+  updateBehavior(defenderUnits) {
     // Update cooldowns
     if (this.attackCooldown > 0) {
       this.attackCooldown--;
     }
 
-    // Handle casting animation
-    if (this.isCasting) {
+    // Cancel casting if frozen/stunned
+    if ((this.frozen || this.stunned) && this.isCasting) {
+      this.isCasting = false;
+      this.castingTimer = 0;
+      this.isAttacking = false;
+      return;
+    }
+
+    // Handle casting
+    if (this.isCasting && !this.frozen && !this.stunned) {
       this.castingTimer--;
-
-      // Keep attack animation playing while casting
-      if (this.currentAnimation !== 'attack') {
-        this.setAnimation('attack');
-      }
-
       if (this.castingTimer <= 0) {
-        // Casting complete - fire the spell
         this.performSpellAttack();
         this.isCasting = false;
         this.isAttacking = false;
       }
+      return;
+    }
 
-      this.updateAnimation(16);
-      return; // Don't move while casting
+    // Don't find targets if frozen/stunned
+    if (this.frozen || this.stunned) {
+      this.isMoving = false;
+      this.isAttacking = false;
+      return;
     }
 
     // Find target
@@ -1631,14 +1704,11 @@ export class MageEnemy extends Enemy {
       this.isMoving = false;
       this.currentTarget = targetDefender;
 
-      // FIX: Handle our own attack timing instead of relying on CombatManager
       if (this.attackCooldown <= 0 && !this.isCasting) {
-        // Start casting immediately
         this.startCasting(targetDefender);
       }
 
-      // If we have a target in range, we're either attacking or about to attack
-      if (this.attackCooldown <= 30) { // About to attack soon
+      if (this.attackCooldown <= 30) {
         this.isAttacking = true;
       }
     } else {
@@ -1646,36 +1716,23 @@ export class MageEnemy extends Enemy {
       this.currentTarget = null;
       this.isAttacking = false;
     }
+  }
 
-    // Determine animation state
-    if (this.isAttacking || this.isCasting) {
-      this.setAnimation('attack');
-    } else if (this.speed > 0 && this.isMoving) {
-      this.setAnimation('move');
-    } else {
-      this.setAnimation('idle');
-    }
-
-    // Update animation
-    this.updateAnimation(16);
-
-    if (this.isMoving) {
+  handleMovement() {
+    if (this.isMoving && !this.frozen && !this.stunned && !this.isCasting) {
       this.x += this.speed;
     }
   }
 
   // NEW: Separate method to start casting
   startCasting(target) {
-    if (!this.isAlive || !target || !target.isAlive) return;
+    if (!this.isAlive || !target || !target.isAlive || this.frozen || this.stunned) return;
 
     this.isCasting = true;
     this.isAttacking = true;
     this.castingTimer = 30; // 0.5 second cast time
     this.currentTarget = target;
     this.attackCooldown = this.attackRate; // Reset cooldown
-
-    // Immediately switch to attack animation
-    this.setAnimation('attack');
 
     // Cycle through spells
     this.spellType = this.spells[this.currentSpellIndex];

@@ -220,6 +220,15 @@ export const GameProvider = ({ children }) => {
             piecesNeeded: 15,
             upgradeCost: { gold: 250, iron: 30, water: 20, gem: 1 },
             upgradeTime: 150,
+          },
+          {
+            id: 8,
+            name: "Frost Archer",
+            level: 5,
+            pieces: 0,
+            piecesNeeded: 25,
+            upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
+            upgradeTime: 200
           }
         ],
         unlockedLevels: [1],
@@ -390,9 +399,7 @@ export const GameProvider = ({ children }) => {
           },
         ]);
       } else {
-        console.warn(
-          "Cannot start upgrade: requirements not met (resources or worker or cardpieces)"
-        );
+        console.warn("Cannot start upgrade: requirements not met (resources or worker or cardpieces)");
       }
     },
     [playerData, upgradeQueue, updateResource]
