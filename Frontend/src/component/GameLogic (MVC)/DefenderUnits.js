@@ -175,7 +175,31 @@ export class DefenderUnit {
   }
 
   canAttack(currentTime) {
-    return currentTime - this.lastAttackTime >= (this.fireRate * 1000) / 60;
+    //basic time-based cooldown
+    if (currentTime - this.lastAttackTime < (this.fireRate * 1000) / 60) {
+      return false;
+    }
+    //if no gameEngine reference, fall back to original behavior
+    if (!this.gameEngine) {
+      return true;
+    }
+    //check if at least one valid target on screen
+    const enemies = this.gameEngine.enemies;
+    const canvasWidth = this.gameEngine.canvasWidth || 800;
+
+    for (const enemy of enemies) {
+      if (!enemy.isAlive) return;
+      //check if enemy on screen, enemy spawn at -100, attack when they appear
+      if (enemy.x < -50 || enemy.x > canvasWidth + 50) continue;
+      //check if enemy in range
+      const distance = Math.hypot(
+          this.x + this.width / 2 - (enemy.x + enemy.width / 2),
+          this.y + this.height / 2 - (enemy.y + enemy.height / 2));
+      if (distance <= this.range) {
+        return true; //found target
+      }
+    }
+    return false; //no valid target on screen
   }
 
   // UPDATE THIS METHOD: Set attacking state
@@ -1455,7 +1479,7 @@ export class Mortar extends DefenderUnit {
   constructor(x, y, cardData) {
     const typeData = {
       name: "Mortar",
-      damage: 120,        // Increased from 80
+      damage: 120,
       health: 100,
       range: 700,
       fireRate: 360,
@@ -1739,13 +1763,13 @@ export class Mortar extends DefenderUnit {
                 x + offsetX,
                 y + offsetY,
                 this.attackDamage * 0.5,
-                this.explosionRadius * 0.6,
+                this.explosionRadius * 0.3,
             );
             this.gameEngine.explosions.push({
                                               x: x,
                                               y: y,
                                               damage: 0,
-                                              radius: this.explosionRadius,
+                                              radius: this.explosionRadius * 0.3,
                                               timer: 30,
                                               color: "orange",
                                               innerColor: "yellow",
@@ -1982,8 +2006,7 @@ export class FrostArcher extends DefenderUnit {
     }
     super(x, y, typeData);
 
-    this.slowAmount = 0.5; //50%
-    this.slowDuration = 120; //2 sec
+    this.slowDuration = 120; //2// sec
     this.freezeChance = 0.1; //10%
     this.freezeDuration = 60; //1 sec
   }
@@ -2107,9 +2130,458 @@ export class FrostArcher extends DefenderUnit {
     if (this.level === 2) newAbilities.push("Permafrost & Pierce (Level 3)");
     if (this.level === 4) newAbilities.push("Ice Shards (Level 5)");
 
-    return { ...base, slowEffect: `${Math.round((1-this.slowAmount)*100)}% slow`, newAbilities };
+    return { ...base, slowEffect: "50% slow", newAbilities };
   }
 }
 
+export class FireBlast extends DefenderUnit {
+  constructor(x, y, cardData) {
+    const typeData = {
+      name: "Fire Blast",
+      damage: 300,
+      health: 1,
+      range: 0,
+      fireRate: 0,
+      cost: 50,
+      width: 60,
+      height: 60,
+      color: "orangered",
+      isRanged: false,
+      level: cardData.level || 1,
+      image: cardData.image,
+    };
+    super(x, y, typeData);
 
+    // Spell properties
+    this.isSpell = true;
+    this.activationDelay = 60; // 0.5 seconds to activate
+    this.currentActivationTimer = this.activationDelay;
+    this.hasActivated = false;
 
+    // Blast properties
+    this.blastHeight = 120;
+    this.burnDuration = 180; // 3 seconds of burn
+    this.burnDamage = 20;
+  }
+
+  applyLevelUpgrades() {
+    const level = this.level;
+    const damageMultiplier = 1 + (level - 1) * 0.3; // 30% increase per level
+
+    this.attackDamage = Math.floor(this.attackDamage * damageMultiplier);
+    this.burnDamage = Math.floor(this.burningDamage * (1 + (level - 1) * 0.2));
+    this.applySpecialAbilities();
+  }
+
+  applySpecialAbilities() {
+    this.hasInfernoBlast = false;
+    this.hasMoltenTrail = false;
+
+    if (this.level >= 3) {
+      this.hasInfernoBlast = true; // Increased damage and burn
+      this.burnDuration = 240; // 4 seconds
+    }
+    if (this.level >= 5) {
+      this.hasMoltenTrail = true; // Leaves burning ground
+    }
+  }
+
+  getUpgradeInfo() {
+    const newAbilities = [];
+    if (this.level === 2) newAbilities.push("Inferno Blast (Level 3)");
+    if (this.level === 4) newAbilities.push("Molten Trail (Level 5)");
+
+    return {
+      damageIncrease: "+30%",
+      burnDamage: `${this.burnDamage} per second`,
+      newAbilities
+    };
+  }
+
+  update(enemies, defenderUnits) {
+    if (!this.isAlive) {
+      if (this.currentAnimation !== 'death') {
+        this.setAnimation('death');
+      }
+      this.updateAnimation();
+      return;
+    }
+
+    // Countdown to activation
+    if (!this.hasActivated) {
+      this.currentActivationTimer--;
+
+      // Pulsing effect while charging
+      if (this.currentActivationTimer <= 0) {
+        this.activate();
+        this.hasActivated = true;
+      }
+    }
+
+    // Set animation to attack during activation
+    if (!this.hasActivated) {
+      this.setAnimation('attack');
+    } else {
+      this.setAnimation('death');
+    }
+
+    this.updateAnimation();
+  }
+
+  activate() {
+    if (!this.gameEngine) return;
+
+    console.log("Fire Blast activated!");
+
+    const canvasWidth = this.gameEngine.canvasWidth || 800;
+    const explosionCount = Math.ceil(canvasWidth / 80) + 2; // Ensure full coverage
+
+    // Create multiple explosion effects along the row
+    for (let i = 0; i < explosionCount; i++) {
+      const explosionX = i * 80;
+
+      this.gameEngine.explosions.push({
+                                        x: explosionX,
+                                        y: this.y + this.height / 2,
+                                        damage: 0,
+                                        radius: 80,
+                                        timer: 30 + i * 2, // Staggered timing
+                                        color: "orangered",
+                                        innerColor: "yellow",
+                                        particleColor: "rgba(255, 69, 0, 0.9)",
+                                        style: "fireblast",
+                                        type: "defender",
+                                        source: "fireblast",
+                                        explodeBy: "Fire Blast"
+                                      });
+    }
+
+    // Deal damage to all enemies in the row
+    for (const enemy of this.gameEngine.enemies) {
+      if (!enemy.isAlive) continue;
+
+      // Check if enemy is in the same row
+      if (Math.abs((enemy.y + enemy.height / 2) - (this.y + this.height / 2)) <= this.blastHeight
+          / 2) {
+        if (enemy.x <= canvasWidth + 100) { // Small buffer for enemies about to enter
+
+          const died = enemy.takeDamage(this.attackDamage, true); // Ignore armor
+
+          // Apply burn effect
+          if (!died) {
+            enemy.burning = true;
+            enemy.burningDamage = this.burnDamage;
+            enemy.burningDuration = this.burnDuration;
+          }
+        }
+      }
+    }
+    // Leave molten trail at level 5
+    if (this.hasMoltenTrail && this.gameEngine) {
+      // Create persistent burning ground effect
+      for (let i = 0; i < 5; i++) {
+        setTimeout(() => {
+          if (!this.gameEngine) return;
+
+          const trailExplosionCount = Math.ceil(canvasWidth / 160); // Less dense for performance
+
+          for (let j = 0; j < trailExplosionCount; j++) {
+            const trailX = j * 160;
+
+            // Check enemies in trail area
+            for (const enemy of this.gameEngine.enemies) {
+              if (!enemy.isAlive) continue;
+              if (enemy.x < -100 || enemy.x > canvasWidth + 100) continue;
+
+              const distance = Math.hypot(
+                  enemy.x + enemy.width / 2 - trailX,
+                  enemy.y + enemy.height / 2 - (this.y + this.height / 2)
+              );
+
+              if (distance <= 60) {
+                enemy.takeDamage(this.burnDamage * 0.5);
+              }
+            }
+              this.gameEngine.explosions.push({
+                                                x: trailX,
+                                                y: this.y + this.height / 2,
+                                                damage: 0,
+                                                radius: 40,
+                                                timer: 15,
+                                                color: "darkred",
+                                                innerColor: "orange",
+                                                particleColor: "rgba(139, 0, 0, 0.6)",
+                                                style: "molten",
+                                                type: "effect",
+                                                source: "fireblast"
+                                              });
+          }
+        }, i * 500); // Apply every 0.5 seconds
+      }
+    }
+    // Remove this unit after activation
+    this.isAlive = false;
+    this.health = 0;
+  }
+
+  draw(ctx) {
+    if (!this.isAlive && this.hasActivated) return;
+
+    super.draw(ctx);
+
+    // Charging effect
+    if (!this.hasActivated) {
+      ctx.save();
+
+      const chargeProgress = 1 - (this.currentActivationTimer / this.activationDelay);
+
+      // Glowing aura
+      ctx.globalAlpha = 0.6 * chargeProgress;
+      ctx.fillStyle = "orangered";
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.width / 2 + 20 * chargeProgress,
+          0,
+          Math.PI * 2
+      );
+      ctx.fill();
+
+      // Fire particles
+      for (let i = 0; i < 5; i++) {
+        const angle = (Math.PI * 2 * i) / 5 + Date.now() / 200;
+        const distance = 30 + chargeProgress * 20;
+        const particleX = this.x + this.width / 2 + Math.cos(angle) * distance;
+        const particleY = this.y + this.height / 2 + Math.sin(angle) * distance;
+
+        ctx.fillStyle = `rgba(255, ${100 + Math.random() * 155}, 0, ${chargeProgress})`;
+        ctx.beginPath();
+        ctx.arc(particleX, particleY, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+  }
+}
+
+export class IceBomb extends DefenderUnit {
+  constructor(x, y, cardData) {
+    const typeData = {
+      name: "Ice Bomb",
+      damage: 10,
+      health: 1,
+      range: 0,
+      fireRate: 0,
+      cost: 40,
+      width: 50,
+      height: 50,
+      color: "lightblue",
+      isRanged: false,
+      level: cardData.level || 1,
+      image: cardData.image,
+    };
+    super(x, y, typeData);
+
+    // Spell properties
+    this.isSpell = true;
+    this.activationDelay = 60; // Faster activation
+    this.currentActivationTimer = this.activationDelay;
+    this.hasActivated = false;
+
+    // Explosion properties
+    this.explosionRadius = 200;
+    this.freezeDuration = 300; // 5 seconds
+  }
+
+  applyLevelUpgrades() {
+    const level = this.level;
+    const damageMultiplier = 1 + (level - 1) * 0.25;
+
+    this.attackDamage = Math.floor(this.attackDamage * damageMultiplier);
+    this.explosionRadius = Math.floor(this.explosionRadius * (1 + (level - 1) * 0.15));
+    this.freezeDuration = Math.floor(this.freezeDuration * (1 + (level - 1) * 0.2));
+    this.applySpecialAbilities();
+  }
+
+  applySpecialAbilities() {
+    this.hasAbsoluteZero = false;
+    this.hasPermafrost = false;
+
+    if (this.level >= 3) {
+      this.hasAbsoluteZero = true; // Larger radius and instant kill low HP
+    }
+    if (this.level >= 5) {
+      this.hasPermafrost = true; // Permanent slow after freeze
+    }
+  }
+
+  getUpgradeInfo() {
+    const newAbilities = [];
+    if (this.level === 2) newAbilities.push("Absolute Zero (Level 3)");
+    if (this.level === 4) newAbilities.push("Permafrost (Level 5)");
+
+    return {
+      damageIncrease: "+25%",
+      freezeDuration: `${(this.freezeDuration / 60).toFixed(1)} seconds`,
+      radius: `${this.explosionRadius} pixels`,
+      newAbilities
+    };
+  }
+
+  update(enemies, defenderUnits) {
+    if (!this.isAlive) {
+      if (this.currentAnimation !== 'death') {
+        this.setAnimation('death');
+      }
+      this.updateAnimation();
+      return;
+    }
+
+    if (!this.hasActivated) {
+      this.currentActivationTimer--;
+
+      if (this.currentActivationTimer <= 0) {
+        this.activate();
+        this.hasActivated = true;
+      }
+    }
+
+    // Animation state
+    if (!this.hasActivated) {
+      this.setAnimation('attack');
+    } else {
+      this.setAnimation('death');
+    }
+
+    this.updateAnimation();
+  }
+
+  activate() {
+    if (!this.gameEngine) return;
+
+    console.log("Ice Bomb activated!");
+
+    // Create ice explosion effect
+    this.gameEngine.explosions.push({
+                                      x: this.x + this.width / 2,
+                                      y: this.y + this.height / 2,
+                                      damage: 0,
+                                      radius: this.explosionRadius,
+                                      timer: 40,
+                                      color: "lightblue",
+                                      innerColor: "white",
+                                      particleColor: "rgba(173, 216, 230, 0.9)",
+                                      style: "icebomb",
+                                      type: "defender",
+                                      source: "icebomb",
+                                      explodeBy: "Ice Bomb"
+                                    });
+
+    // Additional shatter effects
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8;
+      const distance = this.explosionRadius * 0.7;
+
+      setTimeout(() => {
+        if (this.gameEngine) {
+          this.gameEngine.explosions.push({
+                                            x: this.x + this.width / 2 + Math.cos(angle) * distance,
+                                            y: this.y + this.height / 2 + Math.sin(angle) * distance,
+                                            damage: 0,
+                                            radius: 50,
+                                            timer: 20,
+                                            color: "white",
+                                            innerColor: "lightblue",
+                                            particleColor: "rgba(255, 255, 255, 0.8)",
+                                            style: "ice_shard",
+                                            type: "effect",
+                                            source: "icebomb"
+                                          });
+        }
+      }, i * 30);
+    }
+
+    // Apply effects to enemies
+    for (const enemy of this.gameEngine.enemies) {
+      if (!enemy.isAlive) continue;
+
+      const distance = Math.hypot(
+          enemy.x + enemy.width / 2 - (this.x + this.width / 2),
+          enemy.y + enemy.height / 2 - (this.y + this.height / 2)
+      );
+
+      if (distance <= this.explosionRadius) {
+        // Absolute Zero instant kill for low HP enemies
+        if (this.hasAbsoluteZero && enemy.health <= enemy.maxHealth * 0.3) {
+          enemy.takeDamage(999999, true); // Instant kill
+        } else {
+          // Normal damage
+          const died = enemy.takeDamage(this.attackDamage, false);
+
+          if (!died) {
+            // Apply freeze
+            enemy.frozen = true;
+            enemy.frozenDuration = this.freezeDuration;
+
+            // Apply permanent slow after freeze for level 5
+            if (this.hasPermafrost) {
+              enemy.slowed = true;
+            }
+          }
+        }
+      }
+    }
+    this.isAlive = false;
+    this.health = 0;
+  }
+
+  draw(ctx) {
+    if (!this.isAlive && this.hasActivated) return;
+
+    super.draw(ctx);
+
+    if (!this.hasActivated) {
+      ctx.save();
+
+      const chargeProgress = 1 - (this.currentActivationTimer / this.activationDelay);
+
+      // Ice crystals forming
+      ctx.globalAlpha = 0.7 * chargeProgress;
+
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI * 2 * i) / 6;
+        const distance = 20 + chargeProgress * 15;
+
+        ctx.save();
+        ctx.translate(
+            this.x + this.width / 2 + Math.cos(angle) * distance,
+            this.y + this.height / 2 + Math.sin(angle) * distance
+        );
+        ctx.rotate(angle);
+
+        ctx.fillStyle = "white";
+        ctx.fillRect(-3, -10, 6, 20);
+        ctx.fillRect(-10, -3, 20, 6);
+
+        ctx.restore();
+      }
+
+      // Frost aura
+      ctx.strokeStyle = `rgba(173, 216, 230, ${chargeProgress * 0.8})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.width / 2 + 10 * chargeProgress,
+          0,
+          Math.PI * 2
+      );
+      ctx.stroke();
+
+      ctx.restore();
+    }
+  }
+}

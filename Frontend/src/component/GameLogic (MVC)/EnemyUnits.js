@@ -69,10 +69,13 @@ export class Enemy {
     this.frozen = false;
     this.frozenDuration = 0;
 
+    this.burning = false;
+    this.burningDamage = 0;
+    this.burningDuration = 0;
+
 
   }
 
-  // In Enemy class
   setAnimation(animationName) {
     if (this.currentAnimation !== animationName && this.animationFrames) {
       console.log(`${this.name} switching animation from ${this.currentAnimation} to ${animationName}`);
@@ -95,7 +98,6 @@ export class Enemy {
     }
   }
 
-// In Enemy class - updateAnimation method
   updateAnimation(deltaTime) {
     if (!this.animationConfig || !this.animationFrames) {
       return;

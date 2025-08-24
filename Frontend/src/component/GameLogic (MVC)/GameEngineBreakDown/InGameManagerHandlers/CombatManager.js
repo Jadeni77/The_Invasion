@@ -91,8 +91,12 @@ export class CombatManager {
         let closestEnemy = null;
         let closestDistance = Infinity;
 
+        const canvasWidth = this.gameEngine.canvasWidth || 800;
+
         for (const enemy of enemies) {
             if (!enemy.isAlive) continue;
+            //skip off screen enemy
+            if (enemy.x < -50 || enemy.x > canvasWidth + 50) continue;
 
             // Calculate distance from defender's center to enemy's center
             const distance = Math.hypot(

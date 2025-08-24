@@ -383,7 +383,31 @@ export const AssetManifest = {
                 attack: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 10 },
                 death: { frameCount: 15, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
             }
-        }
+        },
+        'Fire Blast': {
+            sprites: {
+                idle: () => BasicZombieIdle,
+                attack: () => BasicZombieAttack,  // Will play when healing
+                death: () => BasicZombieDeath
+            },
+            config: {
+                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 6 },
+                attack: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 10 },
+                death: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
+            }
+        },
+        'Ice Bomb': {
+            sprites: {
+                idle: () => BasicZombieIdle,
+                attack: () => BasicZombieAttack,  // Will play when healing
+                death: () => BasicZombieDeath
+            },
+            config: {
+                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 6 },
+                attack: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 10 },
+                death: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
+            }
+        },
         // ... more defenders
     }
 };

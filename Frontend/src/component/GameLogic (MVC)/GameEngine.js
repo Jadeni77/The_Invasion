@@ -3,7 +3,7 @@
 
 import {
   BasicDefender, HealerDefender, GrenadeDefender,
-  BarricadeDefender, EnergyGenerator, Sniper, Mortar, FrostArcher
+  BarricadeDefender, EnergyGenerator, Sniper, Mortar, FrostArcher, FireBlast, IceBomb
 } from "./DefenderUnits.js";
 import {
   BasicEnemy, FastEnemy, TankEnemy, BombEnemy, RangeEnemy, ShieldEnemy,
@@ -79,7 +79,9 @@ export class GameEngine {
       "Energy Generator": EnergyGenerator,
       "Sniper": Sniper,
       "Mortar": Mortar,
-      "Frost Archer": FrostArcher
+      "Frost Archer": FrostArcher,
+      "Fire Blast": FireBlast,
+      "Ice Bomb": IceBomb,
     };
 
     // Mapping of enemy names to their respective Enemy classes

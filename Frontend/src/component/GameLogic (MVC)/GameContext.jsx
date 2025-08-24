@@ -229,6 +229,24 @@ export const GameProvider = ({ children }) => {
             piecesNeeded: 25,
             upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
             upgradeTime: 200
+          },
+          {
+            id: 9,
+            name: "Fire Blast",
+            level: 5,
+            pieces: 0,
+            piecesNeeded: 25,
+            upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
+            upgradeTime: 200
+          },
+          {
+            id: 10,
+            name: "Ice Bomb",
+            level: 5,
+            pieces: 0,
+            piecesNeeded: 25,
+            upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
+            upgradeTime: 200
           }
         ],
         unlockedLevels: [1],
