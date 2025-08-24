@@ -992,14 +992,10 @@ export class EnergyGenerator extends DefenderUnit {
     this.energyDropAmount = 5;
     this.energyDropRate = 300;
     this.energyDropCountDown = this.energyDropRate;
-
-    this.energyBurstAmount = 15;
-    this.autoCollectRadius = 200;
   }
 
   applyLevelUpgrades() {
     const level = this.level;
-    this.energyDropAmount = this.energyDropAmount + (level - 1);
     this.health = Math.floor(80 * (1 + (level - 1) * 0.15));
     this.maxHealth = this.health;
     this.applySpecialAbilities();
@@ -1064,6 +1060,7 @@ export class EnergyGenerator extends DefenderUnit {
       const collectRadius = 150;
       for (let i = this.gameEngine.energyDrops.length - 1; i >= 0; i--) {
         const drop = this.gameEngine.energyDrops[i];
+        if (drop.collectAnimation) continue;
         const distance = Math.hypot(
             drop.x - (this.x + this.width / 2),
             drop.y - (this.y + this.height / 2)
@@ -1074,8 +1071,9 @@ export class EnergyGenerator extends DefenderUnit {
           drop.startCollectionAnimation(110, 20);
           this.gameEngine.inGameEnergy = Math.min(100, this.gameEngine.inGameEnergy + drop.amount);
           this.gameEngine.updateEnergyCb(this.gameEngine.inGameEnergy);
+          console.log(`${ this.gameEngine.inGameEnergy}`);
           // Remove collected drop
-          this.gameEngine.energyDrops.splice(i, 1);
+       //   this.gameEngine.energyDrops.splice(i, 1);
         }
       }
     }

@@ -322,7 +322,7 @@ export class Enemy {
   }
 
   takeDamage(amount, ignoreArmor = false) {
-    console.log(`${this.name} took damage: ${amount}`);
+    //console.log(`${this.name} took damage: ${amount}`);
     this.health -= amount;
     if (this.health <= 0) {
       this.health = 0;
