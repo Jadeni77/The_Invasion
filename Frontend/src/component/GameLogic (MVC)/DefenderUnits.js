@@ -337,11 +337,12 @@ export class BasicDefender extends DefenderUnit {
   }
 }
 
+//TODO: Fix Resurrection Logic
 export class HealerDefender extends DefenderUnit {
   constructor(x, y, cardData) {
     const typeData = {
       name: "Healer Cop",
-      damage: 5,
+      damage: 0,
       health: 100,
       range: 100,
       fireRate: 90,
@@ -360,6 +361,11 @@ export class HealerDefender extends DefenderUnit {
     this.healingRate = 120;
     this.healingRange = 100;
     this.healingCountdown = this.healingRate;
+
+    // Animation control
+    this.healAnimationDuration = 180; // How long to play attack animation
+    this.healAnimationTimer = 0;
+    this.isHealing = false;
   }
 
   applyLevelUpgrades() {
@@ -412,9 +418,19 @@ export class HealerDefender extends DefenderUnit {
       return;
     }
 
+    if (this.healAnimationTimer > 0) {
+      this.healAnimationTimer--;
+      this.isAttacking = true; // Keep attack animation playing
+      if (this.healAnimationTimer <= 0) {
+        this.isAttacking = false;
+        this.isHealing = false;
+      }
+    }
+
     // Healing Logic
     this.healingCountdown--;
     if (this.healingCountdown <= 0) {
+      let didHeal = false;
       const unitsToHeal = defenderUnits.filter(
           (unit) =>
               unit.id !== this.id &&
@@ -428,18 +444,49 @@ export class HealerDefender extends DefenderUnit {
 
       // Group healing special ability
       if (this.hasGroupHeal && unitsToHeal.length > 0) {
+        didHeal = true;
         this.isAttacking = true; // Show attack animation when healing
         const toHeal = unitsToHeal.slice(0, 3);
         toHeal.forEach(unit => {
           unit.health = Math.min(unit.maxHealth, unit.health + this.healingAmount);
+          // Visual feedback for healing
+          if (this.gameEngine) {
+            this.gameEngine.explosions.push({
+                                              x: unit.x + unit.width / 2,
+                                              y: unit.y + unit.height / 2,
+                                              damage: 0,
+                                              radius: 30,
+                                              timer: 20,
+                                              color: "lightgreen",
+                                              innerColor: "white",
+                                              particleColor: "rgba(0, 255, 0, 0.6)",
+                                              style: "heal",
+                                              type: "effect",
+                                              source: "healer"
+                                            });
+          }
         });
       } else if (unitsToHeal.length > 0) {
+        didHeal = true;
         this.isAttacking = true; // Show attack animation when healing
         unitsToHeal.sort((a, b) => a.health / a.maxHealth - b.health / b.maxHealth);
         const targetUnit = unitsToHeal[0];
         targetUnit.health = Math.min(targetUnit.maxHealth, targetUnit.health + this.healingAmount);
-      } else {
-        this.isAttacking = false; // Not healing anyone
+        if (this.gameEngine) {
+          this.gameEngine.explosions.push({
+                                            x: targetUnit.x + targetUnit.width / 2,
+                                            y: targetUnit.y + targetUnit.height / 2,
+                                            damage: 0,
+                                            radius: 30,
+                                            timer: 20,
+                                            color: "lightgreen",
+                                            innerColor: "white",
+                                            particleColor: "rgba(0, 255, 0, 0.6)",
+                                            style: "heal",
+                                            type: "effect",
+                                            source: "healer"
+                                          });
+        }
       }
 
       // Check for resurrection ability
@@ -467,9 +514,15 @@ export class HealerDefender extends DefenderUnit {
         }
       }
 
+      if (didHeal) {
+        this.isHealing = true;
+        this.healAnimationTimer = this.healAnimationDuration;
+        this.isAttacking = true;
+        console.log(`Healer performing heal - animation timer set to ${this.healAnimationDuration}`);
+      }
+
       this.healingCountdown = this.healingRate;
     }
-
     // Animation state management
     if (this.animationFrames) {
       if (this.disabled) {
@@ -482,30 +535,64 @@ export class HealerDefender extends DefenderUnit {
       this.updateAnimation();
     }
 
-    // Reset attack state after animation
-    if (this.isAttacking && this.healingCountdown < this.healingRate - 10) {
-      this.isAttacking = false;
-    }
+
   }
 
   draw(ctx) {
     super.draw(ctx);
+
     // Optional: Draw a healing aura when healing
     if (this.healingCountdown <= 20 && this.healingCountdown > 0) {
       ctx.beginPath();
       ctx.arc(
-        this.x + this.width / 2,
-        this.y + this.height / 2,
-        this.healingRange,
-        0,
-        Math.PI * 2
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.healingRange,
+          0,
+          Math.PI * 2
       );
       ctx.strokeStyle = "rgba(0, 255, 0, " + this.healingCountdown / 20 + ")";
       ctx.lineWidth = 3;
       ctx.stroke();
     }
+
+    // Draw healing aura when healing
+    if (this.isHealing && this.healAnimationTimer > 0) {
+      ctx.save();
+
+      // Pulsing healing aura
+      const pulse = this.healAnimationTimer / this.healAnimationDuration;
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.healingRange * (1 - pulse * 0.3),
+          0,
+          Math.PI * 2
+      );
+      ctx.strokeStyle = `rgba(0, 255, 0, ${pulse * 0.5})`;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Healing particles
+      for (let i = 0; i < 5; i++) {
+        const angle = (Math.PI * 2 * i) / 5 + (Date.now() / 500);
+        const distance = 20 + pulse * 30;
+        const particleX = this.x + this.width / 2 + Math.cos(angle) * distance;
+        const particleY = this.y + this.height / 2 + Math.sin(angle) * distance;
+
+        ctx.fillStyle = `rgba(0, 255, 0, ${pulse * 0.8})`;
+        ctx.beginPath();
+        ctx.arc(particleX, particleY, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
     // Visual indicator for resurrection ability
     if (this.hasResurrection && this.canResurrect) {
+      ctx.save();
       ctx.fillStyle = "rgba(255, 215, 0, 0.3)"; // Golden glow
       ctx.beginPath();
       ctx.arc(
@@ -516,6 +603,31 @@ export class HealerDefender extends DefenderUnit {
           Math.PI * 2
       );
       ctx.fill();
+
+      // Resurrection symbol
+      ctx.fillStyle = "gold";
+      ctx.font = "bold 12px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("✚", this.x + this.width / 2, this.y - 5);
+      ctx.restore();
+    }
+
+    // Healing range indicator (optional - shows when hovering or healing)
+    if (this.isHealing) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(0, 255, 0, 0.2)";
+      ctx.setLineDash([5, 10]);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.healingRange,
+          0,
+          Math.PI * 2
+      );
+      ctx.stroke();
+      ctx.restore();
     }
   }
 }
@@ -768,7 +880,7 @@ export class BarricadeDefender extends DefenderUnit {
                              enemy.y <= this.y + this.height);
         if (isAttacking) {
           //reflect damage back
-          const spikeDamage = 0.5; //20% damage reflect
+          const spikeDamage = 0.05;
           enemy.takeDamage(spikeDamage, false);
 
           this.gameEngine.explosions.push({
@@ -933,11 +1045,13 @@ export class EnergyGenerator extends DefenderUnit {
     }
 
     if (this.hasEnergyBurst) {
+      console.log("Has Energy Burst?")
       if (!this.energyBurstCooldown) {
         this.energyBurstCooldown = 600;
       }
       this.energyBurstCooldown--;
       if (this.energyBurstCooldown <= 0 && this.gameEngine) {
+        console.log("Energy Generator debug")
         //generate 3x energy in a burst
         for (let i = 0; i < 3; i++) {
           const offsetX = (Math.random() - 0.5) * 100;
@@ -952,6 +1066,7 @@ export class EnergyGenerator extends DefenderUnit {
       }
     }
     if (this.autoCollect && this.gameEngine) {
+      console.log("Has Auto Collect?")
       const collectRadius = 150;
       for (let i = this.gameEngine.energyDrops.length - 1; i >= 0; i--) {
         const drop = this.gameEngine.energyDrops[i];
@@ -960,6 +1075,7 @@ export class EnergyGenerator extends DefenderUnit {
             drop.y - (this.y + this.height / 2)
         );
         if (distance <= collectRadius) {
+          console.log("Energy Generator debug auto collect")
           //auto-collect energy
           drop.startCollectionAnimation(110, 20);
           this.gameEngine.inGameEnergy = Math.min(100, this.gameEngine.inGameEnergy + drop.amount);
@@ -974,6 +1090,7 @@ export class EnergyGenerator extends DefenderUnit {
     if (this.energyDropCountDown <= 0) {
       if (this.gameEngine) {
         // Play "attack" animation when generating energy
+        console.log("Regular Energy Drop")
         this.isAttacking = true;
 
         const offsetX = (Math.random() - 0.5) * 60;

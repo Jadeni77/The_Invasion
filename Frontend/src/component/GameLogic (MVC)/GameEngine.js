@@ -187,7 +187,7 @@ export class GameEngine {
       maxActiveEnemies: 8,
       totalEnemiesToSpawn: 10,
       waves: 3,
-      availableEnemyTypes:  [ "Titan"],
+      availableEnemyTypes:  [ "Basic Zombie"],
           // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
           //  "Exploder", "Skeleton Shooter", "Shielder",
           // "Healer", "Splitter", "Mini", "Swarm Witch",
