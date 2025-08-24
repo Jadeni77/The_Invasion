@@ -327,7 +327,7 @@ export class GameEngine {
     this.ctx = canvas.getContext("2d"); // Get 2D rendering context
     this.canvasWidth = width;
     this.canvasHeight = height;
-    this.defenseLineX = width * 0.9; // Defense line 150px from right edge
+    this.defenseLineX = width - 60; // Defense line 150px from right edge
 
     // Get the configuration for the selected level
     this.currentLevelConfig = this.levelConfigs.get(levelNumber);
@@ -414,7 +414,7 @@ export class GameEngine {
       return;
     }
 
-    const spawnX = -100;
+    const spawnX = this.gridManager.getEnemySpawnX();
     const spawnY = this.gridManager.getRandomSpawnY();
     const enemy = new EnemyClass(spawnX, spawnY, null);
 
@@ -573,10 +573,11 @@ export class GameEngine {
    * @returns {boolean} True if valid, false otherwise.
    */
   isValidDeploymentPosition(x, y, width, height) {
-    if (x < this.gridManager.gridOffsetX - 1 || x + width > this.canvasWidth) {
-      return false; // Must be in the right half
+    // Check if within canvas bounds
+    if (x < 0 || x + width > this.canvasWidth || y < 0 || y + height > this.canvasHeight) {
+      return false;
     }
-    // 2. Check if overlapping existing defenders
+    // Check if overlapping existing defenders
     for (const defender of this.defenders) {
       if (this.checkCollision(x, y, width, height, defender.x,
                               defender.y, defender.width, defender.height)) {
@@ -1154,7 +1155,6 @@ export class GameEngine {
     this.drawEntities.drawCardPieceDrops(ctx);
     this.drawExplosionEffect.drawExplosions(ctx);
   }
-
 
   /** The main game animation loop. */
   gameLoop = () => {
