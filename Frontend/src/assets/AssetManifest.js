@@ -3,6 +3,9 @@ import BasicZombieIdle from "../assets/enemies/Enemy3No-Move-Idle.png";
 import BasicZombieMove from "../assets/enemies/Enemy3No-Move-Fly.png";
 import BasicZombieAttack from "../assets/enemies/Enemy3No-Move-AttackSmashStart.png";
 import BasicZombieDeath from "../assets/enemies/Enemy3No-Move-Die.png";
+import BasicDefenderIdle from "../assets/defender/basic-defender-idle.png"
+import BasicDefenderAttack from "../assets/defender/basic-defender-attack.png"
+import BasicDefenderDeath from "../assets/defender/basic-defender-death.png"
 
 export const AssetManifest = {
     enemies: {
@@ -266,14 +269,35 @@ export const AssetManifest = {
     defenders: {
         'Basic Cop': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => BasicDefenderIdle,
+                attack: () => BasicDefenderAttack,
+                death: () => BasicDefenderDeath
             },
             config: {
-                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8 },
-                attack: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 20 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
+                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8,
+                    cropConfig: {
+                        enabled: true,
+                        cropWidth: 48,   // Actual sprite size
+                        cropHeight: 48,
+                        offsetX: 8,      // Center offset
+                        offsetY: 8
+                    }},
+                attack: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 20,
+                    cropConfig: {
+                        enabled: true,
+                        cropWidth: 48,   // Actual sprite size
+                        cropHeight: 48,
+                        offsetX: 8,      // Center offset
+                        offsetY: 8
+                    }},
+                death: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8, loop: false,
+                    cropConfig: {
+                        enabled: true,
+                        cropWidth: 48,   // Actual sprite size
+                        cropHeight: 48,
+                        offsetX: 8,      // Center offset
+                        offsetY: 8
+                    }}
             }
         },
         'Healer Cop': {
