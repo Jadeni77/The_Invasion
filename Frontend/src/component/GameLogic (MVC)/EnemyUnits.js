@@ -465,8 +465,8 @@ export class BombEnemy extends Enemy {
     return died;
   }
 
-  update(defenderUnits) {
-    super.update(defenderUnits);
+  updateBehavior(defenderUnits) {
+    super.updateBehavior(defenderUnits);
     if (!this.isAlive || this.shouldExplode) return;
 
     // If close then explode
@@ -639,8 +639,8 @@ export class HealerEnemy extends Enemy {
     this.currentHealCooldown = 0;
   }
 
-  update(defenderUnits) {
-    super.update(defenderUnits);
+  updateBehavior(defenderUnits) {
+    super.updateBehavior(defenderUnits);
 
     if (!this.isAlive) return;
 
@@ -1163,8 +1163,8 @@ export class GhostEnemy extends Enemy {
     this.currentPhaseDuration = 0;
   }
 
-  update(defenderUnits) {
-    super.update(defenderUnits);
+  updateBehavior(defenderUnits) {
+    super.updateBehavior(defenderUnits);
 
     if (!this.isAlive) return;
 
@@ -1214,17 +1214,6 @@ export class GhostEnemy extends Enemy {
       ctx.globalAlpha = 0.3;
     }
 
-    // Draw the ghost
-    if (this.image && this.image.complete && this.image.naturalHeight !== 0) {
-      try {
-        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
-      } catch (e) {
-        this.drawFallback(ctx);
-      }
-    } else {
-      this.drawFallback(ctx);
-    }
-
     ctx.restore();
 
     // Phase shift aura
@@ -1244,18 +1233,6 @@ export class GhostEnemy extends Enemy {
       ctx.stroke();
       ctx.restore();
     }
-
-    // Health bar
-    ctx.fillStyle = "red";
-    ctx.fillRect(this.x, this.y - 10, this.width, 5);
-    ctx.fillStyle = "lime";
-    const healthWidth = (this.health / this.maxHealth) * this.width;
-    ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
-
-    // Name
-    ctx.fillStyle = "white";
-    ctx.font = "10px Arial";
-    ctx.fillText(this.name, this.x, this.y + this.height + 10);
   }
 }
 
@@ -1283,7 +1260,7 @@ export class BerserkerEnemy extends Enemy {
     this.isMoving = true;
   }
 
-  update(defenderUnits) {
+  updateBehavior(defenderUnits) {
     if (!this.isAlive) return;
 
     if (this.health <= 0) {
@@ -1513,7 +1490,7 @@ export class AssassinEnemy extends Enemy {
     this.dashSpeed = 5;
   }
 
-  update(defenderUnits) {
+  updateBehavior(defenderUnits) {
     if (!this.isAlive) return;
 
     if (this.health <= 0) {
@@ -1557,7 +1534,7 @@ export class AssassinEnemy extends Enemy {
                                             x: targetDefender.x + targetDefender.width / 2,
                                             y: targetDefender.y + targetDefender.height / 2,
                                             damage: 0,
-                                            radius: 40,
+                                            radius: 50,
                                             timer: 20,
                                             color: "darkred",
                                             innerColor: "black",
@@ -1568,9 +1545,12 @@ export class AssassinEnemy extends Enemy {
         }
       }
     } else {
-      super.update(defenderUnits);
+      super.updateBehavior(defenderUnits);
     }
-    if (!this.isAttacking) {
+  }
+
+  handleMovement() {
+    if (!this.isAttacking && !this.frozen && !this.stunned && !this.isCasting) {
       this.x += this.isStealthed ? this.dashSpeed : this.speed;
     }
   }
@@ -1587,6 +1567,7 @@ export class AssassinEnemy extends Enemy {
   }
 
   draw(ctx) {
+    super.draw(ctx);
     if (!this.isAlive) return;
 
     ctx.save();
@@ -1607,33 +1588,8 @@ export class AssassinEnemy extends Enemy {
       }
       ctx.globalAlpha = 0.4;
     }
-
-    // Draw enemy
-    if (this.image && this.image.complete && this.image.naturalHeight !== 0) {
-      try {
-        ctx.drawImage(this.image, this.x, this.y, this.width, this.height);
-      } catch (e) {
-        this.drawFallback(ctx);
-      }
-    } else {
-      this.drawFallback(ctx);
-    }
-
     ctx.restore();
-
-    // Health bar (visible even when stealthed)
-    ctx.fillStyle = "red";
-    ctx.fillRect(this.x, this.y - 10, this.width, 5);
-    ctx.fillStyle = "lime";
-    const healthWidth = (this.health / this.maxHealth) * this.width;
-    ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
-
-    // Name
-    ctx.fillStyle = "white";
-    ctx.font = "10px Arial";
-    ctx.fillText(this.name, this.x, this.y + this.height + 10);
   }
-
 }
 
 export class MageEnemy extends Enemy {
@@ -2070,8 +2026,8 @@ export class TitanEnemy extends Enemy {
     }
   }
 
-  update(defenderUnits) {
-    super.update(defenderUnits);
+  updateBehavior(defenderUnits) {
+    super.updateBehavior(defenderUnits);
     console.log(`Titan move at ${this.speed} speed`);
 
     if (!this.isAlive || !this.gameEngine) return;

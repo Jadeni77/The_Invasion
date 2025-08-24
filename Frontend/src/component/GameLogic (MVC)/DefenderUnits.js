@@ -703,9 +703,6 @@ export class BarricadeDefender extends DefenderUnit {
       image: cardData.image,
     }
     super(x, y, typeData);
-
-    //special ability
-    //TODO: Need to tackle the special ability logic for this class
   }
 
   applyLevelUpgrades() {
@@ -759,16 +756,118 @@ export class BarricadeDefender extends DefenderUnit {
     } else {
       this.setAnimation('idle');
     }
+    this.updateAnimation();
 
     if (this.hasSpikes) {
-      //TODO:
+      //deal damage to those who attack on this barricade
+      for (const enemy of enemies) {
+        const isAttacking = (enemy.isAttacking &&
+                             enemy.x + enemy.width >= this.x &&
+                             enemy.x <= this.x + this.width &&
+                             enemy.y + enemy.height >= this.y &&
+                             enemy.y <= this.y + this.height);
+        if (isAttacking) {
+          //reflect damage back
+          const spikeDamage = 0.5; //20% damage reflect
+          enemy.takeDamage(spikeDamage, false);
+
+          this.gameEngine.explosions.push({
+                                            x: enemy.x + enemy.width / 2,
+                                            y: enemy.y + enemy.height / 2,
+                                            damage: 0,
+                                            radius: 20,
+                                            timer: 15,
+                                            color: "silver",
+                                            innerColor: "gray",
+                                            particleColor: "rgba(192, 192, 192, 0.8)",
+                                            style: "spike",
+                                            type: "effect",
+                                            source: "barricade"
+                                          });
+        }
+      }
     }
     if (this.hasElectricField) {
-      //TODO:
+      //stun nearby enemy periodically
+      if (!this.electricFieldCooldown) {
+        this.electricFieldCooldown = 300;
+      }
+      this.electricFieldCooldown--;
+      if (this.electricFieldCooldown <= 0) {
+        const stunRadius = 100;
+        for (const enemy of enemies) {
+          const distance = Math.hypot(
+              enemy.x + enemy.width / 2 - (this.x + this.width / 2),
+              enemy.y + enemy.height / 2 - (this.y + this.height / 2));
+          if (distance <= stunRadius) {
+            enemy.stunned = true;
+            enemy.stunnedDuration = 60;
+            enemy.takeDamage(5);
+          }
+        }
+        if (this.gameEngine) {
+          this.gameEngine.explosions.push({
+                                            x: this.x + this.width / 2,
+                                            y: this.y + this.height / 2,
+                                            damage: 0,
+                                            radius: stunRadius,
+                                            timer: 20,
+                                            color: "yellow",
+                                            innerColor: "white",
+                                            particleColor: "rgba(255, 255, 0, 0.6)",
+                                            style: "electric",
+                                            type: "effect",
+                                            source: "barricade"
+                                          });
+        }
+        this.electricFieldCooldown = 300;
+      }
+    }
+  }
+
+  draw(ctx) {
+    super.draw(ctx);
+    // Spike visual indicator
+    if (this.hasSpikes && this.isAlive) {
+      ctx.save();
+      ctx.strokeStyle = "silver";
+      ctx.lineWidth = 2;
+
+      // Draw spikes on the barricade
+      const spikeCount = 5;
+      for (let i = 0; i < spikeCount; i++) {
+        const x = this.x + (this.width / spikeCount) * i + 5;
+        ctx.beginPath();
+        ctx.moveTo(x, this.y);
+        ctx.lineTo(x - 3, this.y - 8);
+        ctx.lineTo(x + 3, this.y - 8);
+        ctx.closePath();
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Electric field visual
+    if (this.hasElectricField && this.isAlive) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(255, 255, 0, ${0.3 + Math.sin(Date.now() / 200) * 0.2})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          100,
+          0,
+          Math.PI * 2
+      );
+      ctx.stroke();
+      ctx.restore();
     }
   }
 }
 
+//TODO: Auto collect no working
 export class EnergyGenerator extends DefenderUnit {
   constructor(x, y, cardData) {
     const typeData = {
@@ -790,9 +889,6 @@ export class EnergyGenerator extends DefenderUnit {
     this.energyDropAmount = 5;
     this.energyDropRate = 300;
     this.energyDropCountDown = this.energyDropRate;
-
-    //special ability
-    //TODO: Need to tackle the special ability logic for this class
   }
 
   applyLevelUpgrades() {
@@ -802,14 +898,12 @@ export class EnergyGenerator extends DefenderUnit {
 
   applySpecialAbilities() {
     this.hasEnergyBurst = false;
-    this.hasEnergyField = false;
     this.autoCollect = false;
 
     if (this.level >= 3) {
       this.hasEnergyBurst = true;
     }
     if (this.level >= 5) {
-      this.hasEnergyField = true;
       this.autoCollect = true;
     }
   }
@@ -839,15 +933,42 @@ export class EnergyGenerator extends DefenderUnit {
     }
 
     if (this.hasEnergyBurst) {
-      this.energyDropAmount *= 1.5;
+      if (!this.energyBurstCooldown) {
+        this.energyBurstCooldown = 600;
+      }
+      this.energyBurstCooldown--;
+      if (this.energyBurstCooldown <= 0 && this.gameEngine) {
+        //generate 3x energy in a burst
+        for (let i = 0; i < 3; i++) {
+          const offsetX = (Math.random() - 0.5) * 100;
+          const offsetY = (Math.random() - 0.5) * 100;
+          this.gameEngine.dropEnergy(
+              this.x + this.width / 2 + offsetX,
+              this.y + this.height / 2 + offsetY,
+              this.energyDropAmount
+          );
+        }
+        this.energyBurstCooldown = 600;
+      }
     }
-    if (this.hasEnergyField) {
-      // TODO: Energy field logic
+    if (this.autoCollect && this.gameEngine) {
+      const collectRadius = 150;
+      for (let i = this.gameEngine.energyDrops.length - 1; i >= 0; i--) {
+        const drop = this.gameEngine.energyDrops[i];
+        const distance = Math.hypot(
+            drop.x - (this.x + this.width / 2),
+            drop.y - (this.y + this.height / 2)
+        );
+        if (distance <= collectRadius) {
+          //auto-collect energy
+          drop.startCollectionAnimation(110, 20);
+          this.gameEngine.inGameEnergy = Math.min(100, this.gameEngine.inGameEnergy + drop.amount);
+          this.gameEngine.updateEnergyCb(this.gameEngine.inGameEnergy);
+          // Remove collected drop
+          this.gameEngine.energyDrops.splice(i, 1);
+        }
+      }
     }
-    if (this.autoCollect) {
-      // TODO: Auto-collect logic
-    }
-
     // Energy drop logic
     this.energyDropCountDown--;
     if (this.energyDropCountDown <= 0) {
@@ -882,9 +1003,42 @@ export class EnergyGenerator extends DefenderUnit {
     }
   }
 
-
   draw(ctx) {
     super.draw(ctx);
+
+    // Energy burst indicator
+    if (this.hasEnergyBurst && this.energyBurstCooldown && this.isAlive) {
+      const progress = 1 - (this.energyBurstCooldown / 600);
+      ctx.strokeStyle = "gold";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.width / 2 + 10,
+          -Math.PI / 2,
+          -Math.PI / 2 + (Math.PI * 2 * progress)
+      );
+      ctx.stroke();
+    }
+
+    // Auto-collect field visual
+    if (this.autoCollect && this.isAlive) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(255, 215, 0, ${0.2 + Math.sin(Date.now() / 300) * 0.1})`;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([10, 5]);
+      ctx.beginPath();
+      ctx.arc(
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          150,
+          0,
+          Math.PI * 2
+      );
+      ctx.stroke();
+      ctx.restore();
+    }
 
     //energy generator indicator
     const progress = 1 - (this.energyDropCountDown / this.energyDropRate);
@@ -1833,5 +1987,6 @@ export class FrostArcher extends DefenderUnit {
     return { ...base, slowEffect: `${Math.round((1-this.slowAmount)*100)}% slow`, newAbilities };
   }
 }
+
 
 

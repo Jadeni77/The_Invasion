@@ -187,7 +187,7 @@ export class GameEngine {
       maxActiveEnemies: 8,
       totalEnemiesToSpawn: 10,
       waves: 3,
-      availableEnemyTypes:  ["Mage"],
+      availableEnemyTypes:  [ "Titan"],
           // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
           //  "Exploder", "Skeleton Shooter", "Shielder",
           // "Healer", "Splitter", "Mini", "Swarm Witch",
@@ -815,6 +815,12 @@ export class GameEngine {
           if (enemy.initialSpeed) {
             enemy.speed = enemy.initialSpeed;
           }
+        }
+      }
+      if (enemy.stunned && enemy.stunnedDuration) {
+        enemy.stunnedDuration--;
+        if (enemy.stunnedDuration <= 0) {
+          enemy.stunned = false;
         }
       }
 

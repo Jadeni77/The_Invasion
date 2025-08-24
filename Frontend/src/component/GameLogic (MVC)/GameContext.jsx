@@ -185,7 +185,7 @@ export const GameProvider = ({ children }) => {
           {
             id: 4,
             name: "Barricade",
-            level: 3,
+            level: 5,
             pieces: 0,
             piecesNeeded: 10,
             cost: 30,
@@ -195,7 +195,7 @@ export const GameProvider = ({ children }) => {
           {
             id: 5,
             name: "Energy Generator",
-            level: 1,
+            level: 5,
             pieces: 0,
             piecesNeeded: 10,
             cost: 25,
