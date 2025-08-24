@@ -343,7 +343,7 @@ export class GameEngine {
     }
 
     //initialize grid for game
-    this.gridManager = new GridManager(width, height);
+    this.gridManager = new GridManager(width, height, levelNumber);
     this.gridManager.initializeGrid();
     //initialize wave manager
     this.waveManager = new WaveManager(this.currentLevelConfig,

@@ -3,7 +3,7 @@
  * importance of initializing a grid and resetting a grid.
  */
 export class GridManager {
-    constructor(canvasWidth, canvasHeight) {
+    constructor(canvasWidth, canvasHeight, levelNumber = 1) {
         this.gridSize = 60;
         this.deploymentGrid = [];
         this.gridOffsetX = 0;
@@ -11,11 +11,28 @@ export class GridManager {
         this.highlightGrid = false;
         this.canvasWidth = canvasWidth;
         this.canvasHeight = canvasHeight;
+        this.levelNumber = levelNumber;
 
         this.leftMargin = 80;  // Space for UI/zombies to spawn
         this.rightMargin = 60; // Space before defense line
         this.topMargin = 60;   // Space for top UI
         this.bottomMargin = 40; // Space for bottom UI
+    }
+
+    getRowsForLevel() {
+        if (this.levelNumber  === 1) {
+            return 1;
+        } else if (this.levelNumber === 2) {
+            return 2;
+        } if (this.levelNumber  === 3) {
+            return 3;
+        } else if (this.levelNumber === 4) {
+            return 4;
+        } else if (this.levelNumber  === 5) {
+            return 5;
+        } else {
+            return 6;
+        }
     }
 
     /**
@@ -25,19 +42,19 @@ export class GridManager {
         const availableWidth = this.canvasWidth - this.leftMargin - this.rightMargin;
         const availableHeight = this.canvasHeight - this.topMargin - this.bottomMargin;
 
-        const targetCols = 9;
-        const targetRows = 6;
+        const cols = 9;
+        const rows = this.getRowsForLevel();
 
         // Calculate grid size based on available space
         this.gridSize = Math.min(
-            Math.floor(availableWidth / targetCols),
-            Math.floor(availableHeight / targetRows),
+            Math.floor(availableWidth / cols),
+            Math.floor(availableHeight / rows),
             80  // Maximum grid size cap
         );
 
-        // Recalculate actual columns and rows based on final grid size
-        const cols = Math.floor(availableWidth / this.gridSize);
-        const rows = Math.min(targetRows, Math.floor(availableHeight / this.gridSize));
+        if (this.gridSize < 40) {
+            this.gridSize = 40; //minimun for playability
+        }
 
         // Center the grid in the available space
         const totalGridWidth = cols * this.gridSize;
@@ -51,19 +68,22 @@ export class GridManager {
         for (let row = 0; row < rows; row++) {
             const gridRow = [];
             for (let col = 0; col < cols; col++) {
-                // Mark leftmost columns as "road" (where enemies walk)
-           //     const isRoad = col < 2;  // First 2 columns are for enemy path
-
                 gridRow.push({
                                  x: this.gridOffsetX + col * this.gridSize,
                                  y: this.gridOffsetY + row * this.gridSize,
                                  occupied: false,
-                             //    isRoad: isRoad, //enemy path
                                  row: row,
                                  col: col,
                              });
             }
             this.deploymentGrid.push(gridRow);
+        }
+    }
+
+    setLevel(levelNumber) {
+        if (this.levelNumber !== levelNumber) {
+            this.levelNumber = levelNumber;
+            this.initializeGrid();
         }
     }
 
@@ -82,12 +102,7 @@ export class GridManager {
 
         if (row >= 0 && row < this.deploymentGrid.length &&
             col >= 0 && col < this.deploymentGrid[0].length) {
-            const cell = this.deploymentGrid[row][col];
-            // if (cell.isRoad) {
-            //     console.log("Cannot deploy on road cell");
-            //     return null;
-            // }
-            return cell;
+            return this.deploymentGrid[row][col];
         }
         return null;
     }
@@ -115,45 +130,61 @@ export class GridManager {
         // Draw all grid cells
         for (let row of this.deploymentGrid) {
             for (let cell of row) {
-                // Different styling for road vs deployable cells
-                if (cell.isRoad) {
-                    // Road cells (enemy path) - darker/different color
-                    ctx.strokeStyle = "rgba(150, 150, 150, 0.15)";
-                    ctx.fillStyle = "rgba(100, 100, 100, 0.05)";
+                // Base grid styling
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+                ctx.lineWidth = 1;
+
+                // Different visual hints for different columns (optional)
+                // Leftmost columns slightly darker to show enemy approach area
+                if (cell.col < 2) {
+                    ctx.fillStyle = "rgba(150, 150, 255, 0.05)"; // Slight blue tint for danger zone
                     ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
-                } else {
-                    // Deployable cells
-                    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+                }
 
-                    // Highlight occupied cells
-                    if (cell.occupied) {
-                        ctx.fillStyle = "rgba(255, 100, 100, 0.15)";
-                        ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
-                    }
+                // Highlight occupied cells
+                if (cell.occupied) {
+                    ctx.fillStyle = "rgba(255, 100, 100, 0.15)";
+                    ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
+                }
 
-                    // If player is selecting a card, highlight valid cells
-                    if (this.highlightGrid && !cell.occupied) {
-                        ctx.fillStyle = "rgba(100, 255, 100, 0.25)";
-                        ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
-                    }
+                // If player is selecting a card, highlight valid cells
+                if (this.highlightGrid && !cell.occupied) {
+                    ctx.fillStyle = "rgba(100, 255, 100, 0.25)";
+                    ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
                 }
 
                 // Draw grid lines
-                ctx.lineWidth = 1;
                 ctx.strokeRect(cell.x, cell.y, this.gridSize, this.gridSize);
             }
         }
 
-        // Draw row separators (stronger lines between rows like PvZ)
+        // Draw stronger row separators (lane indicators)
         ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
         ctx.lineWidth = 2;
         for (let row = 0; row <= this.deploymentGrid.length; row++) {
             const y = this.gridOffsetY + row * this.gridSize;
             ctx.beginPath();
             ctx.moveTo(this.gridOffsetX, y);
-            ctx.lineTo(this.gridOffsetX + this.deploymentGrid[0].length * this.gridSize, y);
+            ctx.lineTo(this.gridOffsetX + this.FIXED_COLUMNS * this.gridSize, y);
             ctx.stroke();
         }
+
+        // Draw column separators (lighter)
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.lineWidth = 1;
+        for (let col = 0; col <= this.FIXED_COLUMNS; col++) {
+            const x = this.gridOffsetX + col * this.gridSize;
+            ctx.beginPath();
+            ctx.moveTo(x, this.gridOffsetY);
+            ctx.lineTo(x, this.gridOffsetY + this.deploymentGrid.length * this.gridSize);
+            ctx.stroke();
+        }
+
+        // Optional: Draw level indicator
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.font = "12px Arial";
+        ctx.fillText(`Level ${this.levelNumber} - ${this.deploymentGrid.length} Lanes`,
+                     this.gridOffsetX, this.gridOffsetY - 10);
 
         ctx.restore();
     }
@@ -165,6 +196,7 @@ export class GridManager {
     getRandomSpawnY() {
         if (this.deploymentGrid.length === 0) return 100;
         const randomRow = Math.floor(Math.random() * this.deploymentGrid.length);
+        // Return the center Y position of the selected row
         return this.gridOffsetY + randomRow * this.gridSize + this.gridSize / 2;
 
     }
@@ -176,23 +208,6 @@ export class GridManager {
     getEnemySpawnX() {
         return -100;  // Spawn off-screen to the left
     }
-
-    /**
-     * Check if a position is within a road cell (for enemy pathing)
-     * @param x X position
-     * @param y Y position
-     * @returns {boolean} true if position is on road
-     */
-    // isOnRoad(x, y) {
-    //     const col = Math.floor((x - this.gridOffsetX) / this.gridSize);
-    //     const row = Math.floor((y - this.gridOffsetY) / this.gridSize);
-    //
-    //     if (row >= 0 && row < this.deploymentGrid.length &&
-    //         col >= 0 && col < this.deploymentGrid[0].length) {
-    //         return this.deploymentGrid[row][col].isRoad;
-    //     }
-    //     return false;
-    // }
 
     /**
      * Get all cells in a specific row (for AOE effects, etc.)
@@ -217,6 +232,33 @@ export class GridManager {
             return row;
         }
         return -1;
+    }
+
+    /**
+     * Check if enemies are getting close (for AI/warnings)
+     * @param x X position of enemy
+     * @returns {number} Column index the enemy is in, or -1
+     */
+    getColumnFromX(x) {
+        const col = Math.floor((x - this.gridOffsetX) / this.gridSize);
+        if (col >= 0 && col < this.FIXED_COLUMNS) {
+            return col;
+        }
+        return -1;
+    }
+
+    /**
+     * Get specific cell by row and column indices
+     * @param row Row index
+     * @param col Column index
+     * @returns {Object|null} Cell object or null if invalid
+     */
+    getCellByIndices(row, col) {
+        if (row >= 0 && row < this.deploymentGrid.length &&
+            col >= 0 && col < this.FIXED_COLUMNS) {
+            return this.deploymentGrid[row][col];
+        }
+        return null;
     }
 
 }
