@@ -1,13 +1,6 @@
 // src/component/GameLogic (MVC)/DefenderUnits.js
 // Data for different types of Defender Units
 
-/* TODO:
-    1.Implement the Animation fields in the main defender class similar to
-    the Enemy class.
-    2. Fix the bug of long range Enemy attacking not having Attack Animation
-    3. Find more asset
-*/
-
 import {DrawNegativeEffect} from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
 
 export class DefenderUnit {
@@ -337,7 +330,6 @@ export class BasicDefender extends DefenderUnit {
   }
 }
 
-//TODO: Fix Resurrection Logic
 export class HealerDefender extends DefenderUnit {
   constructor(x, y, cardData) {
     const typeData = {
@@ -979,7 +971,6 @@ export class BarricadeDefender extends DefenderUnit {
   }
 }
 
-//TODO: Auto collect no working
 export class EnergyGenerator extends DefenderUnit {
   constructor(x, y, cardData) {
     const typeData = {
@@ -1001,11 +992,17 @@ export class EnergyGenerator extends DefenderUnit {
     this.energyDropAmount = 5;
     this.energyDropRate = 300;
     this.energyDropCountDown = this.energyDropRate;
+
+    this.energyBurstAmount = 15;
+    this.autoCollectRadius = 200;
   }
 
   applyLevelUpgrades() {
     const level = this.level;
     this.energyDropAmount = this.energyDropAmount + (level - 1);
+    this.health = Math.floor(80 * (1 + (level - 1) * 0.15));
+    this.maxHealth = this.health;
+    this.applySpecialAbilities();
   }
 
   applySpecialAbilities() {
@@ -1045,13 +1042,11 @@ export class EnergyGenerator extends DefenderUnit {
     }
 
     if (this.hasEnergyBurst) {
-      console.log("Has Energy Burst?")
       if (!this.energyBurstCooldown) {
         this.energyBurstCooldown = 600;
       }
       this.energyBurstCooldown--;
       if (this.energyBurstCooldown <= 0 && this.gameEngine) {
-        console.log("Energy Generator debug")
         //generate 3x energy in a burst
         for (let i = 0; i < 3; i++) {
           const offsetX = (Math.random() - 0.5) * 100;
@@ -1066,7 +1061,6 @@ export class EnergyGenerator extends DefenderUnit {
       }
     }
     if (this.autoCollect && this.gameEngine) {
-      console.log("Has Auto Collect?")
       const collectRadius = 150;
       for (let i = this.gameEngine.energyDrops.length - 1; i >= 0; i--) {
         const drop = this.gameEngine.energyDrops[i];
