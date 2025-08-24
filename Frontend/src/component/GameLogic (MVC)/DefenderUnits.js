@@ -189,6 +189,18 @@ export class DefenderUnit {
 
   // REPLACE THE ENTIRE draw METHOD
   draw(ctx) {
+    ctx.save();
+
+    // ADD THESE LINES - Critical for pixel art!
+    ctx.imageSmoothingEnabled = false;
+    ctx.webkitImageSmoothingEnabled = false;
+    ctx.mozImageSmoothingEnabled = false;
+    ctx.msImageSmoothingEnabled = false;
+
+    // Your flip code if you have it
+    ctx.scale(-1, 1);
+    ctx.translate(-this.x * 2 - this.width, 0);
+
     // Draw animation frames if available
     if (this.animationFrames && this.animationFrames[this.currentAnimation]) {
       const frames = this.animationFrames[this.currentAnimation];
@@ -212,6 +224,8 @@ export class DefenderUnit {
     } else {
       this.drawFallback(ctx);
     }
+
+    ctx.restore();
 
     // Don't draw UI elements for dead units playing death animation
     if (!this.isAlive && this.isPlayingDeathAnimation && !this.deathAnimationComplete) {
@@ -277,8 +291,8 @@ export class BasicDefender extends DefenderUnit {
       range: 200,
       fireRate: 60,
       cost: 20,
-      width: 30,
-      height: 40,
+      width: 64,
+      height: 64,
       color: "blue",
       isRanged: true,
       level: cardData.level || 1,

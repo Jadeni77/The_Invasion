@@ -4,7 +4,7 @@
  */
 export class GridManager {
     constructor(canvasWidth, canvasHeight) {
-        this.gridSize = 60;
+        this.gridSize = 64;
         this.deploymentGrid = [];
         this.gridOffsetX = 0;
         this.gridOffsetY = 0;

@@ -66,38 +66,49 @@ export class AnimationManager {
 
     extractFrames(image, config) {
         const frames = [];
-        const { frameCount, frameWidth, frameHeight } = config;
+        const { frameCount, frameWidth, frameHeight, cropConfig } = config;
 
-        console.log(`🖼️ Extracting ${frameCount} frames (${frameWidth}x${frameHeight} each) from image ${image.naturalWidth}x${image.naturalHeight}`);
+        // Check if cropping is needed (cropConfig might be undefined)
+        const needsCrop = cropConfig && cropConfig.enabled;
+
+        console.log(`Extracting ${frameCount} frames (${frameWidth}x${frameHeight} each)`);
+        if (needsCrop) {
+            console.log(`Cropping enabled: extracting ${cropConfig.cropWidth}x${cropConfig.cropHeight} from center`);
+        }
 
         for (let i = 0; i < frameCount; i++) {
             const canvas = document.createElement('canvas');
-            canvas.width = frameWidth;
-            canvas.height = frameHeight;
-            const ctx = canvas.getContext('2d');
 
-            //extract each frame here
-            ctx.drawImage(
-                image,
-                i * frameWidth, 0, frameWidth, frameHeight, //source
-                0, 0, frameWidth, frameHeight, //destination
-            );
+            if (needsCrop) {
+                // WITH CROPPING (for defenders with borders)
+                canvas.width = cropConfig.cropWidth;
+                canvas.height = cropConfig.cropHeight;
+                const ctx = canvas.getContext('2d');
 
-            // Debug: Check if frame has any visible content
-            const imageData = ctx.getImageData(0, 0, frameWidth, frameHeight);
-            const hasContent = imageData.data.some((value, index) => {
-                // Check alpha channel (every 4th value)
-                return index % 4 === 3 && value > 0;
-            });
+                const sourceX = i * frameWidth + cropConfig.offsetX;
+                const sourceY = cropConfig.offsetY;
 
-            if (!hasContent) {
-                console.warn(`Frame ${i} appears to be empty/transparent`);
+                ctx.drawImage(
+                    image,
+                    sourceX, sourceY, cropConfig.cropWidth, cropConfig.cropHeight,
+                    0, 0, cropConfig.cropWidth, cropConfig.cropHeight
+                );
+            } else {
+                // WITHOUT CROPPING (for enemies or sprites without borders)
+                canvas.width = frameWidth;
+                canvas.height = frameHeight;
+                const ctx = canvas.getContext('2d');
+
+                ctx.drawImage(
+                    image,
+                    i * frameWidth, 0, frameWidth, frameHeight,
+                    0, 0, frameWidth, frameHeight
+                );
             }
 
             frames.push(canvas);
         }
 
-        console.log(`✅ Extracted ${frames.length} frames successfully`);
         return frames;
     }
 
