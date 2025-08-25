@@ -165,26 +165,20 @@ export class GridManager {
             const y = this.gridOffsetY + row * this.gridSize;
             ctx.beginPath();
             ctx.moveTo(this.gridOffsetX, y);
-            ctx.lineTo(this.gridOffsetX + this.FIXED_COLUMNS * this.gridSize, y);
+            ctx.lineTo(this.gridOffsetX + 9 * this.gridSize, y);
             ctx.stroke();
         }
 
         // Draw column separators (lighter)
         ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
         ctx.lineWidth = 1;
-        for (let col = 0; col <= this.FIXED_COLUMNS; col++) {
+        for (let col = 0; col <= 9; col++) {
             const x = this.gridOffsetX + col * this.gridSize;
             ctx.beginPath();
             ctx.moveTo(x, this.gridOffsetY);
             ctx.lineTo(x, this.gridOffsetY + this.deploymentGrid.length * this.gridSize);
             ctx.stroke();
         }
-
-        // Optional: Draw level indicator
-        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-        ctx.font = "12px Arial";
-        ctx.fillText(`Level ${this.levelNumber} - ${this.deploymentGrid.length} Lanes`,
-                     this.gridOffsetX, this.gridOffsetY - 10);
 
         ctx.restore();
     }
@@ -241,7 +235,7 @@ export class GridManager {
      */
     getColumnFromX(x) {
         const col = Math.floor((x - this.gridOffsetX) / this.gridSize);
-        if (col >= 0 && col < this.FIXED_COLUMNS) {
+        if (col >= 0 && col < 9) {
             return col;
         }
         return -1;
@@ -255,7 +249,7 @@ export class GridManager {
      */
     getCellByIndices(row, col) {
         if (row >= 0 && row < this.deploymentGrid.length &&
-            col >= 0 && col < this.FIXED_COLUMNS) {
+            col >= 0 && col < 9) {
             return this.deploymentGrid[row][col];
         }
         return null;
