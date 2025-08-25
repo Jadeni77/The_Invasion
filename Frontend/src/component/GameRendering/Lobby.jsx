@@ -1,5 +1,5 @@
 // src/components/GameRendering/Lobby.jsx
-import React, { useRef, useEffect, useState, use } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useGame } from "../GameLogic (MVC)/GameContext"; // Correct path
 import ResourceIcon from "./ResourceIcon"; // Correct path
 import EnergyBar from "./EnergyBar"; // Correct path
@@ -7,11 +7,9 @@ import UpgradeModal from "./LobbyButton/UpgradeModal.jsx"; // Correct path
 import { levelsMapData, connectionsData, chestsData } from "./MapLayout"; // New: Import map data from MapData.js
 import "../../style/Lobby.css"; // Correct path
 import "../../style/UpgradeModal.css"; // Correct path (if UpgradeModal.css is used by Lobby too)
-import WorkerStatus from "../common/WorkerStatus";
 import CardSelectionModal from "./CardSelectionModal";
 import CloseChest from "../../Icons/CloseChest.png";
 import OpenChest from "../../Icons/OpenChest.png";
-
 
 const Lobby = () => {
   const {
@@ -191,18 +189,10 @@ const Lobby = () => {
       {/* Resources Bar */}
       <div className="resource-bar">
         <ResourceIcon type="gold" value={playerData.resources.gold} />
-        <ResourceIcon type="workers" value={playerData.resources.workers} />
         <ResourceIcon type="iron" value={playerData.resources.iron} />
         <ResourceIcon type="grain" value={playerData.resources.grain} />
         <ResourceIcon type="water" value={playerData.resources.water} />
         <ResourceIcon type="gem" value={playerData.resources.gem} />
-      </div>
-
-      {/* Worker status */}
-      <div className="worker-status-container">
-        {playerData.workers.map((worker) => (
-          <WorkerStatus key={worker.id} worker={worker} />
-        ))}
       </div>
 
       {/* Game Map */}

@@ -9,48 +9,16 @@ import { getUpgradePreview } from "../../GameLogic (MVC)/DefenderClassUtils.js";
 import Bow from "../../../Icons/Bow.png";
 
 function UpgradeModal() {
-  const { playerData, upgradeQueue, startCardUpgrade, closeUpgradeModal } =
+  const { playerData, startCardUpgrade, closeUpgradeModal } =
     useGame();
   const [selectedCard, setSelectedCard] = useState(null);
-  const [timer, setTimer] = useState(0); // Force re-renders
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimer((prev) => prev + 1); // Update every second
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   if (!playerData) return <div>Loading....</div>;
 
-  //check if this card is still upgrading
-  const getUpgradeStatus = (cardId) => {
-    const upgrade = upgradeQueue.find((u) => u.cardId === cardId);
-    if (!upgrade) return null;
-
-    const now = Date.now(); // Get current time
-    const duration = upgrade.endTime - upgrade.startTime;
-    const elapsed = now - upgrade.startTime;
-
-    const progress = Math.min(100, (elapsed / duration) * 100);
-    const timeLeft = Math.ceil((upgrade.endTime - now) / 1000);
-
-    return {
-      progress,
-      timeLeft: Math.max(0, timeLeft), // Ensure time left is not negative
-    };
-  };
-
-  //check if this car can be upgrded, by resources, and by worker
+  //check if this car can be upgraded, by resources, and by worker
   //add cardpieces requirement in order to upgrade
   const canUpgradeCard = (card) => {
     if (!playerData) return false;
-
-    // Check if card is already in upgrade queue
-    if (upgradeQueue.some((u) => u.cardId === card.id)) {
-      return false;
-    }
 
     // Check resources
     const hasResources = Object.entries(card.upgradeCost).every(
@@ -61,12 +29,7 @@ function UpgradeModal() {
     const piecesNeeded = card.piecesNeeded * card.level;
     const hasEnoughPieces = card.pieces >= piecesNeeded;
 
-    // Check available workers
-    const availableWorker = playerData.workers.find(
-      (w) => !w.injured && !upgradeQueue.some((u) => u.workerId === w.id)
-    );
-
-    return hasResources && hasEnoughPieces && !!availableWorker; // Ensure availableWorker is not null/undefined
+    return hasResources && hasEnoughPieces; // Ensure availableWorker is not null/undefined
   };
 
   return (
@@ -80,8 +43,6 @@ function UpgradeModal() {
 
         <div className="upgrade-grid">
           {playerData.cards.map((card) => {
-            const upgradeStatus = getUpgradeStatus(card.id);
-            const isUpgrading = !!upgradeStatus;
             const canUpgrade = canUpgradeCard(card);
             const upgradePreview = getUpgradePreview(card);
 
@@ -90,24 +51,11 @@ function UpgradeModal() {
                 key={card.id}
                 className={`upgrade-card ${
                   selectedCard?.id === card.id ? "selected" : ""
-                } ${isUpgrading ? "upgrading" : ""}`}
-                onClick={() => !isUpgrading && setSelectedCard(card)} // Only allow selection if not upgrading
+                }`}
+                onClick={() => setSelectedCard(card)} // Only allow selection if not upgrading
               >
                 <Card card={card} />
 
-                {isUpgrading ? (
-                  <div className="upgrade-in-progress">
-                    <div className="progress-text">
-                      Upgrading... {upgradeStatus.timeLeft}s
-                    </div>
-                    <div className="progress-bar">
-                      <div
-                        className="progress-fill"
-                        style={{ width: `${upgradeStatus.progress}%` }}
-                      />
-                    </div>
-                  </div>
-                ) : (
                   <div className="upgrade-info">
                     <h4>Upgrade to Level {card.level + 1}</h4>
 
@@ -179,11 +127,6 @@ function UpgradeModal() {
                       </span>
                     </div>
 
-                    <div className="worker-requirement">
-                      <span className="worker-icon">👷</span>
-                      <span>1 Worker Required</span>
-                    </div>
-
                     {/* Only show button if card is selected or if it's the one we're looking at */}
                     {selectedCard?.id === card.id && (
                       <button
@@ -197,7 +140,7 @@ function UpgradeModal() {
                       </button>
                     )}
                   </div>
-                )}
+                )
               </div>
             );
           })}

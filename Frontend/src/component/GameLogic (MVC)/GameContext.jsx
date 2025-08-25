@@ -20,7 +20,6 @@ export const GameProvider = ({ children }) => {
   const [gameState, setGameState] = useState("lobby"); // lobby, inGame, upgrade
   const [selectedLevel, setSelectedLevel] = useState(null); // The level selected to play
   const [playerData, setPlayerData] = useState(null);
-  const [upgradeQueue, setUpgradeQueue] = useState([]);
 
   // In-game session specific states (managed by GameEngine, exposed via callbacks)
   const [inGameEnergy, setInGameEnergy] = useState(0);
@@ -120,8 +119,6 @@ export const GameProvider = ({ children }) => {
           },
         };
       });
-      // Injure a worker on loss (as per your logic)
-      injureWorker();
       // GameEngine will stop its loop; UI will show game over screen.
       // User clicks "Return to Lobby" which calls endGame.
     },
@@ -148,12 +145,6 @@ export const GameProvider = ({ children }) => {
           water: 40,
           gem: 5,
         },
-        workers: [
-          { id: 1, name: "Worker 1", injured: false },
-          { id: 2, name: "Worker 2", injured: false },
-          { id: 3, name: "Worker 3", injured: false },
-          { id: 4, name: "Worker 4", injured: false },
-        ],
         cards: [
           {
             id: 1,
@@ -162,7 +153,6 @@ export const GameProvider = ({ children }) => {
             pieces: 100,
             piecesNeeded: 10,
             upgradeCost: { gold: 100, iron: 5, water: 3 },
-            upgradeTime: 1,
           },
           {
             id: 2,
@@ -171,7 +161,6 @@ export const GameProvider = ({ children }) => {
             pieces: 10,
             piecesNeeded: 10,
             upgradeCost: { gold: 150, grain: 10, water: 5, gem: 1 },
-            upgradeTime: 120,
           },
           {
             id: 3,
@@ -180,7 +169,6 @@ export const GameProvider = ({ children }) => {
             pieces: 10,
             piecesNeeded: 10,
             upgradeCost: { gold: 200, iron: 15, gem: 2 },
-            upgradeTime: 1,
           },
           {
             id: 4,
@@ -190,7 +178,6 @@ export const GameProvider = ({ children }) => {
             piecesNeeded: 10,
             cost: 30,
             upgradeCost: { gold: 120, iron: 20, grain: 5 },
-            upgradeTime: 90,
           },
           {
             id: 5,
@@ -200,7 +187,6 @@ export const GameProvider = ({ children }) => {
             piecesNeeded: 10,
             cost: 25,
             upgradeCost: { gold: 80, water: 10, grain: 20},
-            upgradeTime: 75
           },
           {
             id: 6,
@@ -210,7 +196,6 @@ export const GameProvider = ({ children }) => {
             piecesNeeded: 25,
             cost: 80,
             upgradeCost: { gold: 130, water: 60, grain: 35},
-            upgradeTime: 100
           },
           {
             id: 7,
@@ -219,7 +204,6 @@ export const GameProvider = ({ children }) => {
             pieces: 0,
             piecesNeeded: 15,
             upgradeCost: { gold: 250, iron: 30, water: 20, gem: 1 },
-            upgradeTime: 150,
           },
           {
             id: 8,
@@ -228,7 +212,6 @@ export const GameProvider = ({ children }) => {
             pieces: 0,
             piecesNeeded: 25,
             upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
-            upgradeTime: 200
           },
           {
             id: 9,
@@ -237,7 +220,6 @@ export const GameProvider = ({ children }) => {
             pieces: 0,
             piecesNeeded: 25,
             upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
-            upgradeTime: 200
           },
           {
             id: 10,
@@ -246,7 +228,6 @@ export const GameProvider = ({ children }) => {
             pieces: 0,
             piecesNeeded: 25,
             upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
-            upgradeTime: 200
           }
         ],
         unlockedLevels: [1],
@@ -264,14 +245,12 @@ export const GameProvider = ({ children }) => {
           maxLobbyEnergy: 0,
           energyRechargeRate: 0,
           lastEnergyRechargeTime: 0,
-          workers: 0,
           iron: 0,
           grain: 0,
           water: 0,
           gem: 0,
         },
         cards: [],
-        workers: [],
         unlockedLevels: [],
         collectedTreasures: [],
       });
@@ -349,28 +328,6 @@ export const GameProvider = ({ children }) => {
     });
   }, []);
 
-  // Worker injury system
-  const injureWorker = useCallback(() => {
-    setPlayerData((prev) => {
-      if (!prev || !prev.workers) return prev; // Safety check
-      // 30% chance to injure a worker on a loss
-      if (Math.random() < 0.3) {
-        const healthyWorkers = prev.workers.filter((w) => !w.injured);
-        if (healthyWorkers.length > 0) {
-          const randomWorker =
-            healthyWorkers[Math.floor(Math.random() * healthyWorkers.length)];
-          return {
-            ...prev,
-            workers: prev.workers.map((w) =>
-              w.id === randomWorker.id ? { ...w, injured: true } : w
-            ),
-          };
-        }
-      }
-      return prev;
-    });
-  }, []);
-
   // Start card upgrade
   const startCardUpgrade = useCallback(
     (cardId) => {
@@ -381,17 +338,11 @@ export const GameProvider = ({ children }) => {
 
       // Check if player has enough resources
       const canAfford = Object.entries(card.upgradeCost).every(
-        ([resource, amount]) => playerData.resources[resource] >= amount
-      );
+        ([resource, amount]) => playerData.resources[resource] >= amount);
 
       const hasEnoughPieces = card.pieces >= (card.piecesNeeded * card.level);
 
-      // Check if available worker
-      const availableWorker = playerData.workers.find(
-        (w) => !w.injured && !upgradeQueue.some((u) => u.workerId === w.id)
-      );
-
-      if (canAfford && availableWorker && hasEnoughPieces) {
+      if (canAfford && hasEnoughPieces) {
         Object.entries(card.upgradeCost).forEach(([resource, amount]) => {
           updateResource(resource, -amount);
         });
@@ -400,66 +351,18 @@ export const GameProvider = ({ children }) => {
         setPlayerData(prev => ({
           ...prev,
           cards: prev.cards.map((c) =>
-            c.id === cardId ? {...c, pieces: c.pieces - (c.piecesNeeded * c.level)}
+            c.id === cardId ? {...c,
+                  pieces: c.pieces - (c.piecesNeeded * c.level),
+                level: c.level + 1}
           : c),
         }));
-
-        // Add to upgrade queue where upgrading time will be scale base on level
-        const upgradeTime = card.upgradeTime * (1 + (card.level - 1) * 0.4); // 40% increase per level
-        const upgradeEndTime = Date.now() + upgradeTime * 1000;
-        setUpgradeQueue((prev) => [
-          ...prev,
-          {
-            cardId,
-            workerId: availableWorker.id,
-            startTime: Date.now(),
-            endTime: upgradeEndTime,
-          },
-        ]);
+        console.log(`Card ${card.name} upgraded to level ${card.level + 1}`);
       } else {
         console.warn("Cannot start upgrade: requirements not met (resources or worker or cardpieces)");
       }
     },
-    [playerData, upgradeQueue, updateResource]
+    [playerData, updateResource]
   );
-
-  // Check completed upgrades
-  useEffect(() => {
-    const checkUpgrades = () => {
-      const now = Date.now();
-      const completed = upgradeQueue.filter((u) => u.endTime <= now);
-
-      if (completed.length > 0) {
-        // Apply upgrades
-        setPlayerData((prev) => ({
-          ...prev,
-          cards: prev.cards.map((card) => {
-            const upgrade = completed.find((u) => u.cardId === card.id);
-            if (upgrade) {
-              return { ...card, level: card.level + 1 };
-            }
-            return card;
-          }),
-          // Mark worker as healthy after upgrade (assuming 1 worker per upgrade)
-          workers: prev.workers.map((worker) => {
-            const completedUpgrade = completed.find(
-              (u) => u.workerId === worker.id
-            );
-            if (completedUpgrade) {
-              return { ...worker, injured: false }; // Worker is now healthy
-            }
-            return worker;
-          }),
-        }));
-
-        // Remove completed upgrades from queue
-        setUpgradeQueue((prev) => prev.filter((u) => u.endTime > now));
-      }
-    };
-
-    const interval = setInterval(checkUpgrades, 5000);
-    return () => clearInterval(interval);
-  }, [upgradeQueue]); // Dependency on upgradeQueue is correct
 
   // Game State management
   const startLevel = useCallback(
@@ -507,7 +410,6 @@ export const GameProvider = ({ children }) => {
 
       if (result === "quit") {
         // Return to lobby with penalty (with cauze injury worker)
-        injureWorker();
         setGameState("lobby");
         setGameOver(false);
         setGameWon(false);
@@ -520,18 +422,8 @@ export const GameProvider = ({ children }) => {
         setGameOver(false);
         setGameWon(false);
         setGameState("inGame");
-        //setSelectedCardsForGame()
-        // Don't clear selectedLevel or selectedCardsForGame
-        // Don't change gameState from "inGame"
         return;
       }
-
-      if (result === "loss") {
-        injureWorker();
-        // Resource deduction on loss is now handled by onLoseCb
-      }
-      // Resource gain on win is now handled by onWinCb
-
       //add collected card pieces to player data at game end
       if (collectedCardPieces.length > 0) {
         setPlayerData(prev => {
@@ -559,7 +451,7 @@ export const GameProvider = ({ children }) => {
       setSelectedLevel(null); // Clear selected level
       savePlayerData(playerData); // Save updated player data
     },
-    [injureWorker, playerData, savePlayerData, collectedCardPieces]
+    [playerData, savePlayerData, collectedCardPieces]
   );
 
   const deployDefender = useCallback(
@@ -612,7 +504,6 @@ export const GameProvider = ({ children }) => {
   const gameAPI = {
     gameState,
     playerData,
-    upgradeQueue,
     selectedLevel, // The level currently being played (or selected in lobby)
     inGameEnergy, // Exposed in-game energy
     inGameScore, // Exposed in-game score
