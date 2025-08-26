@@ -101,7 +101,7 @@ export const GameProvider = ({ children }) => {
       setPlayerData((prev) => {
         console.log("Set Player Data Resources Logic Being called in onLoseCb")
         if (!prev) return prev;
-        const newGold = Math.max(0, prev.resources.gold - 50); // Placeholder amounts
+        const newGold = Math.max(0, prev.resources.gold - 50); //TODO: Placeholder amounts
         const newGrain = Math.max(0, prev.resources.grain - 10);
         const newWater = Math.max(0, prev.resources.water - 50);
         const newGem = Math.max(

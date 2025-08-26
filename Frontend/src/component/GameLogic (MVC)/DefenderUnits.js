@@ -845,6 +845,7 @@ export class BarricadeDefender extends DefenderUnit {
       image: cardData.image,
     }
     super(x, y, typeData);
+    this.gotHit = false;
   }
 
   applyLevelUpgrades() {
@@ -881,6 +882,15 @@ export class BarricadeDefender extends DefenderUnit {
     };
   }
 
+  takeDamage(amount) {
+    const died = super.takeDamage(amount);
+    if (!died) {
+      this.gotHit = true;
+      return false;
+    }
+    return true;
+  }
+
   update(enemies, defenderUnits) {
     if (!this.isAlive) {
       if (this.currentAnimation !== 'death') {
@@ -893,7 +903,7 @@ export class BarricadeDefender extends DefenderUnit {
     // Determine animation state
     if (this.disabled) {
       this.setAnimation('idle');
-    } else if (this.isAttacking) {
+    } else if (this.gotHit) {
       this.setAnimation('attack');
     } else {
       this.setAnimation('idle');
