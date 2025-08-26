@@ -1517,7 +1517,7 @@ export class Mortar extends DefenderUnit {
 
     // Mortar-specific properties
     this.minimumRange = 250;     // Increased from 150
-    this.explosionRadius = 150;   // Increased from 100
+    this.explosionRadius = 100;   // Increased from 100
     this.shellTravelTime = 200;  // 1.5 seconds for shell to land
     this.pendingShells = [];      // Track shells in flight
 
@@ -1531,8 +1531,12 @@ export class Mortar extends DefenderUnit {
     this.nextTarget = null;
     this.targetLockTime = 0;
 
-    this.attackAnimationLock = 0;
-    this.attackAnimationDuration = 60;
+    this.isFiring = false;
+    this.fireAnimationDuration = 120; // 0.5 seconds for firing animation
+    this.fireAnimationTimer = 0;
+
+    // Prevent multiple shells
+    this.hasShellInFlight = false;
   }
 
   applyLevelUpgrades() {
@@ -1555,7 +1559,7 @@ export class Mortar extends DefenderUnit {
     if (this.level >= 3) {
       this.hasImprovedFuses = true;
       this.minimumRange = Math.floor(this.minimumRange * 0.7); // 30% reduction
-      this.shellTravelTime = 75; // Faster shells
+      this.shellTravelTime = 120; // Faster shells
     }
     if (this.level >= 5) {
       this.hasSiegeMode = true;
@@ -1620,6 +1624,8 @@ export class Mortar extends DefenderUnit {
     //override to check if the target is valid
     if (!super.canAttack(currentTime)) return false;
 
+    if (this.hasShellInFlight) return false;
+
     //chekc if there are valid tarhet
     if (this.gameEngine) {
       this.nextTarget = this.findBestTarget(this.gameEngine.enemies);
@@ -1640,6 +1646,14 @@ export class Mortar extends DefenderUnit {
         this.deathAnimationComplete = true;
       }
       return;
+    }
+
+    if (this.fireAnimationTimer > 0) {
+      this.fireAnimationTimer--;
+      this.isFiring = true;
+      if (this.fireAnimationTimer <= 0) {
+        this.isFiring = false;
+      }
     }
 
     // Update barrel recoil animation
@@ -1675,6 +1689,7 @@ export class Mortar extends DefenderUnit {
 
         if (shell.timeRemaining <= 0) {
           this.createExplosion(shell.targetX, shell.targetY);
+          this.hasShellInFlight = false; // Allow firing again
           return false;
         }
       }
@@ -1688,9 +1703,11 @@ export class Mortar extends DefenderUnit {
 
     // Animation state management - FIX: Keep attack animation playing during lock
     if (this.animationFrames) {
-      if (this.attackAnimationLock > 0) {
+      if (this.isFiring) {
         this.setAnimation('attack');
       } else if (this.disabled) {
+        this.setAnimation('idle');
+      } else if (this.targetLockTime > 0) {
         this.setAnimation('idle');
       } else {
         this.setAnimation('idle');
@@ -1709,18 +1726,20 @@ export class Mortar extends DefenderUnit {
 
     if (!this.isAlive || !actualTarget || !actualTarget.isAlive) return;
 
+    // Don't fire if shell is already in flight
+    if (this.hasShellInFlight) {
+      console.log("Mortar: Shell already in flight, waiting...");
+      return;
+    }
+
     if (!this.isValidTarget(actualTarget)) {
       console.log("Mortar: Target too close or too far");
       return;
     }
 
-    this.isAttacking = true; // ADD THIS
-    // FIX: Set animation lock to keep attack animation playing
-    this.attackAnimationLock = this.attackAnimationDuration;
-
     // Lock onto target
     this.currentTarget = actualTarget;
-    this.targetLockTime = 30;
+    this.targetLockTime = 60;
 
     // Calculate angle for visual effect
     this.lastFireAngle = Math.atan2(
@@ -1728,8 +1747,12 @@ export class Mortar extends DefenderUnit {
         actualTarget.x + actualTarget.width / 2 - (this.x + this.width / 2)
     );
 
+    // Start firing animation
+    this.isFiring = true;
+    this.fireAnimationTimer = this.fireAnimationDuration;
+
     // Add barrel recoil effect
-    this.barrelRecoil = 10;
+    this.barrelRecoil = 15;
 
     // Add shell to pending
     this.pendingShells.push({
@@ -1744,6 +1767,8 @@ export class Mortar extends DefenderUnit {
                               fired: false
                             });
 
+    // Mark that we have a shell in flight
+    this.hasShellInFlight = true;
     this.lastAttackTime = currentTime;
   }
 
@@ -1821,6 +1846,16 @@ export class Mortar extends DefenderUnit {
 
     // Draw shells in flight
     this.drawShells(ctx);
+
+    // Draw loading indicator if shell is in flight
+    if (this.hasShellInFlight && this.isAlive) {
+      ctx.save();
+      ctx.fillStyle = "rgba(255, 165, 0, 0.8)";
+      ctx.font = "bold 10px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("RELOADING", this.x + this.width / 2, this.y - 20);
+      ctx.restore();
+    }
   }
 
   drawRangeIndicators(ctx) {
