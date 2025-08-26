@@ -352,9 +352,9 @@ export const AssetManifest = {
         },
         'Grenadier': {
             sprites: {
-                idle: () => GrenadeIdle,
-                attack: () => GrenadeAttack,
-                death: () => GrenadeDeath
+                idle: () => SniperIdle,
+                attack: () => SniperAttack,
+                death: () => SniperDeath
             },
             config: {
                 idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8,
@@ -365,7 +365,7 @@ export const AssetManifest = {
                         offsetX: 8,      // Center offset
                         offsetY: 8
                     }},
-                attack: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 20,
+                attack: { frameCount: 9, frameWidth: 64, frameHeight: 64, fps: 18,
                     cropConfig: {
                         enabled: true,
                         cropWidth: 48,   // Actual sprite size
@@ -373,7 +373,7 @@ export const AssetManifest = {
                         offsetX: 8,      // Center offset
                         offsetY: 8
                     }},
-                death: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8, loop: false,
+                death: { frameCount: 9, frameWidth: 64, frameHeight: 64, fps: 18, loop: false,
                     cropConfig: {
                         enabled: true,
                         cropWidth: 48,   // Actual sprite size
@@ -451,9 +451,9 @@ export const AssetManifest = {
         },
         'Sniper': {
             sprites: {
-                idle: () => SniperIdle,
-                attack: () => SniperAttack,
-                death: () => SniperDeath
+                idle: () => GrenadeIdle,
+                attack: () => GrenadeAttack,
+                death: () => GrenadeDeath
             },
             config: {
                 idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8,
@@ -464,7 +464,7 @@ export const AssetManifest = {
                         offsetX: 8,      // Center offset
                         offsetY: 8
                     }},
-                attack: { frameCount: 9, frameWidth: 64, frameHeight: 64, fps: 18,
+                attack: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 20,
                     cropConfig: {
                         enabled: true,
                         cropWidth: 48,   // Actual sprite size
@@ -472,7 +472,7 @@ export const AssetManifest = {
                         offsetX: 8,      // Center offset
                         offsetY: 8
                     }},
-                death: { frameCount: 9, frameWidth: 64, frameHeight: 64, fps: 18, loop: false,
+                death: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8, loop: false,
                     cropConfig: {
                         enabled: true,
                         cropWidth: 48,   // Actual sprite size
