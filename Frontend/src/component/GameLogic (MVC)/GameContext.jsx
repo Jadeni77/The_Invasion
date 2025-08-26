@@ -465,6 +465,10 @@ export const GameProvider = ({ children }) => {
 
   const getGameEngine = useCallback(() => gameEngineRef.current, []); // Expose engine instance
 
+  const setGameEngine = useCallback((engine) => {
+    gameEngineRef.current = engine;
+  }, [])
+
   const openUpgradeModal = useCallback(() => {
     setGameState("upgrade");
   }, []);
@@ -500,6 +504,17 @@ export const GameProvider = ({ children }) => {
     setGameState("lobby");
   }, []);
 
+  // Remove defender from game
+  const removeDefender = useCallback(
+      (x, y) => {
+        if (gameEngineRef.current && gameState === "inGame") {
+          return gameEngineRef.current.removeDefenderAt(x, y);
+        }
+        return false;
+      },
+      [gameState]
+  );
+
   // Public API and context values
   const gameAPI = {
     gameState,
@@ -513,7 +528,9 @@ export const GameProvider = ({ children }) => {
     startLevel, // Function to start a level
     endGame, // Function to end the current game session
     deployDefender, // Function to deploy a defender
+    removeDefender,
     getGameEngine, // Function to get the GameEngine instance
+    setGameEngine,
     openUpgradeModal,
     closeUpgradeModal,
     startCardUpgrade,
