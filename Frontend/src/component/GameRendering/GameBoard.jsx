@@ -18,6 +18,7 @@ const GameBoard = () => {
     gameOver,
     gameWon,
     deployDefender,
+    removeDefender,
     endGame,
     updateEnergyCb,
     updateScoreCb,
@@ -25,10 +26,12 @@ const GameBoard = () => {
     onLoseCb,
     startLevel,
     selectedCardsForGame,
+    setGameEngine,
   } = useGame();
 
   const gameEngineRef = useRef(null);
   const [selectedCard, setSelectedCard] = useState(null);
+  const [shovelMode, setShovelMode] = useState(false);
 
   const [cardSlots, setCardSlots] = useState([]);
   const [cardCooldown, setCardCooldown] = useState({});
@@ -59,10 +62,8 @@ const GameBoard = () => {
 
     // Initial resize
     resizeCanvas();
-
     // Add resize listener
     window.addEventListener("resize", resizeCanvas);
-
     // Cleanup
     return () => window.removeEventListener("resize", resizeCanvas);
   }, []);
@@ -143,6 +144,7 @@ const GameBoard = () => {
         }
 
         gameEngineRef.current = engine;
+        setGameEngine(engine);
 
         // Initialize game
         gameEngineRef.current.initialize(
@@ -156,6 +158,7 @@ const GameBoard = () => {
         gameEngineRef.current.startLoop();
 
         setSelectedCard(null);
+        setShovelMode(false); //reset shovel mode on new game
       }, 50); // 50ms delay
 
       // Cleanup
@@ -178,6 +181,8 @@ const GameBoard = () => {
   const handleCardSelection = (card) => {
     //check if a card is on cooldown
     if (cardCooldown[card.id] > 0 || inGameEnergy < card.cost) return;
+    //disable shovel when seleting card
+    setShovelMode(false);
 
     if (selectedCard?.id === card.id) {
       setSelectedCard(null);
@@ -185,6 +190,11 @@ const GameBoard = () => {
       setSelectedCard(card);
     }
   };
+
+  const handleShovelToggle = () => {
+    setShovelMode(!shovelMode);
+    setSelectedCard(null);
+  }
 
   const handleCanvasClick = (event) => {
     console.log("Canvas Click");
@@ -197,6 +207,16 @@ const GameBoard = () => {
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
+
+    //try to remove defender if shovelmode active
+    if (shovelMode) {
+      const removed = removeDefender(x, y);
+      if (removed) {
+        console.log("Defender removed successfully");
+        //Can add refund mechanism here
+      }
+      return;
+    }
 
     //try to collect energy first when overlap
     if (gameEngineRef.current.collectEnergy(x, y)) {
@@ -409,6 +429,7 @@ const GameBoard = () => {
               // Reset local states
               setBaseHealth(100);
               setSelectedCard(null);
+              setShovelMode(false);
 
               // Reset cooldowns
               const resetCooldowns = {};
@@ -472,13 +493,22 @@ const GameBoard = () => {
             height={450}
             onClick={handleCanvasClick}
             className="game-canvas"
+            style={{ cursor: shovelMode ? 'crosshair' : 'default' }}
         />
 
         {/* Card slots in bottom bar */}
         <div className="game-bottom-bar">
           <div className="card-slots-container">
+            {/* Shovel Tool Button */}
+            <div className="tool-slot">
+              <button
+                  className={`shovel-button ${shovelMode ? 'active' : ''}`}
+                  onClick={handleShovelToggle}
+                  title="Remove Defender">
+                🔨
+              </button>
+            </div>
             {cardSlots.map((card) => {
-
               const cooldown = cardCooldown[card.id] || 0;
               const cooldownPercent =
                   cooldown > 0 ? (cooldown / getCooldownDuration(card)) * 100 : 0;
@@ -489,7 +519,7 @@ const GameBoard = () => {
                     <Card
                         card={card}
                         onClick={() => handleCardSelection(card)}
-                        selected={selectedCard?.id === card.id}
+                        selected={selectedCard?.id === card.id && !shovelMode}
                         disabled={isDisabled}
                     />
 
@@ -510,12 +540,12 @@ const GameBoard = () => {
           </div>
         </div>
 
-        {/* Deployment Indicator */}
-        {selectedCard && (
+        {/* Deployment/Removing Indicator */}
+        {(selectedCard || shovelMode) && (
             <div className="deployment-indicator">
-              <div className="indicator-icon">+</div>
+              <div className="indicator-icon">{shovelMode ? '🔨' : '+'}</div>
               <div className="indicator-text">
-                DEPLOY {selectedCard.name.toUpperCase()}
+                {shovelMode ? "REMOVE DEFENDER" : `DEPLOY ${selectedCard.name.toUpperCase()}`}
               </div>
             </div>
         )}
@@ -527,8 +557,6 @@ const GameBoard = () => {
                 <h3>Return to Lobby?</h3>
                 <p>
                   Warning: Quitting now will count as a defeat!
-                  <br />
-                  You will lose resources and may injure a worker.
                 </p>
                 <div className="quit-dialog-buttons">
                   <button

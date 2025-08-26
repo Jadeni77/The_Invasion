@@ -567,6 +567,46 @@ export class GameEngine {
   }
 
   /**
+   * Removes a defender at the specified coordinates
+   * @param {number} x - X coordinate where the click happened
+   * @param {number} y - Y coordinate where the click happened
+   * @returns {boolean} True if a defender was removed, false otherwise
+   */
+  removeDefenderAt(x, y) {
+    if (this.gameOver) return;
+
+    //find defender at this position
+    for (let i = this.defenders.length - 1; i >= 0; i--) {
+      const defender = this.defenders[i];
+      console.log("Remove method call");
+
+      //check if click is within defender bound
+      if (x >= defender.x && x <= defender.x + defender.width &&
+          y >= defender.y && y <= defender.y + defender.height) {
+        //only remove if alive
+        if (!defender.isAlive) {
+          console.log("Cannot remove dead defender");
+          return;
+        }
+        //free cell
+        const gridCell = this.gridManager.getGridCell(
+            defender.x + defender.width / 2,
+            defender.y + defender.height / 2
+        );
+        if (gridCell) {
+          gridCell.occupied = false;
+        }
+        //remove defender
+        this.defenders.splice(i, 1);
+
+        console.log(`Removed defender: ${defender.name}`);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Checks if a given position is valid for deploying a defender.
    * @param {number} x - X coordinate.
    * @param {number} y - Y coordinate.

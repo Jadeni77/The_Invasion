@@ -140,6 +140,55 @@
   height: 0;
 }
 
+/* Shovel Tool Button Styles */
+.tool-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+
+.shovel-button {
+  width: 60px;
+  height: 80px;
+  font-size: 30px;
+  background: linear-gradient(135deg, #6b6b6b 0%, #4a4a4a 100%);
+  border: 2px solid #333;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.shovel-button:hover {
+  background: linear-gradient(135deg, #7a7a7a 0%, #5a5a5a 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+.shovel-button.active {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff4444 100%);
+  border-color: #ff4444;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 68, 68, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+  }
+}
+
+/* Update cursor style when in shovel mode */
+.game-canvas.shovel-mode {
+  cursor: crosshair !important;
+}
+
 /* Card slot wrapper */
 .card-slot-wrapper {
   position: relative;
