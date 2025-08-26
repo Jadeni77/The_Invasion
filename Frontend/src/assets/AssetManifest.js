@@ -7,6 +7,7 @@ import BasicDefenderIdle from "../assets/defender/basic-defender-idle.png"
 import BasicDefenderAttack from "../assets/defender/basic-defender-attack.png"
 import BasicDefenderDeath from "../assets/defender/basic-defender-death.png"
 import BarricadeIdle from "../assets/defender/barricade-idle.png"
+import BarricadeAttack from "../assets/defender/barricade-attack.png"
 import BarricadeDeath from "../assets/defender/barricade-death.png"
 import EnergyDefenderIdle from "../assets/defender/energy-defender-idle.png"
 import EnergyDefenderAttack from "../assets/defender/energy-defender-attack.png"
@@ -386,7 +387,7 @@ export const AssetManifest = {
         'Barricade': {
             sprites: {
                 idle: () => BarricadeIdle,
-                attack: () => BarricadeIdle,  // Barricade doesn't attack, use idle
+                attack: () => BarricadeAttack,  // Barricade doesn't attack, use idle
                 death: () => BarricadeDeath
             },
             config: {
@@ -398,7 +399,7 @@ export const AssetManifest = {
                         offsetX: 8,      // Center offset
                         offsetY: 8
                     }},
-                attack: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 1,
+                attack: { frameCount: 6, frameWidth: 64, frameHeight: 64, fps: 6,
                     cropConfig: {
                         enabled: true,
                         cropWidth: 48,   // Actual sprite size

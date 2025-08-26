@@ -230,7 +230,7 @@ export const GameProvider = ({ children }) => {
             upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
           }
         ],
-        unlockedLevels: [1],
+        unlockedLevels: [1,2,3],
         collectedTreasures: [],
       };
 
