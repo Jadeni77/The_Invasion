@@ -1040,6 +1040,11 @@ export class EnergyGenerator extends DefenderUnit {
     this.energyDropAmount = 5;
     this.energyDropRate = 300;
     this.energyDropCountDown = this.energyDropRate;
+
+    this.isGenerating = false;
+    this.generateAnimationDuration = 120;
+    this.generateAnimationTimer = 0;
+
   }
 
   applyLevelUpgrades() {
@@ -1085,12 +1090,22 @@ export class EnergyGenerator extends DefenderUnit {
       return;
     }
 
+    if (this.generateAnimationTimer > 0) {
+      this.generateAnimationTimer--;
+      this.isGenerating = true;
+      if (this.generateAnimationTimer <= 0) {
+        this.isGenerating = false;
+
+      }
+    }
+
     if (this.hasEnergyBurst) {
       if (!this.energyBurstCooldown) {
         this.energyBurstCooldown = 600;
       }
       this.energyBurstCooldown--;
       if (this.energyBurstCooldown <= 0 && this.gameEngine) {
+        this.startGenerationAnimation();
         //generate 3x energy in a burst
         for (let i = 0; i < 3; i++) {
           const offsetX = (Math.random() - 0.5) * 100;
@@ -1120,8 +1135,6 @@ export class EnergyGenerator extends DefenderUnit {
           this.gameEngine.inGameEnergy = Math.min(100, this.gameEngine.inGameEnergy + drop.amount);
           this.gameEngine.updateEnergyCb(this.gameEngine.inGameEnergy);
           console.log(`${ this.gameEngine.inGameEnergy}`);
-          // Remove collected drop
-       //   this.gameEngine.energyDrops.splice(i, 1);
         }
       }
     }
@@ -1129,9 +1142,7 @@ export class EnergyGenerator extends DefenderUnit {
     this.energyDropCountDown--;
     if (this.energyDropCountDown <= 0) {
       if (this.gameEngine) {
-        // Play "attack" animation when generating energy
-        console.log("Regular Energy Drop")
-        this.isAttacking = true;
+        this.startGenerationAnimation();
 
         const offsetX = (Math.random() - 0.5) * 60;
         const offsetY = (Math.random() - 0.5) * 60;
@@ -1146,18 +1157,19 @@ export class EnergyGenerator extends DefenderUnit {
 
     // Animation state management
     if (this.animationFrames) {
-      if (this.isAttacking) {
+      if (this.isGenerating) {
         this.setAnimation('attack');
       } else {
         this.setAnimation('idle');
       }
       this.updateAnimation();
     }
+  }
 
-    // Reset attack animation after a short time
-    if (this.isAttacking && this.energyDropCountDown > this.energyDropRate - 30) {
-      this.isAttacking = false;
-    }
+  startGenerationAnimation() {
+    this.isGenerating = true;
+    this.generateAnimationTimer = this.generateAnimationDuration;
+    console.log("Energy Generator: Starting generation animation");
   }
 
   draw(ctx) {
