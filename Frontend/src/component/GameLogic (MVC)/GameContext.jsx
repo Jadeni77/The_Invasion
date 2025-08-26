@@ -230,7 +230,7 @@ export const GameProvider = ({ children }) => {
             upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
           }
         ],
-        unlockedLevels: [1,2,3,4,5,6,7,8],
+        unlockedLevels: [1,2,3],
         collectedTreasures: [],
       };
 
@@ -465,10 +465,6 @@ export const GameProvider = ({ children }) => {
 
   const getGameEngine = useCallback(() => gameEngineRef.current, []); // Expose engine instance
 
-  const setGameEngine = useCallback((engine) => {
-    gameEngineRef.current = engine;
-  }, []);
-
   const openUpgradeModal = useCallback(() => {
     setGameState("upgrade");
   }, []);
@@ -504,17 +500,6 @@ export const GameProvider = ({ children }) => {
     setGameState("lobby");
   }, []);
 
-  //remove defender from game
-  const removeDefender = useCallback(
-      (x, y) => {
-        if (gameEngineRef.current && gameState === "inGame") {
-          return gameEngineRef.current.removeDefenderAt(x, y);
-        }
-        return false;
-      },
-      [gameState]
-  );
-
   // Public API and context values
   const gameAPI = {
     gameState,
@@ -528,9 +513,7 @@ export const GameProvider = ({ children }) => {
     startLevel, // Function to start a level
     endGame, // Function to end the current game session
     deployDefender, // Function to deploy a defender
-    removeDefender, // Function to remove a defender
     getGameEngine, // Function to get the GameEngine instance
-    setGameEngine,
     openUpgradeModal,
     closeUpgradeModal,
     startCardUpgrade,
