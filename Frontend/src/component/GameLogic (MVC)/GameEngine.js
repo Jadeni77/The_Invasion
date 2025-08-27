@@ -117,11 +117,6 @@ export class GameEngine {
     this.gameLevelConfigs.initLevelConfigs();
   }
 
-  //set endless wave base on callBack
-  setEndlessWaveCallback(callback) {
-    this.updateEndlessWaveCb = callback;
-  }
-
   /**
    * Push the energy drop into its map
    * @param x the x position of the current energy drop
@@ -794,10 +789,6 @@ export class GameEngine {
         console.log(`Spawned enemy ${enemy.name} killed - no score awarded`);
       }
     }
-    //  Notify wave manager of enemy death
-    if (this.waveManager && this.waveManager.onEnemyKilled) {
-      this.waveManager.onEnemyKilled(enemy);
-    }
 
     if (enemy.shouldExplode) {
       this.addEnemyExplosion(
@@ -1019,12 +1010,29 @@ export class GameEngine {
 
     // Win condition: all enemies spawned AND all active enemies are dead
     const config = this.currentLevelConfig;
-    const allEnemiesSpawned = this.waveManager.enemiesSpawnedThisLevel >= config.totalEnemiesToSpawn;
-    const noActiveEnemies = this.enemies.filter(e => e.isAlive).length === 0;
+    const allEnemiesSpawned = this.waveManager.allWavesComplete ||
+        this.waveManager.enemiesSpawnedThisLevel >= config.totalEnemiesToSpawn;
+    const allEnemiesDead = this.enemies.every(enemy => !enemy.isAlive);
 
-    if (!this.gameOver && allEnemiesSpawned && noActiveEnemies) {
+    const allAnimationsComplete = this.areAllDeathAnimationsComplete();
+
+    if (!this.gameOver && allEnemiesSpawned && allEnemiesDead && allAnimationsComplete) {
       this.handleLevelComplete(); // Trigger win condition
     }
+  }
+
+  areAllDeathAnimationsComplete() {
+    for (const enemy of this.enemies) {
+      if (!enemy.isAlive && !enemy.deathAnimationComplete) {
+        return false;
+      }
+    }
+    for (const defender of this.defenders) {
+      if (!defender.isAlive && !defender.deathAnimationComplete) {
+        return false;
+      }
+    }
+    return true;
   }
 
   // /** Handles the game over state when defense is breached. */

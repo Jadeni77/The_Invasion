@@ -105,7 +105,7 @@ export const GameProvider = ({ children }) => {
             gem: newGem
           },
           unlockedLevels: newUnlockedLevels,
-          completedLevels: newCompletedLevels,
+          completedLevels: newCompleteLevels,
           levelStars: newLevelStars,
           totalStars: newLevelStars.reduce((sum, s) => sum + s, 0)
         };

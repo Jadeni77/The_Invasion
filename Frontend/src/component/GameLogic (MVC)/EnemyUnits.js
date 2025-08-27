@@ -1557,7 +1557,7 @@ export class AssassinEnemy extends Enemy {
   }
 
   takeDamage(amount, ignoreArmor = false) {
-    if (this.isStealthed && Math.random() < 0.1) {
+    if (this.isStealthed) {
       return false; //90% dodge
     }
     //break stealth on damage

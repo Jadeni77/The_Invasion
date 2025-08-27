@@ -35,46 +35,73 @@ export class WaveManager {
         this.lastWaveStartTime = Date.now();
         this.autoStartNextWave = true; // Enable continuous spawning
 
+        this.waveFullySpawned = false;
+        this.minTimeBetweenWaves = 3000;
+        this.maxTimeBetweenWaves = 15000;
+
     }
 
     update(now, enemyCount, gameOver) {
         if (gameOver || this.allWavesComplete) return;
 
-        //check if its time to start next wave
-        if (!this.isEndlessMode && this.currentWave < this.config.waves) {
-            const timeSinceLastWave = now - this.lastWaveStartTime;
-            if (timeSinceLastWave >= this.waveInterval && this.autoStartNextWave) {
-                this.startNextWave();
-                this.lastWaveStartTime = now;
-            }
-        } else if (this.isEndlessMode && this.autoStartNextWave) {
-            //shorter interval for endless
-            const endlessInterval = Math.max(15000, 30000 - (this.currentWave * 500));
-            const timeSinceLastWave = now - this.lastWaveStartTime;
-            if (timeSinceLastWave >= endlessInterval) {
-                this.startNextWave();
-                this.lastWaveStartTime = now;
-            }
+        if (this.shouldStartNextWave(now, enemyCount)) {
+            this.startNextWave();
+            this.lastWaveStartTime = now;
         }
 
-        //: Continue spawning current wave enemies
+        // Continue spawning current wave enemies
         if (this.waveActive) {
             const waveConfig = this.getCurrentWaveConfig();
 
-            // Don't wait for enemies to be defeated - just keep spawning
-            if (this.waveEnemiesSpawned < waveConfig.enemyCount) {
-                this.spawnWaveEnemies(now, enemyCount, waveConfig);
+            // Keep spawning until we hit the wave's enemy count
+            if (waveConfig && this.waveEnemiesSpawned < waveConfig.enemyCount) {
+                if (this.waveEnemiesSpawned >= waveConfig.enemyCount) {
+                    this.waveFullySpawned = true;
+                    console.log(`Wave ${this.currentWave} fully spawned`);
+                }
+                // Don't exceed max active enemies on screen
+                if (enemyCount < this.config.maxActiveEnemies) {
+                    this.spawnWaveEnemies(now, enemyCount, waveConfig);
+                }
             }
-        }
 
-        // Old wave completion check (now optional, just for bonuses)
-        if (this.waveCooldown > 0) {
-            this.waveCooldown--;
-            if (this.waveCooldown <= 0 && !this.autoStartNextWave) {
-                // Only use this if autoStartNextWave is disabled
-                this.startNextWave();
+            // Check if all enemies for all waves have been spawned (for level completion)
+            if (!this.isEndlessMode) {
+                if (this.enemiesSpawnedThisLevel >= this.config.totalEnemiesToSpawn) {
+                    this.allWavesComplete = true;
+                    this.autoStartNextWave = false;
+                    console.log("All enemies spawned for level!");
+                }
             }
         }
+    }
+
+    shouldStartNextWave(now, enemyCount) {
+        if (this.currentWave === 0) return now - this.lastWaveStartTime >= 1000; // 1 second initial delay
+        if (!this.isEndlessMode && this.currentWave >= this.config.waves) return false;
+
+        const timeSinceLastWave = now - this.lastWaveStartTime;
+        const waveConfig = this.getCurrentWaveConfig();
+        // 1. Current wave is fully spawned AND no enemies remain (immediate progression)
+        // 2. OR minimum time passed AND enemies below threshold
+        // 3. OR maximum time has passed (force progression)
+        if (waveConfig && this.waveEnemiesSpawned >= waveConfig.enemyCount) {
+            // Wave fully spawned
+            if (enemyCount === 0 && timeSinceLastWave >= this.minTimeBetweenWaves) {
+                console.log("Wave cleared! Starting next wave immediately.");
+                return true;
+            }
+            // Few enemies remain and enough time passed
+            if (enemyCount <= 2 && timeSinceLastWave >= this.minTimeBetweenWaves * 2) {
+                console.log("Few enemies remain, progressing to next wave.");
+                return true;
+            }
+        }
+        if (timeSinceLastWave >= this.maxTimeBetweenWaves) {
+            console.log("Max time reached, forcing next wave.");
+            return true;
+        }
+        return false;
     }
 
     getCurrentWaveConfig() {
@@ -354,9 +381,14 @@ export class WaveManager {
     }
 
     startNextWave() {
+        // Don't exceed max waves for normal mode
+        if (!this.isEndlessMode && this.currentWave >= this.config.waves) {
+            return;
+        }
         this.currentWave++;
         this.waveEnemiesSpawned = 0;
         this.waveEnemiesKilled = 0;
+        this.waveFullySpawned = false;
         this.bossSpawned = false;
         this.waveActive = true;
         this.waveStartTime = Date.now();
@@ -393,33 +425,18 @@ export class WaveManager {
         this.startNextWave();
     }
 
-    // Call this when an enemy is killed
-    onEnemyKilled(enemy) {
-        this.waveEnemiesKilled++;
-        this.totalEnemiesKilled++;
-
-        if (enemy === this.currentBoss) {
-            this.currentBoss = null;
-            // Award boss kill bonus
-            if (this.gameEngine) {
-                const bossBonus = this.currentWave * 50;
-                this.gameEngine.inGameScore += bossBonus;
-                this.gameEngine.updateScoreCb(this.gameEngine.inGameScore);
-            }
-        }
-    }
-
     // Get current wave status for UI
-    getWaveStatus() {
+    getWaveProgress() {
+        const waveConfig = this.getCurrentWaveConfig();
+        if (!waveConfig) return null;
+
         return {
             currentWave: this.currentWave,
             enemiesSpawned: this.waveEnemiesSpawned,
+            totalEnemiesInWave: waveConfig.enemyCount,
             enemiesKilled: this.waveEnemiesKilled,
-            totalKilled: this.totalEnemiesKilled,
-            isActive: this.waveActive,
-            cooldown: this.waveCooldown,
-            isEndless: this.isEndlessMode,
-            isBossWave: this.bossSpawned
+            waveFullySpawned: this.waveFullySpawned,
+            percentComplete: Math.floor((this.waveEnemiesKilled / waveConfig.enemyCount) * 100)
         };
     }
 }

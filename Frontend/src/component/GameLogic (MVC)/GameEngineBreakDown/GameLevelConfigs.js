@@ -1,13 +1,3 @@
-import {
-    AssassinEnemy,
-    BasicEnemy, BerserkerEnemy,
-    BombEnemy, EMPEnemy,
-    FastEnemy, GhostEnemy, HealerEnemy, MageEnemy, MiniEnemy, NecromancerEnemy,
-    RangeEnemy,
-    ShieldEnemy, SplitterEnemy, SwarmLeader,
-    TankEnemy, TitanEnemy, VampireEnemy
-} from "../EnemyUnits.js";
-
 export class GameLevelConfigs {
     constructor(gameEngine) {
         this.gameEngine = gameEngine;
@@ -16,9 +6,6 @@ export class GameLevelConfigs {
     /**
      * Defines the information for every level.
      */
-    // GameEngine.js - Modified initLevelConfigs method
-// Fix: Enhanced level configuration system with detailed wave patterns
-
     initLevelConfigs() {
         // Tutorial Levels (1-3)
         this.gameEngine.levelConfigs.set(1, {
@@ -267,7 +254,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 11,
                     spawnInterval: 800,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Shielder", "Exploder"],
                     spawnPattern: "rush"
                 }
             ],
@@ -318,7 +305,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 12,
                     spawnInterval: 700,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Healer", "Skeleton Shooter"],
                     spawnPattern: "mixed"
                 }
             ],
@@ -376,7 +363,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 12,
                     spawnInterval: 500,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Basic Zombie", "Fast Zombie", "Splitter", "Mini", "Tank Zombie"],
                     spawnPattern: "rush"
                 }
             ],
@@ -433,7 +420,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 14,
                     spawnInterval: 400,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Basic Zombie", "Fast Zombie", "Mini", "Swarm Witch"],
                     spawnPattern: "rush"
                 }
             ],
@@ -484,7 +471,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 12,
                     spawnInterval: 450,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "EMP", "Shielder"],
                     spawnPattern: "surround"
                 },
                 {
@@ -555,7 +542,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 14,
                     spawnInterval: 350,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Basic Zombie", "Fast Zombie", "Vampire", "Tank Zombie", "Healer"],
                     spawnPattern: "rush"
                 },
                 {
@@ -624,7 +611,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 13,
                     spawnInterval: 300,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Fast Zombie", "Ghost", "Tank Zombie", "Vampire", "EMP"],
                     spawnPattern: "surround"
                 },
                 {
@@ -694,7 +681,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 14,
                     spawnInterval: 250,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Tank Zombie", "Berserker", "Fast Zombie", "Vampire", "Ghost"],
                     spawnPattern: "surround"
                 },
                 {
@@ -763,7 +750,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 14,
                     spawnInterval: 220,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Tank Zombie", "Necromancer", "Ghost", "Vampire", "Berserker", "Skeleton Shooter"],
                     spawnPattern: "surround"
                 },
                 {
@@ -838,7 +825,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 15,
                     spawnInterval: 220,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Fast Zombie", "Assassin", "Ghost", "Vampire", "Berserker", "Necromancer"],
                     spawnPattern: "rush"
                 },
                 {
@@ -913,7 +900,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 15,
                     spawnInterval: 200,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Tank Zombie", "Mage", "Ghost", "Vampire", "Necromancer", "Assassin"],
                     spawnPattern: "surround"
                 },
                 {
@@ -946,7 +933,10 @@ export class GameLevelConfigs {
             maxActiveEnemies: 35,
             totalEnemiesToSpawn: 180,
             waves: 12,
-            availableEnemyTypes: ["All Enemy Types"],
+            availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Exploder",
+                                  "Skeleton Shooter", "Shielder", "Healer", "Splitter",
+                                  "Mini", "Swarm Witch", "EMP", "Vampire", "Ghost",
+                                  "Berserker", "Necromancer", "Assassin", "Mage",],
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -1000,7 +990,10 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 15,
                     spawnInterval: 160,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Exploder",
+                                 "Skeleton Shooter", "Shielder", "Healer", "Splitter",
+                                 "Mini", "Swarm Witch", "EMP", "Vampire", "Ghost",
+                                 "Berserker", "Necromancer", "Assassin", "Mage"],
                     spawnPattern: "rush"
                 },
                 {
@@ -1012,13 +1005,19 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 15,
                     spawnInterval: 120,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Exploder",
+                                 "Skeleton Shooter", "Shielder", "Healer", "Splitter",
+                                 "Mini", "Swarm Witch", "EMP", "Vampire", "Ghost",
+                                 "Berserker", "Necromancer", "Assassin", "Mage", ],
                     spawnPattern: "mixed"
                 },
                 {
                     enemyCount: 15,
                     spawnInterval: 100,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Exploder",
+                                 "Skeleton Shooter", "Shielder", "Healer", "Splitter",
+                                 "Mini", "Swarm Witch", "EMP", "Vampire", "Ghost",
+                                 "Berserker", "Necromancer", "Assassin", "Mage", ],
                     spawnPattern: "rush"
                 }
             ],
@@ -1034,7 +1033,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 38,
             totalEnemiesToSpawn: 200,
             waves: 13,
-            availableEnemyTypes: ["Tank Zombie", "Titan", "Mage", "Necromancer", "Berserker", "Ghost", "Vampire"],
+            availableEnemyTypes: ["Basic Zombie", "Tank Zombie", "Titan", "Mage", "Necromancer", "Berserker", "Ghost", "Vampire"],
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -1084,7 +1083,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 15,
                     spawnInterval: 160,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Tank Zombie", "Titan", "Mage", "Necromancer", "Berserker", "Ghost", "Vampire"],
                     spawnPattern: "surround"
                 },
                 {
@@ -1108,7 +1107,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 15,
                     spawnInterval: 80,
-                    enemyTypes: ["All"],
+                    enemyTypes: ["Tank Zombie", "Titan", "Mage", "Necromancer", "Berserker", "Ghost", "Vampire"],
                     spawnPattern: "surround"
                 },
                 {

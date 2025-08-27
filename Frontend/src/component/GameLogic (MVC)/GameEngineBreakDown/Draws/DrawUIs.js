@@ -123,9 +123,6 @@ export class DrawUIs {
         //  Draw wave announcement if active
         this.drawWaveAnnouncement(ctx);
 
-        //: Draw wave countdown if active
-        this.drawWaveCountdown(ctx);
-
         ctx.restore();
     }
 
@@ -314,46 +311,6 @@ export class DrawUIs {
             this.waveAnnouncement = null;
             this.announcementAlpha = 0;
         }
-    }
-
-    // Fix: Draw countdown between waves
-    drawWaveCountdown(ctx) {
-        const waveManager = this.gameEngine.waveManager;
-        if (!waveManager || waveManager.waveCooldown <= 0 || waveManager.autoStartNextWave) return;
-
-        ctx.save();
-
-        const seconds = Math.ceil(waveManager.waveCooldown / 60);
-
-        // Draw countdown
-        ctx.font = "bold 48px Arial";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
-        ctx.lineWidth = 4;
-
-        const countdownText = `Next Wave in ${seconds}`;
-        const centerX = this.gameEngine.canvasWidth / 2;
-        const centerY = this.gameEngine.canvasHeight / 2 + 100;
-
-        ctx.strokeText(countdownText, centerX, centerY);
-        ctx.fillText(countdownText, centerX, centerY);
-
-        // Draw countdown bar
-        const barWidth = 300;
-        const barHeight = 10;
-        const barX = centerX - barWidth / 2;
-        const barY = centerY + 30;
-
-        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-        ctx.fillRect(barX, barY, barWidth, barHeight);
-
-        const progress = 1 - (waveManager.waveCooldown / 180); // 180 = 3 seconds * 60 fps
-        ctx.fillStyle = "#4CAF50";
-        ctx.fillRect(barX, barY, barWidth * progress, barHeight);
-
-        ctx.restore();
     }
 
     // Fix: Draw milestone indicator for endless mode
