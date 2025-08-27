@@ -109,3 +109,26 @@
   color: white;
   font-weight: bold;
 }
+
+.card-character-image {
+  width: 60px;
+  height: 60px;
+  image-rendering: pixelated; /* Preserve pixel art style */
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+/* Optional: Add a subtle animation on hover */
+.card-container:hover .card-character-image {
+  transform: scale(1.05);
+  transition: transform 0.2s ease;
+}
+
+/* Ensure the image area is centered */
+.card-image {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
