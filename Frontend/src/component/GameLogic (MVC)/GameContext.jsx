@@ -7,6 +7,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
+import {chestsData} from "../GameRendering/MapLayout.jsx";
 
 export const GameContext = createContext();
 
@@ -30,6 +31,11 @@ export const GameProvider = ({ children }) => {
   const [selectedCardsForGame, setSelectedCardsForGame] = useState(null);
   const [collectedCardPieces, setCollectedCardPieces] = useState([]);
 
+  //endless mode tracking
+  const [currentEndlessWave, setCurrentEndlessWave] = useState(0);
+  const [endlessDifficulty, setEndlessDifficulty] = useState(null);
+
+
   // Callbacks for GameEngine to update React state
   //updating in game energy 
   const updateEnergyCb = useCallback((energy) => {
@@ -48,24 +54,46 @@ export const GameProvider = ({ children }) => {
       setGameWon(true);
       console.log(`Game won! Level: ${level}, Score: ${score}`);
 
+      const stars = calculateStars(score, level);
+
       // Update player data based on win
       setPlayerData((prev) => {
         if (!prev) return prev;
+        const levelConfig = getLevelRewardMultiplier(level);
         const goldEarned = Math.floor(score * 0.3);
         const ironEarned = Math.floor(score * 0.1);
         const grainEarned = Math.floor(score * 0.2);
         const waterEarned = Math.floor(score * 0.2);
+        const gemBonus = stars === 3 ? Math.ceil(levelConfig) : 0;
 
         const newGold = prev.resources.gold + goldEarned;
         const newIron = prev.resources.iron + ironEarned;
         const newGrain = prev.resources.grain + grainEarned;
         const newWater = prev.resources.water + waterEarned;
+        const newGem = prev.resources.gem + gemBonus;
+
+        const newCompleteLevels = [ ...(prev.completedLevels || [])];
+
+        if (!newCompleteLevels.includes(level)) {
+          newCompleteLevels.push(level);
+        }
 
         const newUnlockedLevels = [...prev.unlockedLevels];
-        if (!newUnlockedLevels.includes(level + 1)) {
+        if (level < 20 && !newUnlockedLevels.includes(level + 1)) {
           newUnlockedLevels.push(level + 1); // Unlock next level
           newUnlockedLevels.sort((a, b) => a - b);
         }
+
+        //unlock endless after level 20
+        if (level === 20 && !newUnlockedLevels.includes(999)) {
+          newUnlockedLevels.push(999);
+        }
+
+        const newLevelStars = [...(prev.levelStars || Array(20).fill(0))];
+        if (level <= 20) {
+          newLevelStars[level - 1] = Math.max(newLevelStars[level - 1] || 0, stars);
+        }
+
         return {
           ...prev,
           resources: {
@@ -73,9 +101,13 @@ export const GameProvider = ({ children }) => {
             gold: newGold,
             iron: newIron,
             grain: newGrain,
-            water: newWater
+            water: newWater,
+            gem: newGem
           },
           unlockedLevels: newUnlockedLevels,
+          completedLevels: newCompletedLevels,
+          levelStars: newLevelStars,
+          totalStars: newLevelStars.reduce((sum, s) => sum + s, 0)
         };
       });
       // GameEngine will stop its loop; UI will show victory screen.
@@ -86,44 +118,88 @@ export const GameProvider = ({ children }) => {
 
   //handle game loss logic
   const onLoseCb = useCallback(
-    ({ score, level, reason }) => {
+    ({ score, level, reason, endlessWave }) => {
       console.log("onLoseCb called with:", { score, level, reason }); // Debug log
       console.log("onLoseCb called - BEFORE setting states"); // Add this
       console.log("Current gameOver state:", gameOver); // Add this
 
       setGameOver(true);
       setGameWon(false);
-      console.log(
-        `Game lost! Level: ${level}, Reason: ${reason}, Score: ${score}`
-      );
+      console.log(`Game lost! Level: ${level}, Reason: ${reason}, Score: ${score}`);
 
-      // Deduct resources on loss (as per your logic)
-      setPlayerData((prev) => {
-        console.log("Set Player Data Resources Logic Being called in onLoseCb")
-        if (!prev) return prev;
-        const newGold = Math.max(0, prev.resources.gold - 50); //TODO: Placeholder amounts
-        const newGrain = Math.max(0, prev.resources.grain - 10);
-        const newWater = Math.max(0, prev.resources.water - 50);
-        const newGem = Math.max(
-          0,
-          prev.resources.gem - Math.ceil(Math.random())
-        ); // Deduct 0 or 1 gem
-        return {
-          ...prev,
-          resources: {
-            ...prev.resources,
-            gold: newGold,
-            grain: newGrain,
-            water: newWater,
-            gem: newGem,
-          },
-        };
-      });
-      // GameEngine will stop its loop; UI will show game over screen.
-      // User clicks "Return to Lobby" which calls endGame.
+      if (level === 999) {
+        setPlayerData((prev) => {
+          if (!prev) return prev;
+
+          // Update endless high score
+          const newHighScore = Math.max(prev.endlessHighScore || 0, endlessWave);
+
+          // Calculate endless rewards based on waves survived
+          const rewardMultiplier = endlessDifficulty?.multiplier || 1.0;
+          const goldEarned = Math.floor(endlessWave * 25 * rewardMultiplier);
+          const gemEarned = Math.floor(endlessWave / 10 * rewardMultiplier);
+
+          return {
+            ...prev,
+            resources: {
+              ...prev.resources,
+              gold: prev.resources.gold + goldEarned,
+              gem: prev.resources.gem + gemEarned
+            },
+            endlessHighScore: newHighScore,
+            endlessStats: {
+              ...prev.endlessStats,
+              totalWaves: (prev.endlessStats?.totalWaves || 0) + endlessWave,
+              totalRuns: (prev.endlessStats?.totalRuns || 0) + 1
+            }
+          };
+        });
+      } else {
+        // Deduct resources on loss (as per your logic)
+        setPlayerData((prev) => {
+          console.log("Set Player Data Resources Logic Being called in onLoseCb")
+          if (!prev) return prev;
+          const newGold = Math.max(0, prev.resources.gold - 50); //TODO: Placeholder amounts
+          const newGrain = Math.max(0, prev.resources.grain - 10);
+          const newWater = Math.max(0, prev.resources.water - 50);
+          const newGem = Math.max(
+              0,
+              prev.resources.gem - Math.ceil(Math.random())
+          ); // Deduct 0 or 1 gem
+          return {
+            ...prev,
+            resources: {
+              ...prev.resources,
+              gold: newGold,
+              grain: newGrain,
+              water: newWater,
+              gem: newGem,
+            },
+          };
+        });
+      }
     },
-    [] // Dependencies are handled by the state setters
+    [endlessDifficulty] // Dependencies are handled by the state setters
   );
+
+  //calculate star base on performance
+  const calculateStars = (score, level) => {
+    const baseThreshold = 100 * level;
+    if (score >= baseThreshold * 1.5) return 3;
+    if (score >= baseThreshold) return 2;
+    if (score >= baseThreshold * 0.5) return 1;
+    return 0;
+  };
+
+  const getLevelRewardMultiplier = (level) => {
+    if (level === 999) return 1.0; // Endless has its own reward system
+    if (level <= 3) return 1.0;
+    if (level <= 7) return 1.5;
+    if (level <= 12) return 2.0;
+    if (level <= 17) return 3.0;
+    if (level <= 20) return 4.0;
+    return 1.0;
+  };
 
   // Backend API integration points
   const fetchPlayerData = useCallback(async () => {
@@ -230,10 +306,20 @@ export const GameProvider = ({ children }) => {
             upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
           }
         ],
-        unlockedLevels: [1,2,3],
+        unlockedLevels: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,999],
+        completedLevels: [],
+        levelStars: Array(20).fill(0), // Stars for levels 1-20
         collectedTreasures: [],
+        revealedSecrets: [],
+        endlessHighScore: 0,
+        endlessStats: {
+          totalWaves: 0,
+          totalRuns: 0,
+          bestDifficulty: null
+        },
+        achievements: [],
+        totalStars: 0
       };
-
       setPlayerData(mockData);
     } catch (error) {
       console.error("Failed to fetch player data:", error);
@@ -251,8 +337,15 @@ export const GameProvider = ({ children }) => {
           gem: 0,
         },
         cards: [],
-        unlockedLevels: [],
+        unlockedLevels: [1],
+        completedLevels: [],
+        levelStars: Array(20).fill(0),
         collectedTreasures: [],
+        revealedSecrets: [],
+        endlessHighScore: 0,
+        endlessStats: { totalWaves: 0, totalRuns: 0 },
+        achievements: [],
+        totalStars: 0
       });
     }
   }, []);
@@ -366,19 +459,30 @@ export const GameProvider = ({ children }) => {
 
   // Game State management
   const startLevel = useCallback(
-    (levelId, selectedCards = null) => {
+    (levelId, selectedCards = null, options = {}) => {
       if (!playerData) {
         console.error("Cannot start level: Player data or canvas not ready.");
         return;
       }
 
-      const levelCost = levelId === 1 ? 0 : 5; // Level 1 is free
+      if (levelId === 999) {
+        const isUnlocked = playerData.completedLevels?.includes(20) ||
+                           playerData.totalStars >= 50
+        if (!isUnlocked) {
+          alert("Complete Level 20 or collect 50 stars to unlock Endless Mode!");
+          return;
+        }
+        if (options.difficultyModifier) {
+          setEndlessDifficulty(options.difficultyModifier);
+        }
+        setCurrentEndlessWave(0);
+      }
+
+      const levelCost = (levelId === 1 || levelId === 999) ? 0 : 8; // Level 1 is free
       const currentEnergy = playerData.resources.lobbyEnergy;
 
       if (currentEnergy < levelCost) {
-        alert(
-          `Not enough energy! You need ${levelCost} energy to start this level.`
-        );
+        alert(`Not enough energy! You need ${levelCost} energy to start this level.`);
         return;
       }
 
@@ -414,6 +518,8 @@ export const GameProvider = ({ children }) => {
         setGameOver(false);
         setGameWon(false);
         setSelectedLevel(null);
+        setCurrentEndlessWave(0);
+        setEndlessDifficulty(null);
         return;
       }
 
@@ -422,6 +528,7 @@ export const GameProvider = ({ children }) => {
         setGameOver(false);
         setGameWon(false);
         setGameState("inGame");
+        setCurrentEndlessWave(0);
         return;
       }
       //add collected card pieces to player data at game end
@@ -449,8 +556,10 @@ export const GameProvider = ({ children }) => {
       setGameOver(false); // Reset UI state
       setGameWon(false); // Reset UI state
       setSelectedLevel(null); // Clear selected level
-      savePlayerData(playerData); // Save updated player data
-    },
+      setCurrentEndlessWave(0);
+      setEndlessDifficulty(null);
+      savePlayerData(playerData);
+      },
     [playerData, savePlayerData, collectedCardPieces]
   );
 
@@ -515,35 +624,77 @@ export const GameProvider = ({ children }) => {
       [gameState]
   );
 
+  const updateEndlessWave = useCallback((wave) => {
+    setCurrentEndlessWave(wave);
+  }, []);
+
+  // Fix: Collect treasure chest
+  const collectTreasure = useCallback((chestId) => {
+    const chest = chestsData.find(c => c.id === chestId);
+    if (!chest) return;
+
+    setPlayerData(prev => {
+      if (!prev) return prev;
+
+      // Apply rewards
+      const newResources = { ...prev.resources };
+      Object.entries(chest.rewards).forEach(([resource, amount]) => {
+        if (resource === 'all') {
+          ['gold', 'iron', 'grain', 'water'].forEach(res => {
+            newResources[res] = (newResources[res] || 0) + amount;
+          });
+        } else {
+          newResources[resource] = (newResources[resource] || 0) + amount;
+        }
+      });
+
+      // Mark chest as collected
+      const newCollectedTreasures = [...(prev.collectedTreasures || [])];
+      if (!newCollectedTreasures.includes(chestId)) {
+        newCollectedTreasures.push(chestId);
+      }
+      return {
+        ...prev,
+        resources: newResources,
+        collectedTreasures: newCollectedTreasures
+      };
+    });
+  }, []);
+
   // Public API and context values
   const gameAPI = {
     gameState,
     playerData,
-    selectedLevel, // The level currently being played (or selected in lobby)
-    inGameEnergy, // Exposed in-game energy
-    inGameScore, // Exposed in-game score
-    gameOver, // Exposed game over status
-    gameWon, // Exposed game won status
+    selectedLevel,
+    inGameEnergy,
+    inGameScore,
+    gameOver,
+    gameWon,
     selectedCardsForGame,
-    startLevel, // Function to start a level
-    endGame, // Function to end the current game session
-    deployDefender, // Function to deploy a defender
+    currentEndlessWave,
+    endlessDifficulty,
+    startLevel,
+    endGame,
+    deployDefender,
     removeDefender,
-    getGameEngine, // Function to get the GameEngine instance
+    getGameEngine,
     setGameEngine,
     openUpgradeModal,
     closeUpgradeModal,
     startCardUpgrade,
-    updateEnergyCb, // Add this
-    updateScoreCb, // Add this
-    onWinCb, // Add this
-    onLoseCb, // Add this
+    updateEnergyCb,
+    updateScoreCb,
+    onWinCb,
+    onLoseCb,
     openAchievements,
     closeAchievements,
     openCollection,
     closeCollection,
     openSettings,
     closeSettings,
+    collectTreasure,
+    updateEndlessWave,
+    updateResource
   };
 
   return (

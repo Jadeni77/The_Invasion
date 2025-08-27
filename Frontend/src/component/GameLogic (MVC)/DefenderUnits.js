@@ -951,7 +951,7 @@ export class BarricadeDefender extends DefenderUnit {
           const distance = Math.hypot(
               enemy.x + enemy.width / 2 - (this.x + this.width / 2),
               enemy.y + enemy.height / 2 - (this.y + this.height / 2));
-          if (distance <= stunRadius) {
+          if (distance <= stunRadius && !enemy.immune) {
             enemy.stunned = true;
             enemy.stunnedDuration = 60;
             enemy.takeDamage(5);
@@ -1132,7 +1132,7 @@ export class EnergyGenerator extends DefenderUnit {
           console.log("Energy Generator debug auto collect")
           //auto-collect energy
           drop.startCollectionAnimation(110, 20);
-          this.gameEngine.inGameEnergy = Math.min(100, this.gameEngine.inGameEnergy + drop.amount);
+          this.gameEngine.inGameEnergy = Math.min(9999, this.gameEngine.inGameEnergy + drop.amount);
           this.gameEngine.updateEnergyCb(this.gameEngine.inGameEnergy);
           console.log(`${ this.gameEngine.inGameEnergy}`);
         }
@@ -1231,9 +1231,9 @@ export class Sniper extends DefenderUnit {
       name: "Sniper",
       damage: 50,
       health: 80,
-      range: 600,
+      range: 550,
       fireRate: 120,
-      cost: 80,
+      cost: 100,
       width: 64,
       height: 64,
       color: "darkgreen",
@@ -2196,7 +2196,7 @@ export class FireBlast extends DefenderUnit {
     const typeData = {
       name: "Fire Blast",
       damage: 300,
-      health: 1,
+      health: 1000,
       range: 0,
       fireRate: 0,
       cost: 50,
@@ -2217,7 +2217,7 @@ export class FireBlast extends DefenderUnit {
 
     // Blast properties
     this.blastHeight = 120;
-    this.burnDuration = 180; // 3 seconds of burn
+    this.burnDuration = 300; // 5 seconds of burn
     this.burnDamage = 20;
   }
 
@@ -2236,7 +2236,7 @@ export class FireBlast extends DefenderUnit {
 
     if (this.level >= 3) {
       this.hasInfernoBlast = true; // Increased damage and burn
-      this.burnDuration = 240; // 4 seconds
+      this.burnDuration = 600; // 4 seconds
     }
     if (this.level >= 5) {
       this.hasMoltenTrail = true; // Leaves burning ground
@@ -2427,8 +2427,8 @@ export class IceBomb extends DefenderUnit {
   constructor(x, y, cardData) {
     const typeData = {
       name: "Ice Bomb",
-      damage: 10,
-      health: 1,
+      damage: 200,
+      health: 1000,
       range: 0,
       fireRate: 0,
       cost: 40,

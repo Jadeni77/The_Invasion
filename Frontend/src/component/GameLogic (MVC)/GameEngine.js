@@ -23,9 +23,10 @@ import { DrawUIs } from "./GameEngineBreakDown/Draws/DrawUIs.js";
 import {AnimationManager} from "./Animation/AnimationManager.js";
 import {AnimationSources} from "./Animation/AnimationSources.js";
 import {AssetManifest} from "../../assets/AssetManifest.js";
+import {GameLevelConfigs} from "./GameEngineBreakDown/GameLevelConfigs.js";
 
 export class GameEngine {
-  constructor(updateEnergyCb, updateScoreCb, onWinCb, onLoseCb, updateBaseHealthCb) {
+  constructor(updateEnergyCb, updateScoreCb, onWinCb, onLoseCb, updateBaseHealthCb, updateEndlessWaveCb) {
     this.ctx = null;
     this.canvasWidth = 0;
     this.canvasHeight = 0;
@@ -36,6 +37,7 @@ export class GameEngine {
     this.updateScoreCb = updateScoreCb;
     this.onWinCb = onWinCb;
     this.onLoseCb = onLoseCb;
+    this.updateEndlessWaveCb = updateEndlessWaveCb || null;
 
     // Game entities
     this.defenders = [];
@@ -69,6 +71,7 @@ export class GameEngine {
     this.drawUIs = new DrawUIs(this);
     this.animationManager = null;
     this.animationSources = new AnimationSources();
+    this.gameLevelConfigs = new GameLevelConfigs(this);
 
     // Mapping of card names to their respective DefenderUnit classes
     this.defenderUnitClasses = {
@@ -109,10 +112,14 @@ export class GameEngine {
     // Level configurations and loaded assets
     this.levelConfigs = new Map();
     this.currentLevelConfig = null;
-    this.loadedImages = {}; // Stores loaded Image objects
 
     // Initialize level configurations on construction
-    this.initLevelConfigs();
+    this.gameLevelConfigs.initLevelConfigs();
+  }
+
+  //set endless wave base on callBack
+  setEndlessWaveCallback(callback) {
+    this.updateEndlessWaveCb = callback;
   }
 
   /**
@@ -137,7 +144,7 @@ export class GameEngine {
       const drop = this.energyDrops[i];
       if (drop.checkCollection(x, y)) {
         drop.startCollectionAnimation(110, 20); //where the bar locate;
-        this.inGameEnergy = Math.min(100, this.inGameEnergy + drop.amount);
+        this.inGameEnergy = Math.min(999, this.inGameEnergy + drop.amount);
         this.updateEnergyCb(this.inGameEnergy);
         return true; //energy is collected
       }
@@ -178,135 +185,10 @@ export class GameEngine {
     return false;
   }
 
-  /**
-   * Defines the information for every level.
-   */
-  initLevelConfigs() {
-    // Level 1
-    this.levelConfigs.set(1, {
-      levelNumber: 1,
-      enemySpawnInterval: 3000, // 3 seconds
-      maxActiveEnemies: 8,
-      totalEnemiesToSpawn: 10,
-      waves: 3,
-      availableEnemyTypes:  [ "Basic Zombie"],
-          // ["Basic Zombie", "Fast Zombie", "Tank Zombie",
-          //  "Exploder", "Skeleton Shooter", "Shielder",
-          // "Healer", "Splitter", "Mini", "Swarm Witch",
-          // "EMP", "Vampire", "Ghost", "Berserker", "Necromancer",
-          //  "Assassin", "Mage", "Titan"],
-      initialEnergy: 100000,
-      enemyAssets: {
-        "Basic Zombie": null,
-        "Fast Zombie": null,
-        "Skeleton Shooter": null
-      },
-      defenderAssets: {
-        "Basic Cop": null,
-        "Healer Cop": null,
-        "Grenadier": null,
-        "Barricade": null,
-        "Energy Generator": null
-      },
-    });
-
-    /*
-      BasicEnemy, FastEnemy, TankEnemy, BombEnemy, RangeEnemy, ShieldEnemy,
-  HealerEnemy, EMPEnemy, MiniEnemy, SplitterEnemy, VampireEnemy,
-  SwarmLeader, GhostEnemy, BerserkerEnemy, NecromancerEnemy, AssassinEnemy,
-  MageEnemy, TitanEnemy
-        "Basic Zombie": BasicEnemy,
-      "Fast Zombie": FastEnemy,
-      "Tank Zombie": TankEnemy,
-      "Exploder": BombEnemy,
-      "Skeleton Shooter": RangeEnemy,
-      "Shielder": ShieldEnemy,
-      "Healer": HealerEnemy,
-      "Splitter": SplitterEnemy,
-      "Mini": MiniEnemy,
-      "Swarm Witch": SwarmLeader,
-      "EMP": EMPEnemy,
-      "Vampire": VampireEnemy
-     */
-
-    // Level 2
-    this.levelConfigs.set(2, {
-      levelNumber: 2,
-      enemySpawnInterval: 2500, // 2.5 seconds
-      maxActiveEnemies: 12,
-      totalEnemiesToSpawn: 30,
-      waves: 4,
-      availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie"],
-      initialEnergy: 120,
-      enemyAssets: {
-        "Basic Zombie": null,
-        "Fast Zombie": null,
-        "Tank Zombie": null,
-      },
-      defenderAssets: {
-        "Basic Cop": null,
-        "Healer Cop": null,
-        "Grenadier": null,
-        "Barricade": null,
-        "Energy Generator": null
-      },
-    });
-
-    // Level 3
-    this.levelConfigs.set(3, {
-      levelNumber: 3,
-      enemySpawnInterval: 2000, // 2 seconds
-      maxActiveEnemies: 15,
-      totalEnemiesToSpawn: 40,
-      waves: 5,
-      availableEnemyTypes: [
-        "Basic Zombie",
-        "Fast Zombie",
-        "Tank Zombie",
-        "Exploder",
-      ],
-      initialEnergy: 150,
-      enemyAssets: {
-        "Basic Zombie": null,
-        "Fast Zombie": null,
-        "Tank Zombie": null,
-        "Exploder": null,
-      },
-      defenderAssets: {
-        "Basic Cop": null,
-        "Healer Cop": null,
-        "Grenadier": null,
-        "Barricade": null,
-        "Energy Generator": null
-      },
-    });
-  }
-
-  // Preloads all images required for the current level
-  preloadImages(imagePaths) {
-    const promises = [];
-    for (const [name, path] of Object.entries(imagePaths)) {
-      const promise = new Promise((resolve) => {
-        const img = new Image();
-        img.src = path;
-        img.onload = () => {
-          this.loadedImages[name] = img;
-          resolve();
-        };
-        img.onerror = () => {
-          console.warn(`Failed to load image: ${path}. Using fallback.`);
-          this.loadedImages[name] = null; // Mark as failed
-          resolve();
-        };
-      });
-      promises.push(promise);
+  showWaveAnnouncement(waveNumber, isBoss) {
+    if (this.drawUIs && this.drawUIs.showWaveAnnouncement(waveNumber, isBoss)) {
+      this.drawUIs.showWaveAnnouncement(waveNumber, isBoss);
     }
-    return Promise.all(promises);
-  }
-
-  // Retrieves a loaded image by its name
-  getImage(name) {
-    return this.loadedImages[name] || null;
   }
 
   /**
@@ -352,32 +234,10 @@ export class GameEngine {
                                        (enemyType) => this.spawnEnemyOfType(enemyType),
                                        this);
 
+
     await this.loadAllAnimations();
-
-    // Preload all necessary images for the current level
-    const allImages = {
-      ...this.currentLevelConfig.enemyAssets,
-      ...this.currentLevelConfig.defenderAssets,
-    };
-
-    await this.preloadImages(allImages)
-        .then(() => {
-          // Double-check we're still supposed to be running
-          if (this.gameOver) {
-            return;
-          }
-          this.resetGame(); // Reset game state after assets are loaded
-          this.startLoop(); // Start the game loop
-        })
-        .catch((error) => {
-          console.error("Error loading game assets:", error);
-          this.setGameOver(true, "Prevent game from starting if loading fails");
-          this.onLoseCb({
-                          score: 0,
-                          level: levelNumber,
-                          reason: "Asset loading failed",
-                        });
-        });
+    this.resetGame();
+    this.startLoop();
   }
 
   async loadAllAnimations() {
@@ -513,10 +373,7 @@ export class GameEngine {
       return false;
     }
 
-    const tempUnit = new UnitClass(0, 0, {
-      ...cardData,
-      image: this.getImage(cardData.name),
-    });
+    const tempUnit = new UnitClass(0, 0, cardData);
 
     if (this.inGameEnergy < cardData.cost) {
       console.log(`Not enough energy: ${this.inGameEnergy}/${cardData.cost}`);
@@ -535,10 +392,7 @@ export class GameEngine {
       return false;
     }
 
-    const newUnit = new UnitClass(deployX, deployY, {
-      ...cardData,
-      image: this.getImage(cardData.name),
-    });
+    const newUnit = new UnitClass(deployX, deployY, cardData);
 
     // ADD THIS: Attach animation frames if available
     if (this.animationManager && this.animationManager.hasAnimation(cardData.name)) {
@@ -707,6 +561,15 @@ export class GameEngine {
 
     this.waveManager.update(now, this.enemies.length, this.gameOver);
 
+    // Track endless wave progression
+    if (this.currentLevelConfig?.isEndless && this.updateEndlessWaveCb) {
+      this.updateEndlessWaveCb(this.waveManager.currentWave);
+    }
+
+    if (this.drawUIs) {
+      this.drawUIs.update();
+    }
+
     // UPDATE PROJECTILES FIRST (before enemies move)
     this.updateProjectiles();
     this.updateEnemyProjectiles();
@@ -866,6 +729,12 @@ export class GameEngine {
           enemy.stunned = false;
         }
       }
+      if (enemy.burning && enemy.burningDuration) {
+        enemy.burningDuration--;
+        if (enemy.burningDuration <= 0) {
+          enemy.burning = false;
+        }
+      }
 
       // Remove enemy only if death animation is complete
       if (enemy.deathAnimationComplete) {
@@ -925,6 +794,11 @@ export class GameEngine {
         console.log(`Spawned enemy ${enemy.name} killed - no score awarded`);
       }
     }
+    //  Notify wave manager of enemy death
+    if (this.waveManager && this.waveManager.onEnemyKilled) {
+      this.waveManager.onEnemyKilled(enemy);
+    }
+
     if (enemy.shouldExplode) {
       this.addEnemyExplosion(
           enemy.x + enemy.width / 2,
@@ -1137,10 +1011,16 @@ export class GameEngine {
   checkGameConditions() {
     if (this.gameOver) return;
 
+    // Endless mode has different win conditions (none - it's endless!)
+    if (this.currentLevelConfig.isEndless) {
+      // Endless mode continues until player loses
+      return;
+    }
+
     // Win condition: all enemies spawned AND all active enemies are dead
     const config = this.currentLevelConfig;
     const allEnemiesSpawned = this.waveManager.enemiesSpawnedThisLevel >= config.totalEnemiesToSpawn;
-    const noActiveEnemies = this.enemies.length === 0;
+    const noActiveEnemies = this.enemies.filter(e => e.isAlive).length === 0;
 
     if (!this.gameOver && allEnemiesSpawned && noActiveEnemies) {
       this.handleLevelComplete(); // Trigger win condition
@@ -1154,21 +1034,34 @@ export class GameEngine {
       this.setGameOver(true, "Defense Breached");
       this.stopLoop(); // Stop the game loop
 
-      if (this.onLoseCb) {
-        console.log("Calling onLoseCb now");
+      if (this.currentLevelConfig.levelNumber === 999) {
+        if (this.onLoseCb) {
+          this.onLoseCb({
+                          score: this.inGameScore,
+                          level: 999,
+                          reason: "Defense breached",
+                          endlessWave: this.waveManager ? this.waveManager.currentWave : 0
+                        });
+        }
+      } else {
+        if (this.onLoseCb) {
+          console.log("Calling onLoseCb now");
 
-        this.onLoseCb({
-          score: this.inGameScore,
-          level: this.currentLevelConfig.levelNumber,
-          reason: "Defense breached",
-        });
+          this.onLoseCb({
+                          score: this.inGameScore,
+                          level: this.currentLevelConfig.levelNumber,
+                          reason: "Defense breached",
+                        });
+        }
       }
     }
   }
 
   /** Handles the game win state when all enemies are defeated. */
   handleLevelComplete() {
-    // this.gameOver = true;
+    if (this.currentLevelConfig.isEndless) {
+      return;
+    }
     this.setGameOver(true, "Level Complete");
     this.stopLoop(); // Stop the game loop
 

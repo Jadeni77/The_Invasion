@@ -1,6 +1,18 @@
 export class DrawUIs {
     constructor(gameEngine) {
         this.gameEngine = gameEngine;
+
+        //  Wave announcement system
+        this.waveAnnouncement = null;
+        this.announcementTimer = 0;
+        this.announcementAlpha = 0;
+
+        //  Wave countdown display
+        this.waveCountdown = 0;
+
+        //  Endless mode UI
+        this.endlessWaveDisplay = 0;
+        this.milestoneAnimation = null;
     }
 
     drawBackground(ctx) {
@@ -69,48 +81,351 @@ export class DrawUIs {
 
     /** Draws the in-game UI (energy, score, wave). */
     drawUI(ctx) {
-        // Fix: Save the current context state
         ctx.save();
 
         // Draw energy bar
-        const energyPercent =
-            this.gameEngine.inGameEnergy / this.gameEngine.currentLevelConfig.initialEnergy;
-        ctx.fillStyle = "#333"; // Background
+        const energyPercent = this.gameEngine.currentLevelConfig ?
+                              this.gameEngine.inGameEnergy / this.gameEngine.currentLevelConfig.initialEnergy : 0;
+        ctx.fillStyle = "#333";
         ctx.fillRect(10, 10, 200, 20);
-        ctx.fillStyle = energyPercent > 0.3 ? "#4CAF50" : "#FF5722"; // Green or orange based on energy level
+        ctx.fillStyle = energyPercent > 0.3 ? "#4CAF50" : "#FF5722";
         ctx.fillRect(10, 10, 200 * energyPercent, 20);
-        ctx.fillStyle = "#FFF"; // Text color
+        ctx.fillStyle = "#FFF";
         ctx.font = "16px Arial";
-        ctx.textAlign = "left"; // Set text alignment
-        ctx.textBaseline = "middle"; // Fix text baseline
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
         ctx.fillText(`Energy: ${Math.floor(this.gameEngine.inGameEnergy)}`, 15, 26);
 
         // Draw score
         ctx.fillStyle = "#FFF";
         ctx.font = "16px Arial";
-        ctx.textAlign = "right"; // Fix: Set text alignment
-        ctx.textBaseline = "middle"; // Fix text baseline
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
         ctx.fillText(`Score: ${this.gameEngine.inGameScore}`,
                      this.gameEngine.canvasWidth - 150, 26);
 
-        // Draw wave info
-        ctx.textAlign = "center"; // Fix: Set text alignment
-        ctx.textBaseline = "middle"; // Fix text baseline
-        ctx.fillText(
-            //  `Total Enemy Left: ${this.currentLevelConfig.totalEnemiesToSpawn}`,
-            `Wave: ${this.gameEngine.waveManager.currentWave}/${this.gameEngine.currentLevelConfig.waves}`,
-            this.gameEngine.canvasWidth / 2 - 50,
-            20
-        );
+        // Enhanced wave display for normal and endless modes
+        if (this.gameEngine.currentLevelConfig?.isEndless) {
+            this.drawEndlessWaveInfo(ctx);
+        } else {
+            this.drawNormalWaveInfo(ctx);
+        }
 
         // Draw defense line indicator
-        ctx.strokeStyle = "#FF0000"; // Red line
+        ctx.strokeStyle = "#FF0000";
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(this.gameEngine.defenseLineX, 0);
         ctx.lineTo(this.gameEngine.defenseLineX, this.gameEngine.canvasHeight);
         ctx.stroke();
-        //Restore the context state
+
+        this.drawNextWaveTimer(ctx);
+        //  Draw wave announcement if active
+        this.drawWaveAnnouncement(ctx);
+
+        //: Draw wave countdown if active
+        this.drawWaveCountdown(ctx);
+
         ctx.restore();
+    }
+
+    drawNextWaveTimer(ctx) {
+        const waveManager = this.gameEngine.waveManager;
+        if (!waveManager || !waveManager.getTimeUntilNextWave) return;
+
+        const secondsUntilNext = waveManager.getTimeUntilNextWave();
+
+        // Only show if there's time remaining and not all waves complete
+        if (secondsUntilNext > 0 && !waveManager.allWavesComplete) {
+            ctx.save();
+
+            // Position in top-right corner
+            const x = this.gameEngine.canvasWidth - 150;
+            const y = 50;
+
+            // Background box
+            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            ctx.fillRect(x - 60, y - 20, 120, 40);
+
+            // Timer text
+            ctx.font = "16px Arial";
+            ctx.fillStyle = secondsUntilNext <= 5 ? "#FF6B6B" : "#FFF";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(`Next Wave: ${secondsUntilNext}s`, x, y);
+
+            // Progress bar
+            const barWidth = 100;
+            const barHeight = 4;
+            const barX = x - barWidth / 2;
+            const barY = y + 12;
+
+            ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+
+            const progress = secondsUntilNext / 30; // Assuming 30 second intervals
+            ctx.fillStyle = secondsUntilNext <= 5 ? "#FF6B6B" : "#4CAF50";
+            ctx.fillRect(barX, barY, barWidth * progress, barHeight);
+
+            ctx.restore();
+        }
+    }
+
+    // Fix: Draw normal mode wave info
+    drawNormalWaveInfo(ctx) {
+        ctx.fillStyle = "#FFF";
+        ctx.font = "16px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        const waveManager = this.gameEngine.waveManager;
+        if (waveManager) {
+            const currentWave = waveManager.currentWave;
+            const totalWaves = this.gameEngine.currentLevelConfig.waves;
+            const enemiesLeft = this.gameEngine.currentLevelConfig.totalEnemiesToSpawn -
+                                waveManager.enemiesSpawnedThisLevel;
+
+            ctx.fillText(
+                `Wave: ${currentWave}/${totalWaves} | Enemies Left: ${enemiesLeft}`,
+                this.gameEngine.canvasWidth / 2,
+                20
+            );
+
+            // Draw wave progress bar
+            const progressWidth = 200;
+            const progressX = (this.gameEngine.canvasWidth - progressWidth) / 2;
+            const progressY = 35;
+
+            ctx.fillStyle = "#333";
+            ctx.fillRect(progressX, progressY, progressWidth, 8);
+
+            const progress = waveManager.waveEnemiesSpawned /
+                             (this.gameEngine.currentLevelConfig.totalEnemiesToSpawn / totalWaves);
+            ctx.fillStyle = "#4CAF50";
+            ctx.fillRect(progressX, progressY, progressWidth * Math.min(1, progress), 8);
+        }
+    }
+
+    // Fix: Draw endless mode wave info
+    drawEndlessWaveInfo(ctx) {
+        const waveManager = this.gameEngine.waveManager;
+        if (!waveManager) return;
+
+        // Main wave counter - larger and centered
+        ctx.save();
+        ctx.font = "bold 24px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#FFD700"; // Gold color for endless
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 3;
+
+        const waveText = `ENDLESS WAVE ${waveManager.currentWave}`;
+        ctx.strokeText(waveText, this.gameEngine.canvasWidth / 2, 25);
+        ctx.fillText(waveText, this.gameEngine.canvasWidth / 2, 25);
+
+        // Sub-info
+        ctx.font = "14px Arial";
+        ctx.fillStyle = "#FFF";
+        const enemiesActive = this.gameEngine.enemies.length;
+        const killCount = waveManager.totalEnemiesKilled;
+        ctx.fillText(
+            `Enemies Active: ${enemiesActive} | Total Kills: ${killCount}`,
+            this.gameEngine.canvasWidth / 2,
+            45
+        );
+
+        // Milestone indicator
+        if (waveManager.currentWave % 10 === 0 && waveManager.currentWave > 0) {
+            this.drawMilestoneIndicator(ctx, waveManager.currentWave);
+        }
+
+        ctx.restore();
+    }
+
+    //  Add wave announcement display
+    drawWaveAnnouncement(ctx) {
+        if (!this.waveAnnouncement || this.announcementTimer <= 0) return;
+
+        ctx.save();
+
+        // Update animation
+        this.announcementTimer--;
+        if (this.announcementTimer > 120) {
+            // Fade in
+            this.announcementAlpha = Math.min(1, this.announcementAlpha + 0.05);
+        } else if (this.announcementTimer < 60) {
+            // Fade out
+            this.announcementAlpha = Math.max(0, this.announcementAlpha - 0.02);
+        }
+
+        ctx.globalAlpha = this.announcementAlpha;
+
+        // Background box
+        const boxWidth = 400;
+        const boxHeight = 100;
+        const boxX = (this.gameEngine.canvasWidth - boxWidth) / 2;
+        const boxY = this.gameEngine.canvasHeight / 2 - 50;
+
+        // Draw background with gradient
+        const gradient = ctx.createLinearGradient(boxX, boxY, boxX, boxY + boxHeight);
+        if (this.waveAnnouncement.isBoss) {
+            gradient.addColorStop(0, "rgba(139, 0, 0, 0.9)");
+            gradient.addColorStop(1, "rgba(255, 0, 0, 0.9)");
+        } else {
+            gradient.addColorStop(0, "rgba(0, 0, 0, 0.8)");
+            gradient.addColorStop(1, "rgba(50, 50, 50, 0.8)");
+        }
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+
+        // Border
+        ctx.strokeStyle = this.waveAnnouncement.isBoss ? "#FFD700" : "#FFF";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+
+        // Text
+        ctx.fillStyle = this.waveAnnouncement.isBoss ? "#FFD700" : "#FFF";
+        ctx.font = this.waveAnnouncement.isBoss ? "bold 32px Arial" : "bold 28px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        ctx.fillText(
+            this.waveAnnouncement.title,
+            this.gameEngine.canvasWidth / 2,
+            boxY + 35
+        );
+
+        if (this.waveAnnouncement.subtitle) {
+            ctx.font = "18px Arial";
+            ctx.fillStyle = "#CCC";
+            ctx.fillText(
+                this.waveAnnouncement.subtitle,
+                this.gameEngine.canvasWidth / 2,
+                boxY + 65
+            );
+        }
+
+        ctx.restore();
+
+        // Clear announcement when timer expires
+        if (this.announcementTimer <= 0) {
+            this.waveAnnouncement = null;
+            this.announcementAlpha = 0;
+        }
+    }
+
+    // Fix: Draw countdown between waves
+    drawWaveCountdown(ctx) {
+        const waveManager = this.gameEngine.waveManager;
+        if (!waveManager || waveManager.waveCooldown <= 0 || waveManager.autoStartNextWave) return;
+
+        ctx.save();
+
+        const seconds = Math.ceil(waveManager.waveCooldown / 60);
+
+        // Draw countdown
+        ctx.font = "bold 48px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
+        ctx.lineWidth = 4;
+
+        const countdownText = `Next Wave in ${seconds}`;
+        const centerX = this.gameEngine.canvasWidth / 2;
+        const centerY = this.gameEngine.canvasHeight / 2 + 100;
+
+        ctx.strokeText(countdownText, centerX, centerY);
+        ctx.fillText(countdownText, centerX, centerY);
+
+        // Draw countdown bar
+        const barWidth = 300;
+        const barHeight = 10;
+        const barX = centerX - barWidth / 2;
+        const barY = centerY + 30;
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+
+        const progress = 1 - (waveManager.waveCooldown / 180); // 180 = 3 seconds * 60 fps
+        ctx.fillStyle = "#4CAF50";
+        ctx.fillRect(barX, barY, barWidth * progress, barHeight);
+
+        ctx.restore();
+    }
+
+    // Fix: Draw milestone indicator for endless mode
+    drawMilestoneIndicator(ctx, wave) {
+        if (!this.milestoneAnimation) {
+            this.milestoneAnimation = { timer: 180, pulse: 0 };
+        }
+
+        if (this.milestoneAnimation.timer > 0) {
+            this.milestoneAnimation.timer--;
+            this.milestoneAnimation.pulse = Math.sin(this.milestoneAnimation.timer * 0.1) * 0.3 + 0.7;
+
+            ctx.save();
+            ctx.globalAlpha = this.milestoneAnimation.pulse;
+            ctx.font = "bold 36px Arial";
+            ctx.textAlign = "center";
+            ctx.fillStyle = "#FFD700";
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 3;
+
+            const text = `MILESTONE WAVE ${wave}!`;
+            ctx.strokeText(text, this.gameEngine.canvasWidth / 2, 100);
+            ctx.fillText(text, this.gameEngine.canvasWidth / 2, 100);
+            ctx.restore();
+        } else {
+            this.milestoneAnimation = null;
+        }
+    }
+
+    // Fix: Method to show wave announcements (called by GameEngine)
+    showWaveAnnouncement(waveNumber, isBoss = false, config = {}) {
+        let title = `WAVE ${waveNumber}`;
+        let subtitle = "";
+
+        if (this.gameEngine.currentLevelConfig?.isEndless) {
+            title = `ENDLESS WAVE ${waveNumber}`;
+            if (isBoss) {
+                subtitle = "BOSS INCOMING!";
+            } else if (waveNumber % 5 === 0) {
+                subtitle = "Difficulty Increased!";
+            }
+        } else {
+            if (isBoss) {
+                title = `BOSS WAVE ${waveNumber}`;
+                subtitle = "Defeat the boss!";
+            } else if (waveNumber === 1) {
+                subtitle = "Defend your base!";
+            } else if (waveNumber === this.gameEngine.currentLevelConfig?.waves) {
+                subtitle = "Final Wave!";
+            }
+        }
+
+        this.waveAnnouncement = {
+            title,
+            subtitle,
+            isBoss,
+            ...config
+        };
+
+        this.announcementTimer = 180; // 3 seconds at 60fps
+        this.announcementAlpha = 0;
+    }
+
+    // Fix: Update method to be called each frame
+    update() {
+        // Any per-frame UI updates can go here
+        if (this.announcementTimer > 0) {
+            this.announcementTimer--;
+        }
+
+        if (this.milestoneAnimation) {
+            this.milestoneAnimation.timer--;
+        }
     }
 }

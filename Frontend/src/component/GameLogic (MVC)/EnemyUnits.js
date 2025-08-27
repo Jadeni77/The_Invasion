@@ -78,7 +78,6 @@ export class Enemy {
 
   setAnimation(animationName) {
     if (this.currentAnimation !== animationName && this.animationFrames) {
-      console.log(`${this.name} switching animation from ${this.currentAnimation} to ${animationName}`);
       this.currentAnimation = animationName;
       this.animationFrame = 0;
       this.animationTimer = 0;
@@ -403,7 +402,7 @@ export class TankEnemy extends Enemy {
     super(x, y, {
       name: "Tank Zombie",
       speed: 0.5, // Slower
-      health: 400,
+      health: 1200,
       width: 40,
       height: 40,
       color: "darkred",
@@ -1608,7 +1607,7 @@ export class MageEnemy extends Enemy {
       isAttacker: true,
       attackDamage: 80,
       attackRate: 120,
-      attackRange: 300,
+      attackRange: 400,
       isRanged: true  // Keep this so CombatManager knows it's ranged
     });
     this.spellType = "fireball";
@@ -1957,6 +1956,7 @@ export class TitanEnemy extends Enemy {
     this.currentGroundPoundCooldown = 150;
     this.isGroundPounding = false;
     this.earthquakeRadius = 350;
+    this.immune = true;
 
     //phase at health thresholds
     this.phase = 1;

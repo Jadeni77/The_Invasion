@@ -487,3 +487,515 @@
 }
 
 
+/* Lobby.css - Enhanced for 20 levels and endless mode */
+
+.lobby-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  overflow: hidden;
+}
+
+/* Game Map Container */
+.game-map-container {
+  position: relative;
+  width: 90%;
+  height: 60vh;
+  margin: 20px auto;
+  border: 3px solid #333;
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(to bottom, #87CEEB, #98D8C8);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.game-map {
+  position: absolute;
+  transition: transform 0.1s ease-out;
+  transform-origin: top left;
+}
+
+/* Zone backgrounds */
+.zone-background {
+  position: absolute;
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+.zone-tutorial {
+  left: 150px;
+  top: 350px;
+  width: 400px;
+  height: 200px;
+  border-radius: 20px;
+}
+
+.zone-early {
+  left: 550px;
+  top: 250px;
+  width: 600px;
+  height: 200px;
+  border-radius: 20px;
+}
+
+.zone-mid {
+  left: 1150px;
+  top: 300px;
+  width: 750px;
+  height: 250px;
+  border-radius: 20px;
+}
+
+.zone-late {
+  left: 1200px;
+  top: 100px;
+  width: 700px;
+  height: 200px;
+  border-radius: 20px;
+}
+
+.zone-endgame {
+  left: 750px;
+  top: 50px;
+  width: 450px;
+  height: 200px;
+  border-radius: 20px;
+}
+
+/* Level Nodes */
+.level-node {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  border: 3px solid;
+  z-index: 10;
+}
+
+.level-node.locked {
+  background: #555 !important;
+  border-color: #333 !important;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.level-node.completed {
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+}
+
+.level-node.unlocked:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Zone-specific node styles */
+.tutorial-node {
+  background: linear-gradient(135deg, #4a7c59, #6fb85f);
+}
+
+.early-node {
+  background: linear-gradient(135deg, #5a7cb8, #7a9cd8);
+}
+
+.mid-node {
+  background: linear-gradient(135deg, #b87c5a, #d89c7a);
+}
+
+.late-node {
+  background: linear-gradient(135deg, #b85a7c, #d87a9c);
+}
+
+.endgame-node {
+  background: linear-gradient(135deg, #7c5ab8, #9c7ad8);
+}
+
+/* Boss level indicator */
+.level-node.boss-level {
+  width: 70px;
+  height: 70px;
+  border-width: 4px;
+  border-color: #FFD700 !important;
+}
+
+.boss-indicator {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #FF0000;
+  color: white;
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 10px;
+  font-weight: bold;
+}
+
+/* Final level */
+.level-node.final-level {
+  animation: finalPulse 2s infinite;
+}
+
+@keyframes finalPulse {
+  0%, 100% { box-shadow: 0 0 30px rgba(255, 215, 0, 0.8); }
+  50% { box-shadow: 0 0 50px rgba(255, 215, 0, 1); }
+}
+
+/* Level interior */
+.level-number {
+  font-size: 20px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.level-name {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  white-space: nowrap;
+  color: #333;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+.level-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+}
+
+/* Stars display */
+.stars {
+  position: absolute;
+  bottom: -15px;
+  display: flex;
+  gap: 2px;
+}
+
+.star {
+  color: #ccc;
+  font-size: 12px;
+}
+
+.star.earned {
+  color: #FFD700;
+}
+
+/* Endless Portal */
+.endless-portal {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  cursor: pointer;
+  z-index: 15;
+}
+
+.endless-portal.locked {
+  cursor: not-allowed;
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
+.portal-animation {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.portal-ring {
+  position: absolute;
+  border: 3px solid;
+  border-radius: 50%;
+  animation: portalSpin 3s linear infinite;
+}
+
+.ring-1 {
+  width: 100%;
+  height: 100%;
+  border-color: #ff0000;
+  animation-duration: 3s;
+}
+
+.ring-2 {
+  width: 80%;
+  height: 80%;
+  top: 10%;
+  left: 10%;
+  border-color: #ff7f00;
+  animation-duration: 4s;
+  animation-direction: reverse;
+}
+
+.ring-3 {
+  width: 60%;
+  height: 60%;
+  top: 20%;
+  left: 20%;
+  border-color: #ffff00;
+  animation-duration: 2s;
+}
+
+@keyframes portalSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.portal-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40%;
+  height: 40%;
+  background: radial-gradient(circle, #9400d3, #4b0082, #0000ff);
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  animation: portalPulse 2s infinite;
+}
+
+@keyframes portalPulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.1); }
+}
+
+.portal-label {
+  color: white;
+  font-weight: bold;
+  font-size: 12px;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+.highest-wave {
+  color: #FFD700;
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.portal-glow {
+  position: absolute;
+  top: -20px;
+  left: -20px;
+  right: -20px;
+  bottom: -20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(148, 0, 211, 0.4), transparent);
+  animation: portalGlow 2s infinite;
+}
+
+@keyframes portalGlow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.lock-message {
+  position: absolute;
+  bottom: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* Map connections */
+.map-connection {
+  position: absolute;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #666, transparent);
+  transform-origin: left center;
+  opacity: 0.3;
+}
+
+.map-connection.unlocked {
+  background: linear-gradient(90deg, transparent, #4CAF50, transparent);
+  opacity: 0.7;
+}
+
+.map-connection.rainbow-connection {
+  background: linear-gradient(90deg,
+  #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3);
+  opacity: 1;
+  animation: rainbowFlow 2s linear infinite;
+}
+
+@keyframes rainbowFlow {
+  from { background-position: 0 0; }
+  to { background-position: 200px 0; }
+}
+
+/* Treasure chests */
+.treasure-chest {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  z-index: 8;
+}
+
+.treasure-chest:not(.collected):not(.locked-chest):hover {
+  transform: scale(1.2);
+}
+
+.treasure-chest.collected {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.treasure-chest.locked-chest {
+  filter: grayscale(1);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.treasure-chest.secret-chest {
+  animation: secretPulse 3s infinite;
+}
+
+@keyframes secretPulse {
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5)); }
+  50% { filter: drop-shadow(0 0 20px rgba(255, 215, 0, 1)); }
+}
+
+.chest-glow {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.6), transparent);
+  animation: chestGlow 1.5s infinite;
+}
+
+@keyframes chestGlow {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.5; }
+}
+
+/* Zoom controls */
+.zoom-controls {
+  position: absolute;
+  top: 80px;
+  right: 20px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 5px 10px;
+  border-radius: 20px;
+  z-index: 20;
+}
+
+.zoom-controls button {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: #4CAF50;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.zoom-controls button:hover {
+  background: #45a049;
+}
+
+.zoom-controls span {
+  color: white;
+  font-size: 14px;
+  min-width: 40px;
+  text-align: center;
+}
+
+/* Endless Options Modal */
+.endless-options-modal {
+  background: white;
+  border-radius: 10px;
+  padding: 30px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.endless-options-modal h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.difficulty-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.difficulty-option {
+  padding: 15px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: white;
+}
+
+.difficulty-option:hover {
+  border-color: #4CAF50;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.difficulty-option.normal {
+  border-color: #4CAF50;
+}
+
+.difficulty-option.challenge {
+  border-color: #ff9800;
+}
+
+.difficulty-option h3 {
+  margin: 0 0 8px 0;
+  color: #333;
+}
+
+.difficulty-option p {
+  margin: 0 0 8px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.difficulty-option .multiplier {
+  color: #4CAF50;
+  font-weight: bold;
+  font-size: 16px;
+}
+

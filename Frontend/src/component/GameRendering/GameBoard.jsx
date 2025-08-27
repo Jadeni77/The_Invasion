@@ -27,6 +27,7 @@ const GameBoard = () => {
     startLevel,
     selectedCardsForGame,
     setGameEngine,
+    updateEndlessWave,
   } = useGame();
 
   const gameEngineRef = useRef(null);
@@ -135,7 +136,8 @@ const GameBoard = () => {
             updateScoreCb,
             onWinCb,
             onLoseCb,
-            (health) => setBaseHealth(health)
+            (health) => setBaseHealth(health),
+            updateEndlessWave
         );
 
         //set card pieces collection callback
@@ -176,7 +178,7 @@ const GameBoard = () => {
         }
       };
     }
-  }, [gameState, selectedLevel, resetTrigger, updateEnergyCb, updateScoreCb, onWinCb, onLoseCb]);
+  }, [gameState, selectedLevel, resetTrigger, updateEnergyCb, updateScoreCb, onWinCb, onLoseCb, updateEndlessWave]);
 
   const handleCardSelection = (card) => {
     //check if a card is on cooldown
