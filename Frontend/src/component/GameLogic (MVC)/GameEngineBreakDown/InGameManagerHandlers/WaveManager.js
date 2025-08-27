@@ -381,7 +381,7 @@ export class WaveManager {
         this.waveEnemiesKilled = 0;
         this.enemiesSpawnedThisLevel = 0;
         this.totalEnemiesKilled = 0;
-        this.waveCooldown = 60; // 1 second initial delay
+        this.waveCooldown = 240; // 1 second initial delay
         this.lastSpawnTime = 0;
         this.nextSpawnDelay = 0;
         this.waveActive = false;
