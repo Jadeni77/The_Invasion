@@ -7,6 +7,10 @@ export class GameLevelConfigs {
      * Defines the information for every level.
      */
     initLevelConfigs() {
+        const availableEnemyTypes = ["Basic Zombie", "Fast Zombie", "Tank Zombie",
+                                     "Exploder", "Skeleton Shooter", "Shielder", "Healer", "Splitter",
+                                     "Mini", "Swarm Witch", "EMP", "Vampire", "Ghost",
+                                     "Berserker", "Necromancer", "Assassin", "Mage", "Titan"];
         // Tutorial Levels (1-3)
         this.gameEngine.levelConfigs.set(1, {
             levelNumber: 1,
@@ -16,7 +20,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 5,
             totalEnemiesToSpawn: 15,
             waves: 3,
-            availableEnemyTypes: ["Basic Zombie"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -49,7 +53,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 8,
             totalEnemiesToSpawn: 25,
             waves: 4,
-            availableEnemyTypes: ["Basic Zombie", "Fast Zombie"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -88,7 +92,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 10,
             totalEnemiesToSpawn: 35,
             waves: 4,
-            availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -128,7 +132,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 12,
             totalEnemiesToSpawn: 45,
             waves: 5,
-            availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Exploder"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -173,7 +177,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 14,
             totalEnemiesToSpawn: 55,
             waves: 5,
-            availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Skeleton Shooter"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -218,7 +222,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 15,
             totalEnemiesToSpawn: 65,
             waves: 6,
-            availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Shielder", "Exploder"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -269,7 +273,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 16,
             totalEnemiesToSpawn: 75,
             waves: 6,
-            availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Healer", "Skeleton Shooter"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -321,7 +325,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 18,
             totalEnemiesToSpawn: 85,
             waves: 7,
-            availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Splitter", "Mini", "Tank Zombie"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -378,7 +382,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 20,
             totalEnemiesToSpawn: 95,
             waves: 7,
-            availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Mini", "Swarm Witch"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -435,7 +439,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 22,
             totalEnemiesToSpawn: 100,
             waves: 8,
-            availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "EMP", "Shielder"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -500,7 +504,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 24,
             totalEnemiesToSpawn: 110,
             waves: 8,
-            availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Vampire", "Tank Zombie", "Healer"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -563,7 +567,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 25,
             totalEnemiesToSpawn: 120,
             waves: 9,
-            availableEnemyTypes: ["Fast Zombie", "Ghost", "Tank Zombie", "Vampire", "EMP"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -633,7 +637,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 26,
             totalEnemiesToSpawn: 130,
             waves: 9,
-            availableEnemyTypes: ["Tank Zombie", "Berserker", "Fast Zombie", "Vampire", "Ghost"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -702,7 +706,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 28,
             totalEnemiesToSpawn: 140,
             waves: 10,
-            availableEnemyTypes: ["Tank Zombie", "Necromancer", "Ghost", "Vampire", "Berserker", "Skeleton Shooter"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -777,7 +781,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 30,
             totalEnemiesToSpawn: 150,
             waves: 10,
-            availableEnemyTypes: ["Fast Zombie", "Assassin", "Ghost", "Vampire", "Berserker", "Necromancer"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -852,7 +856,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 32,
             totalEnemiesToSpawn: 160,
             waves: 11,
-            availableEnemyTypes: ["Tank Zombie", "Mage", "Ghost", "Vampire", "Necromancer", "Assassin"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -933,10 +937,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 35,
             totalEnemiesToSpawn: 180,
             waves: 12,
-            availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Exploder",
-                                  "Skeleton Shooter", "Shielder", "Healer", "Splitter",
-                                  "Mini", "Swarm Witch", "EMP", "Vampire", "Ghost",
-                                  "Berserker", "Necromancer", "Assassin", "Mage",],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -1033,7 +1034,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 38,
             totalEnemiesToSpawn: 200,
             waves: 13,
-            availableEnemyTypes: ["Basic Zombie", "Tank Zombie", "Titan", "Mage", "Necromancer", "Berserker", "Ghost", "Vampire"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 {
@@ -1128,10 +1129,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 40,
             totalEnemiesToSpawn: 250,
             waves: 15,
-            availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Exploder",
-                                  "Skeleton Shooter", "Shielder", "Healer", "Splitter",
-                                  "Mini", "Swarm Witch", "EMP", "Vampire", "Ghost",
-                                  "Berserker", "Necromancer", "Assassin", "Mage", "Titan"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 // 15 increasingly difficult waves with mixed patterns
@@ -1160,10 +1158,7 @@ export class GameLevelConfigs {
             maxActiveEnemies: 45,
             totalEnemiesToSpawn: 300,
             waves: 20,
-            availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Exploder",
-                                  "Skeleton Shooter", "Shielder", "Healer", "Splitter",
-                                  "Mini", "Swarm Witch", "EMP", "Vampire", "Ghost",
-                                  "Berserker", "Necromancer", "Assassin", "Mage", "Titan"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
                 // 20 waves culminating in an epic boss battle
@@ -1202,10 +1197,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: Infinity,
             waves: Infinity,
             isEndless: true,
-            availableEnemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Exploder",
-                                  "Skeleton Shooter", "Shielder", "Healer", "Splitter",
-                                  "Mini", "Swarm Witch", "EMP", "Vampire", "Ghost",
-                                  "Berserker", "Necromancer", "Assassin", "Mage", "Titan"],
+            availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             // Wave configurations will be generated dynamically by the WaveManager
             waveConfigurations: null,

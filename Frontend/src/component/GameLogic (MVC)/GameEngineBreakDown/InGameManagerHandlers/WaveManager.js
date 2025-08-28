@@ -55,22 +55,21 @@ export class WaveManager {
 
             // Keep spawning until we hit the wave's enemy count
             if (waveConfig && this.waveEnemiesSpawned < waveConfig.enemyCount) {
-                if (this.waveEnemiesSpawned >= waveConfig.enemyCount) {
-                    this.waveFullySpawned = true;
-                    console.log(`Wave ${this.currentWave} fully spawned`);
-                }
                 // Don't exceed max active enemies on screen
                 if (enemyCount < this.config.maxActiveEnemies) {
                     this.spawnWaveEnemies(now, enemyCount, waveConfig);
                 }
-            }
-
-            // Check if all enemies for all waves have been spawned (for level completion)
-            if (!this.isEndlessMode) {
-                if (this.enemiesSpawnedThisLevel >= this.config.totalEnemiesToSpawn) {
-                    this.allWavesComplete = true;
-                    this.autoStartNextWave = false;
-                    console.log("All enemies spawned for level!");
+            } else if (waveConfig && this.waveEnemiesSpawned >= waveConfig.enemyCount && !this.waveFullySpawned) {
+                this.waveFullySpawned = true;
+                console.log(`Wave ${this.currentWave} fully spawned with ${this.waveEnemiesSpawned} enemies`);
+                // Check if all enemies for all waves have been spawned (for level completion)
+                //check if last wave
+                if (!this.isEndlessMode && this.currentWave >= this.config.waves) {
+               //     if (this.enemiesSpawnedThisLevel >= this.config.totalEnemiesToSpawn) {
+                        this.allWavesComplete = true;
+                        this.autoStartNextWave = false;
+                        console.log("All enemies spawned for level!");
+             //       }
                 }
             }
         }
@@ -225,9 +224,9 @@ export class WaveManager {
 
             setTimeout(() => {
                 this.spawnEnemy(type)
-                this.enemiesSpawnedThisLevel++;
             }, i * 200);
             this.waveEnemiesSpawned++;
+            this.enemiesSpawnedThisLevel++;
         }
         this.nextSpawnDelay = waveConfig.spawnInterval * 2;
     }
@@ -247,9 +246,9 @@ export class WaveManager {
         for (let i = 1; i < formationSize; i++) {
             setTimeout(() => {
                 this.spawnEnemy(followerType);
-                this.enemiesSpawnedThisLevel++;
             }, i * 300);
             this.waveEnemiesSpawned++;
+            this.enemiesSpawnedThisLevel++;
         }
         this.nextSpawnDelay = waveConfig.spawnInterval * 3;
     }
@@ -263,10 +262,10 @@ export class WaveManager {
             const enemyType = this.selectEnemyType(waveConfig.enemyTypes);
             setTimeout(() => {
                 this.spawnEnemy(enemyType);
-                this.enemiesSpawnedThisLevel++;
             }, i * 100);
 
             this.waveEnemiesSpawned++;
+            this.enemiesSpawnedThisLevel++;
         }
         this.nextSpawnDelay = waveConfig.spawnInterval * 1.5;
     }
@@ -283,10 +282,10 @@ export class WaveManager {
             const minionCount = Math.min(4, waveConfig.enemyCount - 1);
             for (let i = 0; i < minionCount; i++) {
                 setTimeout(() => {
-                    this.spawnEnemy('Mini');
-                    this.enemiesSpawnedThisLevel++;
+                    this.spawnEnemy('Tank Zombie');
                 }, (i + 1) * 500);
                 this.waveEnemiesSpawned++;
+                this.enemiesSpawnedThisLevel++;
             }
             this.nextSpawnDelay = waveConfig.spawnInterval * 5;
         } else {
@@ -308,9 +307,9 @@ export class WaveManager {
         Array.from(types).forEach((type, index) => {
             setTimeout(() => {
                 this.spawnEnemy(type);
-                this.enemiesSpawnedThisLevel++;
             }, index * 400);
             this.waveEnemiesSpawned++;
+            this.enemiesSpawnedThisLevel++;
         });
 
         this.nextSpawnDelay = waveConfig.spawnInterval * 1.5;
@@ -425,18 +424,4 @@ export class WaveManager {
         this.startNextWave();
     }
 
-    // Get current wave status for UI
-    getWaveProgress() {
-        const waveConfig = this.getCurrentWaveConfig();
-        if (!waveConfig) return null;
-
-        return {
-            currentWave: this.currentWave,
-            enemiesSpawned: this.waveEnemiesSpawned,
-            totalEnemiesInWave: waveConfig.enemyCount,
-            enemiesKilled: this.waveEnemiesKilled,
-            waveFullySpawned: this.waveFullySpawned,
-            percentComplete: Math.floor((this.waveEnemiesKilled / waveConfig.enemyCount) * 100)
-        };
-    }
 }
