@@ -18,12 +18,19 @@ import HealerDefenderDeath from "../assets/defender/healer-defender-death.png"
 import MortarIdle from "../assets/defender/mortar-idle.png"
 import MortarAttack from "../assets/defender/mortar-attack.png"
 import MortarDeath from "../assets/defender/mortar-death.png"
-import SniperIdle from "../assets/defender/sniper-defender-idle.png"
-import SniperAttack from "../assets/defender/sniper-defender-attack.png"
-import SniperDeath from "../assets/defender/sniper-defender-death.png"
-import GrenadeIdle from "../assets/defender/grenade-idle.png"
-import GrenadeAttack from "../assets/defender/grenade-attack.png"
-import GrenadeDeath from "../assets/defender/grenade-death.png"
+import SniperIdle from "./defender/sniper-idle.png"
+import SniperAttack from "./defender/sniper-attack.png"
+import SniperDeath from "./defender/sniper-death.png"
+import GrenadeIdle from "./defender/grenade-idle.png"
+import GrenadeAttack from "./defender/grenade-attack.png"
+import GrenadeDeath from "./defender/grenade-death.png"
+import FrozenIdle from "./defender/frozen-defender-idle.png"
+import FrozenAttack from "./defender/frozen-defender-attack.png"
+import FrozenDeath from "./defender/frozen-defender-death.png"
+import FireIdle from "./defender/fire-idle.png"
+import FireAttack from "./defender/fire-attack.png"
+import IceIdle from "./defender/ice-idle.png"
+import IceAttack from "./defender/ice-attack.png"
 
 export const AssetManifest = {
     enemies: {
@@ -353,9 +360,9 @@ export const AssetManifest = {
         },
         'Grenadier': {
             sprites: {
-                idle: () => SniperIdle,
-                attack: () => SniperAttack,
-                death: () => SniperDeath
+                idle: () => GrenadeIdle,
+                attack: () => GrenadeAttack,
+                death: () => GrenadeDeath
             },
             config: {
                 idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8,
@@ -366,7 +373,7 @@ export const AssetManifest = {
                         offsetX: 8,      // Center offset
                         offsetY: 8
                     }},
-                attack: { frameCount: 9, frameWidth: 64, frameHeight: 64, fps: 18,
+                attack: { frameCount: 11, frameWidth: 64, frameHeight: 64, fps: 11,
                     cropConfig: {
                         enabled: true,
                         cropWidth: 48,   // Actual sprite size
@@ -374,7 +381,7 @@ export const AssetManifest = {
                         offsetX: 8,      // Center offset
                         offsetY: 8
                     }},
-                death: { frameCount: 9, frameWidth: 64, frameHeight: 64, fps: 18, loop: false,
+                death: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8, loop: false,
                     cropConfig: {
                         enabled: true,
                         cropWidth: 48,   // Actual sprite size
@@ -452,9 +459,9 @@ export const AssetManifest = {
         },
         'Sniper': {
             sprites: {
-                idle: () => GrenadeIdle,
-                attack: () => GrenadeAttack,
-                death: () => GrenadeDeath
+                idle: () => SniperIdle,
+                attack: () => SniperAttack,
+                death: () => SniperDeath
             },
             config: {
                 idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8,
@@ -518,38 +525,101 @@ export const AssetManifest = {
         },
         'Frost Archer': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => FrozenIdle,
+                attack: () => FrozenAttack,
+                death: () => FrozenDeath
             },
             config: {
-                idle: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 4 },
-                attack: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 10 },
-                death: { frameCount: 15, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
+                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8,
+                    cropConfig: {
+                        enabled: true,
+                        cropWidth: 48,   // Actual sprite size
+                        cropHeight: 48,
+                        offsetX: 8,      // Center offset
+                        offsetY: 8
+                    }},
+                attack: { frameCount: 9, frameWidth: 64, frameHeight: 64, fps: 18,
+                    cropConfig: {
+                        enabled: true,
+                        cropWidth: 48,   // Actual sprite size
+                        cropHeight: 48,
+                        offsetX: 8,      // Center offset
+                        offsetY: 8
+                    }},
+                death: { frameCount: 9, frameWidth: 64, frameHeight: 64, fps: 18, loop: false,
+                    cropConfig: {
+                        enabled: true,
+                        cropWidth: 48,   // Actual sprite size
+                        cropHeight: 48,
+                        offsetX: 8,      // Center offset
+                        offsetY: 8
+                    }}
             }
         },
         'Fire Blast': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                attack: () => BasicZombieAttack,  // Will play when healing
-                death: () => BasicZombieDeath
+                idle: () => FireIdle,
+                attack: () => FireAttack,  // Will play when healing
+                death: () => FireAttack
             },
             config: {
-                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 6 },
-                attack: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 10 },
-                death: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
+                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8,
+                    cropConfig: {
+                        enabled: true,
+                        cropWidth: 48,   // Actual sprite size
+                        cropHeight: 48,
+                        offsetX: 8,      // Center offset
+                        offsetY: 8
+                    }},
+                attack: { frameCount: 5, frameWidth: 64, frameHeight: 64, fps: 5,
+                    cropConfig: {
+                        enabled: true,
+                        cropWidth: 48,   // Actual sprite size
+                        cropHeight: 48,
+                        offsetX: 8,      // Center offset
+                        offsetY: 8
+                    }},
+                death: { frameCount: 5, frameWidth: 64, frameHeight: 64, fps: 5, loop: false,
+                    cropConfig: {
+                        enabled: true,
+                        cropWidth: 48,   // Actual sprite size
+                        cropHeight: 48,
+                        offsetX: 8,      // Center offset
+                        offsetY: 8
+                    }}
             }
         },
         'Ice Bomb': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                attack: () => BasicZombieAttack,  // Will play when healing
-                death: () => BasicZombieDeath
+                idle: () => IceIdle,
+                attack: () => IceAttack,  // Will play when healing
+                death: () => IceAttack
             },
             config: {
-                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 6 },
-                attack: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 10 },
-                death: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
+                idle: { frameCount: 4, frameWidth: 64, frameHeight: 64, fps: 8,
+                    cropConfig: {
+                        enabled: true,
+                        cropWidth: 48,   // Actual sprite size
+                        cropHeight: 48,
+                        offsetX: 8,      // Center offset
+                        offsetY: 8
+                    }},
+                attack: { frameCount: 3, frameWidth: 64, frameHeight: 64, fps: 3,
+                    cropConfig: {
+                        enabled: true,
+                        cropWidth: 48,   // Actual sprite size
+                        cropHeight: 48,
+                        offsetX: 8,      // Center offset
+                        offsetY: 8
+                    }},
+                death: { frameCount: 3, frameWidth: 64, frameHeight: 64, fps: 3, loop: false,
+                    cropConfig: {
+                        enabled: true,
+                        cropWidth: 48,   // Actual sprite size
+                        cropHeight: 48,
+                        offsetX: 8,      // Center offset
+                        offsetY: 8
+                    }}
             }
         },
         // ... more defenders
