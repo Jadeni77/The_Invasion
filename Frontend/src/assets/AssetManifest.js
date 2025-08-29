@@ -35,6 +35,11 @@ import MushroomIdle from "./enemies/Mushroom-Idle.png"
 import MushroomAttack from "./enemies/Mushroom-Attack.png"
 import MushroomDeath from "./enemies/Mushroom-Die.png"
 import MushroomRun from "./enemies/Mushroom-Run.png"
+import SkeletonIdle from "./enemies/Skeleton_01_White_Idle.png"
+import SkeletonAttack from "./enemies/Skeleton_01_White_Attack1.png"
+import SkeletonDeath from "./enemies/Skeleton_01_White_Die.png"
+import SkeletonWalk from "./enemies/Skeleton_01_White_Walk.png"
+
 export const AssetManifest = {
     enemies: {
         'Basic Zombie': {
@@ -95,16 +100,16 @@ export const AssetManifest = {
         },
         'Skeleton Shooter': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => SkeletonIdle,
+                move: () => SkeletonWalk,
+                attack: () => SkeletonAttack,
+                death: () => SkeletonDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 8, frameWidth: 96, frameHeight: 64, fps: 8 },
+                move: { frameCount: 10, frameWidth: 96, frameHeight: 64, fps: 10 },
+                attack: { frameCount: 10, frameWidth: 96, frameHeight: 64, fps: 10 },
+                death: { frameCount: 13, frameWidth: 96, frameHeight: 64, fps: 13, loop: false }
             }
         },
         'Shielder': {

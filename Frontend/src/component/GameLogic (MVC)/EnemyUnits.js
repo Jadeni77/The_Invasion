@@ -73,6 +73,8 @@ export class Enemy {
     this.burningDamage = 0;
     this.burningDuration = 0;
 
+    const noFlipEnemies = ["Skeleton Shooter"];
+    this.shouldFlip = !noFlipEnemies.includes(typeData.name);
 
   }
 
@@ -275,8 +277,11 @@ export class Enemy {
     ctx.msImageSmoothingEnabled = false;
 
     // Your flip code if you have it
-    ctx.scale(-1, 1);
-    ctx.translate(-this.x * 2 - this.width, 0);
+    if (this.shouldFlip) {
+      ctx.scale(-1, 1);
+      ctx.translate(-this.x * 2 - this.width, 0);
+    }
+
 
     if (this.animationFrames && this.animationFrames[this.currentAnimation]) {
       const frames = this.animationFrames[this.currentAnimation];
@@ -383,7 +388,7 @@ export class BasicEnemy extends Enemy {
       speed: 0.8,
       health: 100,
       color: "darkgreen",
-      width: 80,
+      width: 64,
       height: 80,
       image: image,
       bounty: 10,
@@ -555,8 +560,8 @@ export class RangeEnemy extends Enemy {
       name: "Skeleton Shooter",
       speed: 0.8,
       health: 150,
-      width: 30,
-      height: 30,
+      width: 96,
+      height: 64,
       color: "White",
       image: image,
       bounty: 15,
