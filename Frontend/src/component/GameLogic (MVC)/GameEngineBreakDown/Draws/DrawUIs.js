@@ -83,27 +83,6 @@ export class DrawUIs {
     drawUI(ctx) {
         ctx.save();
 
-        // Draw energy bar
-        const energyPercent = this.gameEngine.currentLevelConfig ?
-                              this.gameEngine.inGameEnergy / this.gameEngine.currentLevelConfig.initialEnergy : 0;
-        ctx.fillStyle = "#333";
-        ctx.fillRect(10, 10, 200, 20);
-        ctx.fillStyle = energyPercent > 0.3 ? "#4CAF50" : "#FF5722";
-        ctx.fillRect(10, 10, 200 * energyPercent, 20);
-        ctx.fillStyle = "#FFF";
-        ctx.font = "16px Arial";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "middle";
-        ctx.fillText(`Energy: ${Math.floor(this.gameEngine.inGameEnergy)}`, 15, 26);
-
-        // Draw score
-        ctx.fillStyle = "#FFF";
-        ctx.font = "16px Arial";
-        ctx.textAlign = "right";
-        ctx.textBaseline = "middle";
-        ctx.fillText(`Score: ${this.gameEngine.inGameScore}`,
-                     this.gameEngine.canvasWidth - 150, 26);
-
         // Enhanced wave display for normal and endless modes
         if (this.gameEngine.currentLevelConfig?.isEndless) {
             this.drawEndlessWaveInfo(ctx);
