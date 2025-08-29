@@ -31,21 +31,24 @@ import FireIdle from "./defender/fire-idle.png"
 import FireAttack from "./defender/fire-attack.png"
 import IceIdle from "./defender/ice-idle.png"
 import IceAttack from "./defender/ice-attack.png"
-
+import MushroomIdle from "./enemies/Mushroom-Idle.png"
+import MushroomAttack from "./enemies/Mushroom-Attack.png"
+import MushroomDeath from "./enemies/Mushroom-Die.png"
+import MushroomRun from "./enemies/Mushroom-Run.png"
 export const AssetManifest = {
     enemies: {
         'Basic Zombie': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => MushroomIdle,
+                move: () => MushroomRun,
+                attack: () => MushroomAttack,
+                death: () => MushroomDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                attack: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 15 },
-                death: { frameCount: 15, frameWidth: 64, frameHeight: 64, fps: 10, loop: false }
+                idle: { frameCount: 7, frameWidth: 80, frameHeight: 64, fps: 7 },
+                move: { frameCount: 8, frameWidth: 80, frameHeight: 64, fps: 8 },
+                attack: { frameCount: 10, frameWidth: 80, frameHeight: 64, fps: 10 },
+                death: { frameCount: 15, frameWidth: 80, frameHeight: 64, fps: 15, loop: false }
             }
         },
         'Fast Zombie': {
