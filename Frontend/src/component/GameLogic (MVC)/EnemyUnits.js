@@ -388,8 +388,8 @@ export class BasicEnemy extends Enemy {
       speed: 0.8,
       health: 100,
       color: "darkgreen",
-      width: 64,
-      height: 80,
+      width: 80,
+      height: 64,
       image: image,
       bounty: 10,
       isAttacker: true, // Basic Zombie attacks
