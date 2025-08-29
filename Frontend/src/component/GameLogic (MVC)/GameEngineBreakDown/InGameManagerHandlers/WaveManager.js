@@ -55,11 +55,9 @@ export class WaveManager {
 
             // Keep spawning until we hit the wave's enemy count
             if (waveConfig && this.waveEnemiesSpawned < waveConfig.enemyCount) {
-                // Don't exceed max active enemies on screen
-                if (enemyCount < this.config.maxActiveEnemies) {
                     this.spawnWaveEnemies(now, enemyCount, waveConfig);
-                }
-            } else if (waveConfig && this.waveEnemiesSpawned >= waveConfig.enemyCount && !this.waveFullySpawned) {
+            } else if (waveConfig && this.waveEnemiesSpawned >= waveConfig.enemyCount
+                       && !this.waveFullySpawned) {
                 this.waveFullySpawned = true;
                 console.log(`Wave ${this.currentWave} fully spawned with ${this.waveEnemiesSpawned} enemies`);
                 // Check if all enemies for all waves have been spawned (for level completion)

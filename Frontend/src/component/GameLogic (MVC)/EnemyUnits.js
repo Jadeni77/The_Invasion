@@ -73,6 +73,9 @@ export class Enemy {
     this.burningDamage = 0;
     this.burningDuration = 0;
 
+    this.stunned = false;
+    this.stunnedDuration = 0;
+
 
   }
 
@@ -141,7 +144,7 @@ export class Enemy {
   }
 
   attack(target, currentTime) {
-    if (!this.isAlive || !target || !target.isAlive) return;
+    if (!this.isAlive || !target || !target.isAlive || this.frozen || this.stunned) return;
 
     target.takeDamage(this.attackDamage);
 
@@ -192,7 +195,7 @@ export class Enemy {
         );
       });
 
-      if (targetDefender && !this.frozen) {
+      if (targetDefender && !this.frozen && !this.stunned) {
         this.speed = 0;
         this.isAttacking = true;
         this.attackCountdown--;
@@ -475,7 +478,7 @@ export class BombEnemy extends Enemy {
   // Explode on death
   takeDamage(amount, ignoreArmor = false) {
     const died = super.takeDamage(amount, ignoreArmor);
-    if (died) {
+    if (died && !this.shouldExplode) {
       this.shouldExplode = true; // Mark for explosion
       this.exploderBySelf = false;
 
@@ -506,7 +509,7 @@ export class BombEnemy extends Enemy {
         (defender) => defender.isAlive &&
                       Math.hypot(this.x - defender.x, this.y - defender.y) <
                       this.explosionRadius / 2); //reduce range for explosion detection
-    if (nearestDefender) {
+    if (nearestDefender && !this.frozen && !this.stunned) {
       console.log(`${this.name} self-destructs near a defender!`);
       console.log(`${this.name} deal ${this.attackDamage}`)
       this.shouldExplode = true; // Mark for explosion
@@ -574,7 +577,8 @@ export class RangeEnemy extends Enemy {
   updateBehavior(defenderUnits) {
     const targetDefender = this.findClosestDefender(defenderUnits);
 
-    if (targetDefender && !this.frozen && this.getDistanceTo(targetDefender) <= this.attackRange) {
+    if (targetDefender && !this.frozen && !this.stunned &&
+        this.getDistanceTo(targetDefender) <= this.attackRange) {
       this.isMoving = false;
       this.isAttacking = true;
       this.attackCountdown--;
@@ -874,7 +878,8 @@ export class SwarmLeader extends Enemy {
 
     const targetDefender = this.findClosestDefender(defenderUnits);
 
-    if (targetDefender && !this.frozen && this.getDistanceTo(targetDefender) <= this.attackRange) {
+    if (targetDefender && !this.frozen && !this.stunned &&
+        this.getDistanceTo(targetDefender) <= this.attackRange) {
       this.isMoving = false;
       this.isAttacking = true;
     } else {
@@ -1126,7 +1131,8 @@ export class VampireEnemy extends Enemy {
   updateBehavior(defenderUnits) {
     const targetDefender = this.findClosestDefender(defenderUnits);
 
-    if (targetDefender && !this.frozen && this.getDistanceTo(targetDefender) <= this.attackRange) {
+    if (targetDefender && !this.frozen && !this.stunned &&
+        this.getDistanceTo(targetDefender) <= this.attackRange) {
       this.isMoving = false;
       this.isAttacking = true;
     } else {
@@ -1213,7 +1219,7 @@ export class GhostEnemy extends Enemy {
         );
         return distance <= 200;
       });
-      if (nearByDefender) {
+      if (nearByDefender && !this.stunned && !this.frozen) {
         this.isPhased = true;
         this.currentPhaseDuration = this.phaseDuration;
         this.currentPhaseShiftCooldown = this.phaseShiftCooldown;
@@ -1304,7 +1310,8 @@ export class BerserkerEnemy extends Enemy {
     //find closest defender within range
     const targetDefender = this.findClosestDefender(defenderUnits);
 
-    if (targetDefender && this.getDistanceTo(targetDefender) <= this.attackRange) {
+    if (targetDefender && !this.frozen && !this.stunned &&
+        this.getDistanceTo(targetDefender) <= this.attackRange) {
       this.isMoving = false;
     } else {
       this.isMoving = true;
@@ -1315,7 +1322,7 @@ export class BerserkerEnemy extends Enemy {
   }
 
   attack(target, currentTime) {
-    if (!this.isAlive || !target || !target.isAlive) return;
+    if (!this.isAlive || !target || !target.isAlive || this.frozen || this.stunned) return;
 
     const totalDamage = this.attackDamage + this.damageBonus;
     const died = target.takeDamage(totalDamage);
@@ -1405,7 +1412,8 @@ export class NecromancerEnemy extends Enemy {
 
     const targetDefender = this.findClosestDefender(defenderUnits);
 
-    if (targetDefender && !this.frozen && this.getDistanceTo(targetDefender) <= this.attackRange) {
+    if (targetDefender && !this.frozen && !this.stunned
+        && this.getDistanceTo(targetDefender) <= this.attackRange) {
       this.isMoving = false;
       this.isAttacking = true;
     } else {
@@ -1552,7 +1560,7 @@ export class AssassinEnemy extends Enemy {
         );
       });
 
-      if (targetDefender) {
+      if (targetDefender && !this.frozen && !this.stunned) {
         this.isAttacking = true;
         this.isStealthed = false;
         this.hasStruck = true;
@@ -1583,14 +1591,14 @@ export class AssassinEnemy extends Enemy {
   }
 
   handleMovement() {
-    if (!this.isAttacking && !this.frozen && !this.stunned && !this.isCasting) {
+    if (!this.isAttacking && !this.frozen && !this.stunned) {
       this.x += this.isStealthed ? this.dashSpeed : this.speed;
     }
   }
 
   takeDamage(amount, ignoreArmor = false) {
     if (this.isStealthed) {
-      return false; //90% dodge
+      return false; //100% dodge
     }
     //break stealth on damage
     if (this.isStealthed) {
@@ -2076,7 +2084,7 @@ export class TitanEnemy extends Enemy {
         );
         return distance <= this.earthquakeRadius;
       });
-      if (nearbyDefender) {
+      if (nearbyDefender && !this.frozen) {
         this.performGroundPound();
       }
     }

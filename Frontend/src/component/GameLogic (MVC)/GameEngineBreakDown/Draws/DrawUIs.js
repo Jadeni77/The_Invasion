@@ -158,11 +158,9 @@ export class DrawUIs {
         if (waveManager) {
             const currentWave = waveManager.currentWave;
             const totalWaves = this.gameEngine.currentLevelConfig.waves;
-            const enemiesLeft = this.gameEngine.currentLevelConfig.totalEnemiesToSpawn -
-                                waveManager.enemiesSpawnedThisLevel;
 
             ctx.fillText(
-                `Wave: ${currentWave}/${totalWaves} | Enemies Left: ${enemiesLeft}`,
+                `Wave: ${currentWave}/${totalWaves}`,
                 this.gameEngine.canvasWidth / 2,
                 20
             );

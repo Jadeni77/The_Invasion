@@ -571,21 +571,6 @@ export class HealerDefender extends DefenderUnit {
   draw(ctx) {
     super.draw(ctx);
 
-    // Optional: Draw a healing aura when healing
-    if (this.healingCountdown <= 20 && this.healingCountdown > 0) {
-      ctx.beginPath();
-      ctx.arc(
-          this.x + this.width / 2,
-          this.y + this.height / 2,
-          this.healingRange,
-          0,
-          Math.PI * 2
-      );
-      ctx.strokeStyle = "rgba(0, 255, 0, " + this.healingCountdown / 20 + ")";
-      ctx.lineWidth = 3;
-      ctx.stroke();
-    }
-
     // Draw healing aura when healing
     if (this.isHealing && this.healAnimationTimer > 0) {
       ctx.save();
