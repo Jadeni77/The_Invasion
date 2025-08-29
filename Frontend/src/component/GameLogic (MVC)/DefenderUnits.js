@@ -845,7 +845,10 @@ export class BarricadeDefender extends DefenderUnit {
       image: cardData.image,
     }
     super(x, y, typeData);
-    this.gotHit = false;
+
+    this.hitAnimationTimer = 0;
+    this.hitAnimationDuration = 500;
+    this.lastHitTime = 0;
   }
 
   applyLevelUpgrades() {
@@ -885,7 +888,8 @@ export class BarricadeDefender extends DefenderUnit {
   takeDamage(amount) {
     const died = super.takeDamage(amount);
     if (!died) {
-      this.gotHit = true;
+      this.hitAnimationTimer = this.hitAnimationDuration;
+      this.lastHitTime = Date.now();
       return false;
     }
     return true;
@@ -900,10 +904,17 @@ export class BarricadeDefender extends DefenderUnit {
       return;
     }
 
+    if (this.hitAnimationTimer > 0) {
+      this.hitAnimationTimer -= 16;
+      if (this.hitAnimationTimer <= 0) {
+        this.hitAnimationTimer = 0;
+      }
+    }
+
     // Determine animation state
     if (this.disabled) {
       this.setAnimation('idle');
-    } else if (this.gotHit) {
+    } else if (this.hitAnimationTimer > 0) {
       this.setAnimation('attack');
     } else {
       this.setAnimation('idle');
