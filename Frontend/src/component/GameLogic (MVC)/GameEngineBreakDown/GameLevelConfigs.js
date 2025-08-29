@@ -26,7 +26,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 5,
                     spawnInterval: 3000,
-                    enemyTypes: ["Basic Zombie"],
+                    enemyTypes: ["Skeleton Shooter"],
                     spawnPattern: "standard"
                 },
                 {
@@ -568,7 +568,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 120,
             waves: 9,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 120,
+            initialEnergy: 500,
             waveConfigurations: [
                 {
                     enemyCount: 13,
