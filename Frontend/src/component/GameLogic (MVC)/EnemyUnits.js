@@ -266,6 +266,18 @@ export class Enemy {
   }
 
   draw(ctx) {
+    ctx.save();
+
+    // ADD THESE LINES - Critical for pixel art!
+    ctx.imageSmoothingEnabled = false;
+    ctx.webkitImageSmoothingEnabled = false;
+    ctx.mozImageSmoothingEnabled = false;
+    ctx.msImageSmoothingEnabled = false;
+
+    // Your flip code if you have it
+    ctx.scale(-1, 1);
+    ctx.translate(-this.x * 2 - this.width, 0);
+
     if (this.animationFrames && this.animationFrames[this.currentAnimation]) {
       const frames = this.animationFrames[this.currentAnimation];
       if (frames && frames[this.animationFrame]) {
@@ -288,6 +300,8 @@ export class Enemy {
     } else {
       this.drawFallback(ctx);
     }
+
+    ctx.restore();
 
     if (this.isAlive) {
       // Unit name text
