@@ -790,13 +790,20 @@ export class GameEngine {
       }
     }
 
-    if (enemy.shouldExplode) {
+    if (enemy.shouldExplode && enemy.exploderBySelf) {
       this.addEnemyExplosion(
           enemy.x + enemy.width / 2,
           enemy.y + enemy.height / 2,
           enemy.attackDamage,
           enemy.explosionRadius,
           );
+    } else if (enemy.shouldExplode && !enemy.exploderBySelf) {
+      this.addEnemyExplosion(
+          enemy.x + enemy.width / 2,
+          enemy.y + enemy.height / 2,
+          enemy.attackDamage / 2,
+          enemy.explosionRadius / 2,
+      );
     }
   }
 

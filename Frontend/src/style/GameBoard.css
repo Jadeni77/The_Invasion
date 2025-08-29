@@ -34,6 +34,11 @@
   border: 1px solid #3a6a9a;
   border-radius: 20px;
   padding: 5px 15px;
+  min-width: fit-content; /* Ensures minimum width for content */
+}
+
+.energy-container {
+  min-width: 100px; /* Fixed minimum width */
 }
 
 .energy-icon {
@@ -43,6 +48,7 @@
 }
 
 .energy-value {
+  min-width: 35px; /* Reserve space for 3 digits */
   font-size: 20px;
   font-weight: bold;
   color: white;
