@@ -213,6 +213,7 @@ const GameBoard = () => {
     //try to remove defender if shovelmode active
     if (shovelMode) {
       const removed = removeDefender(x, y);
+      setShovelMode(false);
       if (removed) {
         console.log("Defender removed successfully");
         //Can add refund mechanism here

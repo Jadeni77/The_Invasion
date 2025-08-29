@@ -146,12 +146,13 @@
   height: 0;
 }
 
-/* Shovel Tool Button Styles */
 .tool-slot {
   display: flex;
   align-items: center;
   justify-content: center;
   margin-right: 10px;
+  /* Add position relative to create a positioning context */
+  position: relative;
 }
 
 .shovel-button {
@@ -164,9 +165,13 @@
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  /* Prevent layout shifts */
+  position: relative;
+  top: 0;
 }
 
-.shovel-button:hover {
+/* Only apply transform on hover when NOT active */
+.shovel-button:hover:not(.active) {
   background: linear-gradient(135deg, #7a7a7a 0%, #5a5a5a 100%);
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
@@ -176,6 +181,15 @@
   background: linear-gradient(135deg, #ff6b6b 0%, #ff4444 100%);
   border-color: #ff4444;
   animation: pulse 1s infinite;
+  /* Explicitly set transform to none to prevent inheritance */
+  transform: none !important;
+  /* Keep it in place */
+  top: 0;
+}
+
+/* Prevent any transform when clicking (active state) */
+.shovel-button:active {
+  transform: translateY(0) !important;
 }
 
 @keyframes pulse {
@@ -193,6 +207,21 @@
 /* Update cursor style when in shovel mode */
 .game-canvas.shovel-mode {
   cursor: crosshair !important;
+}
+
+/* Additional fixes for the container to prevent shifts */
+.game-bottom-bar {
+  position: relative;
+  /* Ensure consistent height */
+  min-height: 120px;
+}
+
+.card-slots-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  /* Prevent flex items from moving */
 }
 
 /* Card slot wrapper */
