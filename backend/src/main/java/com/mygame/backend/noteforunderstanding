@@ -1,0 +1,47 @@
+Controller -> Handles requests/responses
+- Handles HTTP requests (from frontend or external clients)
+- Entry point for REST API
+
+Service -> Contains business logic
+- Contains business logic (think of it as model)
+- Controllers call services, and services handle the "thinking"
+
+Repository -> Talks to the database
+- Talks directly to the database
+- Extends Spring Data JPA's JpaRepository
+
+Entity -> Represents database tables
+- Defines the database tables as Java classes
+- Fields map to table columns
+@Entity
+class Book {
+    @Id
+    Long id;
+    ...
+}
+
+DTO (Data Transfer Object) -> Defines data shape for API
+- Represents data sent between backend <--> frontend
+- Prevents exposing entity details (e.g. passwords)
+- Usually used in controllers and services
+
+Config -> Holds configuration
+- Store configuration classes (CORS, security, beans, etc..)
+
+Frontend -> Controller -> Service -> Repository -> Entity -> SQL Database (H2/Postgres)
+React    REST API layer   Model      db access     db table    db
+
+
+mvn clean install
+- First time setting up project
+- After adding new dependency in pom.xml
+- When create new JAR file
+- Encounter weird compilation issue
+
+mvn spring-boot:run
+- Start backend maven application
+- Automatic compile files
+
+mvn compile
+- Check compile
+- Verify code syntax
