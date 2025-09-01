@@ -8,6 +8,8 @@ import React, {
   useCallback,
 } from "react";
 import {chestsData} from "../GameRendering/MapLayout.jsx";
+import {SessionManager} from "./SessionManager.js";
+import card from "../common/Card.jsx";
 
 export const GameContext = createContext();
 
@@ -204,151 +206,281 @@ export const GameProvider = ({ children }) => {
   // Backend API integration points
   const fetchPlayerData = useCallback(async () => {
     try {
-      // Mock data until backend is implemented
-      const mockData = {
-        id: "player-123",
-        name: "Garden Defender",
-        rank: "Novice Gardener",
-        resources: {
-          gold: 500,
-          lobbyEnergy: 50, // Current energy
-          maxLobbyEnergy: 100, // Maximum energy capacity
-          energyRechargeRate: 1, // Energy per minute
-          lastEnergyRechargeTime: Date.now(), // Last recharge timestamp
-          workers: 4,
-          iron: 20,
-          grain: 30,
-          water: 40,
-          gem: 5,
+      const sessionId = SessionManager.getOrCreateSessionId();
+      const response = await fetch(`http://localhost:8080/api/player/session/${sessionId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        cards: [
-          {
-            id: 1,
-            name: "Basic Cop",
-            level: 1,
-            pieces: 100,
-            piecesNeeded: 10,
-            upgradeCost: { gold: 100, iron: 5, water: 3 },
-          },
-          {
-            id: 2,
-            name: "Healer Cop",
-            level: 5,
-            pieces: 10,
-            piecesNeeded: 10,
-            upgradeCost: { gold: 150, grain: 10, water: 5, gem: 1 },
-          },
-          {
-            id: 3,
-            name: "Grenadier",
-            level: 5,
-            pieces: 10,
-            piecesNeeded: 10,
-            upgradeCost: { gold: 200, iron: 15, gem: 2 },
-          },
-          {
-            id: 4,
-            name: "Barricade",
-            level: 5,
-            pieces: 0,
-            piecesNeeded: 10,
-            cost: 30,
-            upgradeCost: { gold: 120, iron: 20, grain: 5 },
-          },
-          {
-            id: 5,
-            name: "Energy Generator",
-            level: 5,
-            pieces: 0,
-            piecesNeeded: 10,
-            cost: 25,
-            upgradeCost: { gold: 80, water: 10, grain: 20},
-          },
-          {
-            id: 6,
-            name: "Sniper",
-            level: 5,
-            pieces: 0,
-            piecesNeeded: 25,
-            cost: 80,
-            upgradeCost: { gold: 130, water: 60, grain: 35},
-          },
-          {
-            id: 7,
-            name: "Mortar",
-            level: 5,
-            pieces: 0,
-            piecesNeeded: 15,
-            upgradeCost: { gold: 250, iron: 30, water: 20, gem: 1 },
-          },
-          {
-            id: 8,
-            name: "Frost Archer",
-            level: 5,
-            pieces: 0,
-            piecesNeeded: 25,
-            upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
-          },
-          {
-            id: 9,
-            name: "Fire Blast",
-            level: 5,
-            pieces: 0,
-            piecesNeeded: 25,
-            upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
-          },
-          {
-            id: 10,
-            name: "Ice Bomb",
-            level: 5,
-            pieces: 0,
-            piecesNeeded: 25,
-            upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
-          }
-        ],
-        unlockedLevels: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,999],
-        completedLevels: [],
-        levelStars: Array(20).fill(0), // Stars for levels 1-20
+      });      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      console.log("Received player data:", data);
+
+      //transform backend to mathc frontend
+      const playerData = {
+        id: data.id,
+        sessionId: data.sessionId,
+        name: data.name,
+        rank: data.rank,
+        resources: {
+          gold: data.gold,
+          lobbyEnergy: data.lobbyEnergy,
+          maxLobbyEnergy: data.maxLobbyEnergy,
+          energyRechargeRate: 1,
+          lastEnergyRechargeTime: new Date(data.lastEnergyRechargeTime).getTime(),
+          iron: data.iron,
+          grain: data.grain,
+          water: data.water,
+          gem: data.gem,
+        },
+        cards: data.cards.map(card => ({
+          id: card.id,
+          name: card.name,
+          level: card.level,
+          pieces: card.pieces,
+          piecesNeeded: card.piecesNeeded,
+          upgradeCost: getUpgradeCost(card.name, card.level),
+        })),
+        unlockedLevels: data.unlockedLevels || [1],
+        completedLevels: data.completedLevels || [],
+        levelStars: data.levelStars || Array(20).fill(0),
         collectedTreasures: [],
         revealedSecrets: [],
         endlessHighScore: 0,
-        endlessStats: {
-          totalWaves: 0,
-          totalRuns: 0,
-          bestDifficulty: null
-        },
+        endlessStats: {totalWaves: 0, totalRuns: 0},
         achievements: [],
-        totalStars: 0
+        totalStars: data.levelStars ? data.levelStars.reduce((a, b) => a + b, 0) : 0
       };
-      setPlayerData(mockData);
-    } catch (error) {
-      console.error("Failed to fetch player data:", error);
-      // Fallback to empty state
-      setPlayerData({
-        resources: {
-          gold: 0,
-          lobbyEnergy: 0,
-          maxLobbyEnergy: 0,
-          energyRechargeRate: 0,
-          lastEnergyRechargeTime: 0,
-          iron: 0,
-          grain: 0,
-          water: 0,
-          gem: 0,
-        },
-        cards: [],
-        unlockedLevels: [1],
-        completedLevels: [],
-        levelStars: Array(20).fill(0),
-        collectedTreasures: [],
-        revealedSecrets: [],
-        endlessHighScore: 0,
-        endlessStats: { totalWaves: 0, totalRuns: 0 },
-        achievements: [],
-        totalStars: 0
-      });
+      setPlayerData(playerData);
+    } catch (e) {
+      console.error("Fail to fetch data:", e);
+      //fallback to default data
+      setPlayerData(getDefaultPlayerData());
+
+      //  unlockedLevels: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,999],
+      //       //     completedLevels: [],
+      //       //     levelStars: Array(20).fill(0), // Stars for levels 1-20
+      //       //     collectedTreasures: [],
+      //       //     revealedSecrets: [],
+      //       //     endlessHighScore: 0,
+      //       //     endlessStats: {
+      //       //       totalWaves: 0,
+      //       //       totalRuns: 0,
+      //       //       bestDifficulty: null
+      //       //     },
+      //       //     achievements: [],
+      //       //     totalStars: 0
+      //
+      // Mock data until backend is implemented
+      //   const mockData = {
+      //     id: "player-123",
+      //     name: "Garden Defender",
+      //     rank: "Novice Gardener",
+      //     resources: {
+      //       gold: 500,
+      //       lobbyEnergy: 50, // Current energy
+      //       maxLobbyEnergy: 100, // Maximum energy capacity
+      //       energyRechargeRate: 1, // Energy per minute
+      //       lastEnergyRechargeTime: Date.now(), // Last recharge timestamp
+      //       workers: 4,
+      //       iron: 20,
+      //       grain: 30,
+      //       water: 40,
+      //       gem: 5,
+      //     },
+      //     cards: [
+      //       {
+      //         id: 1,
+      //         name: "Basic Cop",
+      //         level: 1,
+      //         pieces: 100,
+      //         piecesNeeded: 10,
+      //         upgradeCost: { gold: 100, iron: 5, water: 3 },
+      //       },
+      //       {
+      //         id: 2,
+      //         name: "Healer Cop",
+      //         level: 5,
+      //         pieces: 10,
+      //         piecesNeeded: 10,
+      //         upgradeCost: { gold: 150, grain: 10, water: 5, gem: 1 },
+      //       },
+      //       {
+      //         id: 3,
+      //         name: "Grenadier",
+      //         level: 5,
+      //         pieces: 10,
+      //         piecesNeeded: 10,
+      //         upgradeCost: { gold: 200, iron: 15, gem: 2 },
+      //       },
+      //       {
+      //         id: 4,
+      //         name: "Barricade",
+      //         level: 5,
+      //         pieces: 0,
+      //         piecesNeeded: 10,
+      //         cost: 30,
+      //         upgradeCost: { gold: 120, iron: 20, grain: 5 },
+      //       },
+      //       {
+      //         id: 5,
+      //         name: "Energy Generator",
+      //         level: 5,
+      //         pieces: 0,
+      //         piecesNeeded: 10,
+      //         cost: 25,
+      //         upgradeCost: { gold: 80, water: 10, grain: 20},
+      //       },
+      //       {
+      //         id: 6,
+      //         name: "Sniper",
+      //         level: 5,
+      //         pieces: 0,
+      //         piecesNeeded: 25,
+      //         cost: 80,
+      //         upgradeCost: { gold: 130, water: 60, grain: 35},
+      //       },
+      //       {
+      //         id: 7,
+      //         name: "Mortar",
+      //         level: 5,
+      //         pieces: 0,
+      //         piecesNeeded: 15,
+      //         upgradeCost: { gold: 250, iron: 30, water: 20, gem: 1 },
+      //       },
+      //       {
+      //         id: 8,
+      //         name: "Frost Archer",
+      //         level: 5,
+      //         pieces: 0,
+      //         piecesNeeded: 25,
+      //         upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
+      //       },
+      //       {
+      //         id: 9,
+      //         name: "Fire Blast",
+      //         level: 5,
+      //         pieces: 0,
+      //         piecesNeeded: 25,
+      //         upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
+      //       },
+      //       {
+      //         id: 10,
+      //         name: "Ice Bomb",
+      //         level: 5,
+      //         pieces: 0,
+      //         piecesNeeded: 25,
+      //         upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
+      //       }
+      //     ],
+      //     unlockedLevels: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,999],
+      //     completedLevels: [],
+      //     levelStars: Array(20).fill(0), // Stars for levels 1-20
+      //     collectedTreasures: [],
+      //     revealedSecrets: [],
+      //     endlessHighScore: 0,
+      //     endlessStats: {
+      //       totalWaves: 0,
+      //       totalRuns: 0,
+      //       bestDifficulty: null
+      //     },
+      //     achievements: [],
+      //     totalStars: 0
+      //   };
+      //   setPlayerData(mockData);
+      // } catch (error) {
+      //   console.error("Failed to fetch player data:", error);
+      //   // Fallback to empty state
+      //   setPlayerData({
+      //     resources: {
+      //       gold: 0,
+      //       lobbyEnergy: 0,
+      //       maxLobbyEnergy: 0,
+      //       energyRechargeRate: 0,
+      //       lastEnergyRechargeTime: 0,
+      //       iron: 0,
+      //       grain: 0,
+      //       water: 0,
+      //       gem: 0,
+      //     },
+      //     cards: [],
+      //     unlockedLevels: [1],
+      //     completedLevels: [],
+      //     levelStars: Array(20).fill(0),
+      //     collectedTreasures: [],
+      //     revealedSecrets: [],
+      //     endlessHighScore: 0,
+      //     endlessStats: { totalWaves: 0, totalRuns: 0 },
+      //     achievements: [],
+      //     totalStars: 0
+      //   });
+      // }
     }
   }, []);
+
+  const getUpgradeCost = (cardName, level) => {
+    const baseCosts = {
+      "Basic Cop": { gold: 100, iron: 5, water: 3 },
+      "Healer Cop": { gold: 150, grain: 10, water: 5, gem: 1 },
+      "Grenadier": { gold: 200, iron: 15, gem: 2 },
+      "Barricade": { gold: 120, iron: 20, grain: 5 },
+      "Energy Generator": { gold: 80, water: 10, grain: 20 },
+      "Sniper": { gold: 130, water: 60, grain: 35 },
+      "Mortar": { gold: 250, iron: 30, water: 20, gem: 1 },
+      "Frost Archer": { gold: 300, iron: 30, water: 20, gem: 2 },
+      "Fire Blast": { gold: 300, iron: 30, water: 20, gem: 2 },
+      "Ice Bomb": { gold: 300, iron: 30, water: 20, gem: 2 }
+    };
+    const base = baseCosts[cardName] || {gold : 100};
+    const multiplier = Math.pow(1.5, level - 1);
+    const cost = {};
+    Object.entries(base).forEach(([resource, amount]) => {
+      cost[resource] = Math.floor(amount * multiplier);
+    });
+    return cost;
+  };
+
+  const getDefaultPlayerData = () => {
+    return {
+      id: "default-player",
+      sessionId: SessionManager.getOrCreateSessionId(),
+      name: "Garden Defender",
+      rank: "Novice Gardener",
+      resources: {
+        gold: 100,
+        lobbyEnergy: 50, // Current energy
+        maxLobbyEnergy: 100, // Maximum energy capacity
+        energyRechargeRate: 1, // Energy per minute
+        lastEnergyRechargeTime: Date.now(), // Last recharge timestamp
+        workers: 4,
+        iron: 10,
+        grain: 30,
+        water: 40,
+        gem: 5,
+      },
+      cards: [
+        {
+          id: 1,
+          name: "Basic Cop",
+          level: 1,
+          pieces: 0,
+          piecesNeeded: 10,
+          upgradeCost: {gold: 100, iron: 5, water: 3},
+        },
+      ],
+      unlockedLevels: [1],
+      completedLevels: [],
+      levelStars: Array(20).fill(0),
+      collectedTreasures: [],
+      revealedSecrets: [],
+      endlessHighScore: 0,
+      endlessStats: {totalWaves: 0, totalRuns: 0},
+      achievements: [],
+      totalStars: 0
+    };
+  };
 
   // Energy recharge system
   useEffect(() => {
@@ -551,7 +683,6 @@ export const GameProvider = ({ children }) => {
         //clear collection after adding to player data
         setCollectedCardPieces([]);
       }
-
       setGameState("lobby");
       setGameOver(false); // Reset UI state
       setGameWon(false); // Reset UI state
