@@ -13,16 +13,20 @@ public class DataInitializer {
   @Bean
   CommandLineRunner init(PlayerRepository playerRepository) {
     return args -> {
-      Player testPlayer = new Player();
-      testPlayer.setUsername("testuser");
-      testPlayer.setDisplayName("Test Player");
+      //create a test player with test session ID
+      if (!playerRepository.existsBySessionId("test-session-123")) {
+        Player testPlayer = new Player();
+        testPlayer.setSessionId("test-session-123");
+        testPlayer.setDisplayName("Test Player");
+        testPlayer.setGold(9999);
 
-      Player saved = playerRepository.save(testPlayer);
-      System.out.println("========================================");
-      System.out.println("Test player created!");
-      System.out.println("Player ID: " + saved.getId());
-      System.out.println("Username: " + saved.getUsername());
-      System.out.println("========================================");
+        Player saved = playerRepository.save(testPlayer);
+        System.out.println("========================================");
+        System.out.println("Test player created!");
+        System.out.println("Player ID: " + saved.getId());
+        System.out.println("Username: " + saved.getId());
+        System.out.println("========================================");
+      }
     };
   }
 
