@@ -26,7 +26,8 @@ const Lobby = () => {
     openUpgradeModal,
     openAchievements,
     openCollection,
-    openSettings
+    openSettings,
+    setPlayerData,
   } = useGame();
   const [mapPosition, setMapPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -215,21 +216,40 @@ const Lobby = () => {
     // This would involve calling a function from GameContext to update player data
     // Example: updateResource('gold', 100); or a dedicated collectTreasure function
     const chest = chestsData.find(c => c.id === chestId);
-    if (chest) {
-      //update player resources
+    if (!chest || !playerData ||!playerData.resources) {
+      console.error("Cannot collect treasure: player data or resources not loaded");
+      return;
+    }
+    //update resources safely
+    setPlayerData(prev => {
+      if (!prev || !prev.resources) return prev;
+
+      const updateResources = {...prev.resources};
+      const updateTreasures = [...(prev.collectedTreasures || [])];
+
       Object.entries(chest.rewards).forEach(([resource, amount]) => {
         if (resource === 'all') { // Fixed: = to ===
           // Add to all resources
           ['gold', 'iron', 'grain', 'water'].forEach(res => {
-            playerData.resources[res] += amount;
+            if (updateResources[res] !== undefined) {
+              updateResources[res] += amount;
+            }
           });
-        } else {
-          playerData.resources[resource] += amount;
+        } else if (updateResources[resource] !== undefined) {
+          updateResources[resource] += amount;
         }
       });
-      playerData.collectedTreasures.push(chestId);
-    }
-  };
+
+      if (!updateTreasures.includes(chestId)) {
+        updateTreasures.push(chestId);
+      }
+      return {
+        ...prev,
+        resources: updateResources,
+        collectedTreasures: updateTreasures
+      }
+    });
+  }
 
   // Handle level node click
   const handleLevelNodeClick = (levelId) => {
@@ -329,7 +349,16 @@ const Lobby = () => {
     );
   };
 
-  if (!playerData) return <div>Loading...</div>;
+  if (!playerData || !playerData.resources) {
+    return (
+        <div className="lobby-container">
+          <div className="loading-screen">
+            <h2>Loading Game Data...</h2>
+            <div className="loading-spinner"></div>
+          </div>
+        </div>
+    );
+  }
   if (gameState === "upgrade") return <UpgradeModal />;
 
   // Render Lobby UI

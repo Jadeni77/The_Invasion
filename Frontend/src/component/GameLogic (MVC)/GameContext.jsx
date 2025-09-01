@@ -796,6 +796,7 @@ export const GameProvider = ({ children }) => {
   const gameAPI = {
     gameState,
     playerData,
+    setPlayerData,
     selectedLevel,
     inGameEnergy,
     inGameScore,
