@@ -707,6 +707,10 @@
   height: 100px;
   cursor: pointer;
   z-index: 15;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-left: -120px;
+  margin-top: -50px;
 }
 
 .endless-portal.locked {
