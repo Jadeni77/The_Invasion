@@ -7,10 +7,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
+/**
+ * Handles Request/Responses
+ */
 @RestController
 @RequestMapping("/api/player")
 @CrossOrigin (origins = "http://localhost:5173")
@@ -24,13 +30,24 @@ public class PlayerController {
     return ResponseEntity.ok("Backend is running!");
   }
 
-  @GetMapping("/{id}")
-  public ResponseEntity<Player> getPlayer(@PathVariable String id) {
-    return ResponseEntity.ok(playerService.getPlayerById(id));
+  @GetMapping("/session/{sessionId}")
+  public ResponseEntity<Player> getPlayerData(@PathVariable String sessionId) {
+    return ResponseEntity.ok(playerService.getOrCreatePlayer(sessionId));
   }
 
-  @GetMapping("create")
-  public ResponseEntity<Player> createPlayer(@RequestBody String username) {
-    return ResponseEntity.ok(playerService.createPlayer(username));
+  @PostMapping("/session/{sessionId}/complete-level")
+  public ResponseEntity<Player> completeLevel(@PathVariable String sessionId, @RequestBody Map<String, Object> request) {
+    int levelId = (int) request.get("levelId");
+    int score = (int) request.get("score");
+    int stars = (int) request.get("stars");
+
+    return ResponseEntity.ok(playerService.completeLevel(sessionId, levelId, score, stars));
+  }
+
+  @PostMapping("/session/{sessionId}/add-card-pieces")
+  public ResponseEntity<Player> addCardPieces(@PathVariable String sessionId, @RequestBody Map<String, Object> request) {
+    String cardName = (String) request.get("cardName");
+    int pieces = (int) request.get("pieces");
+    return ResponseEntity.ok(playerService.addCardPieces(sessionId, cardName, pieces));
   }
 }
