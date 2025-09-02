@@ -374,7 +374,7 @@ export class Enemy {
   }
 
   setGameEngine(engine) {
-    console.log(`Setting gameEngine for ${this.name}`);
+   // console.log(`Setting gameEngine for ${this.name}`);
     this.gameEngine = engine;
   }
 }

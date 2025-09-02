@@ -11,22 +11,17 @@ export class AnimationManager {
      * Load multiple sprite sheets for one unit type
      */
     async loadUnitAnimation(unitType, animationFiles) {
-        console.log(`📦 Loading animations for ${unitType}`);
         const loadedAnimations = {};
 
         //load each animation file
         for (const [animName, fileData] of Object.entries(animationFiles)) {
-            console.log(`🔄 Attempting to load ${animName}: ${fileData.path}`);
 
             const img = new Image();
             img.src = fileData.path;
 
             const imageLoaded = await new Promise((resolve, reject) => {
                 img.onload = () => {
-                    console.log(`✓ Loaded ${animName} for ${unitType}: ${fileData.path}`);
-                    console.log(`  Image dimensions: ${img.naturalWidth}x${img.naturalHeight}`);
-                    console.log(`  Expected frames: ${fileData.frameCount} (${fileData.frameWidth}x${fileData.frameHeight} each)`);
-                    resolve(true);
+                     resolve(true);
                 }
                 img.onerror = (error) => {
                     console.error(`❌ Failed to load ${animName} for ${unitType}: ${fileData.path}`);
@@ -41,7 +36,6 @@ export class AnimationManager {
                 const frames = this.extractFrames(img, fileData);
                 const cacheKey = `${unitType}_${animName}`;
                 this.frameCache.set(cacheKey, frames);
-                console.log(`📌 Cached ${frames.length} frames with key: ${cacheKey}`);
 
                 loadedAnimations[animName] = {
                     frames: frames,
@@ -60,8 +54,7 @@ export class AnimationManager {
         }
 
         this.animations.set(unitType, loadedAnimations);
-        console.log(`✅ Finished loading animations for ${unitType}:`, loadedAnimations);
-        this.debugAnimations();
+      //  this.debugAnimations();
     }
 
     extractFrames(image, config) {
@@ -71,7 +64,6 @@ export class AnimationManager {
         // Check if cropping is needed (cropConfig might be undefined)
         const needsCrop = cropConfig && cropConfig.enabled;
 
-        console.log(`Extracting ${frameCount} frames (${frameWidth}x${frameHeight} each)`);
         if (needsCrop) {
             console.log(`Cropping enabled: extracting ${cropConfig.cropWidth}x${cropConfig.cropHeight} from center`);
         }
