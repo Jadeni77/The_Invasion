@@ -1,6 +1,7 @@
 package com.mygame.backend.entity;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.*;
@@ -51,6 +52,9 @@ public class Player {
   @ElementCollection
   @CollectionTable(name = "level_stars", joinColumns = @JoinColumn(name = "player_id"))
   private List<Integer> levelStars;
+
+  @ElementCollection
+  private List<String> collectedTreasures = new ArrayList<>();
 
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
