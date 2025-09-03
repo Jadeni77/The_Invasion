@@ -50,4 +50,18 @@ public class PlayerController {
     int pieces = (int) request.get("pieces");
     return ResponseEntity.ok(playerService.addCardPieces(sessionId, cardName, pieces));
   }
+
+  @PostMapping("/session/{sessionId}/unlock-defender")
+  public ResponseEntity<Player> unlockDefender(@PathVariable String sessionId, @RequestBody Map<String, Object> request) {
+    String defenderName = (String) request.get("defenderName");
+    return ResponseEntity.ok(playerService.unlockDefender(sessionId, defenderName));
+  }
+
+  @PostMapping("/session/{sessionId}/collect-treasure")
+  public ResponseEntity<Player> collectTreasure(@PathVariable  String sessionId, @RequestBody Map<String, Object> request) {
+    String chestId = (String) request.get("chestId");
+    @SuppressWarnings("unchecked")
+    Map<String, Integer> rewards = (Map<String, Integer>) request.get("rewards");
+    return ResponseEntity.ok(playerService.collectTreasure(sessionId, chestId, rewards));
+  }
 }

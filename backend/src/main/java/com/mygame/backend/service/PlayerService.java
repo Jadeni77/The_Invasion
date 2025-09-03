@@ -156,10 +156,46 @@ public class PlayerService {
     int gemBonus = stars == 3 ? 1 : 0;
 
     player.setGold(player.getGold() + goldEarned);
-    player.setGold(player.getIron() + ironEarned);
-    player.setGold(player.getGrain() + grainEarned);
-    player.setGold(player.getWater() + waterEarned);
-    player.setGold(player.getGem() + gemBonus);
+    player.setIron(player.getIron() + ironEarned);
+    player.setGrain(player.getGrain() + grainEarned);
+    player.setWater(player.getWater() + waterEarned);
+    player.setGem(player.getGem() + gemBonus);
+
+    return playerRepository.save(player);
+  }
+
+  public Player unlockDefender(String sessionId, String defenderName) {
+    Player player = getOrCreatePlayer(sessionId);
+
+    //check if already has this defender
+    boolean hadDefender = player.getCards().stream().anyMatch(
+            card -> card.getName().equals(defenderName)
+    );
+    if (!hadDefender) {
+      int newCardId = player.getCards().stream().mapToInt(CardData::getCardId).max()
+              .orElse(0) + 1;
+      CardData newCard = createCardData(newCardId, defenderName);
+      player.getCards().add(newCard);
+    }
+    return playerRepository.save(player);
+  }
+
+  public Player collectTreasure(String sessionId, String chestId, Map<String, Integer> rewards) {
+    Player player = getOrCreatePlayer(sessionId);
+    // Mark chest as collected
+    if (!player.getCollectedTreasures().contains(chestId)) {
+      player.getCollectedTreasures().add(chestId);
+    }
+    // Apply rewards
+    rewards.forEach((resource, amount) -> {
+      switch (resource) {
+        case "gold": player.setGold(player.getGold() + amount); break;
+        case "iron": player.setIron(player.getIron() + amount); break;
+        case "grain": player.setGrain(player.getGrain() + amount); break;
+        case "water": player.setWater(player.getWater() + amount); break;
+        case "gem": player.setGem(player.getGem() + amount); break;
+      }
+    });
 
     return playerRepository.save(player);
   }
