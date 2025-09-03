@@ -28,6 +28,7 @@ const Lobby = () => {
     openCollection,
     openSettings,
     setPlayerData,
+      collectTreasure,
   } = useGame();
   const [mapPosition, setMapPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -211,44 +212,7 @@ const Lobby = () => {
   // Handle treasure click
   const handleTreasureClick = (chestId) => {
     console.log(`Treasure chest ${chestId} clicked!`);
-    // Backend API: await fetch(`/api/collect-treasure/${chestId}`)
-    // Update player data with new resources
-    // This would involve calling a function from GameContext to update player data
-    // Example: updateResource('gold', 100); or a dedicated collectTreasure function
-    const chest = chestsData.find(c => c.id === chestId);
-    if (!chest || !playerData ||!playerData.resources) {
-      console.error("Cannot collect treasure: player data or resources not loaded");
-      return;
-    }
-    //update resources safely
-    setPlayerData(prev => {
-      if (!prev || !prev.resources) return prev;
-
-      const updateResources = {...prev.resources};
-      const updateTreasures = [...(prev.collectedTreasures || [])];
-
-      Object.entries(chest.rewards).forEach(([resource, amount]) => {
-        if (resource === 'all') { // Fixed: = to ===
-          // Add to all resources
-          ['gold', 'iron', 'grain', 'water'].forEach(res => {
-            if (updateResources[res] !== undefined) {
-              updateResources[res] += amount;
-            }
-          });
-        } else if (updateResources[resource] !== undefined) {
-          updateResources[resource] += amount;
-        }
-      });
-
-      if (!updateTreasures.includes(chestId)) {
-        updateTreasures.push(chestId);
-      }
-      return {
-        ...prev,
-        resources: updateResources,
-        collectedTreasures: updateTreasures
-      }
-    });
+    collectTreasure(chestId); //backend call
   }
 
   // Handle level node click
