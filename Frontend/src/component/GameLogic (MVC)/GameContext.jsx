@@ -7,7 +7,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import {chestsData} from "../GameRendering/MapLayout.jsx";
+import {chestsData, levelDefenderReward} from "../GameRendering/MapLayout.jsx";
 import {SessionManager} from "./SessionManager.js";
 import card from "../common/Card.jsx";
 
@@ -50,8 +50,7 @@ export const GameProvider = ({ children }) => {
   }, []);
 
   //handle game win logiv
-  const onWinCb = useCallback(
-    ({ score, level }) => {
+  const onWinCb = useCallback(async ({ score, level }) => {
       setGameOver(true);
       setGameWon(true);
       console.log(`Game won! Level: ${level}, Score: ${score}`);
@@ -112,6 +111,61 @@ export const GameProvider = ({ children }) => {
           totalStars: newLevelStars.reduce((sum, s) => sum + s, 0)
         };
       });
+
+      //Save the result to backend
+      try {
+        const sessionId = SessionManager.getOrCreateSessionId();
+        await fetch(`http://localhost:8080/api/player/session/${sessionId}/complete-level`, {
+          method: "POST",
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            levelId: level,
+            score: score,
+            stars: stars
+                               })
+        });
+
+        //check if this level unlock a defender
+        const defenderRewards = levelDefenderReward[level];
+        if (defenderRewards) {
+          //second fetch to unlock defender
+          await fetch(`http://localhost:8080/api/player/session/${sessionId}/unlock-defender`, {
+            method: "POST",
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              defenderName: defenderRewards
+                                 })
+          });
+        //update playerdata with new defender
+          setPlayerData(prev => {
+            const hasDefender = prev.cards.some(card => card.name === defenderRewards);
+            if (!hasDefender) {
+              const newCardId = Math.max(...prev.cards.map(c => c.id), 0) + 1;
+              return {
+                ...prev,
+                cards: [...prev.cards, {
+                  id: newCardId,
+                  name: defenderRewards,
+                  level: 1,
+                  pieces: 0,
+                  piecesNeeded: getPiecesNeeded(defenderRewards),
+                  upgradeCost: getUpgradeCost(defenderRewards, 1)
+                }]
+
+              };
+            }
+            return prev;
+          });
+        }
+        //refresh all data from backend to ensure async
+  //      await fetchPlayerData();
+      } catch (error) {
+        console.error("Failed to save to backend:", error);
+      }
       // GameEngine will stop its loop; UI will show victory screen.
       // User clicks "Return to Lobby" which calls endGame.
     },
@@ -181,7 +235,7 @@ export const GameProvider = ({ children }) => {
         });
       }
     },
-    [endlessDifficulty] // Dependencies are handled by the state setters
+    [endlessDifficulty?.multiplier, gameOver] // Dependencies are handled by the state setters
   );
 
   //calculate star base on performance
@@ -212,11 +266,14 @@ export const GameProvider = ({ children }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-      });      if (!response.ok) {
+      });
+      if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
       console.log("Received player data:", data);
+      console.log("Raw backend data:", data);
+      console.log("Cards from backend:", data.cards);
 
       //transform backend to mathc frontend
       const playerData = {
@@ -235,18 +292,37 @@ export const GameProvider = ({ children }) => {
           water: data.water,
           gem: data.gem,
         },
-        cards: data.cards.map(card => ({
-          id: card.id,
+        cards: data.cards ? data.cards.map(card => ({
+          id: card.cardId,
           name: card.name,
           level: card.level,
           pieces: card.pieces,
           piecesNeeded: card.piecesNeeded,
           upgradeCost: getUpgradeCost(card.name, card.level),
-        })),
+          cost: getCardCost(card.name)
+        })) : [{
+          id: 1,
+          name: "Basic Cop",
+          level: 1,
+          pieces: 0,
+          piecesNeeded: 10,
+          cost: 20,
+          upgradeCost: {gold: 100, iron: 5, water: 3},
+        },
+          {
+            id: 2,
+            name: "Grenadier",
+            level: 1,
+            pieces: 0,
+            piecesNeeded: 10,
+            cost: 20,
+            upgradeCost: { gold: 100, iron: 5, water: 3 },
+
+        }],
         unlockedLevels: data.unlockedLevels || [1],
         completedLevels: data.completedLevels || [],
         levelStars: data.levelStars || Array(20).fill(0),
-        collectedTreasures: [],
+        collectedTreasures: data.collectedTreasures || [],
         revealedSecrets: [],
         endlessHighScore: 0,
         endlessStats: {totalWaves: 0, totalRuns: 0},
@@ -259,20 +335,6 @@ export const GameProvider = ({ children }) => {
       //fallback to default data
       setPlayerData(getDefaultPlayerData());
 
-      //  unlockedLevels: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,999],
-      //       //     completedLevels: [],
-      //       //     levelStars: Array(20).fill(0), // Stars for levels 1-20
-      //       //     collectedTreasures: [],
-      //       //     revealedSecrets: [],
-      //       //     endlessHighScore: 0,
-      //       //     endlessStats: {
-      //       //       totalWaves: 0,
-      //       //       totalRuns: 0,
-      //       //       bestDifficulty: null
-      //       //     },
-      //       //     achievements: [],
-      //       //     totalStars: 0
-      //
       // Mock data until backend is implemented
       //   const mockData = {
       //     id: "player-123",
@@ -427,11 +489,11 @@ export const GameProvider = ({ children }) => {
       "Grenadier": { gold: 200, iron: 15, gem: 2 },
       "Barricade": { gold: 120, iron: 20, grain: 5 },
       "Energy Generator": { gold: 80, water: 10, grain: 20 },
-      "Sniper": { gold: 130, water: 60, grain: 35 },
-      "Mortar": { gold: 250, iron: 30, water: 20, gem: 1 },
+      "Sniper": { gold: 400, water: 60, grain: 35, gem: 3},
+      "Mortar": { gold: 350, iron: 30, water: 20, gem: 1 },
       "Frost Archer": { gold: 300, iron: 30, water: 20, gem: 2 },
-      "Fire Blast": { gold: 300, iron: 30, water: 20, gem: 2 },
-      "Ice Bomb": { gold: 300, iron: 30, water: 20, gem: 2 }
+      "Fire Blast": { gold: 300, iron: 50, water: 30, gem: 2 },
+      "Ice Bomb": { gold: 300, iron: 30, water: 80, gem: 2 }
     };
     const base = baseCosts[cardName] || {gold : 100};
     const multiplier = Math.pow(1.5, level - 1);
@@ -441,6 +503,38 @@ export const GameProvider = ({ children }) => {
     });
     return cost;
   };
+
+  const getCardCost = (cardName) => {
+    const cost = {
+      "Basic Cop": 20,
+      "Healer Cop": 30,
+      "Grenadier": 60,
+      "Barricade": 30,
+      "Energy Generator": 25,
+      "Sniper": 100,
+      "Mortar": 120,
+      "Frost Archer": 35,
+      "Fire Blast": 50,
+      "Ice Bomb": 40
+    };
+    return cost[cardName] || 15;
+  }
+
+  const getPiecesNeeded = (defenderName) => {
+    const piecesMap = {
+      "Basic Cop": 10,
+      "Energy Generator": 10,
+      "Barricade": 10,
+      "Grenadier": 10,
+      "Healer Cop": 10,
+      "Mortar": 15,
+      "Frost Archer": 25,
+      "Ice Bomb": 25,
+      "Sniper": 25,
+      "Fire Blast": 25
+    };
+    return piecesMap[defenderName] || 10;
+  }
 
   const getDefaultPlayerData = () => {
     return {
@@ -468,6 +562,7 @@ export const GameProvider = ({ children }) => {
           pieces: 0,
           piecesNeeded: 10,
           upgradeCost: {gold: 100, iron: 5, water: 3},
+          cost: 20
         },
       ],
       unlockedLevels: [1],
@@ -636,8 +731,7 @@ export const GameProvider = ({ children }) => {
     [playerData, updateResource]
   );
 
-  const endGame = useCallback(
-    (result) => {
+  const endGame = useCallback(async (result) => {
       // Result can be 'win' or 'loss'
       if (gameEngineRef.current) {
         gameEngineRef.current.stopLoop(); // Ensure engine loop stops
@@ -680,6 +774,33 @@ export const GameProvider = ({ children }) => {
             cards: updatedCards
           };
         });
+
+        //send the cardpiece collected to backend
+        try {
+          const sessionId = SessionManager.getOrCreateSessionId();
+          //group the pieces by cardName
+          const piecesMap = collectedCardPieces.reduce((acc, pieceName) => {
+            acc[pieceName] = (acc[pieceName] || 0) + 1;
+            return acc;
+          }, {});
+          //call backend for each card type
+          for (const [cardName, count] of Object.entries(piecesMap)) {
+            await fetch(`http://localhost:8080/api/player/session/${sessionId}/add-card-pieces`, {
+              method: "POST",
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                cardName: cardName,
+                pieces: count
+                                   })
+            });
+          }
+          await fetchPlayerData();
+        } catch (error) {
+          console.error("Failed to save card pieces:", error);
+        }
+
         //clear collection after adding to player data
         setCollectedCardPieces([]);
       }
@@ -689,9 +810,9 @@ export const GameProvider = ({ children }) => {
       setSelectedLevel(null); // Clear selected level
       setCurrentEndlessWave(0);
       setEndlessDifficulty(null);
-      savePlayerData(playerData);
+      await savePlayerData(playerData);
       },
-    [playerData, savePlayerData, collectedCardPieces]
+    [playerData, savePlayerData, collectedCardPieces, fetchPlayerData]
   );
 
   const deployDefender = useCallback(
@@ -759,17 +880,27 @@ export const GameProvider = ({ children }) => {
     setCurrentEndlessWave(wave);
   }, []);
 
-  // Fix: Collect treasure chest
-  const collectTreasure = useCallback((chestId) => {
+  const addCollectedPieces = useCallback((cardName) => {
+    setCollectedCardPieces(prev => [...prev, cardName]);
+  }, []);
+
+  // : Collect treasure chest
+  const collectTreasure = useCallback(async (chestId) => {
     const chest = chestsData.find(c => c.id === chestId);
     if (!chest) return;
 
+    console.log("Chest in Comtext")
     setPlayerData(prev => {
       if (!prev) return prev;
 
       // Apply rewards
-      const newResources = { ...prev.resources };
+      const newResources = {...prev.resources};
       Object.entries(chest.rewards).forEach(([resource, amount]) => {
+        if (resource === "defender") {
+          //handle separately
+          console.log("Chest With Defender");
+          return;
+        }
         if (resource === 'all') {
           ['gold', 'iron', 'grain', 'water'].forEach(res => {
             newResources[res] = (newResources[res] || 0) + amount;
@@ -779,6 +910,24 @@ export const GameProvider = ({ children }) => {
         }
       });
 
+      let newCards = [...prev.cards];
+      if (chest.rewards.defender) {
+        const defenderName = chest.rewards.defender;
+        const hasDefender = newCards.some(card => card.name === defenderName);
+
+        if (!hasDefender) {
+          const newCardId = Math.max(...newCards.map(c => c.id), 0) + 1;
+          newCards.push({
+                          id: newCardId,
+                          name: defenderName,
+                          level: 1,
+                          pieces: 0,
+                          piecesNeeded: getPiecesNeeded(defenderName),
+                          upgradeCost: getUpgradeCost(defenderName, 1)
+                        });
+        }
+      }
+
       // Mark chest as collected
       const newCollectedTreasures = [...(prev.collectedTreasures || [])];
       if (!newCollectedTreasures.includes(chestId)) {
@@ -787,10 +936,63 @@ export const GameProvider = ({ children }) => {
       return {
         ...prev,
         resources: newResources,
+        cards: newCards,
         collectedTreasures: newCollectedTreasures
       };
     });
+
+    try {
+      const sessionId = SessionManager.getOrCreateSessionId();
+
+      const backendRewards = {};
+      Object.entries(chest.rewards).forEach(([resource, amount]) => {
+        if (resource !== "defender" && resource !== "all") {
+          backendRewards[resource] = amount;
+        } else if (resource === "all") {
+          ['gold', 'iron', 'grain', 'water'].forEach(res => {
+            backendRewards[res] = amount;
+          });
+        }
+      });
+
+      await fetch(`http://localhost:8080/api/player/session/${sessionId}/collect-treasure`, {
+        method: "POST",
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+                               chestId: chestId,
+                               rewards: backendRewards
+                             })
+      });
+
+      if (chest.rewards.defender) {
+        saveUnlockedDefender(chest.rewards.defender);
+      }
+    } catch (error) {
+      console.error("Failed to save collected treasure:", error);
+    }
   }, []);
+
+  /**
+   * Helper method to connect backend with the new card
+   * @param defenderName
+   * @returns {Promise<void>}
+   */
+  const saveUnlockedDefender = async (defenderName) => {
+    if (!defenderName) return;
+
+    try {
+      const sessionId = SessionManager.getOrCreateSessionId();
+      await fetch(`http://localhost:8080/api/player/session/${sessionId}/unlock-defender`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ defenderName })
+      });
+    } catch (error) {
+      console.error("Failed to save unlocked defender:", error);
+    }
+  }
 
   // Public API and context values
   const gameAPI = {
@@ -826,7 +1028,9 @@ export const GameProvider = ({ children }) => {
     closeSettings,
     collectTreasure,
     updateEndlessWave,
-    updateResource
+    updateResource,
+    addCollectedPieces,
+    collectedCardPieces,
   };
 
   return (
