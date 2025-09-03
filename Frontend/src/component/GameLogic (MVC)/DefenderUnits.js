@@ -64,14 +64,12 @@ export class DefenderUnit {
     }
 
     if (this.currentAnimation !== animationName) {
-      console.log(`${this.name} switching animation from ${this.currentAnimation} to ${animationName}`);
       this.currentAnimation = animationName;
       this.animationFrame = 0;
       this.frameCounter = 0;
 
       if (animationName === 'death') {
         this.isPlayingDeathAnimation = true;
-        console.log(`${this.name} started death animation`);
 
         // Check if we have death animation frames
         if (!this.animationFrames.death || this.animationFrames.death.length === 0) {
@@ -119,7 +117,6 @@ export class DefenderUnit {
           this.animationFrame = config.frameCount - 1;
 
           if (this.currentAnimation === 'death') {
-            console.log(`${this.name} death animation complete at frame ${this.animationFrame}`);
             this.deathAnimationComplete = true;
           }
         }
