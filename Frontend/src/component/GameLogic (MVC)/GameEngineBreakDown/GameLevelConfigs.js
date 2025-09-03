@@ -57,25 +57,25 @@ export class GameLevelConfigs {
             initialEnergy: 120,
             waveConfigurations: [
                 {
-                    enemyCount: 5,
+                    enemyCount: 3,
                     spawnInterval: 2500,
                     enemyTypes: ["Basic Zombie"],
                     spawnPattern: "standard"
                 },
                 {
-                    enemyCount: 7,
+                    enemyCount: 5,
                     spawnInterval: 2200,
                     enemyTypes: ["Basic Zombie", "Fast Zombie"],
                     spawnPattern: "mixed"
                 },
                 {
-                    enemyCount: 6,
+                    enemyCount: 7,
                     spawnInterval: 2000,
                     enemyTypes: ["Fast Zombie"],
                     spawnPattern: "rush"
                 },
                 {
-                    enemyCount: 7,
+                    enemyCount: 10,
                     spawnInterval: 1800,
                     enemyTypes: ["Basic Zombie", "Fast Zombie"],
                     spawnPattern: "surround"
@@ -86,8 +86,8 @@ export class GameLevelConfigs {
 
         this.gameEngine.levelConfigs.set(3, {
             levelNumber: 3,
-            levelName: "Heavy Resistance",
-            description: "Armored zombies join the horde!",
+            levelName: "Explosive Encounter",
+            description: "Watch out for exploders!",
             enemySpawnInterval: 2200,
             maxActiveEnemies: 10,
             totalEnemiesToSpawn: 35,
@@ -104,21 +104,21 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 9,
                     spawnInterval: 2000,
-                    enemyTypes: ["Basic Zombie", "Tank Zombie"],
-                    spawnPattern: "formation"
-                },
-                {
-                    enemyCount: 9,
-                    spawnInterval: 1800,
-                    enemyTypes: ["Fast Zombie", "Tank Zombie"],
+                    enemyTypes: ["Basic Zombie", "Exploder"],
                     spawnPattern: "mixed"
                 },
                 {
                     enemyCount: 9,
+                    spawnInterval: 1800,
+                    enemyTypes: ["Exploder"],
+                    spawnPattern: "formation"
+                },
+                {
+                    enemyCount: 9,
                     spawnInterval: 1600,
-                    enemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie"],
-                    spawnPattern: "surround"
-                }
+                    enemyTypes: ["Fast Zombie", "Exploder"],
+                    spawnPattern: "rush"
+                },
             ],
             rewardMultiplier: 1.3
         });
@@ -126,12 +126,12 @@ export class GameLevelConfigs {
         // Early Game (4-7)
         this.gameEngine.levelConfigs.set(4, {
             levelNumber: 4,
-            levelName: "Explosive Encounter",
-            description: "Watch out for exploders!",
+            levelName: "Heavy Resistance",
+            description: "Armored zombies join the horde!",
             enemySpawnInterval: 2000,
             maxActiveEnemies: 12,
             totalEnemiesToSpawn: 45,
-            waves: 5,
+            waves: 4,
             availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 120,
             waveConfigurations: [
@@ -144,25 +144,25 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 9,
                     spawnInterval: 1800,
-                    enemyTypes: ["Basic Zombie", "Exploder"],
-                    spawnPattern: "mixed"
+                    enemyTypes: ["Basic Zombie", "Tank Zombie"],
+                    spawnPattern: "formation"
                 },
                 {
                     enemyCount: 9,
                     spawnInterval: 1600,
-                    enemyTypes: ["Tank Zombie", "Exploder"],
-                    spawnPattern: "formation"
+                    enemyTypes: ["Fast Zombie", "Tank Zombie"],
+                    spawnPattern: "mixed"
                 },
                 {
                     enemyCount: 10,
                     spawnInterval: 1400,
-                    enemyTypes: ["Fast Zombie", "Exploder"],
-                    spawnPattern: "rush"
+                    enemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie"],
+                    spawnPattern: "surround"
                 },
                 {
                     enemyCount: 9,
                     spawnInterval: 1200,
-                    enemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Exploder"],
+                    enemyTypes: ["Basic Zombie", "Fast Zombie", "Tank Zombie"],
                     spawnPattern: "surround"
                 }
             ],
@@ -1056,7 +1056,7 @@ export class GameLevelConfigs {
                     spawnPattern: "surround"
                 },
                 {
-                    enemyCount: 16,
+                    enemyCount: 3,
                     spawnInterval: 250,
                     enemyTypes: ["Titan"],
                     spawnPattern: "boss",
@@ -1064,7 +1064,7 @@ export class GameLevelConfigs {
                     bossType: "Titan"
                 },
                 {
-                    enemyCount: 15,
+                    enemyCount: 28,
                     spawnInterval: 220,
                     enemyTypes: ["Tank Zombie", "Mage", "Necromancer"],
                     spawnPattern: "formation"
