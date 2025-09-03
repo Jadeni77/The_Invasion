@@ -28,7 +28,7 @@ function CardSelectionModal({ playerData, levelId, onConfirm, onCancel }) {
     }
   };
 
-  const energyCost = levelId === 1 ? 0 : 5;
+  const energyCost = 5;
 
   return (
     <div className="card-selection-overlay">
