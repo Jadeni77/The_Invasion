@@ -5,10 +5,10 @@ export const levelsMapData = [
   // Tutorial Zone (Levels 1-3)
   { id: 1, x: 200, y: 500, zone: 'tutorial', name: 'The Outbreak' },
   { id: 2, x: 350, y: 450, zone: 'tutorial', name: 'Swift Danger' },
-  { id: 3, x: 500, y: 400, zone: 'tutorial', name: 'Heavy Resistance' },
+  { id: 3, x: 500, y: 400, zone: 'tutorial', name: 'Explosive Encounter'  },
 
   // Early Game Zone (Levels 4-7)
-  { id: 4, x: 650, y: 350, zone: 'early', name: 'Explosive Encounter' },
+  { id: 4, x: 650, y: 350, zone: 'early', name: 'Heavy Resistance' },
   { id: 5, x: 800, y: 300, zone: 'early', name: 'Ranged Assault' },
   { id: 6, x: 950, y: 350, zone: 'early', name: 'Shield Wall' },
   { id: 7, x: 1100, y: 400, zone: 'early', name: 'Support Squadron' },
@@ -82,10 +82,11 @@ export const connectionsData = [
   { from: 20, to: 999, x: 725, y: 75, length: 150, rotation: -160, special: 'rainbow' }
 ];
 
+//TODO: set up defender unlock upon chest reward
 // Treasure chests with better rewards distribution
 export const chestsData = [
   // Early game chests
-  { id: 'chest-1', x: 425, y: 380, rewards: { gold: 100, gem: 1 }, requiresLevel: 2 },
+  { id: 'chest-1', x: 425, y: 380, rewards: { gold: 100, gem: 1, defender: "Energy Generator" }, requiresLevel: 1 },
   { id: 'chest-2', x: 875, y: 280, rewards: { iron: 50, grain: 30 }, requiresLevel: 5 },
   { id: 'chest-3', x: 1175, y: 380, rewards: { water: 50, gem: 2 }, requiresLevel: 7 },
 
@@ -122,6 +123,10 @@ export const chestsData = [
     condition: 'speedRun' // Complete level under time limit
   }
 ];
+//TODO: set up defender unlock upon level
+export const levelDefenderReward = {
+  2: "Barricade",
+};
 
 // Zone visual configurations for styling
 export const zoneConfigs = {
