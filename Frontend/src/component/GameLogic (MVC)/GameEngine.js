@@ -3,7 +3,7 @@
 
 import {
   BasicDefender, HealerDefender, GrenadeDefender,
-  BarricadeDefender, EnergyGenerator, Sniper, Mortar, FrostArcher, FireBlast, IceBomb
+  BarricadeDefender, EnergyGenerator, Sniper, Mortar, FrostArcher, FireBlast, IceBomb, DefenderUnit
 } from "./DefenderUnits.js";
 import {
   BasicEnemy, FastEnemy, TankEnemy, BombEnemy, RangeEnemy, ShieldEnemy,
@@ -26,7 +26,8 @@ import {AssetManifest} from "../../assets/AssetManifest.js";
 import {GameLevelConfigs} from "./GameEngineBreakDown/GameLevelConfigs.js";
 
 export class GameEngine {
-  constructor(updateEnergyCb, updateScoreCb, onWinCb, onLoseCb, updateBaseHealthCb, updateEndlessWaveCb) {
+  constructor(updateEnergyCb, updateScoreCb, onWinCb, onLoseCb, updateBaseHealthCb,
+              updateEndlessWaveCb,) {
     this.ctx = null;
     this.canvasWidth = 0;
     this.canvasHeight = 0;
@@ -38,6 +39,8 @@ export class GameEngine {
     this.onWinCb = onWinCb;
     this.onLoseCb = onLoseCb;
     this.updateEndlessWaveCb = updateEndlessWaveCb || null;
+
+    this.playerSelectedCards = [];
 
     // Game entities
     this.defenders = [];
@@ -154,10 +157,16 @@ export class GameEngine {
    */
   dropCardPieces(x, y) {
     if (this.gameOver) return;
-    const cardType = ['Basic Cop', 'Healer Cop', 'Grenadier',
-                      'Barricade', 'Energy Generator', "Sniper", "Mortar"];
-    const randomCard = cardType[Math.floor(Math.random() * cardType.length)];
+
+    const availableDefenderType = this.playerSelectedCards.map(
+        card => card.name).filter(name => name); //remove undefine/null
+
+    const randomCard = availableDefenderType[Math.floor(Math.random() * availableDefenderType.length)];
     this.cardPieceDrops.push(new CardPieceDrop(x, y, randomCard));
+  }
+
+  setPlayerSelectedCards(cards) {
+    this.playerSelectedCards = cards;
   }
 
   /**
@@ -322,7 +331,7 @@ export class GameEngine {
 
     if (this.waveManager) {
       this.waveManager.reset();
-      this.waveManager.lastSpawnTime = Date.now() + 1000; // 1 second delay
+      this.waveManager.lastSpawnTime = Date.now() + 5000; // 1 second delay
     }
 
     this.baseHealth = 100;
@@ -355,7 +364,6 @@ export class GameEngine {
     if (this.gameOver) return false;
 
     const gridCell = this.gridManager.getGridCell(x, y);
-    console.log("Grid cell:", gridCell);
 
     if (!gridCell || gridCell.occupied) {
       console.log("Invalid grid cell or cell is occupied/road");
@@ -399,7 +407,6 @@ export class GameEngine {
 
       newUnit.animationFrames = frames;
       newUnit.animationConfig = AssetManifest.defenders[cardData.name]?.config;
-      console.log(`Attached animations to ${cardData.name}`, newUnit.animationConfig);
     }
 
     if (newUnit.setGameEngine) {
@@ -613,7 +620,6 @@ export class GameEngine {
         // Dead defenders only update their animation
         if (!defender.deathHandled) {
           defender.deathHandled = true;
-          console.log(`${defender.name} died, playing death animation`);
         }
         // Still update animation for dead units
         if (defender.currentAnimation !== 'death') {
@@ -1023,7 +1029,8 @@ export class GameEngine {
 
     const allAnimationsComplete = this.areAllDeathAnimationsComplete();
 
-    if (!this.gameOver && allEnemiesSpawned && allEnemiesDead && allAnimationsComplete) {
+    if (!this.gameOver && allEnemiesSpawned && allEnemiesDead && allAnimationsComplete
+    && this.cardPieceDrops.length === 0) {
       this.handleLevelComplete(); // Trigger win condition
     }
   }
