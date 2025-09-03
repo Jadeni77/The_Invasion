@@ -6,6 +6,7 @@ import { calculateCardStats } from "../GameLogic (MVC)/DefenderClassUtils";
 import Gold from "../../Icons/Gold.png";
 import Iron from "../../Icons/Iron.png";
 import { useMobileOrientation } from "./UseMobileOrientation.js";
+import card from "../common/Card";
 
 const GameBoard = () => {
   const canvasRef = useRef(null);
@@ -28,6 +29,8 @@ const GameBoard = () => {
     selectedCardsForGame,
     setGameEngine,
     updateEndlessWave,
+    addCollectedPieces,
+    collectedCardPieces,
   } = useGame();
 
   const gameEngineRef = useRef(null);
@@ -40,7 +43,7 @@ const GameBoard = () => {
   const [baseHealth, setBaseHealth] = useState(100);
   const [resetTrigger, setResetTrigger] = useState(0);
   const [showQuitDialog, setShowQuitDialog] = useState(false);
-  const [collectedPieces, setCollectedPieces] = useState([]);
+ // const [collectedPieces, setCollectedPieces] = useState([]);
 
   useMobileOrientation(gameState);
 
@@ -103,7 +106,7 @@ const GameBoard = () => {
       setCardCooldown((prev) => {
         const updated = { ...prev };
         Object.keys(updated).forEach((cardId) => {
-          if (updated[cardId] > 0) {
+          if (updated[cardId] > 0 && !showQuitDialog) {
             updated[cardId] = Math.max(0, updated[cardId] - 100); //deacrease by 100ms
           }
         });
@@ -111,7 +114,7 @@ const GameBoard = () => {
       });
     }, 100);
     return () => clearInterval(cooldownInterval);
-  }, []);
+  }, [showQuitDialog]);
 
   // Initialize game engine
   useEffect(() => {
@@ -137,16 +140,23 @@ const GameBoard = () => {
             onWinCb,
             onLoseCb,
             (health) => setBaseHealth(health),
-            updateEndlessWave
+            updateEndlessWave,
         );
 
         //set card pieces collection callback
         engine.onCardPieceCollected = (cardName) => {
-          setCollectedPieces(prev => [...prev, cardName]);
+          addCollectedPieces(cardName); //context call
         }
 
         gameEngineRef.current = engine;
         setGameEngine(engine);
+
+        // Pass selected cards to the engine
+        if (selectedCardsForGame && selectedCardsForGame.length > 0) {
+          engine.setPlayerSelectedCards(selectedCardsForGame);
+        } else if (cardSlots && cardSlots.length > 0) {
+          engine.setPlayerSelectedCards(cardSlots);
+        }
 
         // Initialize game
         gameEngineRef.current.initialize(
@@ -178,7 +188,9 @@ const GameBoard = () => {
         }
       };
     }
-  }, [gameState, selectedLevel, resetTrigger, updateEnergyCb, updateScoreCb, onWinCb, onLoseCb, updateEndlessWave]);
+  }, [gameState, selectedLevel, resetTrigger, updateEnergyCb,
+      updateScoreCb, onWinCb, onLoseCb, updateEndlessWave, setGameEngine,
+      selectedCardsForGame, cardSlots, addCollectedPieces]);
 
   const handleCardSelection = (card) => {
     //check if a card is on cooldown
@@ -232,25 +244,16 @@ const GameBoard = () => {
       return;
     }
 
-    console.log(`Click at: (${x}, ${y})`);
-    console.log(`Energy drops in game engine: ${gameEngineRef.current.energyDrops.length}`);
-
-
-    gameEngineRef.current.energyDrops.forEach((drop, i) => {
-      console.log(`Drop ${i}: position (${drop.x}, ${drop.y}), floatOffset: ${drop.floatOffset}`);
-    });
-
     //if selected a card and no energy to collect, then deploy
     if (selectedCard) {
       if (gameEngineRef.current.deployDefenderUnit(selectedCard, x, y)) {
-        //handleCardDeployment();
         const cooldownDuration = getCooldownDuration(selectedCard);
-        setCardCooldown((prev) => ({
-          ...prev,
-          [selectedCard.id]: cooldownDuration,
-        }));
-        setSelectedCard(null);
-      }
+          setCardCooldown((prev) => ({
+            ...prev,
+            [selectedCard.id]: cooldownDuration,
+          }));
+          setSelectedCard(null);
+        }
     }
   };
 
@@ -347,11 +350,11 @@ const GameBoard = () => {
                 </div>
 
                 {/*   Added card pieces section */}
-                {collectedPieces.length > 0 && (
+                {collectedCardPieces.length > 0 && (
                     <div className="card-pieces-section">
                       <h4>Card Pieces Collected:</h4>
                       {Object.entries(
-                          collectedPieces.reduce((acc, piece) => {
+                          collectedCardPieces.reduce((acc, piece) => {
                             acc[piece] = (acc[piece] || 0) + 1;
                             return acc;
                           }, {})
@@ -409,10 +412,10 @@ const GameBoard = () => {
           <button
             className="lobby-button"
             onClick={() => {
-              if (collectedPieces.length > 0 && gameEngineRef.current) {
+              if (collectedCardPieces.length > 0 && gameEngineRef.current) {
                 // This should be handled by GameContext
                 playerData.cards.forEach(card => {
-                  const piecesForThisCard = collectedPieces.filter(
+                  const piecesForThisCard = collectedCardPieces.filter(
                       pieceName => pieceName === card.name
                   ).length;
                   if (piecesForThisCard > 0) {
@@ -440,7 +443,6 @@ const GameBoard = () => {
                 resetCooldowns[card.id] = 0;
               });
               setCardCooldown(resetCooldowns);
-              setCollectedPieces([]);
 
               // Force game engine reset
               setResetTrigger((prev) => prev + 1);
