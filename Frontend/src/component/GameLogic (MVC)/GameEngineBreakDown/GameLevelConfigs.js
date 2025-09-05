@@ -1159,7 +1159,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 300,
             waves: 20,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 300,
+            initialEnergy: 3000000000,
             waveConfigurations: [
                 // 20 waves culminating in an epic boss battle
                 ...Array.from({ length: 19 }, (_, i) => ({

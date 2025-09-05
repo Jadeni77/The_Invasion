@@ -116,6 +116,7 @@ const GameBoard = () => {
     return () => clearInterval(cooldownInterval);
   }, [showQuitDialog]);
 
+  //TODO: Game Engine reinitialize itself causing the game to reset (the resetGame method is called)
   // Initialize game engine
   useEffect(() => {
     if (gameState === "inGame" && canvasRef.current && selectedLevel !== null) {
@@ -123,6 +124,7 @@ const GameBoard = () => {
       let isCancelled = false;
 
       // Small delay to let React's double-render complete
+      //TODO: The setTimeout prohibit double engine in the background
       const initTimeout = setTimeout(() => {
         if (isCancelled) return;
 
@@ -268,6 +270,7 @@ const GameBoard = () => {
       "Sniper": 1000,
       "Frost Archer": 1000,
       "Fire Blast": 1000,
+      "Ice Bomb": 1000
     };
     return cooldowns[card.name] || 5000; //default at 5 seconds
   };

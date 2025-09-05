@@ -476,7 +476,7 @@ const Lobby = () => {
           <span>Upgrade Cards</span>
         </button>
 
-        {/* Endless Mode Options Modal */}
+        {/* {/* Endless Mode Options Modal }
         {showEndlessOptions && (
             <div className="modal-overlay">
               <div className="endless-options-modal">
@@ -508,6 +508,7 @@ const Lobby = () => {
               </div>
             </div>
         )}
+        */}
 
         {/* Showing the selection of cards before game start */}
         {showCardSelection && (

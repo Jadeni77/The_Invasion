@@ -343,13 +343,14 @@ export class BasicDefender extends DefenderUnit {
     }
 
     this.isAttacking = true; // ADD THIS
-    const died = target.takeDamage(this.attackDamage, this.hasArmorPiercing);
-
-    if (died && !target.isSpawned && this.gameEngine && !this.gameEngine.gameOver) {
-      this.gameEngine.inGameScore += target.bounty;
-      this.gameEngine.updateScoreCb(this.gameEngine.inGameScore);
-      this.gameEngine.dropManager.handleEnemyDeath(target);
-    }
+    target.takeDamage(this.attackDamage, this.hasArmorPiercing);
+    // const died = target.takeDamage(this.attackDamage, this.hasArmorPiercing);
+    //
+    // if (died && !target.isSpawned && this.gameEngine && !this.gameEngine.gameOver) {
+    //   this.gameEngine.inGameScore += target.bounty;
+    //   this.gameEngine.updateScoreCb(this.gameEngine.inGameScore);
+    //   this.gameEngine.dropManager.handleEnemyDeath(target);
+    // }
 
     this.lastAttackTime = currentTime; // ADD THIS
   }
