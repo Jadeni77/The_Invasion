@@ -129,6 +129,7 @@ public class PlayerService {
     return new CardData(id, name, 1, 0, piecesNeeded.getOrDefault(name, 10));
   }
 
+  //TODO: Amount gain in UI does not match actual in Lobby
   public Player completeLevel(String sessionId, int levelId, int score, int stars) {
     Player player = getOrCreatePlayer(sessionId);
     //update complete levels
