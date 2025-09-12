@@ -2296,7 +2296,7 @@ export class FireBlast extends DefenderUnit {
                                         y: this.y + this.height / 2,
                                         damage: 0,
                                         radius: 80,
-                                        timer: 30 + i * 2, // Staggered timing
+                                        timer: 30, // Staggered timing
                                         color: "orangered",
                                         innerColor: "yellow",
                                         particleColor: "rgba(255, 69, 0, 0.9)",

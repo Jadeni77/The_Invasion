@@ -37,7 +37,7 @@ const Lobby = () => {
   const [showCardSelection, setShowCardSelection] = useState(false);
   const [selectedLevelId, setSelectedLevelId] = useState(null);
   const [mapZoom, setMapZoom] = useState(mapSettings.defaultZoom);
-  const [showEndlessOptions, setShowEndlessOptions] = useState(false);
+ // const [showEndlessOptions, setShowEndlessOptions] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
   const [isMapReady, setIsMapReady] = useState(false); // Track if map is ready for interaction
   const [defenderNotification, setDefenderNotification] = useState(null)
@@ -199,18 +199,18 @@ const Lobby = () => {
 
   // Handle level node click
   const handleLevelNodeClick = (levelId) => {
-    if (levelId === 999) {
-      //handle endless mode
-      setShowEndlessOptions(true);
-    } else {
+    // if (levelId === 999) {
+    //   //handle endless mode
+    //   setShowEndlessOptions(true);
+    // } else {
       setSelectedLevelId(levelId);
       setShowCardSelection(true);
-    }
+ //   }
   };
 
   const handleEndlessStart = (difficulty) => {
     setSelectedDifficulty(difficulty);
-    setShowEndlessOptions(false);
+   // setShowEndlessOptions(false);
     setSelectedLevelId(999);
     setShowCardSelection(true);
   }
