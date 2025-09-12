@@ -6,7 +6,6 @@ import { calculateCardStats } from "../GameLogic (MVC)/DefenderClassUtils";
 import Gold from "../../Icons/Gold.png";
 import Iron from "../../Icons/Iron.png";
 import { useMobileOrientation } from "./UseMobileOrientation.js";
-import card from "../common/Card";
 
 const GameBoard = () => {
   const canvasRef = useRef(null);
@@ -18,7 +17,6 @@ const GameBoard = () => {
     inGameScore,
     gameOver,
     gameWon,
-    deployDefender,
     removeDefender,
     endGame,
     updateEnergyCb,
@@ -43,7 +41,6 @@ const GameBoard = () => {
   const [baseHealth, setBaseHealth] = useState(100);
   const [resetTrigger, setResetTrigger] = useState(0);
   const [showQuitDialog, setShowQuitDialog] = useState(false);
- // const [collectedPieces, setCollectedPieces] = useState([]);
 
   useMobileOrientation(gameState);
 
@@ -190,9 +187,9 @@ const GameBoard = () => {
         }
       };
     }
-  }, [gameState, selectedLevel, resetTrigger, updateEnergyCb,
+  }, [gameState, selectedLevel, updateEnergyCb,
       updateScoreCb, onWinCb, onLoseCb, updateEndlessWave, setGameEngine,
-      selectedCardsForGame, cardSlots, addCollectedPieces]);
+      selectedCardsForGame, addCollectedPieces]);
 
   const handleCardSelection = (card) => {
     //check if a card is on cooldown
@@ -309,7 +306,7 @@ const GameBoard = () => {
     const grainLoss = gameWon ? 0 : 10;
     const waterLoss = gameWon ? 0 : 50;
     const gemLoss = gameWon ? 0 : Math.ceil(Math.random());
-    const goldEarned = Math.floor(inGameScore * 0.3);
+    const goldEarned = Math.floor(inGameScore * 0.2);
     const ironEarned = Math.floor(inGameScore * 0.1);
     const grainEarned = Math.floor(inGameScore * 0.2);
     const waterEarned = Math.floor(inGameScore * 0.2);
