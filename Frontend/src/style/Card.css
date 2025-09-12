@@ -78,12 +78,14 @@
 .cost-value {
   color: #ffcc00;
   margin-right: 5px;
+  margin-top: -15px;
   font-size: 16px;
 }
 
 .energy-icon {
   font-size: 16px;
   color: #ffcc00;
+  margin-top: -10px;
 }
 
 .card-stats {
