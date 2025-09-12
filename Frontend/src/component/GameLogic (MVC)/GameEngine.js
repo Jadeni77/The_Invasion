@@ -350,7 +350,7 @@ export class GameEngine {
     if (this.updateBaseHealthCb) {
       this.updateBaseHealthCb(100);
     }
-    console.log("Game reset complete");
+    console.trace()
   }
 
   /**
