@@ -27,8 +27,9 @@ const Lobby = () => {
     openAchievements,
     openCollection,
     openSettings,
-    setPlayerData,
-      collectTreasure,
+    collectTreasure,
+      unlockedDefender,
+      setUnlockedDefender,
   } = useGame();
   const [mapPosition, setMapPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -39,6 +40,8 @@ const Lobby = () => {
   const [showEndlessOptions, setShowEndlessOptions] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
   const [isMapReady, setIsMapReady] = useState(false); // Track if map is ready for interaction
+  const [defenderNotification, setDefenderNotification] = useState(null)
+  const [notificationFading, setNotificationFading] = useState(false)
 
   const [mapBoundaries, setMapBoundaries] = useState({
                                                        minX: 0,
@@ -48,6 +51,28 @@ const Lobby = () => {
                                                      });
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null); // Ref for the inner game-map div
+
+  useEffect(() => {
+    if (unlockedDefender) {
+      setDefenderNotification(unlockedDefender);
+      setNotificationFading(false)
+
+      //message fading out after 4 seconds
+      const fadeTimer = setTimeout(() => {
+        setNotificationFading(true)
+      }, 4000);
+
+      //remove message completely after 5 second
+      const removeTimer = setTimeout(() => {
+        setDefenderNotification(null);
+        setUnlockedDefender(null);
+      }, 5000);
+      return () => {
+        clearTimeout(fadeTimer);
+        clearTimeout(removeTimer);
+      }
+    }
+  }, [unlockedDefender, setUnlockedDefender]);
 
   // Calculate map boundaries with proper initialization check
   const calculateBoundaries = useCallback(() => {
@@ -99,49 +124,6 @@ const Lobby = () => {
       calculateBoundaries();
     });
   }, [calculateBoundaries]);
-
-  //auto scroll to current progress
-  useEffect(() => {
-    if (mapSettings.autoCameraEnabled && playerData?.unlockedLevels && mapContainerRef.current && isMapReady) {
-      const highestUnlockedLevel = Math.max(...playerData.unlockedLevels);
-      const levelNode = levelsMapData.find(l => l.id === highestUnlockedLevel);
-
-      if (levelNode) {
-        const containerRect = mapContainerRef.current.getBoundingClientRect();
-        const targetX = -(levelNode.x * mapZoom - containerRect.width / 2);
-        const targetY = -(levelNode.y * mapZoom - containerRect.height / 2);
-
-        // Clamp to boundaries
-        const clampedX = Math.max(mapBoundaries.minX, Math.min(mapBoundaries.maxX, targetX));
-        const clampedY = Math.max(mapBoundaries.minY, Math.min(mapBoundaries.maxY, targetY));
-
-        //smooth scroll animation
-        let animationFrame;
-        const animationScroll = () => {
-          setMapPosition(prev => {
-            const newX = prev.x + (clampedX - prev.x) * 0.1;
-            const newY = prev.y + (clampedY - prev.y) * 0.1;
-
-            // Stop animation when close enough
-            if (Math.abs(clampedX - newX) < 1 && Math.abs(clampedY - newY) < 1) {
-              cancelAnimationFrame(animationFrame);
-              return { x: clampedX, y: clampedY };
-            }
-
-            animationFrame = requestAnimationFrame(animationScroll);
-            return { x: newX, y: newY };
-          });
-        };
-        animationFrame = requestAnimationFrame(animationScroll);
-
-        return () => {
-          if (animationFrame) {
-            cancelAnimationFrame(animationFrame);
-          }
-        };
-      }
-    }
-  }, [playerData?.unlockedLevels, mapZoom, mapBoundaries, isMapReady]);
 
   // Handle Map dragging (mouse events)
   const handleMouseDown = (e) => {
@@ -328,6 +310,18 @@ const Lobby = () => {
   // Render Lobby UI
   return (
       <div className="lobby-container">
+
+        {/* Defender unlock notification */}
+        {defenderNotification && (
+            <div className={`defender-notification ${notificationFading ? 'fade-out': ""}`}>
+              <div className='notification-icon'>🎉</div>
+              <div className="notification-content">
+                <h3>New Defender Unlocked!</h3>
+                <p className="defender-name">{defenderNotification}</p>
+              </div>
+            </div>
+        )}
+
         {/* Top menu bar */}
         <div className="top-menu-bar">
           <div className="player-info">
@@ -372,7 +366,7 @@ const Lobby = () => {
 
         {/* Zoom Controls */}
         <div className="zoom-controls">
-          <button onClick={() => handleZoom(-1)}>−</button>
+        <button onClick={() => handleZoom(-1)}>−</button>
           <span>{Math.round(mapZoom * 100)}%</span>
           <button onClick={() => handleZoom(1)}>+</button>
         </div>

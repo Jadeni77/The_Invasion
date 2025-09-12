@@ -1,15 +1,7 @@
 // src/component/GameLogic (MVC)/GameContext.jsx
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-} from "react";
+import React, {createContext, useContext, useState, useEffect, useRef, useCallback,} from "react";
 import {chestsData, levelDefenderReward} from "../GameRendering/MapLayout.jsx";
 import {SessionManager} from "./SessionManager.js";
-import card from "../common/Card.jsx";
 
 export const GameContext = createContext();
 
@@ -37,9 +29,11 @@ export const GameProvider = ({ children }) => {
   const [currentEndlessWave, setCurrentEndlessWave] = useState(0);
   const [endlessDifficulty, setEndlessDifficulty] = useState(null);
 
+  const [unlockedDefender, setUnlockedDefender] = useState(false);
+
 
   // Callbacks for GameEngine to update React state
-  //updating in game energy 
+  //updating in game energy
   const updateEnergyCb = useCallback((energy) => {
     setInGameEnergy(energy);
   }, []);
@@ -61,7 +55,7 @@ export const GameProvider = ({ children }) => {
       setPlayerData((prev) => {
         if (!prev) return prev;
         const levelConfig = getLevelRewardMultiplier(level);
-        const goldEarned = Math.floor(score * 0.3);
+        const goldEarned = Math.floor(score * 0.2);
         const ironEarned = Math.floor(score * 0.1);
         const grainEarned = Math.floor(score * 0.2);
         const waterEarned = Math.floor(score * 0.2);
@@ -74,7 +68,6 @@ export const GameProvider = ({ children }) => {
         const newGem = prev.resources.gem + gemBonus;
 
         const newCompleteLevels = [ ...(prev.completedLevels || [])];
-
         if (!newCompleteLevels.includes(level)) {
           newCompleteLevels.push(level);
         }
@@ -137,30 +130,31 @@ export const GameProvider = ({ children }) => {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              defenderName: defenderRewards
+                                   defenderName: defenderRewards
                                  })
           });
-        //update playerdata with new defender
-          setPlayerData(prev => {
-            const hasDefender = prev.cards.some(card => card.name === defenderRewards);
-            if (!hasDefender) {
-              const newCardId = Math.max(...prev.cards.map(c => c.id), 0) + 1;
-              return {
-                ...prev,
-                cards: [...prev.cards, {
-                  id: newCardId,
-                  name: defenderRewards,
-                  level: 1,
-                  pieces: 0,
-                  piecesNeeded: getPiecesNeeded(defenderRewards),
-                  upgradeCost: getUpgradeCost(defenderRewards, 1)
-                }]
+          setUnlockedDefender(defenderRewards)
+          //update playerdata with new defender
+            setPlayerData(prev => {
+              const hasDefender = prev.cards.some(card => card.name === defenderRewards);
+              if (!hasDefender) {
+                const newCardId = Math.max(...prev.cards.map(c => c.id), 0) + 1;
+                return {
+                  ...prev,
+                  cards: [...prev.cards, {
+                    id: newCardId,
+                    name: defenderRewards,
+                    level: 1,
+                    pieces: 0,
+                    piecesNeeded: getPiecesNeeded(defenderRewards),
+                    upgradeCost: getUpgradeCost(defenderRewards, 1)
+                  }]
 
-              };
-            }
-            return prev;
-          });
-        }
+                };
+              }
+              return prev;
+            });
+          }
         //refresh all data from backend to ensure async
   //      await fetchPlayerData();
       } catch (error) {
@@ -271,9 +265,9 @@ export const GameProvider = ({ children }) => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      console.log("Received player data:", data);
-      console.log("Raw backend data:", data);
-      console.log("Cards from backend:", data.cards);
+      // console.log("Received player data:", data);
+      // console.log("Raw backend data:", data);
+      // console.log("Cards from backend:", data.cards);
 
       //transform backend to mathc frontend
       const playerData = {
@@ -612,13 +606,7 @@ export const GameProvider = ({ children }) => {
 
   const savePlayerData = useCallback(async (data) => {
     try {
-      // Backend API call to save player data
-      // await fetch('/api/save-player-data', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(data)
-      // });
-      console.log("Player data saved (simulated)");
+     // console.log("Player data saved (simulated)");
     } catch (error) {
       console.error("Failed to save player data:", error);
     }
@@ -717,7 +705,7 @@ export const GameProvider = ({ children }) => {
       updateResource("lobbyEnergy", -levelCost);
 
       if (selectedCards) {
-        setSelectedCardsForGame(selectedCards); 
+        setSelectedCardsForGame(selectedCards);
       }
 
       // Set game state
@@ -966,6 +954,7 @@ export const GameProvider = ({ children }) => {
 
       if (chest.rewards.defender) {
         saveUnlockedDefender(chest.rewards.defender);
+        setUnlockedDefender(chest.rewards.defender)
       }
     } catch (error) {
       console.error("Failed to save collected treasure:", error);
@@ -1031,6 +1020,8 @@ export const GameProvider = ({ children }) => {
     updateResource,
     addCollectedPieces,
     collectedCardPieces,
+    unlockedDefender,
+    setUnlockedDefender,
   };
 
   return (
