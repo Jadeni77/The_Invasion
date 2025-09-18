@@ -43,17 +43,22 @@ To run the game locally:
 * Have Fun! 🎉
 
 ## 👥 Contributors
-<div style="display: flex; gap:20px"> 
-<a href="https://github.com/jadeni77" target="_blank" style="text-align: center;">
-  <img src="https://github.com/jadeni77.png" width="60px" style="border-radius:50%;" /><br />
-  Jaden Mei
-</a>
-
-<a href="https://github.com/marlili" target="_blank" style="text-align: center;">
-  <img src="https://github.com/marlili.png" width="60px" style="border-radius:50%;" /><br />
-  Marina Li
-</a>
-</div>
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/jadeni77" target="_blank">
+        <img src="https://github.com/jadeni77.png" width="60px" style="border-radius:50%;" /><br />
+        Jaden Mei
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/marlili" target="_blank">
+        <img src="https://github.com/marlili.png" width="60px" style="border-radius:50%;" /><br />
+        Marina Li
+      </a>
+    </td>
+  </tr>
+</table>
 
 ## 🙏 Acknowledgements
 Game assets used in this project were downloaded from [Free Game Assets](https://itch.io/game-assets/free)
