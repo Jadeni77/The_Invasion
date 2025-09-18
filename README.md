@@ -44,12 +44,12 @@ To run the game locally:
 
 ## 👥 Contributors
 <div style="display: flex; gap:20px"> 
-<a href="https://github.com/jadeni77" target="_blank">
+<a href="https://github.com/jadeni77" target="_blank" style="text-align: center;">
   <img src="https://github.com/jadeni77.png" width="60px" style="border-radius:50%;" /><br />
   Jaden Mei
 </a>
 
-<a href="https://github.com/marlili" target="_blank">
+<a href="https://github.com/marlili" target="_blank" style="text-align: center;">
   <img src="https://github.com/marlili.png" width="60px" style="border-radius:50%;" /><br />
   Marina Li
 </a>
