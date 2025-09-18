@@ -50,6 +50,17 @@ To run the game locally:
   Marina Li
 
 
+## 👥 Contributors
+
+<a href="https://github.com/jadeni77">
+  <img src="https://github.com/jadeni77.png" width="60px" style="border-radius:50%;" /><br />
+  Jaden Mei
+</a>
+
+<a href="https://github.com/marlili">
+  <img src="https://github.com/marlili.png" width="60px" style="border-radius:50%;" /><br />
+  Marina Li
+</a>
 
 * [Xiaobin Mei](https://github.com/Jadeni77)
 * [Marina Li](https://github.com/marlili)
