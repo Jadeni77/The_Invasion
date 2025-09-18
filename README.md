@@ -44,13 +44,15 @@ To run the game locally:
 
 ## 👥 Contributor 
 <a href="https://github.com/Jadeni77>
-  <img src="https://github.com/Jadeni77.png" width="60px" style="border-radius:50%;"/>
+  <img src="https://github.com/Jadeni77.png" alt="Xiaobin (Jaden) Mei" width="60px" style="border-radius:50%;"/>
   Xiaoin (Jaden) Mei
 </a>
 <a href="https://github.com/marlili>
-  <img src="https://github.com/marlili.ong" width="60px" style="border-radius:50%;"/>
+  <img src="https://github.com/marlili.ong" alt="Marina Li" width="60px" style="border-radius:50%;"/>
   Marina Li
 </a>
+
+
 * [Xiaobin Mei](https://github.com/Jadeni77)
 * [Marina Li](https://github.com/marlili)
 
