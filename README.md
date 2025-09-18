@@ -42,16 +42,8 @@ To run the game locally:
 * Earn resources for each enemy defeated, and use them to upgrade defensive units
 * Have Fun! 🎉
 
-## 👥 Contributor 
-  <img src="https://github.com/Jadeni77.png" alt="Xiaobin (Jaden) Mei" width="60px" style="border-radius:50%;"/>
-  Xiaoin (Jaden) Mei
-
-  <img src="https://github.com/marlili.ong" alt="Marina Li" width="60px" style="border-radius:50%;"/>
-  Marina Li
-
-
 ## 👥 Contributors
-
+<div> 
 <a href="https://github.com/jadeni77">
   <img src="https://github.com/jadeni77.png" width="60px" style="border-radius:50%;" /><br />
   Jaden Mei
@@ -61,9 +53,7 @@ To run the game locally:
   <img src="https://github.com/marlili.png" width="60px" style="border-radius:50%;" /><br />
   Marina Li
 </a>
-
-* [Xiaobin Mei](https://github.com/Jadeni77)
-* [Marina Li](https://github.com/marlili)
+</div>
 
 ## 🙏 Acknowledgements
 Game assets used in this project were downloaded from [Free Game Assets](https://itch.io/game-assets/free)
