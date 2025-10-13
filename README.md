@@ -10,7 +10,10 @@ be a total of 20 challenging levels and an endless level.
 - Progressive difficulty and resource management
 
 ## 🎥 Screenshots
-...
+<img width="400" alt="Screenshot 2025-10-13 at 5 36 55 PM" src="https://github.com/user-attachments/assets/094a0b4d-1251-4cb8-b5ca-b3241832e640" />
+<img width="400" alt="Screenshot 2025-10-13 at 5 38 07 PM" src="https://github.com/user-attachments/assets/c6b23a31-e1c8-4351-bd4e-61a931a4d606" />
+<img width="400" alt="Screenshot 2025-10-13 at 5 39 27 PM" src="https://github.com/user-attachments/assets/d230af22-3cc3-4b89-9128-80e80d95666e" />
+
 
 ## 🚀 Play the Game
 Live Demo: ...
