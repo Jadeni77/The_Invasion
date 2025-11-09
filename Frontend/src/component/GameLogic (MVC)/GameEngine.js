@@ -142,7 +142,7 @@ export class GameEngine {
       const drop = this.energyDrops[i];
       if (drop.checkCollection(x, y)) {
         drop.startCollectionAnimation(110, 20); //where the bar locate;
-        this.inGameEnergy = Math.min(999, this.inGameEnergy + drop.amount);
+        this.inGameEnergy = Math.min(9999, this.inGameEnergy + drop.amount);
         this.updateEnergyCb(this.inGameEnergy);
         return true; //energy is collected
       }
