@@ -64,4 +64,11 @@ public class PlayerController {
     Map<String, Integer> rewards = (Map<String, Integer>) request.get("rewards");
     return ResponseEntity.ok(playerService.collectTreasure(sessionId, chestId, rewards));
   }
+
+  @PostMapping("/session/{sessionId}/update-resources")
+  public ResponseEntity<Player> updateResources(@PathVariable String sessionId, @RequestBody Map<String, Object> request) {
+    @SuppressWarnings("unchecked")
+    Map<String, Integer> resourcesChange = (Map<String, Integer>) request.get("resourcesChange");
+    return ResponseEntity.ok(playerService.updateResources(sessionId, resourcesChange));
+  }
 }

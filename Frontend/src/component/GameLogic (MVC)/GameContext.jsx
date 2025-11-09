@@ -1,6 +1,6 @@
 // src/component/GameLogic (MVC)/GameContext.jsx
 import React, {createContext, useContext, useState, useEffect, useRef, useCallback,} from "react";
-import {chestsData, levelDefenderReward} from "../GameRendering/MapLayout.jsx";
+import {chestsData} from "../GameRendering/MapLayout.jsx";
 import {SessionManager} from "./SessionManager.js";
 
 export const GameContext = createContext();
@@ -117,67 +117,27 @@ export const GameProvider = ({ children }) => {
             levelId: level,
             score: score,
             stars: stars
-                               })
+          })
         });
-
-        //check if this level unlock a defender
-        const defenderRewards = levelDefenderReward[level];
-        if (defenderRewards) {
-          //second fetch to unlock defender
-          await fetch(`http://localhost:8080/api/player/session/${sessionId}/unlock-defender`, {
-            method: "POST",
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                                   defenderName: defenderRewards
-                                 })
-          });
-          setUnlockedDefender(defenderRewards)
-          //update playerdata with new defender
-            setPlayerData(prev => {
-              const hasDefender = prev.cards.some(card => card.name === defenderRewards);
-              if (!hasDefender) {
-                const newCardId = Math.max(...prev.cards.map(c => c.id), 0) + 1;
-                return {
-                  ...prev,
-                  cards: [...prev.cards, {
-                    id: newCardId,
-                    name: defenderRewards,
-                    level: 1,
-                    pieces: 0,
-                    piecesNeeded: getPiecesNeeded(defenderRewards),
-                    upgradeCost: getUpgradeCost(defenderRewards, 1)
-                  }]
-
-                };
-              }
-              return prev;
-            });
-          }
-        //refresh all data from backend to ensure async
-  //      await fetchPlayerData();
       } catch (error) {
         console.error("Failed to save to backend:", error);
       }
-      // GameEngine will stop its loop; UI will show victory screen.
-      // User clicks "Return to Lobby" which calls endGame.
-    },
-    [] // Dependencies are handled by the state setters
-  );
+    }, []);
 
   //handle game loss logic
-  const onLoseCb = useCallback(
-    ({ score, level, reason, endlessWave }) => {
-      console.log("onLoseCb called with:", { score, level, reason }); // Debug log
-      console.log("onLoseCb called - BEFORE setting states"); // Add this
-      console.log("Current gameOver state:", gameOver); // Add this
-
+  const onLoseCb = useCallback( async ({ score, level, reason, endlessWave }) => {
       setGameOver(true);
       setGameWon(false);
       console.log(`Game lost! Level: ${level}, Reason: ${reason}, Score: ${score}`);
 
       if (level === 999) {
+        const rewardMultiplier = endlessDifficulty?.multiplier || 1.0;
+        const goldEarned = Math.floor(endlessWave * 25 * rewardMultiplier);
+        const ironEarned = Math.floor(endlessWave * 10 * rewardMultiplier);
+        const grainEarned = Math.floor(endlessWave * 10 * rewardMultiplier);
+        const waterEarned = Math.floor(endlessWave * 8 * rewardMultiplier);
+        const gemEarned = Math.floor(endlessWave / 10 * rewardMultiplier);
+
         setPlayerData((prev) => {
           if (!prev) return prev;
 
@@ -185,15 +145,14 @@ export const GameProvider = ({ children }) => {
           const newHighScore = Math.max(prev.endlessHighScore || 0, endlessWave);
 
           // Calculate endless rewards based on waves survived
-          const rewardMultiplier = endlessDifficulty?.multiplier || 1.0;
-          const goldEarned = Math.floor(endlessWave * 25 * rewardMultiplier);
-          const gemEarned = Math.floor(endlessWave / 10 * rewardMultiplier);
-
           return {
             ...prev,
             resources: {
               ...prev.resources,
               gold: prev.resources.gold + goldEarned,
+              iron: prev.resources.iron + ironEarned,
+              grain: prev.resources.grain + grainEarned,
+              water: prev.resources.water + waterEarned,
               gem: prev.resources.gem + gemEarned
             },
             endlessHighScore: newHighScore,
@@ -204,29 +163,82 @@ export const GameProvider = ({ children }) => {
             }
           };
         });
+
+        try {
+          const sessionId = SessionManager.getOrCreateSessionId();
+          await fetch(`http://localhost:8080/api/player/session/${sessionId}/update-resources`, {
+            method: "POST",
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              resourcesChange: {
+                gold: goldEarned,
+                iron: ironEarned,
+                grain: grainEarned,
+                water: waterEarned,
+                gem: gemEarned
+              }
+            })
+          });
+          console.log(`Endless rewards saved: ${goldEarned} gold, ${ironEarned} iron,
+          ${grainEarned}, ${waterEarned}, ${gemEarned} gems for ${endlessWave} waves`);
+        } catch (e) {
+          console.error("Failed to save endless rewards:", e);
+        }
+
       } else {
-        // Deduct resources on loss (as per your logic)
+        // Deduct resources on loss
+        const goldPenalty = 50;
+        const ironPenalty = 10;
+        const grainPenalty = 10;
+        const waterPenalty = 50;
+        const gemPenalty = 1;
+
         setPlayerData((prev) => {
           console.log("Set Player Data Resources Logic Being called in onLoseCb")
           if (!prev) return prev;
-          const newGold = Math.max(0, prev.resources.gold - 50); //TODO: Placeholder amounts
-          const newGrain = Math.max(0, prev.resources.grain - 10);
-          const newWater = Math.max(0, prev.resources.water - 50);
-          const newGem = Math.max(
-              0,
-              prev.resources.gem - Math.ceil(Math.random())
-          ); // Deduct 0 or 1 gem
+          const newGold = Math.max(0, prev.resources.gold - goldPenalty);
+          const newIron = Math.max(0, prev.resources.iron - ironPenalty);
+          const newGrain = Math.max(0, prev.resources.grain - grainPenalty);
+          const newWater = Math.max(0, prev.resources.water - waterPenalty);
+          const newGem = Math.max(0, prev.resources.gem - gemPenalty);
+
           return {
             ...prev,
             resources: {
               ...prev.resources,
               gold: newGold,
+              iron: newIron,
               grain: newGrain,
               water: newWater,
               gem: newGem,
             },
           };
         });
+
+        try {
+          const sessionId = SessionManager.getOrCreateSessionId();
+          await fetch(`http://localhost:8080/api/player/session/${sessionId}/update-resources`, {
+            method: "POST",
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              resourcesChange: {
+              gold: -goldPenalty,
+              iron: -ironPenalty,
+              grain: -grainPenalty,
+              water: -waterPenalty,
+              gem: -gemPenalty
+            }
+            })
+          });
+          console.log(`Loss penalties saved: -${goldPenalty} gold, -${ironPenalty} iron,
+          -${grainPenalty} grain, -${waterPenalty} water, -${gemPenalty} gem`);
+        } catch (e) {
+          console.error("Failed to save loss penalties:", e);
+        }
       }
     },
     [endlessDifficulty?.multiplier, gameOver] // Dependencies are handled by the state setters
@@ -261,13 +273,7 @@ export const GameProvider = ({ children }) => {
           'Content-Type': 'application/json',
         },
       });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
       const data = await response.json();
-      // console.log("Received player data:", data);
-      // console.log("Raw backend data:", data);
-      // console.log("Cards from backend:", data.cards);
 
       //transform backend to mathc frontend
       const playerData = {
@@ -328,151 +334,6 @@ export const GameProvider = ({ children }) => {
       console.error("Fail to fetch data:", e);
       //fallback to default data
       setPlayerData(getDefaultPlayerData());
-
-      // Mock data until backend is implemented
-      //   const mockData = {
-      //     id: "player-123",
-      //     name: "Garden Defender",
-      //     rank: "Novice Gardener",
-      //     resources: {
-      //       gold: 500,
-      //       lobbyEnergy: 50, // Current energy
-      //       maxLobbyEnergy: 100, // Maximum energy capacity
-      //       energyRechargeRate: 1, // Energy per minute
-      //       lastEnergyRechargeTime: Date.now(), // Last recharge timestamp
-      //       workers: 4,
-      //       iron: 20,
-      //       grain: 30,
-      //       water: 40,
-      //       gem: 5,
-      //     },
-      //     cards: [
-      //       {
-      //         id: 1,
-      //         name: "Basic Cop",
-      //         level: 1,
-      //         pieces: 100,
-      //         piecesNeeded: 10,
-      //         upgradeCost: { gold: 100, iron: 5, water: 3 },
-      //       },
-      //       {
-      //         id: 2,
-      //         name: "Healer Cop",
-      //         level: 5,
-      //         pieces: 10,
-      //         piecesNeeded: 10,
-      //         upgradeCost: { gold: 150, grain: 10, water: 5, gem: 1 },
-      //       },
-      //       {
-      //         id: 3,
-      //         name: "Grenadier",
-      //         level: 5,
-      //         pieces: 10,
-      //         piecesNeeded: 10,
-      //         upgradeCost: { gold: 200, iron: 15, gem: 2 },
-      //       },
-      //       {
-      //         id: 4,
-      //         name: "Barricade",
-      //         level: 5,
-      //         pieces: 0,
-      //         piecesNeeded: 10,
-      //         cost: 30,
-      //         upgradeCost: { gold: 120, iron: 20, grain: 5 },
-      //       },
-      //       {
-      //         id: 5,
-      //         name: "Energy Generator",
-      //         level: 5,
-      //         pieces: 0,
-      //         piecesNeeded: 10,
-      //         cost: 25,
-      //         upgradeCost: { gold: 80, water: 10, grain: 20},
-      //       },
-      //       {
-      //         id: 6,
-      //         name: "Sniper",
-      //         level: 5,
-      //         pieces: 0,
-      //         piecesNeeded: 25,
-      //         cost: 80,
-      //         upgradeCost: { gold: 130, water: 60, grain: 35},
-      //       },
-      //       {
-      //         id: 7,
-      //         name: "Mortar",
-      //         level: 5,
-      //         pieces: 0,
-      //         piecesNeeded: 15,
-      //         upgradeCost: { gold: 250, iron: 30, water: 20, gem: 1 },
-      //       },
-      //       {
-      //         id: 8,
-      //         name: "Frost Archer",
-      //         level: 5,
-      //         pieces: 0,
-      //         piecesNeeded: 25,
-      //         upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
-      //       },
-      //       {
-      //         id: 9,
-      //         name: "Fire Blast",
-      //         level: 5,
-      //         pieces: 0,
-      //         piecesNeeded: 25,
-      //         upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
-      //       },
-      //       {
-      //         id: 10,
-      //         name: "Ice Bomb",
-      //         level: 5,
-      //         pieces: 0,
-      //         piecesNeeded: 25,
-      //         upgradeCost: { gold: 300, iron: 30, water: 20, gem: 2},
-      //       }
-      //     ],
-      //     unlockedLevels: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,999],
-      //     completedLevels: [],
-      //     levelStars: Array(20).fill(0), // Stars for levels 1-20
-      //     collectedTreasures: [],
-      //     revealedSecrets: [],
-      //     endlessHighScore: 0,
-      //     endlessStats: {
-      //       totalWaves: 0,
-      //       totalRuns: 0,
-      //       bestDifficulty: null
-      //     },
-      //     achievements: [],
-      //     totalStars: 0
-      //   };
-      //   setPlayerData(mockData);
-      // } catch (error) {
-      //   console.error("Failed to fetch player data:", error);
-      //   // Fallback to empty state
-      //   setPlayerData({
-      //     resources: {
-      //       gold: 0,
-      //       lobbyEnergy: 0,
-      //       maxLobbyEnergy: 0,
-      //       energyRechargeRate: 0,
-      //       lastEnergyRechargeTime: 0,
-      //       iron: 0,
-      //       grain: 0,
-      //       water: 0,
-      //       gem: 0,
-      //     },
-      //     cards: [],
-      //     unlockedLevels: [1],
-      //     completedLevels: [],
-      //     levelStars: Array(20).fill(0),
-      //     collectedTreasures: [],
-      //     revealedSecrets: [],
-      //     endlessHighScore: 0,
-      //     endlessStats: { totalWaves: 0, totalRuns: 0 },
-      //     achievements: [],
-      //     totalStars: 0
-      //   });
-      // }
     }
   }, []);
 
