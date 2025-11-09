@@ -681,7 +681,7 @@ export const GameProvider = ({ children }) => {
       }
 
       if (levelId === 999) {
-        const isUnlocked = playerData.completedLevels?.includes(20) ||
+        const isUnlocked = playerData.completedLevels?.includes(10) ||
                            playerData.totalStars >= 50
         if (!isUnlocked) {
           alert("Complete Level 20 or collect 50 stars to unlock Endless Mode!");
