@@ -40,7 +40,7 @@ export const levelsMapData = [
     zone: 'endless',
     name: 'Endless Survival',
     isEndless: true,
-    requiresCompletion: 20, // Requires completing level 20
+    requiresCompletion: 10, // Requires completing level 20
     special: 'portal' // Special visual indicator
   }
 ];
@@ -86,22 +86,68 @@ export const connectionsData = [
 // Treasure chests with better rewards distribution
 export const chestsData = [
   // Early game chests
-  { id: 'chest-1', x: 425, y: 380, rewards: { gold: 100, gem: 1, defender: "Energy Generator" }, requiresLevel: 1 },
-  { id: 'chest-2', x: 875, y: 280, rewards: { iron: 50, grain: 30 }, requiresLevel: 5 },
-  { id: 'chest-3', x: 1175, y: 380, rewards: { water: 50, gem: 2 }, requiresLevel: 7 },
+  { id: 'chest-1', x: 275, y: 475,
+    rewards: { gold: 100, gem: 1, defender: "Energy Generator" }, requiresLevel: 1 },
+
+  { id: 'chest-2', x: 425, y: 425,
+    rewards: { iron: 50, grain: 30, defender: "Barricade" }, requiresLevel: 2 },
+
+  { id: 'chest-3', x: 575, y: 375,
+    rewards: { water: 50, gem: 2, defender: "Grenadier" }, requiresLevel: 3 },
 
   // Mid game chests
-  { id: 'chest-4', x: 1475, y: 430, rewards: { gold: 250, iron: 100 }, requiresLevel: 9 },
-  { id: 'chest-5', x: 1625, y: 380, rewards: { gem: 5, grain: 100 }, requiresLevel: 11 },
-  { id: 'chest-6', x: 1775, y: 300, rewards: { gold: 500, water: 150 }, requiresLevel: 12 },
+  { id: 'chest-4', x: 725, y: 325,
+    rewards: { gold: 250, iron: 100, defender: "Healer Cop" }, requiresLevel: 4 },
+
+  { id: 'chest-5', x: 875, y: 325,
+    rewards: { gem: 5, grain: 100 }, requiresLevel: 5 },
+
+  { id: 'chest-6', x: 1025, y: 375,
+    rewards: { gold: 500, water: 150, defender: "Frost Archer" }, requiresLevel: 6 },
 
   // Late game chests
-  { id: 'chest-7', x: 1625, y: 130, rewards: { gem: 10, iron: 200 }, requiresLevel: 15 },
-  { id: 'chest-8', x: 1325, y: 180, rewards: { gold: 1000, grain: 300 }, requiresLevel: 17 },
+  { id: 'chest-7', x: 1175, y: 425,
+    rewards: { gem: 10, iron: 200 }, requiresLevel: 7 },
+
+  { id: 'chest-8', x: 1325, y: 475,
+    rewards: { gold: 1000, grain: 300 }, requiresLevel: 8 },
 
   // End game chests
-  { id: 'chest-9', x: 1025, y: 130, rewards: { gem: 20, gold: 2000 }, requiresLevel: 19 },
-  { id: 'chest-10', x: 725, y: 50, rewards: { gem: 50, all: 500 }, requiresLevel: 20 },
+  { id: 'chest-9', x: 1475, y: 475,
+    rewards: { gem: 20, gold: 2000 }, requiresLevel: 9 },
+
+  { id: 'chest-10', x: 1625, y: 425,
+    rewards: { gem: 50, all: 500, defender: "Sniper" }, requiresLevel: 10 },
+
+  { id: 'chest-11', x: 1775, y: 375,
+    rewards: { gem: 50, all: 500, defender: "Ice Bomb" }, requiresLevel: 11 },
+
+  { id: 'chest-12', x: 1900, y: 300,
+    rewards: { gem: 50, all: 500 }, requiresLevel: 12 },
+
+  { id: 'chest-13', x: 1775, y: 225,
+    rewards: { gem: 50, all: 500,  }, requiresLevel: 13 },
+
+  { id: 'chest-14', x: 1625, y: 175,
+    rewards: { gem: 50, all: 500, defender: "Mortar"}, requiresLevel: 14 },
+
+  { id: 'chest-15', x: 1475, y: 175,
+    rewards: { gem: 50, all: 500 }, requiresLevel: 15 },
+
+  { id: 'chest-16', x: 1325, y: 225,
+    rewards: { gem: 50, all: 500, defender: "Fire Blast" }, requiresLevel: 16 },
+
+  { id: 'chest-17', x: 1175, y: 225,
+    rewards: { gem: 50, all: 500 }, requiresLevel: 17 },
+
+  { id: 'chest-18', x: 1025, y: 175,
+    rewards: { gem: 50, all: 500 }, requiresLevel: 18 },
+
+  { id: 'chest-19', x: 875, y: 125,
+    rewards: { gem: 50, all: 500 }, requiresLevel: 19 },
+
+  { id: 'chest-20', x: 725, y: 75,
+    rewards: { gem: 50, all: 500 }, requiresLevel: 20 },
 
   // Secret chests (hidden or require special conditions)
   {
@@ -254,7 +300,7 @@ export const mapAchievements = [
 // Function to check if endless mode should be unlocked
 export function isEndlessUnlocked(playerData) {
   // Primary unlock: complete level 20
-  if (playerData.completedLevels?.includes(20)) {
+  if (playerData.completedLevels?.includes(10)) {
     return true;
   }
 

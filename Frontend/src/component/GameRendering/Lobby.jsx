@@ -250,7 +250,7 @@ const Lobby = () => {
           </div>
           {!status.locked && <div className="portal-glow" />}
           {status.locked && (
-              <div className="lock-message">Complete Level 20 to Unlock</div>
+              <div className="lock-message">Complete Level 10 to Unlock</div>
           )}
         </div>
     );
