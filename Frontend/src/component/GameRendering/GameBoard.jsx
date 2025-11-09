@@ -305,7 +305,7 @@ const GameBoard = () => {
     const ironLoss = gameWon ? 0 : 10;
     const grainLoss = gameWon ? 0 : 10;
     const waterLoss = gameWon ? 0 : 50;
-    const gemLoss = gameWon ? 0 : Math.ceil(Math.random());
+    const gemLoss = gameWon ? 0 : 1;
     const goldEarned = Math.floor(inGameScore * 0.2);
     const ironEarned = Math.floor(inGameScore * 0.1);
     const grainEarned = Math.floor(inGameScore * 0.2);
