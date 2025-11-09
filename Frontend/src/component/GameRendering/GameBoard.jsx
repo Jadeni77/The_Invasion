@@ -299,8 +299,6 @@ const GameBoard = () => {
 
   // Render game over screen
   if (gameOver) {
-   // console.log("Rendering game over screen");
-
     const goldLoss = gameWon ? 0 : 50;
     const ironLoss = gameWon ? 0 : 10;
     const grainLoss = gameWon ? 0 : 10;
@@ -561,7 +559,7 @@ const GameBoard = () => {
               <div className="quit-dialog">
                 <h3>Return to Lobby?</h3>
                 <p>
-                  Warning: Quitting now will count as a defeat!
+                  Warning: Quitting will remove all resources gain from this level!
                 </p>
                 <div className="quit-dialog-buttons">
                   <button
