@@ -185,11 +185,6 @@ const Lobby = () => {
     setIsDragging(false);
   };
 
-  const handleZoom = (delta) => {
-    const zoomIndex = mapSettings.zoomLevels.indexOf(mapZoom);
-    const newIndex = Math.max(0, Math.min(mapSettings.zoomLevels.length - 1, zoomIndex + delta));
-    setMapZoom(mapSettings.zoomLevels[newIndex]);
-  }
 
   // Handle treasure click
   const handleTreasureClick = (chestId) => {
@@ -362,13 +357,6 @@ const Lobby = () => {
           <ResourceIcon type="grain" value={playerData.resources.grain} />
           <ResourceIcon type="water" value={playerData.resources.water} />
           <ResourceIcon type="gem" value={playerData.resources.gem} />
-        </div>
-
-        {/* Zoom Controls */}
-        <div className="zoom-controls">
-        <button onClick={() => handleZoom(-1)}>−</button>
-          <span>{Math.round(mapZoom * 100)}%</span>
-          <button onClick={() => handleZoom(1)}>+</button>
         </div>
 
         {/* Game Map */}
