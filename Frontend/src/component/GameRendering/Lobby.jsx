@@ -458,39 +458,6 @@ const Lobby = () => {
           <span>Upgrade Cards</span>
         </button>
 
-        {/* {/* Endless Mode Options Modal }
-        {showEndlessOptions && (
-            <div className="modal-overlay">
-              <div className="endless-options-modal">
-                <h2>Select Endless Mode Difficulty</h2>
-                <div className="difficulty-options">
-                  <button
-                      className="difficulty-option normal"
-                      onClick={() => handleEndlessStart(null)}
-                  >
-                    <h3>Normal</h3>
-                    <p>Standard endless experience</p>
-                    <span className="multiplier">1.0x rewards</span>
-                  </button>
-                  {endlessPortalConfig.features.difficultyModifiers.map(mod => (
-                      <button
-                          key={mod.name}
-                          className="difficulty-option challenge"
-                          onClick={() => handleEndlessStart(mod)}
-                      >
-                        <h3>{mod.name}</h3>
-                        <p>{mod.description}</p>
-                        <span className="multiplier">{mod.multiplier}x rewards</span>
-                      </button>
-                  ))}
-                </div>
-                <button className="cancel-button" onClick={() => setShowEndlessOptions(false)}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-        )}
-        */}
 
         {/* Showing the selection of cards before game start */}
         {showCardSelection && (
