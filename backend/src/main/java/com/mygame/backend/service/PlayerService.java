@@ -39,12 +39,22 @@ public class PlayerService {
           "Fire Blast"
   );
 
+  /**
+   * Create a new player instance or refer to an existing player with the given id
+   * @param sessionId the session id of the player
+   * @return a new player or existing player
+   */
   public Player getOrCreatePlayer(String sessionId) {
     return playerRepository.findBySessionId(sessionId)
             .map(this::upgradeEnergyRecharge)
             .orElseGet(() -> createNewPlayer(sessionId));
   }
 
+  /**
+   * Create a new player with the given session id
+   * @param sessionId a random generatated session id
+   * @return a player with default game status
+   */
   private Player createNewPlayer(String sessionId) {
     Player player = new Player();
     player.setSessionId(sessionId);
@@ -65,6 +75,11 @@ public class PlayerService {
     return playerRepository.save(player);
   }
 
+  /**
+   * Update the lobby energy base on time
+   * @param player the player instance
+   * @return updated version of player with lobby energy changed
+   */
   private Player upgradeEnergyRecharge(Player player) {
     LocalDateTime now = LocalDateTime.now();
     long minutesElapsed = ChronoUnit.MINUTES.between(player.getLastEnergyRechargeTime(), now);
@@ -79,6 +94,13 @@ public class PlayerService {
     return player;
   }
 
+  /**
+   * Add in-game collected card pieces into the player's resources
+   * @param sessionId the player session id
+   * @param cardName the defender card name
+   * @param pieces the amount of card pieces
+   * @return a player with updated resources
+   */
   public Player addCardPieces(String sessionId, String cardName, int pieces) {
     Player player = getOrCreatePlayer(sessionId);
 
@@ -92,6 +114,12 @@ public class PlayerService {
     return playerRepository.save(player);
   }
 
+  /**
+   * Decide if a given card should be unlocked base on player game status
+   * @param player th player instance
+   * @param cardName
+   * @return true if a given card should be unlocked base on game status, false otherwise
+   */
   private boolean shouldBeUnlocked(Player player, String cardName) {
     int unlockProgress = player.getCardUnlockProgress();
     if (unlockProgress >= CARD_UNLOCK_ORDER.size()) {
@@ -102,6 +130,10 @@ public class PlayerService {
             player.getCards().stream().noneMatch(c -> c.getName().equals(nextCard));
   }
 
+  /**
+   * Unlock a new defender card unit for the given player
+   * @param player the player instance
+   */
   private void unlockNextCard(Player player) {
     int unlockProgress = player.getCardUnlockProgress();
     if (unlockProgress >= CARD_UNLOCK_ORDER.size()) {
@@ -113,7 +145,14 @@ public class PlayerService {
     player.setCardUnlockProgress(unlockProgress + 1);
   }
 
+  /**
+   * Return a new card data instance with the given name of the card
+   * @param id the card id
+   * @param name the name of the card
+   * @return a new card instance
+   */
   private CardData createCardData(int id, String name) {
+    //key = name of the card, value = pieces need for upgrade
     Map<String, Integer> piecesNeeded = Map.of(
             "Basic Cop", 10,
             "Energy Generator", 10,
@@ -130,6 +169,14 @@ public class PlayerService {
   }
 
   //TODO: Amount gain in UI does not match actual in Lobby
+  /**
+   * Update resources and game progression base on completing a certain level.
+   * @param sessionId the given session id of the player
+   * @param levelId the completed level id
+   * @param score the winning score
+   * @param stars the winning stars out of 3
+   * @return update version of player
+   */
   public Player completeLevel(String sessionId, int levelId, int score, int stars) {
     Player player = getOrCreatePlayer(sessionId);
     //update complete levels
@@ -165,6 +212,12 @@ public class PlayerService {
     return playerRepository.save(player);
   }
 
+  /**
+   * Unlock a new defender unit for the player
+   * @param sessionId the session id of a player
+   * @param defenderName the name of defender card
+   * @return updated version of player where a new defender is unlocked
+   */
   public Player unlockDefender(String sessionId, String defenderName) {
     Player player = getOrCreatePlayer(sessionId);
 
@@ -181,6 +234,13 @@ public class PlayerService {
     return playerRepository.save(player);
   }
 
+  /**
+   * The result of collecting a treasure
+   * @param sessionId the session id of the player
+   * @param chestId the chest id being collected
+   * @param rewards the rewards for the chest
+   * @return updated version of player with rewards applied
+   */
   public Player collectTreasure(String sessionId, String chestId, Map<String, Integer> rewards) {
     Player player = getOrCreatePlayer(sessionId);
     // Mark chest as collected
@@ -201,6 +261,12 @@ public class PlayerService {
     return playerRepository.save(player);
   }
 
+  /**
+   * Update resources base on the given changes
+   * @param sessionId the session id of the player
+   * @param resourcesChange the amount of resources to apply
+   * @return updated version of player with resources applied
+   */
   public Player updateResources(String sessionId, Map<String, Integer> resourcesChange) {
     Player player = getOrCreatePlayer(sessionId);
 
