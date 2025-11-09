@@ -1804,13 +1804,13 @@ export class Mortar extends DefenderUnit {
                 x + offsetX,
                 y + offsetY,
                 this.attackDamage * 0.5,
-                this.explosionRadius * 0.3,
+                this.explosionRadius * 0.7,
             );
             this.gameEngine.explosions.push({
                                               x: x,
                                               y: y,
                                               damage: 0,
-                                              radius: this.explosionRadius * 0.3,
+                                              radius: this.explosionRadius * 0.7,
                                               timer: 30,
                                               color: "orange",
                                               innerColor: "yellow",
