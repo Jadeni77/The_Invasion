@@ -1528,7 +1528,7 @@ export class AssassinEnemy extends Enemy {
     this.stealthDuration = 360; //6sec
     this.currentStealthDuration = this.stealthDuration;
     this.hasStruck = false;
-    this.dashSpeed = 5;
+    this.dashSpeed = 3;
   }
 
   updateBehavior(defenderUnits) {
