@@ -791,6 +791,7 @@ export class GameEngine {
         this.inGameScore += enemy.bounty;
         this.updateScoreCb(this.inGameScore);
         this.dropManager.handleEnemyDeath(enemy);
+        this.waveManager.totalEnemiesKilled++;
       } else {
         console.log(`Spawned enemy ${enemy.name} killed - no score awarded`);
       }
