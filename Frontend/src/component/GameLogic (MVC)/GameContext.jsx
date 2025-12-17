@@ -531,8 +531,7 @@ export const GameProvider = ({ children }) => {
   );
 
   // Game State management
-  const startLevel = useCallback(
-    (levelId, selectedCards = null, options = {}) => {
+  const startLevel = useCallback(async (levelId, selectedCards = null, options = {}) => {
       if (!playerData) {
         console.error("Cannot start level: Player data or canvas not ready.");
         return;
@@ -558,6 +557,22 @@ export const GameProvider = ({ children }) => {
 
       //deduct resources
       updateResource("lobbyEnergy", -levelCost);
+
+      if (levelCost > 0) {
+        try {
+          const sessionId = SessionManager.getOrCreateSessionId();
+          await fetch(`http://localhost:8080/api/player/session/${sessionId}/update-resources`, {
+            method: "POST",
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                   resourcesChange: {lobbyEnergy: -levelCost}
+                                 })
+          });
+        } catch (error) {
+          console.error("Failed to sync energy with backend:", error);
+        }
+      }
+
 
       if (selectedCards) {
         setSelectedCardsForGame(selectedCards);
