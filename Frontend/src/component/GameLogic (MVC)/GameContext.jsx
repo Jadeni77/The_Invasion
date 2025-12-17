@@ -27,8 +27,6 @@ export const GameProvider = ({ children }) => {
 
   //endless mode tracking
   const [currentEndlessWave, setCurrentEndlessWave] = useState(0);
-  const [endlessDifficulty, setEndlessDifficulty] = useState(null);
-
   const [unlockedDefender, setUnlockedDefender] = useState(false);
 
 
@@ -131,12 +129,11 @@ export const GameProvider = ({ children }) => {
       console.log(`Game lost! Level: ${level}, Reason: ${reason}, Score: ${score}`);
 
       if (level === 999) {
-        const rewardMultiplier = endlessDifficulty?.multiplier || 1.0;
-        const goldEarned = Math.floor(endlessWave * 25 * rewardMultiplier);
-        const ironEarned = Math.floor(endlessWave * 10 * rewardMultiplier);
-        const grainEarned = Math.floor(endlessWave * 10 * rewardMultiplier);
-        const waterEarned = Math.floor(endlessWave * 8 * rewardMultiplier);
-        const gemEarned = Math.floor(endlessWave / 10 * rewardMultiplier);
+        const goldEarned = Math.floor(endlessWave * 25 );
+        const ironEarned = Math.floor(endlessWave * 10 );
+        const grainEarned = Math.floor(endlessWave * 10 );
+        const waterEarned = Math.floor(endlessWave * 8 );
+        const gemEarned = Math.floor(endlessWave / 10);
 
         setPlayerData((prev) => {
           if (!prev) return prev;
@@ -241,7 +238,7 @@ export const GameProvider = ({ children }) => {
         }
       }
     },
-    [endlessDifficulty?.multiplier, gameOver] // Dependencies are handled by the state setters
+    [] // Dependencies are handled by the state setters
   );
 
   //calculate star base on performance
@@ -548,9 +545,6 @@ export const GameProvider = ({ children }) => {
           alert("Complete Level 20 or collect 50 stars to unlock Endless Mode!");
           return;
         }
-        if (options.difficultyModifier) {
-          setEndlessDifficulty(options.difficultyModifier);
-        }
         setCurrentEndlessWave(0);
       }
 
@@ -594,7 +588,6 @@ export const GameProvider = ({ children }) => {
         setGameWon(false);
         setSelectedLevel(null);
         setCurrentEndlessWave(0);
-        setEndlessDifficulty(null);
         return;
       }
 
@@ -658,7 +651,6 @@ export const GameProvider = ({ children }) => {
       setGameWon(false); // Reset UI state
       setSelectedLevel(null); // Clear selected level
       setCurrentEndlessWave(0);
-      setEndlessDifficulty(null);
       await savePlayerData(playerData);
       },
     [playerData, savePlayerData, collectedCardPieces, fetchPlayerData]
@@ -856,7 +848,6 @@ export const GameProvider = ({ children }) => {
     gameWon,
     selectedCardsForGame,
     currentEndlessWave,
-    endlessDifficulty,
     startLevel,
     endGame,
     deployDefender,
