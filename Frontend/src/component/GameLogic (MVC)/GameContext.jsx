@@ -178,10 +178,23 @@ export const GameProvider = ({ children }) => {
               }
             })
           });
+
+          await fetch(`http://localhost:8080/api/player/session/${sessionId}/endless-score`, {
+            method: "POST",
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              waveReached: endlessWave
+                                 })
+          })
+
           console.log(`Endless rewards saved: ${goldEarned} gold, ${ironEarned} iron,
           ${grainEarned}, ${waterEarned}, ${gemEarned} gems for ${endlessWave} waves`);
+          console.log(`Endless high score saved: ${endlessWave} waves`);
         } catch (e) {
           console.error("Failed to save endless rewards:", e);
+          console.error("Failed to save endless data:", e);
         }
 
       } else {
@@ -321,7 +334,7 @@ export const GameProvider = ({ children }) => {
         levelStars: data.levelStars || Array(20).fill(0),
         collectedTreasures: data.collectedTreasures || [],
         revealedSecrets: [],
-        endlessHighScore: 0,
+        endlessHighScore: data.endlessHighScore || 0,
         endlessStats: {totalWaves: 0, totalRuns: 0},
         achievements: [],
         totalStars: data.levelStars ? data.levelStars.reduce((a, b) => a + b, 0) : 0
