@@ -283,4 +283,18 @@ public class PlayerService {
     return playerRepository.save(player);
   }
 
+  /**
+   * Update endless mode high score if the new wave count is higher.
+   * @param sessionId the session id of the player
+   * @param waveReached the amount of waves the player survive in endless mode
+   * @return an updated version of the endless best wave in lobby
+   */
+  public Player updateEndlessHighScore(String sessionId, int waveReached) {
+    Player player = getOrCreatePlayer(sessionId);
+    if (waveReached > player.getEndlessHighScore()) {
+      player.setEndlessHighScore(waveReached);
+    }
+    return playerRepository.save(player);
+  }
+
 }
