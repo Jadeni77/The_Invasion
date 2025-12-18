@@ -71,4 +71,10 @@ public class PlayerController {
     Map<String, Integer> resourcesChange = (Map<String, Integer>) request.get("resourcesChange");
     return ResponseEntity.ok(playerService.updateResources(sessionId, resourcesChange));
   }
+
+  @PostMapping("/session/{sessionId}/endless-score")
+  public ResponseEntity<Player> endlessScore(@PathVariable String sessionId, @RequestBody Map<String, Object> request) {
+    int waveReached = (int) request.get("waveReached");
+    return ResponseEntity.ok(playerService.updateEndlessHighScore(sessionId, waveReached));
+  }
 }
