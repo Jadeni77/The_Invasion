@@ -60,6 +60,9 @@ public class Player {
   private LocalDateTime updatedAt;
   private LocalDateTime lastEnergyRechargeTime;
 
+  @Column(name = "endless_high_score")
+  private Integer endlessHighScore = 0;
+
   @PrePersist
   protected void onCreate() {
     createdAt = LocalDateTime.now();
