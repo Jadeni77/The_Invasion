@@ -1,8 +1,4 @@
 // src/assets/AssetManifest.js
-import BasicZombieIdle from "../assets/enemies/Enemy3No-Move-Idle.png";
-import BasicZombieMove from "../assets/enemies/Enemy3No-Move-Fly.png";
-import BasicZombieAttack from "../assets/enemies/Enemy3No-Move-AttackSmashStart.png";
-import BasicZombieDeath from "../assets/enemies/Enemy3No-Move-Die.png";
 import BasicDefenderIdle from "../assets/defender/basic-defender-idle.png"
 import BasicDefenderAttack from "../assets/defender/basic-defender-attack.png"
 import BasicDefenderDeath from "../assets/defender/basic-defender-death.png"
@@ -31,23 +27,87 @@ import FireIdle from "./defender/fire-idle.png"
 import FireAttack from "./defender/fire-attack.png"
 import IceIdle from "./defender/ice-idle.png"
 import IceAttack from "./defender/ice-attack.png"
-import MushroomIdle from "./enemies/Mushroom-Idle.png"
-import MushroomAttack from "./enemies/Mushroom-Attack.png"
-import MushroomDeath from "./enemies/Mushroom-Die.png"
-import MushroomRun from "./enemies/Mushroom-Run.png"
-import SkeletonIdle from "./enemies/Skeleton_01_White_Idle.png"
-import SkeletonAttack from "./enemies/Skeleton_01_White_Attack1.png"
-import SkeletonDeath from "./enemies/Skeleton_01_White_Die.png"
-import SkeletonWalk from "./enemies/Skeleton_01_White_Walk.png"
+import BasicZombieIdle from "./enemies/Mushroom-Idle.png";
+import BasicZombieRun from "./enemies/Mushroom-Run.png";
+import BasicZombieAttack from "./enemies/Mushroom-Attack.png";
+import BasicZombieDeath from "./enemies/Mushroom-Die.png";
+import FastZombieIdle from "./enemies/Enemy1-FlyIdle.png";
+import FastZombieRun from "./enemies/Enemy1-FlyIdle.png";
+import FastZombieAttack from "./enemies/Enemy1-AttacV2-NoVFX.png";
+import FastZombieDeath from "./enemies/Enemy1-DieV1.png";
+import TankZombieIdle from "./enemies/Golem_2_idle.png";
+import TankZombieRun from "./enemies/Golem_2_walk.png";
+import TankZombieAttack from "./enemies/Golem_2_attack.png";
+import TankZombieDeath from "./enemies/Golem_2_die.png";
+import ExploderIdle from "./enemies/Orange_Slime-Idle_Jump.png";
+import ExploderRun from "./enemies/Orange_Slime-Run_Jump.png";
+import ExploderAttack from "./enemies/Orange_Slime-Die_Air.png";
+import ExploderDeath from "./enemies/Orange_Slime-Die_Air.png";
+import SkeletonIdle from "./enemies/Skeleton_01_White_Idle.png";
+import SkeletonWalk from "./enemies/Skeleton_01_White_Walk.png";
+import SkeletonAttack from "./enemies/Skeleton_01_White_Attack1.png";
+import SkeletonDeath from "./enemies/Skeleton_01_White_Die.png";
+import ShielderIdle from "./enemies/Bush_Monster-Idle.png";
+import ShielderRun from "./enemies/Bush_Monster-Run.png";
+import ShielderAttack from "./enemies/Bush_Monster-Attack.png";
+import ShielderDeath from "./enemies/Bush_Monster-Die.png";
+import EnemyHealerIdle from "./enemies/Enemy2-IdleFly.png";
+import EnemyHealerRun from "./enemies/Enemy2-IdleFly.png";
+import EnemyHealerAttack from "./enemies/Enemy2-BoostUp-NoVFX.png";
+import EnemyHealerDeath from "./enemies/Enemy2-Die.png";
+import SplitterIdle from "./enemies/Enemy3No-Move-Idle.png";
+import SplitterRun from "./enemies/Enemy3No-Move-Fly.png";
+import SplitterAttack from "./enemies/Enemy3No-Move-AttackSmashStart.png";
+import SplitterDeath from "./enemies/Enemy3No-Move-Die.png";
+import MiniIdle from "./enemies/Green_Slime-Idle.png";
+import MiniRun from "./enemies/Green_Slime-Run.png";
+import MiniAttack from "./enemies/Green_Slime-Attack_Ground.png";
+import MiniDeath from "./enemies/Green_Slime-Die_Ground.png";
+import SwarmWitchIdle from "./enemies/EvilCreature-Idle.png";
+import SwarmWitchRun from "./enemies/EvilCreature-Walk.png";
+import SwarmWitchAttack from "./enemies/EvilCreature-Attack1.png";
+import SwarmWitchDeath from "./enemies/EvilCreature-Die.png";
+import EMPIdle from "./enemies/Golem_02_idle.png";
+import EMPRun from "./enemies/Golem_02_fly.png";
+import EMPAttack from "./enemies/Golem_02_attack.png";
+import EMPDeath from "./enemies/Golem_02_die.png";
+import VampireIdle from "./enemies/Bat-IdleFly.png";
+import VampireRun from "./enemies/Bat-Run.png";
+import VampireAttack from "./enemies/Bat-Attack2.png";
+import VampireDeath from "./enemies/Bat-Die.png";
+import GhostIdle from "./enemies/GhostWarrior-IdleFly.png";
+import GhostRun from "./enemies/GhostWarrior-Fly.png";
+import GhostAttack from "./enemies/GhostWarrior-Attack1.png";
+import GhostDeath from "./enemies/GhostWarrior-Die.png";
+import BerserkerIdle from "./enemies/Golem_03_idle.png";
+import BerserkerRun from "./enemies/Golem_03_walk.png";
+import BerserkerAttack from "./enemies/Golem_03_attack.png";
+import BerserkerDeath from "./enemies/Golem_03_die.png";
+import NecromancerIdle from "./enemies/EvilCreature1-Idle.png";
+import NecromancerRun from "./enemies/EvilCreature1-Walk.png";
+import NecromancerAttack from "./enemies/EvilCreature-Attack2.png";
+import NecromancerDeath from "./enemies/EvilCreature1-Die.png";
+import AssassinIdle from "./enemies/GhostWarrior1-IdleFly.png";
+import AssassinRun from "./enemies/GhostWarrior1-Fly.png";
+import AssassinAttack from "./enemies/GhostWarrior1-Attack1.png";
+import AssassinDeath from "./enemies/GhostWarrior1-Die.png";
+import MageIdle from "./enemies/Golem_02_idle1.png";
+import MageRun from "./enemies/Golem_02_fly1.png";
+import MageAttack from "./enemies/Golem_02_attack1.png";
+import MageDeath from "./enemies/Golem_02_die1.png";
+import TitanIdle from "./enemies/Golem_01_idle.png";
+import TitanRun from "./enemies/Golem_01_walk.png";
+import TitanAttack from "./enemies/Golem_01_attack.png";
+import TitanDeath from "./enemies/Golem_01_die.png";
 
 export const AssetManifest = {
     enemies: {
         'Basic Zombie': {
             sprites: {
-                idle: () => MushroomIdle,
-                move: () => MushroomRun,
-                attack: () => MushroomAttack,
-                death: () => MushroomDeath
+                idle: () => BasicZombieIdle,
+                move: () => BasicZombieRun,
+                attack: () => BasicZombieAttack,
+                death: () => BasicZombieDeath
             },
             config: {
                 idle: { frameCount: 7, frameWidth: 80, frameHeight: 64, fps: 7 },
@@ -58,44 +118,44 @@ export const AssetManifest = {
         },
         'Fast Zombie': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => FastZombieIdle,
+                move: () => FastZombieRun,
+                attack: () => FastZombieAttack,
+                death: () => FastZombieDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                attack: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 15 },
-                death: { frameCount: 15, frameWidth: 64, frameHeight: 64, fps: 10, loop: false }
+                idle: { frameCount: 6, frameWidth: 64, frameHeight: 64, fps: 6 },
+                move: { frameCount: 6, frameWidth: 64, frameHeight: 64, fps: 6 },
+                attack: { frameCount: 13, frameWidth: 64, frameHeight: 64, fps: 13 },
+                death: { frameCount: 14, frameWidth: 64, frameHeight: 64, fps: 14, loop: false }
             }
         },
         'Tank Zombie': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => TankZombieIdle,
+                move: () => TankZombieRun,
+                attack: () => TankZombieAttack,
+                death: () => TankZombieDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 8, frameWidth: 90, frameHeight: 64, fps: 4 },
+                move: { frameCount: 10, frameWidth: 90, frameHeight: 64, fps: 5 },
+                attack: { frameCount: 11, frameWidth: 90, frameHeight: 64, fps: 6 },
+                death: { frameCount: 12, frameWidth: 90, frameHeight: 64, fps: 6, loop: false }
             }
         },
         'Exploder': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => ExploderIdle,
+                move: () => ExploderRun,
+                attack: () => ExploderAttack,
+                death: () => ExploderDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 11, frameWidth: 64, frameHeight: 64, fps: 11 },
+                move: { frameCount: 11, frameWidth: 64, frameHeight: 64, fps: 11 },
+                attack: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 10 },
+                death: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 10, loop: false }
             }
         },
         'Skeleton Shooter': {
@@ -114,190 +174,186 @@ export const AssetManifest = {
         },
         'Shielder': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => ShielderIdle,
+                move: () => ShielderRun,
+                attack: () => ShielderAttack,
+                death: () => ShielderDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 8, frameWidth: 90, frameHeight: 64, fps: 8 },
+                move: { frameCount: 7, frameWidth: 90, frameHeight: 64, fps: 7 },
+                attack: { frameCount: 18, frameWidth: 90, frameHeight: 64, fps: 18},
+                death: { frameCount: 14, frameWidth: 90, frameHeight: 64, fps: 14, loop: false }
             }
         },
         'Healer': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => EnemyHealerIdle,
+                move: () => EnemyHealerRun,
+                attack: () => EnemyHealerAttack,
+                death: () => EnemyHealerDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 8 },
+                move: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 8 },
+                attack: { frameCount: 21, frameWidth: 64, frameHeight: 64, fps: 21 },
+                death: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 10, loop: false }
             }
         },
         'Splitter': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => SplitterIdle,
+                move: () => SplitterRun,
+                attack: () => SplitterAttack,
+                death: () => SplitterDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 8 },
+                move: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 8 },
+                attack: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 12 },
+                death: { frameCount: 15, frameWidth: 64, frameHeight: 64, fps: 15, loop: false }
             }
         },
         'Mini': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => MiniIdle,
+                move: () => MiniRun,
+                attack: () => MiniAttack,
+                death: () => MiniDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 7, frameWidth: 64, frameHeight: 64, fps: 7 },
+                move: { frameCount: 6, frameWidth: 64, frameHeight: 64, fps: 6 },
+                attack: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 12 },
+                death: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 10, loop: false }
             }
         },
         'Swarm Witch': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => SwarmWitchIdle,
+                move: () => SwarmWitchRun,
+                attack: () => SwarmWitchAttack,
+                death: () => SwarmWitchDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 8, frameWidth: 90, frameHeight: 64, fps: 4 },
+                move: { frameCount: 10, frameWidth: 90, frameHeight: 64, fps: 5 } ,
+                attack: { frameCount: 14, frameWidth: 90, frameHeight: 64, fps: 7 },
+                death: { frameCount: 14, frameWidth: 90, frameHeight: 64, fps: 7, loop: false }
             }
         },
         'EMP': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => EMPIdle,
+                move: () => EMPRun,
+                attack: () => EMPAttack,
+                death: () => EMPDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 8, frameWidth: 90, frameHeight: 64, fps: 8 },
+                move: { frameCount: 8, frameWidth: 90, frameHeight: 64, fps: 8 },
+                attack: { frameCount: 11, frameWidth: 90, frameHeight: 64, fps: 11 },
+                death: { frameCount: 12, frameWidth: 90, frameHeight: 64, fps: 12, loop: false }
             }
         },
         'Vampire': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => VampireIdle,
+                move: () => VampireRun,
+                attack: () => VampireAttack,
+                death: () => VampireDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 9, frameWidth: 64, frameHeight: 64, fps: 9 },
+                move: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 8 },
+                attack: { frameCount: 11, frameWidth: 64, frameHeight: 64, fps: 11 },
+                death: { frameCount: 11, frameWidth: 64, frameHeight: 64, fps: 11, loop: false }
             }
         },
         'Ghost': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => GhostIdle,
+                move: () => GhostRun,
+                attack: () => GhostAttack,
+                death: () => GhostDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 8, frameWidth: 100, frameHeight: 64, fps: 8 },
+                move: { frameCount: 8, frameWidth: 100, frameHeight: 64, fps: 8 },
+                attack: { frameCount: 11, frameWidth: 100, frameHeight: 64, fps: 11 },
+                death: { frameCount: 12, frameWidth: 100, frameHeight: 64, fps: 12, loop: false }
             }
         },
         'Berserker': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => BerserkerIdle,
+                move: () => BerserkerRun,
+                attack: () => BerserkerAttack,
+                death: () => BerserkerDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 8, frameWidth: 90, frameHeight: 64, fps: 8 },
+                move: { frameCount: 10, frameWidth: 90, frameHeight: 64, fps: 10 },
+                attack: { frameCount: 10, frameWidth: 90, frameHeight: 64, fps: 10 },
+                death: { frameCount: 11, frameWidth: 90, frameHeight: 64, fps: 11, loop: false }
             }
         },
         'Necromancer': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => NecromancerIdle,
+                move: () => NecromancerRun,
+                attack: () => NecromancerAttack,
+                death: () => NecromancerDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 8, frameWidth: 90, frameHeight: 64, fps: 8 },
+                move: { frameCount: 10, frameWidth: 90, frameHeight: 64, fps: 5 },
+                attack: { frameCount: 19, frameWidth: 90, frameHeight: 64, fps: 10 },
+                death: { frameCount: 14, frameWidth: 90, frameHeight: 64, fps: 7, loop: false }
             }
         },
         'Assassin': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => AssassinIdle,
+                move: () => AssassinRun,
+                attack: () => AssassinAttack,
+                death: () => AssassinDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 8, frameWidth: 100, frameHeight: 64, fps: 8 },
+                move: { frameCount: 8, frameWidth: 100, frameHeight: 64, fps: 8 },
+                attack: { frameCount: 11, frameWidth: 100, frameHeight: 64, fps: 11 },
+                death: { frameCount: 12, frameWidth: 100, frameHeight: 64, fps: 12, loop: false }
             }
         },
         'Mage': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => MageIdle,
+                move: () => MageRun,
+                attack: () => MageAttack,
+                death: () => MageDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                attack: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 15 },
-                death: { frameCount: 15, frameWidth: 64, frameHeight: 64, fps: 10, loop: false }
+                idle: { frameCount: 8, frameWidth: 90, frameHeight: 64, fps: 8 },
+                move: { frameCount: 8, frameWidth: 90, frameHeight: 64, fps: 8 },
+                attack: { frameCount: 11, frameWidth: 90, frameHeight: 64, fps: 11 },
+                death: { frameCount: 12, frameWidth: 90, frameHeight: 64, fps: 12, loop: false }
             }
         },
         'Titan': {
             sprites: {
-                idle: () => BasicZombieIdle,
-                move: () => BasicZombieMove,
-                attack: () => BasicZombieAttack,
-                death: () => BasicZombieDeath
+                idle: () => TitanIdle,
+                move: () => TitanRun,
+                attack: () => TitanAttack,
+                death: () => TitanDeath
             },
             config: {
-                idle: { frameCount: 1, frameWidth: 64, frameHeight: 64, fps: 1 },
-                move: { frameCount: 10, frameWidth: 64, frameHeight: 64, fps: 18 },
-                attack: { frameCount: 8, frameWidth: 64, frameHeight: 64, fps: 12 },
-                death: { frameCount: 12, frameWidth: 64, frameHeight: 64, fps: 20, loop: false }
+                idle: { frameCount: 8, frameWidth: 90, frameHeight: 64, fps: 8 },
+                move: { frameCount: 10, frameWidth: 90, frameHeight: 64, fps: 10 },
+                attack: { frameCount: 11, frameWidth: 90, frameHeight: 64, fps: 11 },
+                death: { frameCount: 12, frameWidth: 90, frameHeight: 64, fps: 12, loop: false }
             }
         },
-
-
-
-        // ... more enemies
     },
     defenders: {
         'Basic Cop': {

@@ -17,16 +17,16 @@ export class GameLevelConfigs {
             levelName: "The Outbreak",
             description: "The infection begins. Hold the line!",
             enemySpawnInterval: 3000,
-            maxActiveEnemies: 5,
-            totalEnemiesToSpawn: 15,
-            waves: 3,
+            maxActiveEnemies: 1,
+            totalEnemiesToSpawn: 1,
+            waves: 1,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 120,
+            initialEnergy: 10000,
             waveConfigurations: [
                 {
                     enemyCount: 5,
                     spawnInterval: 3000,
-                    enemyTypes: ["Basic Zombie"],
+                    enemyTypes: ["Skeleton Shooter"],
                     spawnPattern: "standard"
                 },
                 {

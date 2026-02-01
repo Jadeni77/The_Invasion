@@ -53,6 +53,18 @@ export class Enemy {
     this.gameEngine = null;
     this.drawNegativeEffect = new DrawNegativeEffect(this);
 
+    this.shouldFlip = typeData.name !== "Skeleton Shooter"
+                      && typeData.name !== "Skeleton"
+                      && typeData.name !== "Tank Zombie"
+                      && typeData.name !== "Berserker"
+                      && typeData.name !== "Mage"
+                      && typeData.name !== "EMP"
+                      && typeData.name !== "Titan";
+
+    this.stunned = false;
+
+    // Animation properties
+
     this.currentAnimation = 'idle';
     this.animationFrame = 0;
     this.animationTimer = 0;
@@ -404,8 +416,8 @@ export class FastEnemy extends Enemy {
       speed: 1.5, // Faster
       health: 80, // Less health
       color: "darkorange",
-      width: 25,
-      height: 25,
+      width: 64,
+      height: 64,
       image: image,
       bounty: 15,
       isAttacker: false, // This one just tries to cross
@@ -420,8 +432,8 @@ export class TankEnemy extends Enemy {
       name: "Tank Zombie",
       speed: 0.5, // Slower
       health: 1200,
-      width: 40,
-      height: 40,
+      width: 90,
+      height: 64,
       color: "darkred",
       image: image,
       bounty: 30,
@@ -462,8 +474,8 @@ export class BombEnemy extends Enemy {
       name: "Exploder",
       speed: 1.2,
       health: 120,
-      width: 35,
-      height: 35,
+      width: 64,
+      height: 64,
       color: "purple",
       image: image,
       bounty: 20,
@@ -605,8 +617,8 @@ export class ShieldEnemy extends Enemy {
       name: "Shielder",
       speed: 0.8,
       health: 200,
-      width: 35,
-      height: 40,
+      width: 90,
+      height: 64,
       color: 'darkgray',
       image: image,
       bounty: 25,
@@ -660,8 +672,8 @@ export class HealerEnemy extends Enemy {
       name: "Healer",
       speed: 0.1,
       health: 80,
-      width: 30,
-      height: 35,
+      width: 64,
+      height: 64,
       color: 'lightgreen',
       image: image,
       bounty: 25,
@@ -733,8 +745,8 @@ export class SplitterEnemy extends Enemy {
       name: "Splitter",
       speed: 0.9,
       health: 120,
-      width: 35,
-      height: 35,
+      width: 64,
+      height: 64,
       color: 'purple',
       image: image,
       bounty: 15,
@@ -796,8 +808,8 @@ export class MiniEnemy extends Enemy {
       name: "Mini",
       speed: 1.6,
       health: 40,
-      width: 20,
-      height: 20,
+      width: 32,
+      height: 32,
       color: 'mediumpurple',
       image: image,
       bounty: 5,
@@ -816,8 +828,8 @@ export class SwarmLeader extends Enemy {
       name: "Swarm Witch",
       speed: 0.2,
       health: 180,
-      width: 40,
-      height: 45,
+      width: 90,
+      height: 64,
       color: 'darkred',
       image: image,
       bounty: 40,
@@ -1032,8 +1044,8 @@ export class EMPEnemy extends Enemy {
       name: "EMP",
       speed: 1.0,
       health: 180,
-      width: 30,
-      height: 35,
+      width: 90,
+      height: 64,
       color: 'cyan',
       image: image,
       bounty: 20,
@@ -1114,8 +1126,8 @@ export class VampireEnemy extends Enemy {
       name: "Vampire",
       speed: 1.2,
       health: 90,
-      width: 30,
-      height: 35,
+      width: 64,
+      height: 64,
       color: 'darkred',
       image: image,
       bounty: 30,
@@ -1185,8 +1197,8 @@ export class GhostEnemy extends Enemy {
       name: "Ghost",
       speed: 1.0,
       health: 80,
-      width: 30,
-      height: 35,
+      width: 100,
+      height: 64,
       color: 'rgba(200, 200, 255, 0.6)',
       image: image,
       bounty: 25,
@@ -1281,8 +1293,8 @@ export class BerserkerEnemy extends Enemy {
       name: "Berserker",
       speed: 0.6,
       health: 200,
-      width: 35,
-      height: 40,
+      width: 100,
+      height: 64,
       color: 'darkred',
       image: image,
       bounty: 35,
@@ -1391,8 +1403,8 @@ export class NecromancerEnemy extends Enemy {
       name: "Necromancer",
       speed: 0.2,
       health: 100,
-      width: 35,
-      height: 40,
+      width: 90,
+      height: 64,
       color: 'darkviolet',
       image: image,
       bounty: 35,
@@ -1514,8 +1526,8 @@ export class AssassinEnemy extends Enemy {
       name: "Assassin",
       speed: 1.3,
       health: 70,
-      width: 25,
-      height: 30,
+      width: 50,
+      height: 32,
       color: 'black',
       image: image,
       bounty: 15,
@@ -1639,8 +1651,8 @@ export class MageEnemy extends Enemy {
       name: "Mage",
       speed: 0.5,
       health: 90,
-      width: 30,
-      height: 35,
+      width: 90,
+      height: 64,
       color: 'blue',
       image: image,
       bounty: 15,
@@ -1982,8 +1994,8 @@ export class TitanEnemy extends Enemy {
       name: "Titan",
       speed: 0.1,
       health: 5000,
-      width: 120,
-      height: 120,
+      width: 180,
+      height: 128,
       color: 'darkslategray',
       image: image,
       bounty: 100,
