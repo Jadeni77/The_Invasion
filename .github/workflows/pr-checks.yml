@@ -33,11 +33,11 @@ jobs:
         run: npm run build
 
   backend:
-    name: Backend
+    name: backend
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: Backend
+        working-directory: backend
     steps:
       - uses: actions/checkout@v4
 
