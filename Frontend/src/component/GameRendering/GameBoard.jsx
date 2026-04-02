@@ -40,7 +40,7 @@ const GameBoard = () => {
     const [cardCooldown, setCardCooldown] = useState({});
 
     const [baseHealth, setBaseHealth] = useState(100);
-    const [resetTrigger, setResetTrigger] = useState(0);
+    const [_resetTrigger, setResetTrigger] = useState(0);
     const [showQuitDialog, setShowQuitDialog] = useState(false);
 
     useMobileOrientation(gameState);

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 // src/component/GameLogic (MVC)/GameContext.jsx
 import React, {createContext, useContext, useState, useEffect, useRef, useCallback,} from "react";
 import {chestsData} from "../GameRendering/MapLayout.jsx";
@@ -475,7 +476,7 @@ export const GameProvider = ({ children }) => {
     return () => clearInterval(interval);
   }, []);
 
-  const savePlayerData = useCallback(async (data) => {
+  const savePlayerData = useCallback(async (_data) => {
     try {
      // console.log("Player data saved (simulated)");
     } catch (error) {
@@ -544,7 +545,7 @@ export const GameProvider = ({ children }) => {
   );
 
   // Game State management
-  const startLevel = useCallback(async (levelId, selectedCards = null, options = {}) => {
+  const startLevel = useCallback(async (levelId, selectedCards = null, _options = {}) => {
       if (!playerData) {
         console.error("Cannot start level: Player data or canvas not ready.");
         return;

@@ -19,7 +19,7 @@ export class AnimationManager {
             const img = new Image();
             img.src = fileData.path;
 
-            const imageLoaded = await new Promise((resolve, reject) => {
+            const imageLoaded = await new Promise((resolve, _reject) => {
                 img.onload = () => {
                      resolve(true);
                 }

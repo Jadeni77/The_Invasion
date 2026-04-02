@@ -149,7 +149,7 @@ export class DefenderUnit {
   }
 
   // UPDATE THIS METHOD: Add animation state management
-  update(enemies, defenderUnits) {
+  update(_enemies, _defenderUnits) {
     if (!this.isAlive) {
       if (this.currentAnimation !== 'death') {
         this.setAnimation('death');
@@ -878,7 +878,7 @@ export class BarricadeDefender extends DefenderUnit {
     return true;
   }
 
-  update(enemies, defenderUnits) {
+  update(enemies, _defenderUnits) {
     if (!this.isAlive) {
       if (this.currentAnimation !== 'death') {
         this.setAnimation('death');
@@ -1070,7 +1070,7 @@ export class EnergyGenerator extends DefenderUnit {
     }
   }
 
-  update(enemies, defenderUnits) {
+  update(_enemies, _defenderUnits) {
     if (!this.isAlive) {
       // Handle death animation
       if (this.animationFrames && this.animationFrames.death) {
@@ -1628,7 +1628,7 @@ export class Mortar extends DefenderUnit {
     return false;
   }
 
-  update(enemies, defenderUnits) {
+  update(_enemies, _defenderUnits) {
     if (!this.isAlive) {
       // Handle death animation
       if (this.animationFrames && this.animationFrames.death) {
@@ -2249,7 +2249,7 @@ export class FireBlast extends DefenderUnit {
     };
   }
 
-  update(enemies, defenderUnits) {
+  update(_enemies, _defenderUnits) {
     if (!this.isAlive) {
       if (this.currentAnimation !== 'death') {
         this.setAnimation('death');
@@ -2481,7 +2481,7 @@ export class IceBomb extends DefenderUnit {
     };
   }
 
-  update(enemies, defenderUnits) {
+  update(_enemies, _defenderUnits) {
     if (!this.isAlive) {
       if (this.currentAnimation !== 'death') {
         this.setAnimation('death');

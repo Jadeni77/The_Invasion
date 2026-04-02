@@ -1,5 +1,5 @@
 // src/components/GameRendering/UpgradeModal.jsx
-import React, { useState, useEffect } from "react"; // Added useState, useEffect
+import React, { useState } from "react"; // Added useState
 import { useGame } from "../../GameLogic (MVC)/GameContext.jsx"; // Correct path
 import ResourceIcon from "../ResourceIcon.jsx"; // Correct path
 import Card from "../../common/Card.jsx"; // Correct path

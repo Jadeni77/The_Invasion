@@ -10,7 +10,7 @@ import {
   chestsData,
   mapSettings,
   getLevelStatus,
-  zoneConfigs, endlessPortalConfig
+  zoneConfigs
 } from "./MapLayout"; // New: Import map data from MapData.js
 import "../../style/Lobby.css"; // Correct path
 import "../../style/UpgradeModal.css"; // Correct path (if UpgradeModal.css is used by Lobby too)
@@ -36,7 +36,7 @@ const Lobby = () => {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showCardSelection, setShowCardSelection] = useState(false);
   const [selectedLevelId, setSelectedLevelId] = useState(null);
-  const [mapZoom, setMapZoom] = useState(mapSettings.defaultZoom);
+  const [mapZoom, _setMapZoom] = useState(mapSettings.defaultZoom);
  // const [showEndlessOptions, setShowEndlessOptions] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
   const [isMapReady, setIsMapReady] = useState(false); // Track if map is ready for interaction
@@ -203,7 +203,7 @@ const Lobby = () => {
  //   }
   };
 
-  const handleEndlessStart = (difficulty) => {
+  const _handleEndlessStart = (difficulty) => {
     setSelectedDifficulty(difficulty);
    // setShowEndlessOptions(false);
     setSelectedLevelId(999);
