@@ -33,7 +33,7 @@ export default function LoginPage( { onLogin }) {
 
             const data = await res.json();
             onLogin(data.token, data.player);
-        } catch (e) {
+        } catch (_e) {
             setError("Cannot connect to server");
         } finally {
             setLoading(false);
