@@ -19,7 +19,13 @@ public class Player {
   @GeneratedValue (strategy = GenerationType.UUID)
   private String id;
 
-  @Column (unique = true, nullable = false)
+  @Column(unique = true, nullable = false)
+  private String email;
+
+  @Column(nullable = false)
+  private String password;  // BCrypt hashed, excluded from JSON responses
+
+  @Column(unique = true, nullable = false)
   private String sessionId; //this is the browser-generated id store in LocalStorage
 
   private String displayName;
@@ -37,23 +43,23 @@ public class Player {
   //Card progression
   private Integer cardUnlockProgress = 0; //track which card to unlock next
 
-  @ElementCollection
+  @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
   @CollectionTable(name = "player_cards", joinColumns = @JoinColumn(name = "player_id"))
   private List<CardData> cards;
 
-  @ElementCollection
+  @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
   @CollectionTable(name = "unlocked_levels", joinColumns = @JoinColumn(name = "player_id"))
   private List<Integer> unlockedLevels;
 
-  @ElementCollection
+  @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
   @CollectionTable(name = "completed_levels", joinColumns = @JoinColumn(name = "player_id"))
   private List<Integer> completedLevels;
 
-  @ElementCollection
+  @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
   @CollectionTable(name = "level_stars", joinColumns = @JoinColumn(name = "player_id"))
   private List<Integer> levelStars;
 
-  @ElementCollection
+  @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
   private List<String> collectedTreasures = new ArrayList<>();
 
   private LocalDateTime createdAt;
@@ -74,4 +80,11 @@ public class Player {
   protected void onUpdate() {
     updatedAt = LocalDateTime.now();
   }
+
+  @com.fasterxml.jackson.annotation.JsonIgnore
+  public String getPassword() {
+    return password;
+  }
+
+
 }

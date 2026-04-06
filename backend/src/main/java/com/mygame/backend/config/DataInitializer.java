@@ -30,6 +30,8 @@ public class DataInitializer {
       );
       Player testPlayer = new Player();
         testPlayer.setSessionId(testSessionId);
+        testPlayer.setEmail("test@example.com");
+        testPlayer.setPassword("$2a$10$dummyhashedpasswordfortesting"); // BCrypt placeholder
         testPlayer.setDisplayName("Test Player");
         testPlayer.setGold(9999);
         testPlayer.setIron(9999);

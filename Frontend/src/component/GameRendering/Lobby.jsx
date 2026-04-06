@@ -26,7 +26,7 @@ const Lobby = () => {
     openUpgradeModal,
     openAchievements,
     openCollection,
-    openSettings,
+    handleLogout,
     collectTreasure,
       unlockedDefender,
       setUnlockedDefender,
@@ -333,9 +333,9 @@ const Lobby = () => {
               <i className="icon-achievement" />
               <span>Achievement</span>
             </button>
-            <button className="menu-button settings" onClick={openSettings}>
+            <button className="menu-button settings" onClick={handleLogout}>
               <i className="icon-setting" />
-              <span>Setting</span>
+              <span>Logout</span>
             </button>
           </div>
         </div>

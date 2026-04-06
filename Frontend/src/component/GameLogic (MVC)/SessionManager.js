@@ -1,26 +1,39 @@
 export class SessionManager {
-    static SESSION_KEY = "game_session_id";
+    static TOKEN_KEY = "auth_token";
+    static USER_KEY = "user_data";
 
-    static getOrCreateSessionId() {
-        let sessionId = localStorage.getItem(this.SESSION_KEY);
+    static getToken() {
+        return localStorage.getItem(this.TOKEN_KEY);
+    }
 
-        if (!sessionId) {
-            //generate one
-            sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            localStorage.setItem(this.SESSION_KEY, sessionId);
-        }
-        return sessionId;
+    static setToken(token) {
+        localStorage.setItem(this.TOKEN_KEY, token);
+    }
+
+    static getUser() {
+        const data = localStorage.getItem(this.USER_KEY);
+        return data ? JSON.parse(data) : null;
+    }
+
+    static setUser(user) {
+        localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+    }
+    
+    static isLoggedIn() {
+        return !!this.getToken();
     }
 
     static clearSession() {
-        localStorage.removeItem(this.SESSION_KEY);
+        localStorage.removeItem(this.TOKEN_KEY);
+        localStorage.removeItem(this.USER_KEY);
+
     }
 
-    static getSession() {
-       return localStorage.getItem(this.SESSION_KEY);
-    }
-
-    static hasSession() {
-        return !!localStorage.getItem(this.SESSION_KEY);
+    // Helper for authenticated API calls
+    static authHeaders() {
+        return {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${this.getToken()}`,
+        };
     }
 }
