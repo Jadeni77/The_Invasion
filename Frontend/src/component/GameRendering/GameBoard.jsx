@@ -219,6 +219,21 @@ const GameBoard = () => {
         setSelectedCard(null);
     }
 
+    const handleCanvasMouseMove = (event) => {
+        if (!gameEngineRef.current) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        gameEngineRef.current.setHoveredDefender(x, y);
+    };
+
+    const handleCanvasMouseLeave = () => {
+        if (!gameEngineRef.current) return;
+        gameEngineRef.current.setHoveredDefender(-1, -1);
+    };
+
     const handleCanvasClick = (event) => {
         console.log("Canvas Click");
         if (gameOver || !gameEngineRef.current) {
@@ -492,6 +507,8 @@ const GameBoard = () => {
                 width={800}
                 height={450}
                 onClick={handleCanvasClick}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseLeave={handleCanvasMouseLeave}
                 className="game-canvas"
                 style={{cursor: shovelMode ? 'crosshair' : 'default'}}
             />
