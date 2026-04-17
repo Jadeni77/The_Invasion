@@ -455,7 +455,7 @@ const GameBoard = () => {
                             onClick={() => endGame(gameWon ? "win" : "loss")}>
                         RETURN TO LOBBY
                     </button>
-                    <button className="replay-button" onClick={() => {
+                    {/* <button className="replay-button" onClick={() => {
                         endGame("replay");
                         setBaseHealth(100);
                         setSelectedCard(null);
@@ -465,7 +465,7 @@ const GameBoard = () => {
                         setTimeout(() => selectedLevel && startLevel(selectedLevel), 100);
                     }}>
                         PLAY AGAIN
-                    </button>
+                    </button> */}
                 </div>
             </div>
         );
