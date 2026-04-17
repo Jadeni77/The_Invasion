@@ -17,6 +17,7 @@ export const GameProvider = ({ children }) => {
   const [gameState, setGameState] = useState("lobby"); // lobby, inGame, upgrade
   const [selectedLevel, setSelectedLevel] = useState(null); // The level selected to play
   const [playerData, setPlayerData] = useState(null);
+  const playerDataRef = useRef(null);
 
   // In-game session specific states (managed by GameEngine, exposed via callbacks)
   const [inGameEnergy, setInGameEnergy] = useState(0);
@@ -487,17 +488,20 @@ export const GameProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    playerDataRef.current = playerData;
+  }, [playerData]);
+
+  useEffect(() => {
     if (isAuthenticated) {
       fetchPlayerData();
     }
 
-    // Cleanup: save data when component unmounts or playerData changes
     return () => {
-      if (playerData) {
-        savePlayerData(playerData);
+      if (playerDataRef.current) {
+        savePlayerData(playerDataRef.current);
       }
     };
-  }, [fetchPlayerData, savePlayerData, isAuthenticated]); // Added savePlayerData to dependencies
+  }, [fetchPlayerData, savePlayerData, isAuthenticated]);
 
   // Resources management
   const updateResource = useCallback((resource, amount) => {

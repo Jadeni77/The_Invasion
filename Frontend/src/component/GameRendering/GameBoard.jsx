@@ -23,7 +23,6 @@ const GameBoard = () => {
         updateScoreCb,
         onWinCb,
         onLoseCb,
-        startLevel,
         selectedCardsForGame,
         setGameEngine,
         updateEndlessWave,
@@ -37,10 +36,11 @@ const GameBoard = () => {
     const [shovelMode, setShovelMode] = useState(false);
 
     const [cardSlots, setCardSlots] = useState([]);
+    const cardSlotsRef = useRef([]);
     const [cardCooldown, setCardCooldown] = useState({});
 
     const [baseHealth, setBaseHealth] = useState(100);
-    const [_resetTrigger, setResetTrigger] = useState(0);
+    const [_resetTrigger, _setResetTrigger] = useState(0);
     const [showQuitDialog, setShowQuitDialog] = useState(false);
 
     useMobileOrientation(gameState);
@@ -89,11 +89,13 @@ const GameBoard = () => {
                 initialCooldown[card.id] = 0;
             });
             setCardCooldown(initialCooldown);
+            cardSlotsRef.current = cardsWithStats;
         } else if (playerData?.cards?.length > 0) {
             const cardsWithStats = playerData.cards
                 .map(calculateCardStats)
                 .filter(Boolean);
             setCardSlots(cardsWithStats);
+            cardSlotsRef.current = cardsWithStats;
 
             const initialCooldown = {};
             cardsWithStats.forEach((card) => {
@@ -161,8 +163,8 @@ const GameBoard = () => {
                 // Pass selected cards to the engine
                 if (selectedCardsForGame && selectedCardsForGame.length > 0) {
                     engine.setPlayerSelectedCards(selectedCardsForGame);
-                } else if (cardSlots && cardSlots.length > 0) {
-                    engine.setPlayerSelectedCards(cardSlots);
+                } else if (cardSlotsRef.current && cardSlotsRef.current.length > 0) {
+                    engine.setPlayerSelectedCards(cardSlotsRef.current);
                 }
 
                 // Initialize game
