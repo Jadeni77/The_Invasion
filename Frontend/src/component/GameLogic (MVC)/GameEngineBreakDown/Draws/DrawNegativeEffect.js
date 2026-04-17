@@ -228,17 +228,15 @@ export class DrawNegativeEffect {
 
     drawSpawnedEffect(ctx) {
         ctx.save();
-        // Draw a small symbol above the enemy
-        ctx.fillStyle = "rgba(255, 0, 255, 0.8)"; // Purple
-        ctx.font = "bold 12px Arial";
+        // Pulsing purple diamond above the enemy's head — no bounding rectangle
+        const pulse = 0.6 + Math.sin(Date.now() / 200) * 0.2;
+        ctx.fillStyle = `rgba(200, 60, 255, ${pulse})`;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.lineWidth = 1;
+        ctx.font = "bold 14px Arial";
         ctx.textAlign = "center";
-        ctx.fillText("◈", this.unit.x + this.unit.width / 2, this.unit.y - 15);
-
-        // Alternative: Draw a border
-        ctx.strokeStyle = "rgba(255, 0, 255, 0.6)";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(this.unit.x - 2, this.unit.y - 2, this.unit.width + 4, this.unit.height + 4);
-
+        ctx.fillText("◈", this.unit.x + this.unit.width / 2, this.unit.y );
+        ctx.strokeText("◈", this.unit.x + this.unit.width / 2, this.unit.y );
         ctx.restore();
     }
 
