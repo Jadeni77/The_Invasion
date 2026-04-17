@@ -473,7 +473,7 @@ export const GameProvider = ({ children }) => {
         }
         return prev;
       });
-    }, 30000); // Check every 30 seconds
+    }, 1000); // Check every second so the UI updates as soon as the minute rolls over
 
     return () => clearInterval(interval);
   }, []);
