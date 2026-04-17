@@ -10,8 +10,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.mygame.backend.dto.AuthRequest;
 import com.mygame.backend.dto.AuthResponse;
+import com.mygame.backend.dto.ForgotPasswordRequest;
+import com.mygame.backend.dto.ResetPasswordRequest;
 import com.mygame.backend.entity.Player;
 import com.mygame.backend.repository.PlayerRepository;
+import com.mygame.backend.service.PasswordResetService;
 import com.mygame.backend.service.PlayerService;
 
 import com.mygame.backend.security.JwtUtil;
@@ -24,15 +27,18 @@ public class AuthController {
     private final PlayerRepository playerRepository;
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordResetService passwordResetService;
 
     public AuthController(PlayerService playerService,
                           PlayerRepository playerRepository,
                           JwtUtil jwtUtil,
-                          PasswordEncoder passwordEncoder) {
+                          PasswordEncoder passwordEncoder,
+                          PasswordResetService passwordResetService) {
         this.playerService = playerService;
         this.playerRepository = playerRepository;
         this.jwtUtil = jwtUtil;
         this.passwordEncoder = passwordEncoder;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/register")
@@ -62,5 +68,26 @@ public class AuthController {
                 .orElse(ResponseEntity.status(401).body("Invalid email or password"));
     }
 
+    /**
+     * Step 1 of password reset: request a verification code.
+     * Always returns 200 to avoid leaking whether an email is registered.
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        passwordResetService.requestCode(request.getEmail());
+        return ResponseEntity.ok().body("If that email is registered, a code has been sent.");
+    }
 
+    /**
+     * Step 2 of password reset: submit the code plus a new password.
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+        boolean ok = passwordResetService.resetPassword(
+            request.getEmail(), request.getCode(), request.getNewPassword());
+        if (!ok) {
+            return ResponseEntity.status(400).body("Invalid or expired code");
+        }
+        return ResponseEntity.ok().body("Password has been reset. You can now log in.");
+    }
 }
