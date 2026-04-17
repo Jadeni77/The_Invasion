@@ -281,8 +281,13 @@ export class GameEngine {
     }
 
     const spawnX = this.gridManager.getEnemySpawnX();
-    const spawnY = this.gridManager.getRandomSpawnY();
-    const enemy = new EnemyClass(spawnX, spawnY, null);
+    const row = this.gridManager.getRandomSpawnRow();
+    const rowCenterY = this.gridManager.getRowCenterY(row);
+    const enemy = new EnemyClass(spawnX, rowCenterY, null);
+
+    // Center the sprite vertically on the row so tall zombies (e.g. Titan)
+    // don't visually overflow into a non-existent 7th lane.
+    enemy.y = rowCenterY - enemy.height / 2;
 
   if (this.animationManager && this.animationManager.hasAnimation(enemyType)) {
       const frames = {
@@ -460,6 +465,26 @@ export class GameEngine {
       }
     }
     return false;
+  }
+
+  /**
+   * Set the hovered defender based on mouse position. Used to gate range
+   * indicators so they only appear for the unit the player is inspecting,
+   * avoiding visual clutter when many defenders are on the field.
+   */
+  setHoveredDefender(x, y) {
+    let hovered = null;
+    for (const defender of this.defenders) {
+      if (!defender.isAlive) continue;
+      if (x >= defender.x && x <= defender.x + defender.width &&
+          y >= defender.y && y <= defender.y + defender.height) {
+        hovered = defender;
+        break;
+      }
+    }
+    for (const defender of this.defenders) {
+      defender.showRangeIndicators = defender === hovered;
+    }
   }
 
   /**
