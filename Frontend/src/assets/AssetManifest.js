@@ -350,7 +350,8 @@ export const AssetManifest = {
             config: {
                 idle: { frameCount: 8, frameWidth: 90, frameHeight: 64, fps: 8 },
                 move: { frameCount: 10, frameWidth: 90, frameHeight: 64, fps: 10 },
-                attack: { frameCount: 11, frameWidth: 90, frameHeight: 64, fps: 11 },
+                // 11 frames at 5.5 fps = 2s per cycle, matches Titan attackRate 120 (2s at 60fps)
+                attack: { frameCount: 11, frameWidth: 90, frameHeight: 64, fps: 5.5 },
                 death: { frameCount: 12, frameWidth: 90, frameHeight: 64, fps: 12, loop: false }
             }
         },

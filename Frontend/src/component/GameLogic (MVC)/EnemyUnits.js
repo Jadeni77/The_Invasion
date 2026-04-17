@@ -212,6 +212,11 @@ export class Enemy {
         if (this.attackCountdown <= 0) {
           targetDefender.takeDamage(this.attackDamage);
           this.attackCountdown = this.attackRate;
+          // Restart the attack animation so the visible swing lines up with damage ticks
+          if (this.currentAnimation === 'attack') {
+            this.animationFrame = 0;
+            this.animationTimer = 0;
+          }
         }
       } else {
         this.isAttacking = false;
