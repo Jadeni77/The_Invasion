@@ -189,10 +189,24 @@ export class GridManager {
      */
     getRandomSpawnY() {
         if (this.deploymentGrid.length === 0) return 100;
-        const randomRow = Math.floor(Math.random() * this.deploymentGrid.length);
+        const randomRow = this.getRandomSpawnRow();
         // Return the center Y position of the selected row
-        return this.gridOffsetY + randomRow * this.gridSize + this.gridSize / 2;
+        return this.getRowCenterY(randomRow);
+    }
 
+    /**
+     * Pick a random valid row index for spawning
+     */
+    getRandomSpawnRow() {
+        if (this.deploymentGrid.length === 0) return 0;
+        return Math.floor(Math.random() * this.deploymentGrid.length);
+    }
+
+    /**
+     * Return the center Y coordinate of a given row
+     */
+    getRowCenterY(row) {
+        return this.gridOffsetY + row * this.gridSize + this.gridSize / 2;
     }
 
     /**

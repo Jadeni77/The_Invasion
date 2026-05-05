@@ -42,6 +42,10 @@ export class DefenderUnit {
     this.gameEngine = null;
     this.drawNegativeEffect = new DrawNegativeEffect(this);
 
+    // Hover flag — set true only while the player's cursor is over this
+    // defender, gating range/field circle rendering to avoid visual clutter.
+    this.showRangeIndicators = false;
+
     // ADD THESE: Animation properties
     this.currentAnimation = 'idle';
     this.animationFrame = 0;
@@ -993,21 +997,30 @@ export class BarricadeDefender extends DefenderUnit {
       ctx.restore();
     }
 
-    // Electric field visual
+    // Electric field visual — only render the full ring while hovered, otherwise
+    // show a compact sparking icon above the barricade so many units don't
+    // overlap into visual clutter.
     if (this.hasElectricField && this.isAlive) {
       ctx.save();
-      ctx.strokeStyle = `rgba(255, 255, 0, ${0.3 + Math.sin(Date.now() / 200) * 0.2})`;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 5]);
-      ctx.beginPath();
-      ctx.arc(
-          this.x + this.width / 2,
-          this.y + this.height / 2,
-          100,
-          0,
-          Math.PI * 2
-      );
-      ctx.stroke();
+      if (this.showRangeIndicators) {
+        ctx.strokeStyle = `rgba(255, 255, 0, ${0.3 + Math.sin(Date.now() / 200) * 0.2})`;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.arc(
+            this.x + this.width / 2,
+            this.y + this.height / 2,
+            100,
+            0,
+            Math.PI * 2
+        );
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = `rgba(255, 255, 0, ${0.6 + Math.sin(Date.now() / 200) * 0.3})`;
+        ctx.font = "bold 14px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("⚡", this.x + this.width / 2, this.y - 4);
+      }
       ctx.restore();
     }
   }
@@ -1185,8 +1198,8 @@ export class EnergyGenerator extends DefenderUnit {
       ctx.stroke();
     }
 
-    // Auto-collect field visual
-    if (this.autoCollect && this.isAlive) {
+    // Auto-collect field visual — full ring only when hovered.
+    if (this.autoCollect && this.isAlive && this.showRangeIndicators) {
       ctx.save();
       ctx.strokeStyle = `rgba(255, 215, 0, ${0.2 + Math.sin(Date.now() / 300) * 0.1})`;
       ctx.lineWidth = 1;
@@ -1853,8 +1866,8 @@ export class Mortar extends DefenderUnit {
   }
 
   drawRangeIndicators(ctx) {
-    // Show ranges when hovering or during cooldown
-    if (this.showRangeIndicators || this.fireCountdown > this.fireRate - 60) {
+    // Only show range indicators while the player is hovering this defender.
+    if (this.showRangeIndicators) {
       ctx.save();
 
       // Dead zone (minimum range) - red with pattern

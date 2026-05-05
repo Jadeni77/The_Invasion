@@ -297,4 +297,26 @@ public class PlayerService {
     return playerRepository.save(player);
   }
 
+  public Player createPlayerWithEmail(String email, String hashedPassword, String displayName) {
+    Player player = new Player();
+    player.setEmail(email);
+    player.setPassword(hashedPassword);
+    player.setSessionId("email-" + email); //backward compat
+    player.setDisplayName(displayName != null ? displayName : "Defender #" + email.substring(0, 4));
+
+    List<CardData> initialCards = new ArrayList<>();
+    initialCards.add(new CardData(1, "Basic Cop", 1, 0, 10));
+    player.setCards(initialCards);
+    player.setCardUnlockProgress(1);
+
+    player.setUnlockedLevels(Arrays.asList(1));
+    player.setCompletedLevels(new ArrayList<>());
+    player.setLevelStars(new ArrayList<>(Collections.nCopies(20, 0)));
+    player.setLastEnergyRechargeTime(LocalDateTime.now());  
+
+    return playerRepository.save(player);
+  }
+
+
+
 }

@@ -2,14 +2,24 @@ package com.mygame.backend.controller;
 
 import com.mygame.backend.entity.CardData;
 import com.mygame.backend.entity.Player;
+import com.mygame.backend.repository.PlayerRepository;
+import com.mygame.backend.security.JwtAuthFilter;
+import com.mygame.backend.security.JwtUtil;
+import com.mygame.backend.security.SecurityConfig;
 import com.mygame.backend.service.PlayerService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -19,7 +29,14 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(PlayerController.class)
+@WebMvcTest(
+    controllers = PlayerController.class,
+    excludeFilters = @ComponentScan.Filter(
+        type = FilterType.ASSIGNABLE_TYPE,
+        classes = { SecurityConfig.class, JwtAuthFilter.class }
+    )
+)
+@AutoConfigureMockMvc(addFilters = false)
 class PlayerControllerTest {
 
     @Autowired
@@ -28,13 +45,31 @@ class PlayerControllerTest {
     @MockitoBean
     private PlayerService playerService;
 
+    @MockitoBean
+    private JwtUtil jwtUtil;
+
+    @MockitoBean
+    private PlayerRepository playerRepository;
+
     private Player testPlayer;
+
+    private RequestPostProcessor authenticatedPlayer() {
+        return request -> {
+            UsernamePasswordAuthenticationToken auth =
+                    new UsernamePasswordAuthenticationToken(testPlayer, null, Collections.emptyList());
+            request.setUserPrincipal(auth);
+            SecurityContextHolder.getContext().setAuthentication(auth);
+            return request;
+        };
+    }
 
     @BeforeEach
     void setUp() {
         testPlayer = new Player();
         testPlayer.setId("test-id");
         testPlayer.setSessionId("test-session");
+        testPlayer.setEmail("test@example.com");
+        testPlayer.setPassword("hashed");
         testPlayer.setDisplayName("Test Player");
         testPlayer.setGold(100);
         testPlayer.setIron(10);
@@ -67,7 +102,7 @@ class PlayerControllerTest {
     void getPlayerData_returnsPlayer() throws Exception {
         when(playerService.getOrCreatePlayer("test-session")).thenReturn(testPlayer);
 
-        mockMvc.perform(get("/api/player/session/test-session"))
+        mockMvc.perform(get("/api/player/me").with(authenticatedPlayer()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sessionId").value("test-session"))
                 .andExpect(jsonPath("$.displayName").value("Test Player"))
@@ -81,7 +116,8 @@ class PlayerControllerTest {
         when(playerService.completeLevel(eq("test-session"), eq(1), eq(1000), eq(3)))
                 .thenReturn(testPlayer);
 
-        mockMvc.perform(post("/api/player/session/test-session/complete-level")
+        mockMvc.perform(post("/api/player/complete-level")
+                        .with(authenticatedPlayer())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"levelId\":1,\"score\":1000,\"stars\":3}"))
                 .andExpect(status().isOk())
@@ -94,7 +130,8 @@ class PlayerControllerTest {
         when(playerService.addCardPieces(eq("test-session"), eq("Basic Cop"), eq(5)))
                 .thenReturn(testPlayer);
 
-        mockMvc.perform(post("/api/player/session/test-session/add-card-pieces")
+        mockMvc.perform(post("/api/player/add-card-pieces")
+                        .with(authenticatedPlayer())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"cardName\":\"Basic Cop\",\"pieces\":5}"))
                 .andExpect(status().isOk())
@@ -107,7 +144,8 @@ class PlayerControllerTest {
         when(playerService.unlockDefender(eq("test-session"), eq("Mortar")))
                 .thenReturn(testPlayer);
 
-        mockMvc.perform(post("/api/player/session/test-session/unlock-defender")
+        mockMvc.perform(post("/api/player/unlock-defender")
+                        .with(authenticatedPlayer())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"defenderName\":\"Mortar\"}"))
                 .andExpect(status().isOk())
@@ -121,7 +159,8 @@ class PlayerControllerTest {
         when(playerService.collectTreasure(eq("test-session"), eq("chest-1"), anyMap()))
                 .thenReturn(testPlayer);
 
-        mockMvc.perform(post("/api/player/session/test-session/collect-treasure")
+        mockMvc.perform(post("/api/player/collect-treasure")
+                        .with(authenticatedPlayer())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"chestId\":\"chest-1\",\"rewards\":{\"gold\":50}}"))
                 .andExpect(status().isOk())
@@ -134,7 +173,8 @@ class PlayerControllerTest {
         when(playerService.updateResources(eq("test-session"), anyMap()))
                 .thenReturn(testPlayer);
 
-        mockMvc.perform(post("/api/player/session/test-session/update-resources")
+        mockMvc.perform(post("/api/player/update-resources")
+                        .with(authenticatedPlayer())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"resourcesChange\":{\"gold\":100}}"))
                 .andExpect(status().isOk())
@@ -147,7 +187,8 @@ class PlayerControllerTest {
         when(playerService.updateEndlessHighScore(eq("test-session"), eq(25)))
                 .thenReturn(testPlayer);
 
-        mockMvc.perform(post("/api/player/session/test-session/endless-score")
+        mockMvc.perform(post("/api/player/endless-score")
+                        .with(authenticatedPlayer())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"waveReached\":25}"))
                 .andExpect(status().isOk())
