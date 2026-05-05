@@ -154,6 +154,14 @@
     background-color: #e74c3c;
 }
 
+.collection-unit-sprite-img {
+    width: 102px;
+    height: 102px;
+    object-fit: contain;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
 .locked-icon {
     font-size: 3rem;
     color: #7f8c8d;

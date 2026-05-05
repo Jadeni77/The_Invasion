@@ -13,13 +13,13 @@ import {
 } from "./DefenderUnits";
 
 export const defenderUnitClasses = {
-  "Basic Cop": BasicDefender,
-  "Healer Cop": HealerDefender,
-  "Grenadier": GrenadeDefender,
-  "Barricade": BarricadeDefender,
-  "Energy Generator": EnergyGenerator,
-  "Sniper": Sniper,
-  "Mortar": Mortar,
+  Shooter: BasicDefender,
+  Healer: HealerDefender,
+  Grenadier: GrenadeDefender,
+  Barricade: BarricadeDefender,
+  "E-Gen": EnergyGenerator,
+  Sniper: Sniper,
+  Mortar: Mortar,
   "Frost Archer": FrostArcher,
   "Fire Blast": FireBlast,
   "Ice Bomb": IceBomb,

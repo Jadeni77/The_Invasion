@@ -1,73 +1,9 @@
-import React, {useEffect, useState} from "react";
 import "../../style/Card.css";
 import "../../style/GameBoard.css";
-import { AssetManifest } from "../../assets/AssetManifest.js";
+import { useSpriteFrame } from "./useSpriteFrame.js";
 
 function Card({ card, onClick, selected, disabled }) {
-  const [cardImage, setCardImage] = useState(null);
-
-  useEffect(() => {
-    const loadCardImage = async () => {
-      try {
-        // Check if this card has a corresponding defender asset
-        const defenderAsset = AssetManifest.defenders[card.name];
-
-        if (defenderAsset && defenderAsset.sprites.idle) {
-          // Load the idle sprite
-          const idleSprite = await defenderAsset.sprites.idle();
-          const imagePath = idleSprite?.default || idleSprite;
-
-          if (imagePath) {
-            const img = new Image();
-            img.src = imagePath;
-
-            await new Promise((resolve, reject) => {
-              img.onload = resolve;
-              img.onerror = reject;
-            });
-
-            // Extract first frame
-            const config = defenderAsset.config.idle;
-            const canvas = document.createElement('canvas');
-
-            // Check if cropping is needed
-            if (config.cropConfig?.enabled) {
-              canvas.width = config.cropConfig.cropWidth;
-              canvas.height = config.cropConfig.cropHeight;
-              const ctx = canvas.getContext('2d');
-
-              ctx.drawImage(
-                  img,
-                  config.cropConfig.offsetX,
-                  config.cropConfig.offsetY,
-                  config.cropConfig.cropWidth,
-                  config.cropConfig.cropHeight,
-                  0, 0,
-                  config.cropConfig.cropWidth,
-                  config.cropConfig.cropHeight
-              );
-            } else {
-              canvas.width = config.frameWidth;
-              canvas.height = config.frameHeight;
-              const ctx = canvas.getContext('2d');
-
-              ctx.drawImage(
-                  img,
-                  0, 0, config.frameWidth, config.frameHeight,
-                  0, 0, config.frameWidth, config.frameHeight
-              );
-            }
-
-            setCardImage(canvas.toDataURL());
-          }
-        }
-      } catch (error) {
-        console.warn(`Failed to load image for card ${card.name}:`, error);
-      }
-    };
-
-    loadCardImage();
-  }, [card.name]);
+  const cardImage = useSpriteFrame("defenders", card.name);
 
   return (
       <div

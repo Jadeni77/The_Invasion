@@ -1,7 +1,7 @@
 // src/component/GameLogic (MVC)/DefenderUnits.js
 // Data for different types of Defender Units
 
-import {DrawNegativeEffect} from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
+import { DrawNegativeEffect } from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
 
 export class DefenderUnit {
   constructor(x, y, cardData = {}) {
@@ -47,7 +47,7 @@ export class DefenderUnit {
     this.showRangeIndicators = false;
 
     // ADD THESE: Animation properties
-    this.currentAnimation = 'idle';
+    this.currentAnimation = "idle";
     this.animationFrame = 0;
     this.frameCounter = 0;
     this.animationFrames = null;
@@ -72,11 +72,14 @@ export class DefenderUnit {
       this.animationFrame = 0;
       this.frameCounter = 0;
 
-      if (animationName === 'death') {
+      if (animationName === "death") {
         this.isPlayingDeathAnimation = true;
 
         // Check if we have death animation frames
-        if (!this.animationFrames.death || this.animationFrames.death.length === 0) {
+        if (
+          !this.animationFrames.death ||
+          this.animationFrames.death.length === 0
+        ) {
           console.warn(`${this.name} has no death animation frames!`);
           this.deathAnimationComplete = true;
         }
@@ -88,7 +91,7 @@ export class DefenderUnit {
   updateAnimation() {
     if (!this.animationConfig || !this.animationFrames) {
       // If no animation data, mark death as complete if dead
-      if (!this.isAlive && this.currentAnimation === 'death') {
+      if (!this.isAlive && this.currentAnimation === "death") {
         this.deathAnimationComplete = true;
       }
       return;
@@ -97,7 +100,7 @@ export class DefenderUnit {
     const config = this.animationConfig[this.currentAnimation];
     if (!config) {
       // If no config for current animation, mark death as complete if dead
-      if (!this.isAlive && this.currentAnimation === 'death') {
+      if (!this.isAlive && this.currentAnimation === "death") {
         this.deathAnimationComplete = true;
       }
       return;
@@ -114,13 +117,13 @@ export class DefenderUnit {
         if (config.loop !== false) {
           this.animationFrame = 0;
           // Reset attack state after attack animation completes
-          if (this.currentAnimation === 'attack') {
+          if (this.currentAnimation === "attack") {
             this.isAttacking = false;
           }
         } else {
           this.animationFrame = config.frameCount - 1;
 
-          if (this.currentAnimation === 'death') {
+          if (this.currentAnimation === "death") {
             this.deathAnimationComplete = true;
           }
         }
@@ -155,8 +158,8 @@ export class DefenderUnit {
   // UPDATE THIS METHOD: Add animation state management
   update(_enemies, _defenderUnits) {
     if (!this.isAlive) {
-      if (this.currentAnimation !== 'death') {
-        this.setAnimation('death');
+      if (this.currentAnimation !== "death") {
+        this.setAnimation("death");
       }
       this.updateAnimation();
       return;
@@ -164,11 +167,11 @@ export class DefenderUnit {
 
     // Determine animation state
     if (this.disabled) {
-      this.setAnimation('idle');
+      this.setAnimation("idle");
     } else if (this.isAttacking) {
-      this.setAnimation('attack');
+      this.setAnimation("attack");
     } else {
-      this.setAnimation('idle');
+      this.setAnimation("idle");
     }
 
     // Update animation
@@ -194,8 +197,9 @@ export class DefenderUnit {
       if (enemy.x < -50 || enemy.x > canvasWidth + 50) continue;
       //check if enemy in range
       const distance = Math.hypot(
-          this.x + this.width / 2 - (enemy.x + enemy.width / 2),
-          this.y + this.height / 2 - (enemy.y + enemy.height / 2));
+        this.x + this.width / 2 - (enemy.x + enemy.width / 2),
+        this.y + this.height / 2 - (enemy.y + enemy.height / 2),
+      );
       if (distance <= this.range) {
         return true; //found target
       }
@@ -232,18 +236,20 @@ export class DefenderUnit {
       if (frames && frames[this.animationFrame]) {
         try {
           ctx.drawImage(
-              frames[this.animationFrame],
-              this.x,
-              this.y,
-              this.width,
-              this.height
+            frames[this.animationFrame],
+            this.x,
+            this.y,
+            this.width,
+            this.height,
           );
         } catch (e) {
-          console.error('Failed to draw frame:', e);
+          console.error("Failed to draw frame:", e);
           this.drawFallback(ctx);
         }
       } else {
-        console.warn(`No frame for ${this.currentAnimation}[${this.animationFrame}]`);
+        console.warn(
+          `No frame for ${this.currentAnimation}[${this.animationFrame}]`,
+        );
         this.drawFallback(ctx);
       }
     } else {
@@ -253,7 +259,11 @@ export class DefenderUnit {
     ctx.restore();
 
     // Don't draw UI elements for dead units playing death animation
-    if (!this.isAlive && this.isPlayingDeathAnimation && !this.deathAnimationComplete) {
+    if (
+      !this.isAlive &&
+      this.isPlayingDeathAnimation &&
+      !this.deathAnimationComplete
+    ) {
       return;
     }
 
@@ -263,19 +273,23 @@ export class DefenderUnit {
       ctx.fillStyle = "black";
       ctx.font = "12px Arial";
       ctx.fillText(
-          this.name.substring(0, this.name.length),
-          this.x + 2,
-          this.y + this.height + 15
+        this.name.substring(0, this.name.length),
+        this.x + 2,
+        this.y + this.height + 15,
       );
 
       // Health bar
-     if (this.health < this.maxHealth) {
+      if (this.health < this.maxHealth) {
         ctx.fillStyle = "red";
         ctx.fillRect(this.x, this.y - 10, this.width, 5);
         ctx.fillStyle = "lime";
         const healthWidth = (this.health / this.maxHealth) * this.width;
         ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
-        ctx.fillText(this.health.toFixed(0), this.x + this.width / 2, this.y - 15);
+        ctx.fillText(
+          this.health.toFixed(0),
+          this.x + this.width / 2,
+          this.y - 15,
+        );
       }
 
       this.drawNegativeEffect.drawAllEffect(ctx);
@@ -310,7 +324,7 @@ export class DefenderUnit {
 export class BasicDefender extends DefenderUnit {
   constructor(x, y, cardData) {
     const typeData = {
-      name: "Basic Cop",
+      name: "Shooter",
       damage: 15,
       health: 120,
       range: 200,
@@ -373,7 +387,7 @@ export class BasicDefender extends DefenderUnit {
 export class HealerDefender extends DefenderUnit {
   constructor(x, y, cardData) {
     const typeData = {
-      name: "Healer Cop",
+      name: "Healer",
       damage: 0,
       health: 100,
       range: 100,
@@ -385,7 +399,7 @@ export class HealerDefender extends DefenderUnit {
       isRanged: false,
       level: cardData.level || 1,
       image: cardData.image,
-    }
+    };
     super(x, y, typeData);
 
     //healer stats
@@ -433,15 +447,15 @@ export class HealerDefender extends DefenderUnit {
     if (this.level === 2) newAbilities.push("Group Heal (Level 3)");
     if (this.level === 4) newAbilities.push("Resurrection (Level 5)");
 
-    return {...base, healingIncrease: "+20%", newAbilities};
+    return { ...base, healingIncrease: "+20%", newAbilities };
   }
 
   update(enemies, defenderUnits) {
     if (!this.isAlive) {
       // Handle death animation
       if (this.animationFrames && this.animationFrames.death) {
-        if (this.currentAnimation !== 'death') {
-          this.setAnimation('death');
+        if (this.currentAnimation !== "death") {
+          this.setAnimation("death");
         }
         this.updateAnimation();
       } else {
@@ -464,14 +478,14 @@ export class HealerDefender extends DefenderUnit {
     if (this.healingCountdown <= 0) {
       let didHeal = false;
       const unitsToHeal = defenderUnits.filter(
-          (unit) =>
-              unit.id !== this.id &&
-              unit.isAlive &&
-              unit.health < unit.maxHealth &&
-              Math.hypot(
-                  this.x + this.width / 2 - (unit.x + unit.width / 2),
-                  this.y + this.height / 2 - (unit.y + unit.height / 2)
-              ) <= this.healingRange
+        (unit) =>
+          unit.id !== this.id &&
+          unit.isAlive &&
+          unit.health < unit.maxHealth &&
+          Math.hypot(
+            this.x + this.width / 2 - (unit.x + unit.width / 2),
+            this.y + this.height / 2 - (unit.y + unit.height / 2),
+          ) <= this.healingRange,
       );
 
       // Group healing special ability
@@ -479,45 +493,53 @@ export class HealerDefender extends DefenderUnit {
         didHeal = true;
         this.isAttacking = true; // Show attack animation when healing
         const toHeal = unitsToHeal.slice(0, 3);
-        toHeal.forEach(unit => {
-          unit.health = Math.min(unit.maxHealth, unit.health + this.healingAmount);
+        toHeal.forEach((unit) => {
+          unit.health = Math.min(
+            unit.maxHealth,
+            unit.health + this.healingAmount,
+          );
           // Visual feedback for healing
           if (this.gameEngine) {
             this.gameEngine.explosions.push({
-                                              x: unit.x + unit.width / 2,
-                                              y: unit.y + unit.height / 2,
-                                              damage: 0,
-                                              radius: 30,
-                                              timer: 20,
-                                              color: "lightgreen",
-                                              innerColor: "white",
-                                              particleColor: "rgba(0, 255, 0, 0.6)",
-                                              style: "heal",
-                                              type: "effect",
-                                              source: "healer"
-                                            });
+              x: unit.x + unit.width / 2,
+              y: unit.y + unit.height / 2,
+              damage: 0,
+              radius: 30,
+              timer: 20,
+              color: "lightgreen",
+              innerColor: "white",
+              particleColor: "rgba(0, 255, 0, 0.6)",
+              style: "heal",
+              type: "effect",
+              source: "healer",
+            });
           }
         });
       } else if (unitsToHeal.length > 0) {
         didHeal = true;
         this.isAttacking = true; // Show attack animation when healing
-        unitsToHeal.sort((a, b) => a.health / a.maxHealth - b.health / b.maxHealth);
+        unitsToHeal.sort(
+          (a, b) => a.health / a.maxHealth - b.health / b.maxHealth,
+        );
         const targetUnit = unitsToHeal[0];
-        targetUnit.health = Math.min(targetUnit.maxHealth, targetUnit.health + this.healingAmount);
+        targetUnit.health = Math.min(
+          targetUnit.maxHealth,
+          targetUnit.health + this.healingAmount,
+        );
         if (this.gameEngine) {
           this.gameEngine.explosions.push({
-                                            x: targetUnit.x + targetUnit.width / 2,
-                                            y: targetUnit.y + targetUnit.height / 2,
-                                            damage: 0,
-                                            radius: 30,
-                                            timer: 20,
-                                            color: "lightgreen",
-                                            innerColor: "white",
-                                            particleColor: "rgba(0, 255, 0, 0.6)",
-                                            style: "heal",
-                                            type: "effect",
-                                            source: "healer"
-                                          });
+            x: targetUnit.x + targetUnit.width / 2,
+            y: targetUnit.y + targetUnit.height / 2,
+            damage: 0,
+            radius: 30,
+            timer: 20,
+            color: "lightgreen",
+            innerColor: "white",
+            particleColor: "rgba(0, 255, 0, 0.6)",
+            style: "heal",
+            type: "effect",
+            source: "healer",
+          });
         }
       }
 
@@ -527,11 +549,14 @@ export class HealerDefender extends DefenderUnit {
 
         let allDefender = [...defenderUnits];
         if (this.gameEngine && this.gameEngine.recentlyDiedDefenders) {
-          allDefender = [...defenderUnits, ...this.gameEngine.recentlyDiedDefenders];
+          allDefender = [
+            ...defenderUnits,
+            ...this.gameEngine.recentlyDiedDefenders,
+          ];
         }
-        const deadUnits = allDefender.filter(unit => !unit.isAlive
-                                                     && unit.id !== this.id
-                                                     && unit.health <= 0);
+        const deadUnits = allDefender.filter(
+          (unit) => !unit.isAlive && unit.id !== this.id && unit.health <= 0,
+        );
         console.log(`Found ${deadUnits.length} dead units`);
         if (deadUnits.length > 0) {
           const deadUnit = deadUnits[0];
@@ -550,7 +575,9 @@ export class HealerDefender extends DefenderUnit {
         this.isHealing = true;
         this.healAnimationTimer = this.healAnimationDuration;
         this.isAttacking = true;
-        console.log(`Healer performing heal - animation timer set to ${this.healAnimationDuration}`);
+        console.log(
+          `Healer performing heal - animation timer set to ${this.healAnimationDuration}`,
+        );
       }
 
       this.healingCountdown = this.healingRate;
@@ -558,16 +585,14 @@ export class HealerDefender extends DefenderUnit {
     // Animation state management
     if (this.animationFrames) {
       if (this.disabled) {
-        this.setAnimation('idle');
+        this.setAnimation("idle");
       } else if (this.isAttacking) {
-        this.setAnimation('attack');
+        this.setAnimation("attack");
       } else {
-        this.setAnimation('idle');
+        this.setAnimation("idle");
       }
       this.updateAnimation();
     }
-
-
   }
 
   draw(ctx) {
@@ -581,11 +606,11 @@ export class HealerDefender extends DefenderUnit {
       const pulse = this.healAnimationTimer / this.healAnimationDuration;
       ctx.beginPath();
       ctx.arc(
-          this.x + this.width / 2,
-          this.y + this.height / 2,
-          this.healingRange * (1 - pulse * 0.3),
-          0,
-          Math.PI * 2
+        this.x + this.width / 2,
+        this.y + this.height / 2,
+        this.healingRange * (1 - pulse * 0.3),
+        0,
+        Math.PI * 2,
       );
       ctx.strokeStyle = `rgba(0, 255, 0, ${pulse * 0.5})`;
       ctx.lineWidth = 3;
@@ -593,7 +618,7 @@ export class HealerDefender extends DefenderUnit {
 
       // Healing particles
       for (let i = 0; i < 5; i++) {
-        const angle = (Math.PI * 2 * i) / 5 + (Date.now() / 500);
+        const angle = (Math.PI * 2 * i) / 5 + Date.now() / 500;
         const distance = 20 + pulse * 30;
         const particleX = this.x + this.width / 2 + Math.cos(angle) * distance;
         const particleY = this.y + this.height / 2 + Math.sin(angle) * distance;
@@ -613,11 +638,11 @@ export class HealerDefender extends DefenderUnit {
       ctx.fillStyle = "rgba(255, 215, 0, 0.3)"; // Golden glow
       ctx.beginPath();
       ctx.arc(
-          this.x + this.width / 2,
-          this.y + this.height / 2,
-          this.width / 2 + 10,
-          0,
-          Math.PI * 2
+        this.x + this.width / 2,
+        this.y + this.height / 2,
+        this.width / 2 + 10,
+        0,
+        Math.PI * 2,
       );
       ctx.fill();
 
@@ -637,11 +662,11 @@ export class HealerDefender extends DefenderUnit {
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(
-          this.x + this.width / 2,
-          this.y + this.height / 2,
-          this.healingRange,
-          0,
-          Math.PI * 2
+        this.x + this.width / 2,
+        this.y + this.height / 2,
+        this.healingRange,
+        0,
+        Math.PI * 2,
       );
       ctx.stroke();
       ctx.restore();
@@ -664,14 +689,13 @@ export class GrenadeDefender extends DefenderUnit {
       isRanged: true,
       level: cardData.level || 1,
       image: cardData.image,
-    }
+    };
     super(x, y, typeData);
 
     this.grenadeRadius = 60;
     this.grenadeCountdown = this.fireRate;
 
     //Special Ability Fields
-
   }
 
   applyLevelUpgrades() {
@@ -679,7 +703,9 @@ export class GrenadeDefender extends DefenderUnit {
     const statMultiplier = 1 + (level - 1) * 0.25; // Grenadiers get 25% increase per level
 
     this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
-    this.grenadeRadius = Math.floor(this.grenadeRadius * (1 + (level - 1) * 0.1)); // 10% radius increase
+    this.grenadeRadius = Math.floor(
+      this.grenadeRadius * (1 + (level - 1) * 0.1),
+    ); // 10% radius increase
 
     this.applySpecialAbilities();
   }
@@ -703,7 +729,7 @@ export class GrenadeDefender extends DefenderUnit {
     if (this.level === 2) newAbilities.push("Cluster Bomb (Level 3)");
     if (this.level === 4) newAbilities.push("Napalm Strike (Level 5)");
 
-    return {...base, explosionDamage: "+25%", newAbilities,};
+    return { ...base, explosionDamage: "+25%", newAbilities };
   }
 
   // Override attack to trigger explosion via GameEngine
@@ -717,96 +743,99 @@ export class GrenadeDefender extends DefenderUnit {
 
     if (this.gameEngine) {
       this.gameEngine.addDefenderExplosion(
-          target.x + target.width / 2,
-          target.y + target.height / 2,
-          this.attackDamage,
-          this.grenadeRadius,
+        target.x + target.width / 2,
+        target.y + target.height / 2,
+        this.attackDamage,
+        this.grenadeRadius,
       );
 
       // Create visual effect
       this.gameEngine.explosions.push({
-                                        x: target.x + target.width / 2,
-                                        y: target.y + target.height / 2,
-                                        damage: 0,
-                                        radius: this.grenadeRadius,
-                                        timer: 30,
-                                        color: "orange",
-                                        innerColor: "yellow",
-                                        particleColor: "rgba(255, 200, 0, 0.8)",
-                                        style: "burst",
-                                        type: "defender",
-                                        source: "grenadier",
-                                        explodeBy: "grenadier"
-                                      });
+        x: target.x + target.width / 2,
+        y: target.y + target.height / 2,
+        damage: 0,
+        radius: this.grenadeRadius,
+        timer: 30,
+        color: "orange",
+        innerColor: "yellow",
+        particleColor: "rgba(255, 200, 0, 0.8)",
+        style: "burst",
+        type: "defender",
+        source: "grenadier",
+        explodeBy: "grenadier",
+      });
 
-    if (this.hasClusterBomb) {
-      for (let i = 0; i < 3; i++) {
-        const angle = (Math.PI * 2 * i) / 3;
-        const offsetX = Math.cos(angle) * 40;
-        const offsetY = Math.sin(angle) * 40;
+      if (this.hasClusterBomb) {
+        for (let i = 0; i < 3; i++) {
+          const angle = (Math.PI * 2 * i) / 3;
+          const offsetX = Math.cos(angle) * 40;
+          const offsetY = Math.sin(angle) * 40;
 
-        setTimeout(() => {
-          this.gameEngine.addDefenderExplosion(
-              target.x + target.width / 2 + offsetX,
-              target.y + target.height / 2 + offsetY,
-              this.attackDamage * 0.75, //75% damage
-              this.grenadeRadius * 0.8, //smaller radius,
-          );
-          this.gameEngine.explosions.push({
-                                            x: target.x + target.width / 2 + offsetX,
-                                            y: target.y + target.height / 2 + offsetY,
-                                            damage: 0,
-                                            radius: this.grenadeRadius * 0.8,
-                                            timer: 25,
-                                            color: "orange",
-                                            innerColor: "yellow",
-                                            particleColor: "rgba(255, 200, 0, 0.8)",
-                                            style: "burst",
-                                            type: "defender",
-                                            source: "grenadier",
-                                            explodeBy: "grenadier"
-                                          });
-        }, 200 + i * 100);
-      }
-    }
-    if (this.hasNapalm && this.gameEngine) {
-      const napalmX = target.x + target.width / 2;
-      const napalmY = target.y + target.height / 2;
-      const napalmRadius = this.grenadeRadius * 0.8;
-      //5 ticks of fire damage over 2.5 second
-      for (let i = 0; i < 5; i++) {
-        setTimeout(() => {
-          if (this.gameEngine && this.gameEngine.enemies) {
-            this.gameEngine.explosions.push({
-                                              x: napalmX,
-                                              y: napalmY,
-                                              damage: 0,
-                                              radius: napalmRadius,
-                                              timer: 15,
-                                              color: "orange",
-                                              innerColor: "red",
-                                              particleColor: "rgba(255, 100, 0, 0.9)",
-                                              style: "burst",
-                                              type: "defender",
-                                              source: "grenadier",
-                                              explodeBy: "grenadier"
-                                            });
-
-            //apply burining damage
-            for (const enemy of this.gameEngine.enemies) {
-              if (!enemy.isAlive) continue;
-              const distance = Math.hypot(
-                  enemy.x + enemy.width / 2 - napalmX,
-                  enemy.y + enemy.height / 2 - napalmY
+          setTimeout(
+            () => {
+              this.gameEngine.addDefenderExplosion(
+                target.x + target.width / 2 + offsetX,
+                target.y + target.height / 2 + offsetY,
+                this.attackDamage * 0.75, //75% damage
+                this.grenadeRadius * 0.8, //smaller radius,
               );
-              if (distance <= napalmRadius) {
-                enemy.takeDamage(this.attackDamage * 0.1, false);
+              this.gameEngine.explosions.push({
+                x: target.x + target.width / 2 + offsetX,
+                y: target.y + target.height / 2 + offsetY,
+                damage: 0,
+                radius: this.grenadeRadius * 0.8,
+                timer: 25,
+                color: "orange",
+                innerColor: "yellow",
+                particleColor: "rgba(255, 200, 0, 0.8)",
+                style: "burst",
+                type: "defender",
+                source: "grenadier",
+                explodeBy: "grenadier",
+              });
+            },
+            200 + i * 100,
+          );
+        }
+      }
+      if (this.hasNapalm && this.gameEngine) {
+        const napalmX = target.x + target.width / 2;
+        const napalmY = target.y + target.height / 2;
+        const napalmRadius = this.grenadeRadius * 0.8;
+        //5 ticks of fire damage over 2.5 second
+        for (let i = 0; i < 5; i++) {
+          setTimeout(() => {
+            if (this.gameEngine && this.gameEngine.enemies) {
+              this.gameEngine.explosions.push({
+                x: napalmX,
+                y: napalmY,
+                damage: 0,
+                radius: napalmRadius,
+                timer: 15,
+                color: "orange",
+                innerColor: "red",
+                particleColor: "rgba(255, 100, 0, 0.9)",
+                style: "burst",
+                type: "defender",
+                source: "grenadier",
+                explodeBy: "grenadier",
+              });
+
+              //apply burining damage
+              for (const enemy of this.gameEngine.enemies) {
+                if (!enemy.isAlive) continue;
+                const distance = Math.hypot(
+                  enemy.x + enemy.width / 2 - napalmX,
+                  enemy.y + enemy.height / 2 - napalmY,
+                );
+                if (distance <= napalmRadius) {
+                  enemy.takeDamage(this.attackDamage * 0.1, false);
+                }
               }
             }
-          }
-        }, i * 500);
+          }, i * 500);
+        }
       }
-    }
       this.lastAttackTime = currentTime; // Update last attack time
     } else {
       console.warn("GrenadeDefender: gameEngine reference not set for attack!");
@@ -830,7 +859,7 @@ export class BarricadeDefender extends DefenderUnit {
       isRanged: false,
       level: cardData.level || 1,
       image: cardData.image,
-    }
+    };
     super(x, y, typeData);
 
     this.hitAnimationTimer = 0;
@@ -884,8 +913,8 @@ export class BarricadeDefender extends DefenderUnit {
 
   update(enemies, _defenderUnits) {
     if (!this.isAlive) {
-      if (this.currentAnimation !== 'death') {
-        this.setAnimation('death');
+      if (this.currentAnimation !== "death") {
+        this.setAnimation("death");
       }
       this.updateAnimation();
       return;
@@ -900,40 +929,41 @@ export class BarricadeDefender extends DefenderUnit {
 
     // Determine animation state
     if (this.disabled) {
-      this.setAnimation('idle');
+      this.setAnimation("idle");
     } else if (this.hitAnimationTimer > 0) {
-      this.setAnimation('attack');
+      this.setAnimation("attack");
     } else {
-      this.setAnimation('idle');
+      this.setAnimation("idle");
     }
     this.updateAnimation();
 
     if (this.hasSpikes) {
       //deal damage to those who attack on this barricade
       for (const enemy of enemies) {
-        const isAttacking = (enemy.isAttacking &&
-                             enemy.x + enemy.width >= this.x &&
-                             enemy.x <= this.x + this.width &&
-                             enemy.y + enemy.height >= this.y &&
-                             enemy.y <= this.y + this.height);
+        const isAttacking =
+          enemy.isAttacking &&
+          enemy.x + enemy.width >= this.x &&
+          enemy.x <= this.x + this.width &&
+          enemy.y + enemy.height >= this.y &&
+          enemy.y <= this.y + this.height;
         if (isAttacking) {
           //reflect damage back
           const spikeDamage = 0.05;
           enemy.takeDamage(spikeDamage, false);
 
           this.gameEngine.explosions.push({
-                                            x: enemy.x + enemy.width / 2,
-                                            y: enemy.y + enemy.height / 2,
-                                            damage: 0,
-                                            radius: 20,
-                                            timer: 15,
-                                            color: "silver",
-                                            innerColor: "gray",
-                                            particleColor: "rgba(192, 192, 192, 0.8)",
-                                            style: "spike",
-                                            type: "effect",
-                                            source: "barricade"
-                                          });
+            x: enemy.x + enemy.width / 2,
+            y: enemy.y + enemy.height / 2,
+            damage: 0,
+            radius: 20,
+            timer: 15,
+            color: "silver",
+            innerColor: "gray",
+            particleColor: "rgba(192, 192, 192, 0.8)",
+            style: "spike",
+            type: "effect",
+            source: "barricade",
+          });
         }
       }
     }
@@ -947,8 +977,9 @@ export class BarricadeDefender extends DefenderUnit {
         const stunRadius = 100;
         for (const enemy of enemies) {
           const distance = Math.hypot(
-              enemy.x + enemy.width / 2 - (this.x + this.width / 2),
-              enemy.y + enemy.height / 2 - (this.y + this.height / 2));
+            enemy.x + enemy.width / 2 - (this.x + this.width / 2),
+            enemy.y + enemy.height / 2 - (this.y + this.height / 2),
+          );
           if (distance <= stunRadius && !enemy.immune) {
             enemy.stunned = true;
             enemy.stunnedDuration = 60;
@@ -957,18 +988,18 @@ export class BarricadeDefender extends DefenderUnit {
         }
         if (this.gameEngine) {
           this.gameEngine.explosions.push({
-                                            x: this.x + this.width / 2,
-                                            y: this.y + this.height / 2,
-                                            damage: 0,
-                                            radius: stunRadius,
-                                            timer: 20,
-                                            color: "yellow",
-                                            innerColor: "white",
-                                            particleColor: "rgba(255, 255, 0, 0.6)",
-                                            style: "electric",
-                                            type: "effect",
-                                            source: "barricade"
-                                          });
+            x: this.x + this.width / 2,
+            y: this.y + this.height / 2,
+            damage: 0,
+            radius: stunRadius,
+            timer: 20,
+            color: "yellow",
+            innerColor: "white",
+            particleColor: "rgba(255, 255, 0, 0.6)",
+            style: "electric",
+            type: "effect",
+            source: "barricade",
+          });
         }
         this.electricFieldCooldown = 300;
       }
@@ -1008,11 +1039,11 @@ export class BarricadeDefender extends DefenderUnit {
         ctx.setLineDash([5, 5]);
         ctx.beginPath();
         ctx.arc(
-            this.x + this.width / 2,
-            this.y + this.height / 2,
-            100,
-            0,
-            Math.PI * 2
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          100,
+          0,
+          Math.PI * 2,
         );
         ctx.stroke();
       } else {
@@ -1029,7 +1060,7 @@ export class BarricadeDefender extends DefenderUnit {
 export class EnergyGenerator extends DefenderUnit {
   constructor(x, y, cardData) {
     const typeData = {
-      name: "Energy Generator",
+      name: "E-Gen",
       damage: 0,
       health: 80,
       range: 0,
@@ -1041,7 +1072,7 @@ export class EnergyGenerator extends DefenderUnit {
       isRanged: false,
       level: cardData.level || 1,
       image: cardData.image,
-    }
+    };
     super(x, y, typeData);
 
     this.energyDropAmount = 5;
@@ -1051,7 +1082,6 @@ export class EnergyGenerator extends DefenderUnit {
     this.isGenerating = false;
     this.generateAnimationDuration = 120;
     this.generateAnimationTimer = 0;
-
   }
 
   applyLevelUpgrades() {
@@ -1079,16 +1109,15 @@ export class EnergyGenerator extends DefenderUnit {
     if (this.level === 2) newAbilities.push("Energy Burst (Level 3)");
     if (this.level === 4) newAbilities.push("Auto-Collect Field (Level 5)");
 
-    return {energyIncrease: `+${this.level - 1} per drop`, newAbilities
-    }
+    return { energyIncrease: `+${this.level - 1} per drop`, newAbilities };
   }
 
   update(_enemies, _defenderUnits) {
     if (!this.isAlive) {
       // Handle death animation
       if (this.animationFrames && this.animationFrames.death) {
-        if (this.currentAnimation !== 'death') {
-          this.setAnimation('death');
+        if (this.currentAnimation !== "death") {
+          this.setAnimation("death");
         }
         this.updateAnimation();
       } else {
@@ -1102,7 +1131,6 @@ export class EnergyGenerator extends DefenderUnit {
       this.isGenerating = true;
       if (this.generateAnimationTimer <= 0) {
         this.isGenerating = false;
-
       }
     }
 
@@ -1118,9 +1146,9 @@ export class EnergyGenerator extends DefenderUnit {
           const offsetX = (Math.random() - 0.5) * 100;
           const offsetY = (Math.random() - 0.5) * 100;
           this.gameEngine.dropEnergy(
-              this.x + this.width / 2 + offsetX,
-              this.y + this.height / 2 + offsetY,
-              this.energyDropAmount
+            this.x + this.width / 2 + offsetX,
+            this.y + this.height / 2 + offsetY,
+            this.energyDropAmount,
           );
         }
         this.energyBurstCooldown = 600;
@@ -1132,16 +1160,19 @@ export class EnergyGenerator extends DefenderUnit {
         const drop = this.gameEngine.energyDrops[i];
         if (drop.collectAnimation) continue;
         const distance = Math.hypot(
-            drop.x - (this.x + this.width / 2),
-            drop.y - (this.y + this.height / 2)
+          drop.x - (this.x + this.width / 2),
+          drop.y - (this.y + this.height / 2),
         );
         if (distance <= collectRadius) {
-          console.log("Energy Generator debug auto collect")
+          console.log("E-Gen debug auto collect");
           //auto-collect energy
           drop.startCollectionAnimation(110, 20);
-          this.gameEngine.inGameEnergy = Math.min(9999, this.gameEngine.inGameEnergy + drop.amount);
+          this.gameEngine.inGameEnergy = Math.min(
+            9999,
+            this.gameEngine.inGameEnergy + drop.amount,
+          );
           this.gameEngine.updateEnergyCb(this.gameEngine.inGameEnergy);
-          console.log(`${ this.gameEngine.inGameEnergy}`);
+          console.log(`${this.gameEngine.inGameEnergy}`);
         }
       }
     }
@@ -1154,9 +1185,9 @@ export class EnergyGenerator extends DefenderUnit {
         const offsetX = (Math.random() - 0.5) * 60;
         const offsetY = (Math.random() - 0.5) * 60;
         this.gameEngine.dropEnergy(
-            this.x + this.width / 2 + offsetX,
-            this.y + this.height / 2 + offsetY,
-            this.energyDropAmount
+          this.x + this.width / 2 + offsetX,
+          this.y + this.height / 2 + offsetY,
+          this.energyDropAmount,
         );
       }
       this.energyDropCountDown = this.energyDropRate;
@@ -1165,9 +1196,9 @@ export class EnergyGenerator extends DefenderUnit {
     // Animation state management
     if (this.animationFrames) {
       if (this.isGenerating) {
-        this.setAnimation('attack');
+        this.setAnimation("attack");
       } else {
-        this.setAnimation('idle');
+        this.setAnimation("idle");
       }
       this.updateAnimation();
     }
@@ -1176,7 +1207,7 @@ export class EnergyGenerator extends DefenderUnit {
   startGenerationAnimation() {
     this.isGenerating = true;
     this.generateAnimationTimer = this.generateAnimationDuration;
-    console.log("Energy Generator: Starting generation animation");
+    console.log("E-Gen: Starting generation animation");
   }
 
   draw(ctx) {
@@ -1184,16 +1215,16 @@ export class EnergyGenerator extends DefenderUnit {
 
     // Energy burst indicator
     if (this.hasEnergyBurst && this.energyBurstCooldown && this.isAlive) {
-      const progress = 1 - (this.energyBurstCooldown / 600);
+      const progress = 1 - this.energyBurstCooldown / 600;
       ctx.strokeStyle = "gold";
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(
-          this.x + this.width / 2,
-          this.y + this.height / 2,
-          this.width / 2 + 10,
-          -Math.PI / 2,
-          -Math.PI / 2 + (Math.PI * 2 * progress)
+        this.x + this.width / 2,
+        this.y + this.height / 2,
+        this.width / 2 + 10,
+        -Math.PI / 2,
+        -Math.PI / 2 + Math.PI * 2 * progress,
       );
       ctx.stroke();
     }
@@ -1206,25 +1237,25 @@ export class EnergyGenerator extends DefenderUnit {
       ctx.setLineDash([10, 5]);
       ctx.beginPath();
       ctx.arc(
-          this.x + this.width / 2,
-          this.y + this.height / 2,
-          150,
-          0,
-          Math.PI * 2
+        this.x + this.width / 2,
+        this.y + this.height / 2,
+        150,
+        0,
+        Math.PI * 2,
       );
       ctx.stroke();
       ctx.restore();
     }
 
-    //energy generator indicator
-    const progress = 1 - (this.energyDropCountDown / this.energyDropRate);
+    //E-Gen indicator
+    const progress = 1 - this.energyDropCountDown / this.energyDropRate;
     ctx.beginPath();
     ctx.arc(
-        this.x + this.width / 2,
-        this.y + this.height / 2,
-        this.width / 2 + 5,
-        -Math.PI / 2,
-        -Math.PI / 2 + (Math.PI * 2 * progress)
+      this.x + this.width / 2,
+      this.y + this.height / 2,
+      this.width / 2 + 5,
+      -Math.PI / 2,
+      -Math.PI / 2 + Math.PI * 2 * progress,
     );
     ctx.strokeStyle = "rgba(255, 255, 0, 0.8)";
     ctx.lineWidth = 3;
@@ -1247,7 +1278,7 @@ export class Sniper extends DefenderUnit {
       isRanged: true,
       level: cardData.level || 1,
       image: cardData.image,
-    }
+    };
     super(x, y, typeDate);
 
     this.critChance = 0.2;
@@ -1260,7 +1291,6 @@ export class Sniper extends DefenderUnit {
     this.piercingTargets = new Set();
     //Note: it is mark as unused but this is used
     this.lastPiercingTargets = new Set(); // Store for drawing
-
   }
 
   applyLevelUpgrades() {
@@ -1297,7 +1327,7 @@ export class Sniper extends DefenderUnit {
     if (this.level === 2) newAbilities.push("Piercing Shot (Level 3)");
     if (this.level === 4) newAbilities.push("Headshot (Level 5)");
 
-    return {...base, criticalIncrease: "+8% per level", newAbilities,};
+    return { ...base, criticalIncrease: "+8% per level", newAbilities };
   }
 
   attack(target, currentTime) {
@@ -1305,14 +1335,16 @@ export class Sniper extends DefenderUnit {
 
     this.isAttacking = true; // ADD THIS
 
-    console.log(`Sniper attack - Level: ${this.level}, Piercing: ${this.hasPiercingShot}, Headshot: ${this.hasHeadshot}`);
+    console.log(
+      `Sniper attack - Level: ${this.level}, Piercing: ${this.hasPiercingShot}, Headshot: ${this.hasHeadshot}`,
+    );
 
     // Store shot info for laser drawing
     this.lastShotTime = Date.now();
     this.lastTargetId = target.id;
     this.lastTargetPosition = {
       x: target.x + target.width / 2,
-      y: target.y + target.height / 2
+      y: target.y + target.height / 2,
     };
 
     let damage = this.attackDamage;
@@ -1328,7 +1360,12 @@ export class Sniper extends DefenderUnit {
     this.piercingTargets.add(target.id);
 
     const targetDied = target.takeDamage(damage, true); //always have armor piercing
-    if (targetDied && !target.isSpawned && this.gameEngine && !this.gameEngine.gameOver) {
+    if (
+      targetDied &&
+      !target.isSpawned &&
+      this.gameEngine &&
+      !this.gameEngine.gameOver
+    ) {
       this.handleEnemyDeath(target);
     }
     // Piercing Shot - hits all enemies in a line
@@ -1371,12 +1408,16 @@ export class Sniper extends DefenderUnit {
             const pierceDamage = damage * 0.7; //only apply 70%
             const pierceDied = enemy.takeDamage(pierceDamage, true);
             this.piercingTargets.add(enemy.id);
-            if (pierceDied && !enemy.isSpawned && this.gameEngine && !this.gameEngine.gameOver) {
-              this.handleEnemyDeath(enemy)
+            if (
+              pierceDied &&
+              !enemy.isSpawned &&
+              this.gameEngine &&
+              !this.gameEngine.gameOver
+            ) {
+              this.handleEnemyDeath(enemy);
             }
           }
         }
-
       }
     }
     //crit kills will create explosion area
@@ -1388,22 +1429,24 @@ export class Sniper extends DefenderUnit {
         target.y + target.height / 2,
         damage * 0.5, //50%
         200,
-        );
+      );
 
       //visual affect
       this.gameEngine.explosions.push({
-                                        x: target.x + target.width / 2,
-                                        y: target.y + target.height / 2,
-                                        damage: 0,
-                                        radius: 200,
-                                        timer: 30,
-                                        color: "crimson",
-                                        innerColor: "white",
-                                        particleColor: "rgba(220, 20, 60, 0.9)",
-                                        style: "piercing",
-                                        type: "defender",
-                                        source: "sniper",
-                                        explodeBy: "Sniper"});}
+        x: target.x + target.width / 2,
+        y: target.y + target.height / 2,
+        damage: 0,
+        radius: 200,
+        timer: 30,
+        color: "crimson",
+        innerColor: "white",
+        particleColor: "rgba(220, 20, 60, 0.9)",
+        style: "piercing",
+        type: "defender",
+        source: "sniper",
+        explodeBy: "Sniper",
+      });
+    }
     this.lastAttackTime = currentTime;
     this.lastTargetId = target.id;
   }
@@ -1423,16 +1466,16 @@ export class Sniper extends DefenderUnit {
       ctx.save();
 
       // Calculate fade effect
-      const fadeAlpha = 1 - (timeSinceShot / this.laserDuration);
+      const fadeAlpha = 1 - timeSinceShot / this.laserDuration;
 
       // Draw piercing line if has ability
       if (this.hasPiercingShot) {
         // Main laser beam
         const gradient = ctx.createLinearGradient(
-            this.x + this.width / 2,
-            this.y + this.height / 2,
-            this.lastTargetPosition.x,
-            this.lastTargetPosition.y
+          this.x + this.width / 2,
+          this.y + this.height / 2,
+          this.lastTargetPosition.x,
+          this.lastTargetPosition.y,
         );
         gradient.addColorStop(0, `rgba(255, 0, 0, ${fadeAlpha})`);
         gradient.addColorStop(1, `rgba(255, 100, 0, ${fadeAlpha * 0.5})`);
@@ -1452,8 +1495,8 @@ export class Sniper extends DefenderUnit {
           const extendY = (dy / length) * this.range;
 
           ctx.lineTo(
-              this.x + this.width / 2 + extendX,
-              this.y + this.height / 2 + extendY
+            this.x + this.width / 2 + extendX,
+            this.y + this.height / 2 + extendY,
           );
           ctx.stroke();
         }
@@ -1461,19 +1504,25 @@ export class Sniper extends DefenderUnit {
         // Draw hit markers on pierced enemies
         ctx.fillStyle = `rgba(255, 0, 0, ${fadeAlpha * 0.7})`;
         for (const enemyId of this.piercingTargets) {
-          const enemy = this.gameEngine.enemies.find(e => e.id === enemyId);
+          const enemy = this.gameEngine.enemies.find((e) => e.id === enemyId);
           if (enemy) {
             // Expanding circle effect
             const expandRadius = 10 + (timeSinceShot / this.laserDuration) * 20;
             ctx.beginPath();
-            ctx.arc(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, expandRadius, 0, Math.PI * 2);
+            ctx.arc(
+              enemy.x + enemy.width / 2,
+              enemy.y + enemy.height / 2,
+              expandRadius,
+              0,
+              Math.PI * 2,
+            );
             ctx.fill();
           }
         }
       } else {
         // Regular laser sight (non-piercing)
         ctx.strokeStyle = `rgba(255, 0, 0, ${fadeAlpha * 0.8})`;
-        ctx.lineWidth = 2 - (timeSinceShot / this.laserDuration);
+        ctx.lineWidth = 2 - timeSinceShot / this.laserDuration;
         ctx.beginPath();
         ctx.moveTo(this.x + this.width / 2, this.y + this.height / 2);
         ctx.lineTo(this.lastTargetPosition.x, this.lastTargetPosition.y);
@@ -1482,7 +1531,13 @@ export class Sniper extends DefenderUnit {
         // Impact point
         ctx.fillStyle = `rgba(255, 100, 0, ${fadeAlpha})`;
         ctx.beginPath();
-        ctx.arc(this.lastTargetPosition.x, this.lastTargetPosition.y, 5 + timeSinceShot / 50, 0, Math.PI * 2);
+        ctx.arc(
+          this.lastTargetPosition.x,
+          this.lastTargetPosition.y,
+          5 + timeSinceShot / 50,
+          0,
+          Math.PI * 2,
+        );
         ctx.fill();
       }
 
@@ -1523,10 +1578,10 @@ export class Mortar extends DefenderUnit {
     super(x, y, typeData);
 
     // Mortar-specific properties
-    this.minimumRange = 250;     // Increased from 150
-    this.explosionRadius = 100;   // Increased from 100
-    this.shellTravelTime = 200;  // 1.5 seconds for shell to land
-    this.pendingShells = [];      // Track shells in flight
+    this.minimumRange = 250; // Increased from 150
+    this.explosionRadius = 100; // Increased from 100
+    this.shellTravelTime = 200; // 1.5 seconds for shell to land
+    this.pendingShells = []; // Track shells in flight
 
     // Visual properties
     this.showRangeIndicators = false;
@@ -1553,7 +1608,9 @@ export class Mortar extends DefenderUnit {
     this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
     this.health = Math.floor(this.health * statMultiplier);
     this.maxHealth = Math.floor(this.maxHealth * statMultiplier);
-    this.explosionRadius = Math.floor(this.explosionRadius * (1 + (level - 1) * 0.15)); // 15% radius increase
+    this.explosionRadius = Math.floor(
+      this.explosionRadius * (1 + (level - 1) * 0.15),
+    ); // 15% radius increase
 
     this.applySpecialAbilities();
   }
@@ -1580,14 +1637,18 @@ export class Mortar extends DefenderUnit {
     const base = super.getUpgradeInfo();
     const newAbilities = [];
 
-    if (this.level === 2) newAbilities.push("Improved Fuses - Reduced minimum range (Level 3)");
-    if (this.level === 4) newAbilities.push("Siege Mode - Cluster shells & increased range (Level 5)");
+    if (this.level === 2)
+      newAbilities.push("Improved Fuses - Reduced minimum range (Level 3)");
+    if (this.level === 4)
+      newAbilities.push(
+        "Siege Mode - Cluster shells & increased range (Level 5)",
+      );
 
     return {
       ...base,
       damageIncrease: "+20%",
       explosionRadius: "+15%",
-      newAbilities
+      newAbilities,
     };
   }
 
@@ -1596,8 +1657,8 @@ export class Mortar extends DefenderUnit {
     if (!enemy || !enemy.isAlive) return false;
 
     const distance = Math.hypot(
-        enemy.x + enemy.width/2 - (this.x + this.width/2),
-        enemy.y + enemy.height/2 - (this.y + this.height/2)
+      enemy.x + enemy.width / 2 - (this.x + this.width / 2),
+      enemy.y + enemy.height / 2 - (this.y + this.height / 2),
     );
 
     return distance >= this.minimumRange && distance <= this.range;
@@ -1611,14 +1672,15 @@ export class Mortar extends DefenderUnit {
       if (!this.isValidTarget(enemy)) continue;
 
       const distance = Math.hypot(
-          enemy.x + enemy.width / 2 - (this.x + this.width / 2),
-          enemy.y + enemy.height / 2 - (this.y + this.height / 2)
+        enemy.x + enemy.width / 2 - (this.x + this.width / 2),
+        enemy.y + enemy.height / 2 - (this.y + this.height / 2),
       );
 
       //prioritize base on threat level and distance
-      const priority = (enemy.health / enemy.maxHealth) * 100 +
-                       (1 - distance / this.range) * 50 +
-                       (enemy.attackDamage || 0);
+      const priority =
+        (enemy.health / enemy.maxHealth) * 100 +
+        (1 - distance / this.range) * 50 +
+        (enemy.attackDamage || 0);
       if (priority > highestPriority) {
         highestPriority = priority;
         bestTarget = enemy;
@@ -1645,8 +1707,8 @@ export class Mortar extends DefenderUnit {
     if (!this.isAlive) {
       // Handle death animation
       if (this.animationFrames && this.animationFrames.death) {
-        if (this.currentAnimation !== 'death') {
-          this.setAnimation('death');
+        if (this.currentAnimation !== "death") {
+          this.setAnimation("death");
         }
         this.updateAnimation();
       } else {
@@ -1674,7 +1736,7 @@ export class Mortar extends DefenderUnit {
     }
 
     // Process pending shells
-    this.pendingShells = this.pendingShells.filter(shell => {
+    this.pendingShells = this.pendingShells.filter((shell) => {
       if (!shell.fired && this.targetLockTime <= 0) {
         shell.fired = true;
         shell.currentY = -100;
@@ -1687,12 +1749,15 @@ export class Mortar extends DefenderUnit {
           shell.targetY = shell.target.y + shell.target.height / 2;
         }
 
-        const progress = 1 - (shell.timeRemaining / this.shellTravelTime);
+        const progress = 1 - shell.timeRemaining / this.shellTravelTime;
         const arcHeight = 300;
 
-        shell.currentX = shell.startX + (shell.targetX - shell.startX) * progress;
-        shell.currentY = shell.startY + (shell.targetY - shell.startY) * progress
-                         - arcHeight * 4 * progress * (1 - progress);
+        shell.currentX =
+          shell.startX + (shell.targetX - shell.startX) * progress;
+        shell.currentY =
+          shell.startY +
+          (shell.targetY - shell.startY) * progress -
+          arcHeight * 4 * progress * (1 - progress);
 
         if (shell.timeRemaining <= 0) {
           this.createExplosion(shell.targetX, shell.targetY);
@@ -1704,20 +1769,23 @@ export class Mortar extends DefenderUnit {
     });
 
     // Clear current target if dead or out of range
-    if (this.currentTarget && (!this.currentTarget.isAlive || !this.isValidTarget(this.currentTarget))) {
+    if (
+      this.currentTarget &&
+      (!this.currentTarget.isAlive || !this.isValidTarget(this.currentTarget))
+    ) {
       this.currentTarget = null;
     }
 
     // Animation state management - FIX: Keep attack animation playing during lock
     if (this.animationFrames) {
       if (this.isFiring) {
-        this.setAnimation('attack');
+        this.setAnimation("attack");
       } else if (this.disabled) {
-        this.setAnimation('idle');
+        this.setAnimation("idle");
       } else if (this.targetLockTime > 0) {
-        this.setAnimation('idle');
+        this.setAnimation("idle");
       } else {
-        this.setAnimation('idle');
+        this.setAnimation("idle");
       }
       this.updateAnimation();
     }
@@ -1750,8 +1818,8 @@ export class Mortar extends DefenderUnit {
 
     // Calculate angle for visual effect
     this.lastFireAngle = Math.atan2(
-        actualTarget.y + actualTarget.height / 2 - (this.y + this.height / 2),
-        actualTarget.x + actualTarget.width / 2 - (this.x + this.width / 2)
+      actualTarget.y + actualTarget.height / 2 - (this.y + this.height / 2),
+      actualTarget.x + actualTarget.width / 2 - (this.x + this.width / 2),
     );
 
     // Start firing animation
@@ -1763,16 +1831,16 @@ export class Mortar extends DefenderUnit {
 
     // Add shell to pending
     this.pendingShells.push({
-                              target: actualTarget,
-                              targetX: actualTarget.x + actualTarget.width / 2,
-                              targetY: actualTarget.y + actualTarget.height / 2,
-                              timeRemaining: this.shellTravelTime,
-                              startX: this.x + this.width / 2,
-                              startY: this.y + this.height / 2,
-                              currentX: this.x + this.width/2,
-                              currentY: this.y + this.height/2,
-                              fired: false
-                            });
+      target: actualTarget,
+      targetX: actualTarget.x + actualTarget.width / 2,
+      targetY: actualTarget.y + actualTarget.height / 2,
+      timeRemaining: this.shellTravelTime,
+      startX: this.x + this.width / 2,
+      startY: this.y + this.height / 2,
+      currentX: this.x + this.width / 2,
+      currentY: this.y + this.height / 2,
+      fired: false,
+    });
 
     // Mark that we have a shell in flight
     this.hasShellInFlight = true;
@@ -1784,57 +1852,60 @@ export class Mortar extends DefenderUnit {
 
     // Main explosion with increased damage and radius
     this.gameEngine.addDefenderExplosion(
-        x,
-        y,
-        this.attackDamage,
-        this.explosionRadius,
+      x,
+      y,
+      this.attackDamage,
+      this.explosionRadius,
     );
     // Enhanced visual effect
     this.gameEngine.explosions.push({
-                                      x: x,
-                                      y: y,
-                                      damage: 0,
-                                      radius: this.explosionRadius,
-                                      timer: 30,
-                                      color: "orange",
-                                      innerColor: "yellow",
-                                      particleColor: "rgba(255, 200, 0, 0.9)",
-                                      style: "burst",
-                                      type: "defender",
-                                      source: "mortar",
-                                      explodeBy: "mortar"
-                                    });
+      x: x,
+      y: y,
+      damage: 0,
+      radius: this.explosionRadius,
+      timer: 30,
+      color: "orange",
+      innerColor: "yellow",
+      particleColor: "rgba(255, 200, 0, 0.9)",
+      style: "burst",
+      type: "defender",
+      source: "mortar",
+      explodeBy: "mortar",
+    });
     // Cluster shells at level 5
     if (this.hasClusterShells) {
       for (let i = 0; i < 4; i++) {
         const angle = (Math.PI * 2 * i) / 4;
-        const offsetX = Math.cos(angle) * 60;  // Slightly larger spread
+        const offsetX = Math.cos(angle) * 60; // Slightly larger spread
         const offsetY = Math.sin(angle) * 60;
 
-        setTimeout(() => {
-          if (this.gameEngine) {
-            this.gameEngine.addDefenderExplosion(
+        setTimeout(
+          () => {
+            if (this.gameEngine) {
+              this.gameEngine.addDefenderExplosion(
                 x + offsetX,
                 y + offsetY,
                 this.attackDamage * 0.5,
                 this.explosionRadius * 0.7,
-            );
-            this.gameEngine.explosions.push({
-                                              x: x,
-                                              y: y,
-                                              damage: 0,
-                                              radius: this.explosionRadius * 0.7,
-                                              timer: 30,
-                                              color: "orange",
-                                              innerColor: "yellow",
-                                              particleColor: "rgba(255, 200, 0, 0.9)",
-                                              style: "burst",
-                                              type: "defender",
-                                              source: "mortar",
-                                              explodeBy: "mortar"
-                                            });
-          }
-        }, 200 + i * 100);
+              );
+              this.gameEngine.explosions.push({
+                x: x,
+                y: y,
+                damage: 0,
+                radius: this.explosionRadius * 0.7,
+                timer: 30,
+                color: "orange",
+                innerColor: "yellow",
+                particleColor: "rgba(255, 200, 0, 0.9)",
+                style: "burst",
+                type: "defender",
+                source: "mortar",
+                explodeBy: "mortar",
+              });
+            }
+          },
+          200 + i * 100,
+        );
       }
     }
   }
@@ -1877,11 +1948,11 @@ export class Mortar extends DefenderUnit {
       ctx.setLineDash([10, 5]);
       ctx.beginPath();
       ctx.arc(
-          this.x + this.width/2,
-          this.y + this.height/2,
-          this.minimumRange,
-          0,
-          Math.PI * 2
+        this.x + this.width / 2,
+        this.y + this.height / 2,
+        this.minimumRange,
+        0,
+        Math.PI * 2,
       );
       ctx.fill();
       ctx.stroke();
@@ -1890,7 +1961,11 @@ export class Mortar extends DefenderUnit {
       ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
       ctx.font = "12px Arial";
       ctx.textAlign = "center";
-      ctx.fillText("DEAD ZONE", this.x + this.width/2, this.y + this.height/2 - this.minimumRange - 10);
+      ctx.fillText(
+        "DEAD ZONE",
+        this.x + this.width / 2,
+        this.y + this.height / 2 - this.minimumRange - 10,
+      );
 
       // Maximum range - green
       ctx.strokeStyle = "rgba(0, 255, 0, 0.3)";
@@ -1898,11 +1973,11 @@ export class Mortar extends DefenderUnit {
       ctx.setLineDash([]);
       ctx.beginPath();
       ctx.arc(
-          this.x + this.width/2,
-          this.y + this.height/2,
-          this.range,
-          0,
-          Math.PI * 2
+        this.x + this.width / 2,
+        this.y + this.height / 2,
+        this.range,
+        0,
+        Math.PI * 2,
       );
       ctx.stroke();
 
@@ -1912,7 +1987,7 @@ export class Mortar extends DefenderUnit {
 
   drawBarrel(ctx) {
     ctx.save();
-    ctx.translate(this.x + this.width/2, this.y + this.height/2);
+    ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
 
     if (this.lastFireAngle !== 0) {
       ctx.rotate(this.lastFireAngle);
@@ -1932,9 +2007,13 @@ export class Mortar extends DefenderUnit {
 
   drawTargetingSystem(ctx) {
     // Draw targeting on current target
-    if (this.currentTarget && this.currentTarget.isAlive && this.targetLockTime > 0) {
-      const targetX = this.currentTarget.x + this.currentTarget.width/2;
-      const targetY = this.currentTarget.y + this.currentTarget.height/2;
+    if (
+      this.currentTarget &&
+      this.currentTarget.isAlive &&
+      this.targetLockTime > 0
+    ) {
+      const targetX = this.currentTarget.x + this.currentTarget.width / 2;
+      const targetY = this.currentTarget.y + this.currentTarget.height / 2;
 
       ctx.save();
 
@@ -1978,16 +2057,20 @@ export class Mortar extends DefenderUnit {
       if (!shell.fired) continue;
 
       // Update target position for moving enemies
-      const targetX = shell.target && shell.target.isAlive ?
-                      shell.target.x + shell.target.width / 2 : shell.targetX;
-      const targetY = shell.target && shell.target.isAlive ?
-                      shell.target.y + shell.target.height / 2 : shell.targetY;
+      const targetX =
+        shell.target && shell.target.isAlive
+          ? shell.target.x + shell.target.width / 2
+          : shell.targetX;
+      const targetY =
+        shell.target && shell.target.isAlive
+          ? shell.target.y + shell.target.height / 2
+          : shell.targetY;
 
       // Draw target marker that follows enemy
       ctx.save();
 
       // Target circle on ground
-      const progress = 1 - (shell.timeRemaining / this.shellTravelTime);
+      const progress = 1 - shell.timeRemaining / this.shellTravelTime;
       ctx.strokeStyle = `rgba(255, 0, 0, ${0.5 + progress * 0.5})`;
       ctx.lineWidth = 3;
       ctx.setLineDash([10, 5]);
@@ -2013,16 +2096,25 @@ export class Mortar extends DefenderUnit {
       // Impact zone preview
       ctx.fillStyle = `rgba(255, 165, 0, ${0.1 + progress * 0.2})`;
       ctx.beginPath();
-      ctx.arc(targetX, targetY, this.explosionRadius * progress, 0, Math.PI * 2);
+      ctx.arc(
+        targetX,
+        targetY,
+        this.explosionRadius * progress,
+        0,
+        Math.PI * 2,
+      );
       ctx.fill();
 
       // Draw shell in air
-      if (shell.currentY < shell.targetY - 50) { // Only draw if high enough
+      if (shell.currentY < shell.targetY - 50) {
+        // Only draw if high enough
         // Shell trail
         const trailLength = 5;
         const gradient = ctx.createLinearGradient(
-            shell.currentX, shell.currentY,
-            shell.currentX, shell.currentY + trailLength * 10
+          shell.currentX,
+          shell.currentY,
+          shell.currentX,
+          shell.currentY + trailLength * 10,
         );
         gradient.addColorStop(0, "rgba(100, 100, 100, 0.8)");
         gradient.addColorStop(1, "rgba(100, 100, 100, 0)");
@@ -2056,7 +2148,7 @@ export class FrostArcher extends DefenderUnit {
   constructor(x, y, cardData) {
     const typeData = {
       name: "Frost Archer",
-      damage: 2,        // Increased from 80
+      damage: 2, // Increased from 80
       health: 90,
       range: 250,
       fireRate: 75,
@@ -2067,7 +2159,7 @@ export class FrostArcher extends DefenderUnit {
       isRanged: true,
       level: cardData.level || 1,
       image: cardData.image,
-    }
+    };
     super(x, y, typeData);
 
     this.slowDuration = 120; //2// sec
@@ -2114,7 +2206,7 @@ export class FrostArcher extends DefenderUnit {
       speed: 8,
       color: "lightblue",
       trail: [],
-      onHit: () => this.onProjectileHit(target)
+      onHit: () => this.onProjectileHit(target),
     };
     this.gameEngine.projectiles.push(projectile);
     this.lastAttackTime = currentTime;
@@ -2124,7 +2216,8 @@ export class FrostArcher extends DefenderUnit {
     if (!enemy || !enemy.isAlive) return;
 
     //apply damage
-    const extraDamage = (this.hasPermaFrost && enemy.slowed) ? this.attackDamage * 0.5 : 0;
+    const extraDamage =
+      this.hasPermaFrost && enemy.slowed ? this.attackDamage * 0.5 : 0;
     const died = enemy.takeDamage(this.attackDamage + extraDamage, false);
 
     //apply slow effect
@@ -2141,49 +2234,51 @@ export class FrostArcher extends DefenderUnit {
       // Visual effect
       if (this.gameEngine) {
         this.gameEngine.explosions.push({
-                                          x: enemy.x + enemy.width / 2,
-                                          y: enemy.y + enemy.height / 2,
-                                          damage: 0,
-                                          radius: 40,
-                                          timer: 20,
-                                          color: "lightblue",
-                                          innerColor: "white",
-                                          particleColor: "rgba(173, 216, 230, 0.9)",
-                                          style: "freeze",
-                                          type: "effect",
-                                          source: "frost_archer"
-                                        });
+          x: enemy.x + enemy.width / 2,
+          y: enemy.y + enemy.height / 2,
+          damage: 0,
+          radius: 40,
+          timer: 20,
+          color: "lightblue",
+          innerColor: "white",
+          particleColor: "rgba(173, 216, 230, 0.9)",
+          style: "freeze",
+          type: "effect",
+          source: "frost_archer",
+        });
       }
     }
     //ice shard explosion on enemy death
     if (died && this.hasIceShards && enemy.frozen && this.gameEngine) {
       this.gameEngine.addDefenderExplosion(
-          enemy.x + enemy.width / 2,
-          enemy.y + enemy.height / 2,
-          this.attackDamage,
-          100
+        enemy.x + enemy.width / 2,
+        enemy.y + enemy.height / 2,
+        this.attackDamage,
+        100,
       );
       for (const enemy of this.gameEngine.enemies) {
-        const distance = Math.hypot(enemy.x + enemy.width / 2,
-                                    enemy.y + enemy.height / 2);
+        const distance = Math.hypot(
+          enemy.x + enemy.width / 2,
+          enemy.y + enemy.height / 2,
+        );
         if (distance <= 100) {
           enemy.slowed = true;
-          enemy.slowDuration = this.slowDuration
+          enemy.slowDuration = this.slowDuration;
         }
       }
       this.gameEngine.explosions.push({
-                                        x: enemy.x + enemy.width / 2,
-                                        y: enemy.y + enemy.height / 2,
-                                        damage: 0,
-                                        radius: 100,
-                                        timer: 30,
-                                        color: "lightblue",
-                                        innerColor: "white",
-                                        particleColor: "rgba(135, 206, 235, 0.9)",
-                                        style: "ice_shatter",
-                                        type: "defender",
-                                        source: "frost_archer"
-                                      });
+        x: enemy.x + enemy.width / 2,
+        y: enemy.y + enemy.height / 2,
+        damage: 0,
+        radius: 100,
+        timer: 30,
+        color: "lightblue",
+        innerColor: "white",
+        particleColor: "rgba(135, 206, 235, 0.9)",
+        style: "ice_shatter",
+        type: "defender",
+        source: "frost_archer",
+      });
     }
   }
 
@@ -2258,14 +2353,14 @@ export class FireBlast extends DefenderUnit {
     return {
       damageIncrease: "+30%",
       burnDamage: `${this.burnDamage} per second`,
-      newAbilities
+      newAbilities,
     };
   }
 
   update(_enemies, _defenderUnits) {
     if (!this.isAlive) {
-      if (this.currentAnimation !== 'death') {
-        this.setAnimation('death');
+      if (this.currentAnimation !== "death") {
+        this.setAnimation("death");
       }
       this.updateAnimation();
       return;
@@ -2284,9 +2379,9 @@ export class FireBlast extends DefenderUnit {
 
     // Set animation to attack during activation
     if (!this.hasActivated) {
-      this.setAnimation('attack');
+      this.setAnimation("attack");
     } else {
-      this.setAnimation('death');
+      this.setAnimation("death");
     }
 
     this.updateAnimation();
@@ -2305,19 +2400,19 @@ export class FireBlast extends DefenderUnit {
       const explosionX = i * 80;
 
       this.gameEngine.explosions.push({
-                                        x: explosionX,
-                                        y: this.y + this.height / 2,
-                                        damage: 0,
-                                        radius: 80,
-                                        timer: 30, // Staggered timing
-                                        color: "orangered",
-                                        innerColor: "yellow",
-                                        particleColor: "rgba(255, 69, 0, 0.9)",
-                                        style: "fireblast",
-                                        type: "defender",
-                                        source: "fireblast",
-                                        explodeBy: "Fire Blast"
-                                      });
+        x: explosionX,
+        y: this.y + this.height / 2,
+        damage: 0,
+        radius: 80,
+        timer: 30, // Staggered timing
+        color: "orangered",
+        innerColor: "yellow",
+        particleColor: "rgba(255, 69, 0, 0.9)",
+        style: "fireblast",
+        type: "defender",
+        source: "fireblast",
+        explodeBy: "Fire Blast",
+      });
     }
 
     // Deal damage to all enemies in the row
@@ -2325,9 +2420,12 @@ export class FireBlast extends DefenderUnit {
       if (!enemy.isAlive) continue;
 
       // Check if enemy is in the same row
-      if (Math.abs((enemy.y + enemy.height / 2) - (this.y + this.height / 2)) <= this.blastHeight
-          / 2) {
-        if (enemy.x <= canvasWidth + 100) { // Small buffer for enemies about to enter
+      if (
+        Math.abs(enemy.y + enemy.height / 2 - (this.y + this.height / 2)) <=
+        this.blastHeight / 2
+      ) {
+        if (enemy.x <= canvasWidth + 100) {
+          // Small buffer for enemies about to enter
 
           const died = enemy.takeDamage(this.attackDamage, true); // Ignore armor
 
@@ -2358,27 +2456,27 @@ export class FireBlast extends DefenderUnit {
               if (enemy.x < -100 || enemy.x > canvasWidth + 100) continue;
 
               const distance = Math.hypot(
-                  enemy.x + enemy.width / 2 - trailX,
-                  enemy.y + enemy.height / 2 - (this.y + this.height / 2)
+                enemy.x + enemy.width / 2 - trailX,
+                enemy.y + enemy.height / 2 - (this.y + this.height / 2),
               );
 
               if (distance <= 60) {
                 enemy.takeDamage(this.burnDamage * 0.5);
               }
             }
-              this.gameEngine.explosions.push({
-                                                x: trailX,
-                                                y: this.y + this.height / 2,
-                                                damage: 0,
-                                                radius: 40,
-                                                timer: 15,
-                                                color: "darkred",
-                                                innerColor: "orange",
-                                                particleColor: "rgba(139, 0, 0, 0.6)",
-                                                style: "molten",
-                                                type: "effect",
-                                                source: "fireblast"
-                                              });
+            this.gameEngine.explosions.push({
+              x: trailX,
+              y: this.y + this.height / 2,
+              damage: 0,
+              radius: 40,
+              timer: 15,
+              color: "darkred",
+              innerColor: "orange",
+              particleColor: "rgba(139, 0, 0, 0.6)",
+              style: "molten",
+              type: "effect",
+              source: "fireblast",
+            });
           }
         }, i * 500); // Apply every 0.5 seconds
       }
@@ -2397,18 +2495,19 @@ export class FireBlast extends DefenderUnit {
     if (!this.hasActivated) {
       ctx.save();
 
-      const chargeProgress = 1 - (this.currentActivationTimer / this.activationDelay);
+      const chargeProgress =
+        1 - this.currentActivationTimer / this.activationDelay;
 
       // Glowing aura
       ctx.globalAlpha = 0.6 * chargeProgress;
       ctx.fillStyle = "orangered";
       ctx.beginPath();
       ctx.arc(
-          this.x + this.width / 2,
-          this.y + this.height / 2,
-          this.width / 2 + 20 * chargeProgress,
-          0,
-          Math.PI * 2
+        this.x + this.width / 2,
+        this.y + this.height / 2,
+        this.width / 2 + 20 * chargeProgress,
+        0,
+        Math.PI * 2,
       );
       ctx.fill();
 
@@ -2464,8 +2563,12 @@ export class IceBomb extends DefenderUnit {
     const damageMultiplier = 1 + (level - 1) * 0.25;
 
     this.attackDamage = Math.floor(this.attackDamage * damageMultiplier);
-    this.explosionRadius = Math.floor(this.explosionRadius * (1 + (level - 1) * 0.15));
-    this.freezeDuration = Math.floor(this.freezeDuration * (1 + (level - 1) * 0.2));
+    this.explosionRadius = Math.floor(
+      this.explosionRadius * (1 + (level - 1) * 0.15),
+    );
+    this.freezeDuration = Math.floor(
+      this.freezeDuration * (1 + (level - 1) * 0.2),
+    );
     this.applySpecialAbilities();
   }
 
@@ -2490,14 +2593,14 @@ export class IceBomb extends DefenderUnit {
       damageIncrease: "+25%",
       freezeDuration: `${(this.freezeDuration / 60).toFixed(1)} seconds`,
       radius: `${this.explosionRadius} pixels`,
-      newAbilities
+      newAbilities,
     };
   }
 
   update(_enemies, _defenderUnits) {
     if (!this.isAlive) {
-      if (this.currentAnimation !== 'death') {
-        this.setAnimation('death');
+      if (this.currentAnimation !== "death") {
+        this.setAnimation("death");
       }
       this.updateAnimation();
       return;
@@ -2514,9 +2617,9 @@ export class IceBomb extends DefenderUnit {
 
     // Animation state
     if (!this.hasActivated) {
-      this.setAnimation('attack');
+      this.setAnimation("attack");
     } else {
-      this.setAnimation('death');
+      this.setAnimation("death");
     }
 
     this.updateAnimation();
@@ -2529,19 +2632,19 @@ export class IceBomb extends DefenderUnit {
 
     // Create ice explosion effect
     this.gameEngine.explosions.push({
-                                      x: this.x + this.width / 2,
-                                      y: this.y + this.height / 2,
-                                      damage: 0,
-                                      radius: this.explosionRadius,
-                                      timer: 40,
-                                      color: "lightblue",
-                                      innerColor: "white",
-                                      particleColor: "rgba(173, 216, 230, 0.9)",
-                                      style: "icebomb",
-                                      type: "defender",
-                                      source: "icebomb",
-                                      explodeBy: "Ice Bomb"
-                                    });
+      x: this.x + this.width / 2,
+      y: this.y + this.height / 2,
+      damage: 0,
+      radius: this.explosionRadius,
+      timer: 40,
+      color: "lightblue",
+      innerColor: "white",
+      particleColor: "rgba(173, 216, 230, 0.9)",
+      style: "icebomb",
+      type: "defender",
+      source: "icebomb",
+      explodeBy: "Ice Bomb",
+    });
 
     // Additional shatter effects
     for (let i = 0; i < 8; i++) {
@@ -2551,18 +2654,18 @@ export class IceBomb extends DefenderUnit {
       setTimeout(() => {
         if (this.gameEngine) {
           this.gameEngine.explosions.push({
-                                            x: this.x + this.width / 2 + Math.cos(angle) * distance,
-                                            y: this.y + this.height / 2 + Math.sin(angle) * distance,
-                                            damage: 0,
-                                            radius: 50,
-                                            timer: 20,
-                                            color: "white",
-                                            innerColor: "lightblue",
-                                            particleColor: "rgba(255, 255, 255, 0.8)",
-                                            style: "ice_shard",
-                                            type: "effect",
-                                            source: "icebomb"
-                                          });
+            x: this.x + this.width / 2 + Math.cos(angle) * distance,
+            y: this.y + this.height / 2 + Math.sin(angle) * distance,
+            damage: 0,
+            radius: 50,
+            timer: 20,
+            color: "white",
+            innerColor: "lightblue",
+            particleColor: "rgba(255, 255, 255, 0.8)",
+            style: "ice_shard",
+            type: "effect",
+            source: "icebomb",
+          });
         }
       }, i * 30);
     }
@@ -2572,8 +2675,8 @@ export class IceBomb extends DefenderUnit {
       if (!enemy.isAlive) continue;
 
       const distance = Math.hypot(
-          enemy.x + enemy.width / 2 - (this.x + this.width / 2),
-          enemy.y + enemy.height / 2 - (this.y + this.height / 2)
+        enemy.x + enemy.width / 2 - (this.x + this.width / 2),
+        enemy.y + enemy.height / 2 - (this.y + this.height / 2),
       );
 
       if (distance <= this.explosionRadius) {
@@ -2609,7 +2712,8 @@ export class IceBomb extends DefenderUnit {
     if (!this.hasActivated) {
       ctx.save();
 
-      const chargeProgress = 1 - (this.currentActivationTimer / this.activationDelay);
+      const chargeProgress =
+        1 - this.currentActivationTimer / this.activationDelay;
 
       // Ice crystals forming
       ctx.globalAlpha = 0.7 * chargeProgress;
@@ -2620,8 +2724,8 @@ export class IceBomb extends DefenderUnit {
 
         ctx.save();
         ctx.translate(
-            this.x + this.width / 2 + Math.cos(angle) * distance,
-            this.y + this.height / 2 + Math.sin(angle) * distance
+          this.x + this.width / 2 + Math.cos(angle) * distance,
+          this.y + this.height / 2 + Math.sin(angle) * distance,
         );
         ctx.rotate(angle);
 
@@ -2637,11 +2741,11 @@ export class IceBomb extends DefenderUnit {
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(
-          this.x + this.width / 2,
-          this.y + this.height / 2,
-          this.width / 2 + 10 * chargeProgress,
-          0,
-          Math.PI * 2
+        this.x + this.width / 2,
+        this.y + this.height / 2,
+        this.width / 2 + 10 * chargeProgress,
+        0,
+        Math.PI * 2,
       );
       ctx.stroke();
 

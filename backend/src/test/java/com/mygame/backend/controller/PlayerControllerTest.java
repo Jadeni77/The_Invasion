@@ -83,7 +83,7 @@ class PlayerControllerTest {
         testPlayer.setLastEnergyRechargeTime(LocalDateTime.now());
 
         List<CardData> cards = new ArrayList<>();
-        cards.add(new CardData(1, "Basic Cop", 1, 0, 10));
+        cards.add(new CardData(1, "Shooter", 1, 0, 10));
         testPlayer.setCards(cards);
         testPlayer.setUnlockedLevels(new ArrayList<>(Arrays.asList(1)));
         testPlayer.setCompletedLevels(new ArrayList<>());
@@ -127,13 +127,13 @@ class PlayerControllerTest {
     @Test
     void addCardPieces_returnsUpdatedPlayer() throws Exception {
         testPlayer.getCards().get(0).setPieces(5);
-        when(playerService.addCardPieces(eq("test-session"), eq("Basic Cop"), eq(5)))
+        when(playerService.addCardPieces(eq("test-session"), eq("Shooter"), eq(5)))
                 .thenReturn(testPlayer);
 
         mockMvc.perform(post("/api/player/add-card-pieces")
                         .with(authenticatedPlayer())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"cardName\":\"Basic Cop\",\"pieces\":5}"))
+                        .content("{\"cardName\":\"Shooter\",\"pieces\":5}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cards[0].pieces").value(5));
     }

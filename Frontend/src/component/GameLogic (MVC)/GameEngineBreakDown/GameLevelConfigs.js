@@ -24,11 +24,11 @@ export class GameLevelConfigs {
             initialEnergy: 10000,
             waveConfigurations: [
                 {
-                    enemyCount: 5,
+                    enemyCount: 1,
                     spawnInterval: 3000,
-                    enemyTypes: ["Skeleton Shooter"],
+                    enemyTypes: ["Necromancer"],
                     spawnPattern: "standard"
-                },
+                },  
                 {
                     enemyCount: 5,
                     spawnInterval: 2500,
