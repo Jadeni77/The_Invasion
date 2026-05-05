@@ -42,11 +42,11 @@ public class DataInitializer {
         testPlayer.setMaxLobbyEnergy(100);
 
         List<CardData> allCards = new ArrayList<>();
-        allCards.add(new CardData(1, "Basic Cop", 5, 100, 10));
-        allCards.add(new CardData(2, "Energy Generator", 5, 100, 10));
+        allCards.add(new CardData(1, "Shooter", 5, 100, 10));
+        allCards.add(new CardData(2, "E-Gen", 5, 100, 10));
         allCards.add(new CardData(3, "Barricade", 5, 100, 10));
         allCards.add(new CardData(4, "Grenadier", 5, 100, 10));
-        allCards.add(new CardData(5, "Healer Cop", 5, 100, 10));
+        allCards.add(new CardData(5, "Healer", 5, 100, 10));
         allCards.add(new CardData(6, "Mortar", 5, 100, 15));
         allCards.add(new CardData(7, "Frost Archer", 5, 100, 25));
         allCards.add(new CardData(8, "Ice Bomb", 5, 100, 25));

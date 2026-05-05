@@ -2,17 +2,40 @@
 // This file serves as the Model (game state, entities) and Controller (game logic, updates)
 
 import {
-  BasicDefender, HealerDefender, GrenadeDefender,
-  BarricadeDefender, EnergyGenerator, Sniper, Mortar, FrostArcher, FireBlast, IceBomb, DefenderUnit
+  BasicDefender,
+  HealerDefender,
+  GrenadeDefender,
+  BarricadeDefender,
+  EnergyGenerator,
+  Sniper,
+  Mortar,
+  FrostArcher,
+  FireBlast,
+  IceBomb,
+  DefenderUnit,
 } from "./DefenderUnits.js";
 import {
-  BasicEnemy, FastEnemy, TankEnemy, BombEnemy, RangeEnemy, ShieldEnemy,
-  HealerEnemy, EMPEnemy, MiniEnemy, SplitterEnemy, VampireEnemy,
-  SwarmLeader, GhostEnemy, BerserkerEnemy, NecromancerEnemy, AssassinEnemy,
-  MageEnemy, TitanEnemy
+  BasicEnemy,
+  FastEnemy,
+  TankEnemy,
+  BombEnemy,
+  RangeEnemy,
+  ShieldEnemy,
+  HealerEnemy,
+  EMPEnemy,
+  MiniEnemy,
+  SplitterEnemy,
+  VampireEnemy,
+  SwarmLeader,
+  GhostEnemy,
+  BerserkerEnemy,
+  NecromancerEnemy,
+  AssassinEnemy,
+  MageEnemy,
+  TitanEnemy,
 } from "./EnemyUnits.js";
 import { EnergyDrop } from "./GameEngineBreakDown/Drops/EnergyDrop.js";
-import { CardPieceDrop} from "./GameEngineBreakDown/Drops/CardPieceDrop.js";
+import { CardPieceDrop } from "./GameEngineBreakDown/Drops/CardPieceDrop.js";
 import { CombatManager } from "./GameEngineBreakDown/InGameManagerHandlers/CombatManager.js";
 import { DropManager } from "./GameEngineBreakDown/InGameManagerHandlers/DropManager.js";
 import { GridManager } from "./GameEngineBreakDown/InGameManagerHandlers/GridManager.js";
@@ -20,14 +43,20 @@ import { WaveManager } from "./GameEngineBreakDown/InGameManagerHandlers/WaveMan
 import { DrawExplosionEffect } from "./GameEngineBreakDown/Draws/DrawExplosionEffect.js";
 import { DrawEntities } from "./GameEngineBreakDown/Draws/DrawEntities.js";
 import { DrawUIs } from "./GameEngineBreakDown/Draws/DrawUIs.js";
-import {AnimationManager} from "./Animation/AnimationManager.js";
-import {AnimationSources} from "./Animation/AnimationSources.js";
-import {AssetManifest} from "../../assets/AssetManifest.js";
-import {GameLevelConfigs} from "./GameEngineBreakDown/GameLevelConfigs.js";
+import { AnimationManager } from "./Animation/AnimationManager.js";
+import { AnimationSources } from "./Animation/AnimationSources.js";
+import { AssetManifest } from "../../assets/AssetManifest.js";
+import { GameLevelConfigs } from "./GameEngineBreakDown/GameLevelConfigs.js";
 
 export class GameEngine {
-  constructor(updateEnergyCb, updateScoreCb, onWinCb, onLoseCb, updateBaseHealthCb,
-              updateEndlessWaveCb,) {
+  constructor(
+    updateEnergyCb,
+    updateScoreCb,
+    onWinCb,
+    onLoseCb,
+    updateBaseHealthCb,
+    updateEndlessWaveCb,
+  ) {
     this.ctx = null;
     this.canvasWidth = 0;
     this.canvasHeight = 0;
@@ -78,13 +107,13 @@ export class GameEngine {
 
     // Mapping of card names to their respective DefenderUnit classes
     this.defenderUnitClasses = {
-      "Basic Cop": BasicDefender,
-      "Healer Cop": HealerDefender,
-      "Grenadier": GrenadeDefender,
-      "Barricade": BarricadeDefender,
-      "Energy Generator": EnergyGenerator,
-      "Sniper": Sniper,
-      "Mortar": Mortar,
+      Shooter: BasicDefender,
+      Healer: HealerDefender,
+      Grenadier: GrenadeDefender,
+      Barricade: BarricadeDefender,
+      "E-Gen": EnergyGenerator,
+      Sniper: Sniper,
+      Mortar: Mortar,
       "Frost Archer": FrostArcher,
       "Fire Blast": FireBlast,
       "Ice Bomb": IceBomb,
@@ -95,21 +124,21 @@ export class GameEngine {
       "Basic Zombie": BasicEnemy,
       "Fast Zombie": FastEnemy,
       "Tank Zombie": TankEnemy,
-      "Exploder": BombEnemy,
+      Exploder: BombEnemy,
       "Skeleton Shooter": RangeEnemy,
-      "Shielder": ShieldEnemy,
-      "Healer": HealerEnemy,
-      "Splitter": SplitterEnemy,
-      "Mini": MiniEnemy,
+      Shielder: ShieldEnemy,
+      Healer: HealerEnemy,
+      Splitter: SplitterEnemy,
+      Mini: MiniEnemy,
       "Swarm Witch": SwarmLeader,
-      "EMP": EMPEnemy,
-      "Vampire": VampireEnemy,
-      "Ghost": GhostEnemy,
-      "Berserker": BerserkerEnemy,
-      "Necromancer": NecromancerEnemy,
-      "Assassin": AssassinEnemy,
-      "Mage": MageEnemy,
-      "Titan": TitanEnemy
+      EMP: EMPEnemy,
+      Vampire: VampireEnemy,
+      Ghost: GhostEnemy,
+      Berserker: BerserkerEnemy,
+      Necromancer: NecromancerEnemy,
+      Assassin: AssassinEnemy,
+      Mage: MageEnemy,
+      Titan: TitanEnemy,
     };
 
     // Level configurations and loaded assets
@@ -158,10 +187,14 @@ export class GameEngine {
   dropCardPieces(x, y) {
     if (this.gameOver) return;
 
-    const availableDefenderType = this.playerSelectedCards.map(
-        card => card.name).filter(name => name); //remove undefine/null
+    const availableDefenderType = this.playerSelectedCards
+      .map((card) => card.name)
+      .filter((name) => name); //remove undefine/null
 
-    const randomCard = availableDefenderType[Math.floor(Math.random() * availableDefenderType.length)];
+    const randomCard =
+      availableDefenderType[
+        Math.floor(Math.random() * availableDefenderType.length)
+      ];
     this.cardPieceDrops.push(new CardPieceDrop(x, y, randomCard));
   }
 
@@ -221,7 +254,7 @@ export class GameEngine {
     this.currentLevelConfig = this.levelConfigs.get(levelNumber);
     if (!this.currentLevelConfig) {
       console.error(
-          `Level ${levelNumber} config not found. Defaulting to level 1.`
+        `Level ${levelNumber} config not found. Defaulting to level 1.`,
       );
       this.currentLevelConfig = this.levelConfigs.get(1);
       // Ensure levelNumber is correctly set even if defaulting
@@ -234,10 +267,11 @@ export class GameEngine {
     this.gridManager = new GridManager(width, height, levelNumber);
     this.gridManager.initializeGrid();
     //initialize wave manager
-    this.waveManager = new WaveManager(this.currentLevelConfig,
-                                       (enemyType) => this.spawnEnemyOfType(enemyType),
-                                       this);
-
+    this.waveManager = new WaveManager(
+      this.currentLevelConfig,
+      (enemyType) => this.spawnEnemyOfType(enemyType),
+      this,
+    );
 
     await this.loadAllAnimations();
     this.resetGame();
@@ -250,14 +284,13 @@ export class GameEngine {
 
     // Load only animations for enemies/defenders in current level
     const enemyAnimations = await this.animationSources.getEnemyAnimations(
-        this.currentLevelConfig.availableEnemyTypes
+      this.currentLevelConfig.availableEnemyTypes,
     );
 
     // Get defender types from available cards
     const defenderTypes = Object.keys(this.defenderUnitClasses);
-    const defenderAnimations = await this.animationSources.getDefenderAnimations(
-        defenderTypes
-    );
+    const defenderAnimations =
+      await this.animationSources.getDefenderAnimations(defenderTypes);
 
     // Load into AnimationManager
     for (const [enemyType, animations] of Object.entries(enemyAnimations)) {
@@ -266,7 +299,9 @@ export class GameEngine {
       }
     }
 
-    for (const [defenderType, animations] of Object.entries(defenderAnimations)) {
+    for (const [defenderType, animations] of Object.entries(
+      defenderAnimations,
+    )) {
       if (animations) {
         await this.animationManager.loadUnitAnimation(defenderType, animations);
       }
@@ -289,12 +324,15 @@ export class GameEngine {
     // don't visually overflow into a non-existent 7th lane.
     enemy.y = rowCenterY - enemy.height / 2;
 
-  if (this.animationManager && this.animationManager.hasAnimation(enemyType)) {
+    if (
+      this.animationManager &&
+      this.animationManager.hasAnimation(enemyType)
+    ) {
       const frames = {
-        idle: this.animationManager.getFrames(enemyType, 'idle'),
-        move: this.animationManager.getFrames(enemyType, 'move'),
-        attack: this.animationManager.getFrames(enemyType, 'attack'),
-        death: this.animationManager.getFrames(enemyType, 'death')
+        idle: this.animationManager.getFrames(enemyType, "idle"),
+        move: this.animationManager.getFrames(enemyType, "move"),
+        attack: this.animationManager.getFrames(enemyType, "attack"),
+        death: this.animationManager.getFrames(enemyType, "death"),
       };
 
       enemy.animationFrames = frames;
@@ -309,12 +347,15 @@ export class GameEngine {
   }
 
   attachAnimationsToEnemy(enemy, enemyType) {
-    if (this.animationManager && this.animationManager.hasAnimation(enemyType)) {
+    if (
+      this.animationManager &&
+      this.animationManager.hasAnimation(enemyType)
+    ) {
       const frames = {
-        idle: this.animationManager.getFrames(enemyType, 'idle'),
-        move: this.animationManager.getFrames(enemyType, 'move'),
-        attack: this.animationManager.getFrames(enemyType, 'attack'),
-        death: this.animationManager.getFrames(enemyType, 'death')
+        idle: this.animationManager.getFrames(enemyType, "idle"),
+        move: this.animationManager.getFrames(enemyType, "move"),
+        attack: this.animationManager.getFrames(enemyType, "attack"),
+        death: this.animationManager.getFrames(enemyType, "death"),
       };
 
       enemy.animationFrames = frames;
@@ -355,7 +396,7 @@ export class GameEngine {
     if (this.updateBaseHealthCb) {
       this.updateBaseHealthCb(100);
     }
-    console.trace()
+    console.trace();
   }
 
   /**
@@ -389,13 +430,21 @@ export class GameEngine {
     }
 
     let deployX = gridCell.x + (this.gridManager.gridSize - tempUnit.width) / 2;
-    let deployY = gridCell.y + (this.gridManager.gridSize - tempUnit.height) / 2;
+    let deployY =
+      gridCell.y + (this.gridManager.gridSize - tempUnit.height) / 2;
 
     if (deployX < this.gridManager.gridOffsetX) {
       deployX = this.gridManager.gridOffsetX;
     }
 
-    if (!this.isValidDeploymentPosition(deployX, deployY, tempUnit.width, tempUnit.height)) {
+    if (
+      !this.isValidDeploymentPosition(
+        deployX,
+        deployY,
+        tempUnit.width,
+        tempUnit.height,
+      )
+    ) {
       console.log("Invalid deployment position");
       return false;
     }
@@ -403,11 +452,14 @@ export class GameEngine {
     const newUnit = new UnitClass(deployX, deployY, cardData);
 
     // ADD THIS: Attach animation frames if available
-    if (this.animationManager && this.animationManager.hasAnimation(cardData.name)) {
+    if (
+      this.animationManager &&
+      this.animationManager.hasAnimation(cardData.name)
+    ) {
       const frames = {
-        idle: this.animationManager.getFrames(cardData.name, 'idle'),
-        attack: this.animationManager.getFrames(cardData.name, 'attack'),
-        death: this.animationManager.getFrames(cardData.name, 'death')
+        idle: this.animationManager.getFrames(cardData.name, "idle"),
+        attack: this.animationManager.getFrames(cardData.name, "attack"),
+        death: this.animationManager.getFrames(cardData.name, "death"),
       };
 
       newUnit.animationFrames = frames;
@@ -442,8 +494,12 @@ export class GameEngine {
       console.log("Remove method call");
 
       //check if click is within defender bound
-      if (x >= defender.x && x <= defender.x + defender.width &&
-          y >= defender.y && y <= defender.y + defender.height) {
+      if (
+        x >= defender.x &&
+        x <= defender.x + defender.width &&
+        y >= defender.y &&
+        y <= defender.y + defender.height
+      ) {
         //only remove if alive
         if (!defender.isAlive) {
           console.log("Cannot remove dead defender");
@@ -451,8 +507,8 @@ export class GameEngine {
         }
         //free cell
         const gridCell = this.gridManager.getGridCell(
-            defender.x + defender.width / 2,
-            defender.y + defender.height / 2
+          defender.x + defender.width / 2,
+          defender.y + defender.height / 2,
         );
         if (gridCell) {
           gridCell.occupied = false;
@@ -476,8 +532,12 @@ export class GameEngine {
     let hovered = null;
     for (const defender of this.defenders) {
       if (!defender.isAlive) continue;
-      if (x >= defender.x && x <= defender.x + defender.width &&
-          y >= defender.y && y <= defender.y + defender.height) {
+      if (
+        x >= defender.x &&
+        x <= defender.x + defender.width &&
+        y >= defender.y &&
+        y <= defender.y + defender.height
+      ) {
         hovered = defender;
         break;
       }
@@ -497,13 +557,28 @@ export class GameEngine {
    */
   isValidDeploymentPosition(x, y, width, height) {
     // Check if within canvas bounds
-    if (x < 0 || x + width > this.canvasWidth || y < 0 || y + height > this.canvasHeight) {
+    if (
+      x < 0 ||
+      x + width > this.canvasWidth ||
+      y < 0 ||
+      y + height > this.canvasHeight
+    ) {
       return false;
     }
     // Check if overlapping existing defenders
     for (const defender of this.defenders) {
-      if (this.checkCollision(x, y, width, height, defender.x,
-                              defender.y, defender.width, defender.height)) {
+      if (
+        this.checkCollision(
+          x,
+          y,
+          width,
+          height,
+          defender.x,
+          defender.y,
+          defender.width,
+          defender.height,
+        )
+      ) {
         return false; // Overlapping another defender
       }
     }
@@ -525,7 +600,7 @@ export class GameEngine {
    * @param {number} damage - Damage dealt by explosion.
    * @param {number} radius - Radius of explosion effect.
    */
-  addDefenderExplosion(x, y, damage, radius, ) {
+  addDefenderExplosion(x, y, damage, radius) {
     if (this.gameOver) return;
 
     // Apply damage to enemies within radius
@@ -534,7 +609,7 @@ export class GameEngine {
 
       const distance = Math.hypot(
         enemy.x + enemy.width / 2 - x,
-        enemy.y + enemy.height / 2 - y
+        enemy.y + enemy.height / 2 - y,
       ); // Distance from enemy center to explosion center
       if (distance <= radius) {
         const died = enemy.takeDamage(damage, false); //explosion does not ignore armor
@@ -554,7 +629,7 @@ export class GameEngine {
 
       const distance = Math.hypot(
         defender.x + defender.width / 2 - x,
-        defender.y + defender.height / 2 - y
+        defender.y + defender.height / 2 - y,
       ); // Distance from defender center to explosion center
       if (distance <= radius) {
         const friendlyFire = damage * 0.3;
@@ -566,17 +641,19 @@ export class GameEngine {
     }
   }
 
-  addEnemyExplosion(x, y, damage, radius, ) {
+  addEnemyExplosion(x, y, damage, radius) {
     if (this.gameOver) return;
 
     for (const defender of this.defenders) {
       const distance = Math.hypot(
-          defender.x + defender.width / 2 - x,
-          defender.y + defender.height / 2 - y
+        defender.x + defender.width / 2 - x,
+        defender.y + defender.height / 2 - y,
       );
       if (distance <= radius) {
         defender.takeDamage(damage);
-        console.log(`Enemy explosion: ${defender.name} taking ${damage} damage`);
+        console.log(
+          `Enemy explosion: ${defender.name} taking ${damage} damage`,
+        );
       }
     }
   }
@@ -647,8 +724,8 @@ export class GameEngine {
           defender.deathHandled = true;
         }
         // Still update animation for dead units
-        if (defender.currentAnimation !== 'death') {
-          defender.setAnimation('death');
+        if (defender.currentAnimation !== "death") {
+          defender.setAnimation("death");
         }
         defender.updateAnimation();
       }
@@ -664,8 +741,8 @@ export class GameEngine {
         console.log(`${defender.name} resurrected!`);
 
         const gridCell = this.gridManager.getGridCell(
-            defender.x + defender.width / 2,
-            defender.y + defender.height / 2
+          defender.x + defender.width / 2,
+          defender.y + defender.height / 2,
         );
         if (gridCell && !gridCell.occupied) {
           gridCell.occupied = true;
@@ -674,7 +751,11 @@ export class GameEngine {
     }
 
     // Combat updates for alive defenders only
-    this.combatManager.updateDefenderCombat(this.defenders.filter(d => d.isAlive), this.enemies, now);
+    this.combatManager.updateDefenderCombat(
+      this.defenders.filter((d) => d.isAlive),
+      this.enemies,
+      now,
+    );
 
     // Handle status effects for alive defenders
     for (const defender of this.defenders) {
@@ -706,8 +787,8 @@ export class GameEngine {
         if (defender.deathAnimationComplete) {
           // Animation complete, remove the defender
           const gridCell = this.gridManager.getGridCell(
-              defender.x + defender.width / 2,
-              defender.y + defender.height / 2
+            defender.x + defender.width / 2,
+            defender.y + defender.height / 2,
           );
           if (gridCell) {
             gridCell.occupied = false;
@@ -769,7 +850,9 @@ export class GameEngine {
       }
 
       if (!enemy.gameEngine) {
-        console.warn(`Enemy ${enemy.name} lost gameEngine reference, restoring...`);
+        console.warn(
+          `Enemy ${enemy.name} lost gameEngine reference, restoring...`,
+        );
         enemy.gameEngine = this;
       }
 
@@ -824,17 +907,17 @@ export class GameEngine {
 
     if (enemy.shouldExplode && enemy.exploderBySelf) {
       this.addEnemyExplosion(
-          enemy.x + enemy.width / 2,
-          enemy.y + enemy.height / 2,
-          enemy.attackDamage,
-          enemy.explosionRadius,
-          );
+        enemy.x + enemy.width / 2,
+        enemy.y + enemy.height / 2,
+        enemy.attackDamage,
+        enemy.explosionRadius,
+      );
     } else if (enemy.shouldExplode && !enemy.exploderBySelf) {
       this.addEnemyExplosion(
-          enemy.x + enemy.width / 2,
-          enemy.y + enemy.height / 2,
-          enemy.attackDamage / 2,
-          enemy.explosionRadius / 2,
+        enemy.x + enemy.width / 2,
+        enemy.y + enemy.height / 2,
+        enemy.attackDamage / 2,
+        enemy.explosionRadius / 2,
       );
     }
   }
@@ -855,22 +938,29 @@ export class GameEngine {
       }
 
       // Calculate direction and move projectile
-      const dx = projectile.target.x + projectile.target.width / 2 - projectile.startX;
-      const dy = projectile.target.y + projectile.target.height / 2 - projectile.startY;
+      const dx =
+        projectile.target.x + projectile.target.width / 2 - projectile.startX;
+      const dy =
+        projectile.target.y + projectile.target.height / 2 - projectile.startY;
       const distance = Math.hypot(dx, dy);
 
       if (distance <= projectile.speed) {
         if (projectile.onHit) {
           projectile.onHit();
         } else {
-          const died = projectile.target.takeDamage(projectile.damage, projectile.ignoreArmor);
+          const died = projectile.target.takeDamage(
+            projectile.damage,
+            projectile.ignoreArmor,
+          );
           if (died && !this.gameOver) {
             if (!projectile.target.isSpawned) {
               this.inGameScore += projectile.target.bounty;
               this.updateScoreCb(this.inGameScore);
             }
             this.dropManager.handleEnemyDeath(projectile.target);
-            const enemyIndex = this.enemies.findIndex(e => e.id === projectile.target.id);
+            const enemyIndex = this.enemies.findIndex(
+              (e) => e.id === projectile.target.id,
+            );
             if (enemyIndex !== -1) {
               this.enemies.splice(enemyIndex, 1);
             }
@@ -899,8 +989,10 @@ export class GameEngine {
       }
 
       // Calculate direction and move projectile
-      const dx = projectile.target.x + projectile.target.width / 2 - projectile.startX;
-      const dy = projectile.target.y + projectile.target.height / 2 - projectile.startY;
+      const dx =
+        projectile.target.x + projectile.target.width / 2 - projectile.startX;
+      const dy =
+        projectile.target.y + projectile.target.height / 2 - projectile.startY;
       const distance = Math.hypot(dx, dy);
 
       if (distance <= projectile.speed) {
@@ -927,10 +1019,10 @@ export class GameEngine {
       const spell = this.spellProjectiles[i];
 
       //add to trail for visual effect
-      spell.trail.push({ x: spell.currentX, y: spell.currentY, timer: 20});
+      spell.trail.push({ x: spell.currentX, y: spell.currentY, timer: 20 });
 
       //clean up old trial points
-      spell.trail = spell.trail.filter(point => {
+      spell.trail = spell.trail.filter((point) => {
         point.timer--;
         return point.timer > 0; //timer reach zero, the effect be gone in its draw method
       });
@@ -950,7 +1042,6 @@ export class GameEngine {
         spell.currentX += Math.cos(angle) * spell.speed;
         spell.currentY += Math.sin(angle) * spell.speed;
       }
-
     }
   }
 
@@ -961,23 +1052,23 @@ export class GameEngine {
       case "fireball":
         //create fire explosion
         this.explosions.push({
-                               x: spell.targetX,
-                               y: spell.targetY,
-                               damage: 0,
-                               radius: 180,
-                               timer: 30,
-                               color: "orange",
-                               innerColor: "yellow",
-                               particleColor: "rgba(255, 165, 0, 0.9)",
-                               style: "fireball",
-                               type: "effect",
-                               source: "mage"
-                             });
+          x: spell.targetX,
+          y: spell.targetY,
+          damage: 0,
+          radius: 180,
+          timer: 30,
+          color: "orange",
+          innerColor: "yellow",
+          particleColor: "rgba(255, 165, 0, 0.9)",
+          style: "fireball",
+          type: "effect",
+          source: "mage",
+        });
         for (const defender of this.defenders) {
           if (!defender.isAlive || defender.id === spell.target.id) continue;
           const distance = Math.hypot(
-              defender.x - spell.targetX,
-              defender.y - spell.targetY
+            defender.x - spell.targetX,
+            defender.y - spell.targetY,
           );
           if (distance <= 180) {
             defender.takeDamage(spell.damage);
@@ -990,27 +1081,27 @@ export class GameEngine {
         spell.target.burning = true;
         spell.target.burningDamage = 10;
         spell.target.burningDuration = 180;
-            break;
+        break;
       case "icebolt":
         // Create ice explosion
         this.explosions.push({
-                               x: spell.targetX,
-                               y: spell.targetY,
-                               damage: 0,
-                               radius: 150,
-                               timer: 30,
-                               color: "lightblue",
-                               innerColor: "white",
-                               particleColor: "rgba(173, 216, 230, 0.9)",
-                               style: "ice",
-                               type: "effect",
-                               source: "mage"
-                             });
+          x: spell.targetX,
+          y: spell.targetY,
+          damage: 0,
+          radius: 150,
+          timer: 30,
+          color: "lightblue",
+          innerColor: "white",
+          particleColor: "rgba(173, 216, 230, 0.9)",
+          style: "ice",
+          type: "effect",
+          source: "mage",
+        });
         for (const defender of this.defenders) {
           if (!defender.isAlive || defender.id === spell.target.id) continue;
           const distance = Math.hypot(
-              defender.x - spell.targetX,
-              defender.y - spell.targetY
+            defender.x - spell.targetX,
+            defender.y - spell.targetY,
           );
           if (distance <= 150) {
             defender.takeDamage(spell.damage);
@@ -1049,14 +1140,20 @@ export class GameEngine {
 
     // Win condition: all enemies spawned AND all active enemies are dead
     const config = this.currentLevelConfig;
-    const allEnemiesSpawned = this.waveManager.allWavesComplete ||
-        this.waveManager.enemiesSpawnedThisLevel >= config.totalEnemiesToSpawn;
-    const allEnemiesDead = this.enemies.every(enemy => !enemy.isAlive);
+    const allEnemiesSpawned =
+      this.waveManager.allWavesComplete ||
+      this.waveManager.enemiesSpawnedThisLevel >= config.totalEnemiesToSpawn;
+    const allEnemiesDead = this.enemies.every((enemy) => !enemy.isAlive);
 
     const allAnimationsComplete = this.areAllDeathAnimationsComplete();
 
-    if (!this.gameOver && allEnemiesSpawned && allEnemiesDead && allAnimationsComplete
-    && this.cardPieceDrops.length === 0) {
+    if (
+      !this.gameOver &&
+      allEnemiesSpawned &&
+      allEnemiesDead &&
+      allAnimationsComplete &&
+      this.cardPieceDrops.length === 0
+    ) {
       this.handleLevelComplete(); // Trigger win condition
     }
   }
@@ -1085,21 +1182,21 @@ export class GameEngine {
       if (this.currentLevelConfig.levelNumber === 999) {
         if (this.onLoseCb) {
           this.onLoseCb({
-                          score: this.inGameScore,
-                          level: 999,
-                          reason: "Defense breached",
-                          endlessWave: this.waveManager ? this.waveManager.currentWave : 0
-                        });
+            score: this.inGameScore,
+            level: 999,
+            reason: "Defense breached",
+            endlessWave: this.waveManager ? this.waveManager.currentWave : 0,
+          });
         }
       } else {
         if (this.onLoseCb) {
           console.log("Calling onLoseCb now");
 
           this.onLoseCb({
-                          score: this.inGameScore,
-                          level: this.currentLevelConfig.levelNumber,
-                          reason: "Defense breached",
-                        });
+            score: this.inGameScore,
+            level: this.currentLevelConfig.levelNumber,
+            reason: "Defense breached",
+          });
         }
       }
     }

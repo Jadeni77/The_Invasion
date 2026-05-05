@@ -27,11 +27,11 @@ public class PlayerService {
 
   //card unlock order
   private static final List<String> CARD_UNLOCK_ORDER = Arrays.asList(
-          "Basic Cop",
-          "Energy Generator",
+          "Shooter",
+          "E-Gen",
           "Barricade",
           "Grenadier",
-          "Healer Cop",
+          "Healer",
           "Mortar",
           "Frost Archer",
           "Ice Bomb",
@@ -62,7 +62,7 @@ public class PlayerService {
 
     //Initialize with the first card unlock
     List<CardData> initialCards = new ArrayList<>();
-    initialCards.add(new CardData(1, "Basic Cop", 1, 0, 10));
+    initialCards.add(new CardData(1, "Shooter", 1, 0, 10));
     player.setCards(initialCards);
     player.setCardUnlockProgress(1);
 
@@ -154,11 +154,11 @@ public class PlayerService {
   private CardData createCardData(int id, String name) {
     //key = name of the card, value = pieces need for upgrade
     Map<String, Integer> piecesNeeded = Map.of(
-            "Basic Cop", 10,
-            "Energy Generator", 10,
+            "Shooter", 10,
+            "E-Gen", 10,
             "Barricade", 10,
             "Grenadier", 10,
-            "Healer Cop", 10,
+            "Healer", 10,
             "Mortar", 15,
             "Frost Archer", 25,
             "Ice Bomb", 25,
@@ -305,7 +305,7 @@ public class PlayerService {
     player.setDisplayName(displayName != null ? displayName : "Defender #" + email.substring(0, 4));
 
     List<CardData> initialCards = new ArrayList<>();
-    initialCards.add(new CardData(1, "Basic Cop", 1, 0, 10));
+    initialCards.add(new CardData(1, "Shooter", 1, 0, 10));
     player.setCards(initialCards);
     player.setCardUnlockProgress(1);
 

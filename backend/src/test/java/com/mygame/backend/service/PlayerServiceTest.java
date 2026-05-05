@@ -46,7 +46,7 @@ class PlayerServiceTest {
         testPlayer.setLastEnergyRechargeTime(LocalDateTime.now());
 
         List<CardData> cards = new ArrayList<>();
-        cards.add(new CardData(1, "Basic Cop", 1, 0, 10));
+        cards.add(new CardData(1, "Shooter", 1, 0, 10));
         testPlayer.setCards(cards);
 
         testPlayer.setUnlockedLevels(new ArrayList<>(Arrays.asList(1)));
@@ -74,7 +74,7 @@ class PlayerServiceTest {
 
         assertThat(result.getSessionId()).isEqualTo("new-session");
         assertThat(result.getCards()).hasSize(1);
-        assertThat(result.getCards().get(0).getName()).isEqualTo("Basic Cop");
+        assertThat(result.getCards().get(0).getName()).isEqualTo("Shooter");
         assertThat(result.getCardUnlockProgress()).isEqualTo(1);
         assertThat(result.getUnlockedLevels()).containsExactly(1);
         assertThat(result.getLevelStars()).hasSize(20);
@@ -194,21 +194,21 @@ class PlayerServiceTest {
         when(playerRepository.findBySessionId("test-session")).thenReturn(Optional.of(testPlayer));
         when(playerRepository.save(any(Player.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Player result = playerService.addCardPieces("test-session", "Basic Cop", 5);
+        Player result = playerService.addCardPieces("test-session", "Shooter", 5);
 
         assertThat(result.getCards().get(0).getPieces()).isEqualTo(5);
     }
 
     @Test
     void addCardPieces_unlocksNewCard_whenNextInOrder() {
-        // cardUnlockProgress = 1, next to unlock is "Energy Generator" (index 1)
+        // cardUnlockProgress = 1, next to unlock is "E-Gen" (index 1)
         when(playerRepository.findBySessionId("test-session")).thenReturn(Optional.of(testPlayer));
         when(playerRepository.save(any(Player.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Player result = playerService.addCardPieces("test-session", "Energy Generator", 1);
+        Player result = playerService.addCardPieces("test-session", "E-Gen", 1);
 
         assertThat(result.getCards()).hasSize(2);
-        assertThat(result.getCards().get(1).getName()).isEqualTo("Energy Generator");
+        assertThat(result.getCards().get(1).getName()).isEqualTo("E-Gen");
         assertThat(result.getCardUnlockProgress()).isEqualTo(2);
     }
 
@@ -217,7 +217,7 @@ class PlayerServiceTest {
         when(playerRepository.findBySessionId("test-session")).thenReturn(Optional.of(testPlayer));
         when(playerRepository.save(any(Player.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // "Grenadier" is index 3, but unlock progress is 1 (next is "Energy Generator")
+        // "Grenadier" is index 3, but unlock progress is 1 (next is "E-Gen")
         Player result = playerService.addCardPieces("test-session", "Grenadier", 1);
 
         assertThat(result.getCards()).hasSize(1); // no new card added
@@ -241,9 +241,9 @@ class PlayerServiceTest {
         when(playerRepository.findBySessionId("test-session")).thenReturn(Optional.of(testPlayer));
         when(playerRepository.save(any(Player.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Player result = playerService.unlockDefender("test-session", "Basic Cop");
+        Player result = playerService.unlockDefender("test-session", "Shooter");
 
-        assertThat(result.getCards()).hasSize(1); // already has Basic Cop
+        assertThat(result.getCards()).hasSize(1); // already has Shooter
     }
 
     // --- collectTreasure ---
