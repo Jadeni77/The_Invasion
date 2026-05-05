@@ -48,6 +48,8 @@ export class EnergyDrop {
 
         const alpha = this.lifetime <= 60 ? this.lifetime / 60 : 1;
 
+        ctx.save();
+
         // Glow effect
         ctx.beginPath();
         ctx.arc(this.x, this.y + this.floatOffset, this.radius + 5, 0, Math.PI * 2);
@@ -68,6 +70,8 @@ export class EnergyDrop {
         ctx.font = "bold 12px Arial";
         ctx.textAlign = "center";
         ctx.fillText(`+${this.amount}`, this.x, this.y + this.floatOffset + 4);
+
+        ctx.restore();
     }
 
     checkCollection(mouseX, mouseY) {

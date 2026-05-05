@@ -396,7 +396,6 @@ export class DrawExplosionEffect {
         ctx.moveTo(targetX, targetY - strikeHeight);
 
         // Generate lightning path
-        let currentY = targetY - strikeHeight;
         const segments = 8;
 
         for (let i = 1; i <= segments; i++) {
@@ -405,7 +404,6 @@ export class DrawExplosionEffect {
             const offsetX = (Math.random() - 0.5) * 40 * (1 - progress); // Less offset near ground
 
             ctx.lineTo(targetX + offsetX, nextY);
-            currentY = nextY;
         }
 
         ctx.stroke();

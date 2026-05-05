@@ -30,6 +30,8 @@ public class DataInitializer {
       );
       Player testPlayer = new Player();
         testPlayer.setSessionId(testSessionId);
+        testPlayer.setEmail("test@example.com");
+        testPlayer.setPassword("$2y$10$XtsxFOaZ02GHyYoHnpAN3.FJ1gv.xYHX7gQIRXFAWUEAvqijFRdHy"); // password: test123
         testPlayer.setDisplayName("Test Player");
         testPlayer.setGold(9999);
         testPlayer.setIron(9999);

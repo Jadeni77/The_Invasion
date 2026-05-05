@@ -1,7 +1,9 @@
+/* eslint-disable react-refresh/only-export-components */
 // src/component/GameLogic (MVC)/GameContext.jsx
 import React, {createContext, useContext, useState, useEffect, useRef, useCallback,} from "react";
 import {chestsData} from "../GameRendering/MapLayout.jsx";
 import {SessionManager} from "./SessionManager.js";
+import LoginPage from "../login/LoginPage.jsx";
 
 export const GameContext = createContext();
 
@@ -15,6 +17,7 @@ export const GameProvider = ({ children }) => {
   const [gameState, setGameState] = useState("lobby"); // lobby, inGame, upgrade
   const [selectedLevel, setSelectedLevel] = useState(null); // The level selected to play
   const [playerData, setPlayerData] = useState(null);
+  const playerDataRef = useRef(null);
 
   // In-game session specific states (managed by GameEngine, exposed via callbacks)
   const [inGameEnergy, setInGameEnergy] = useState(0);
@@ -29,6 +32,21 @@ export const GameProvider = ({ children }) => {
   const [currentEndlessWave, setCurrentEndlessWave] = useState(0);
   const [unlockedDefender, setUnlockedDefender] = useState(false);
 
+  //authentication
+  const [isAuthenticated, setIsAuthenticated] = useState(SessionManager.isLoggedIn());
+
+  const handleLogin = (token, player) => {
+    SessionManager.setToken(token);
+    SessionManager.setUser(player);
+    setPlayerData(player);
+    setIsAuthenticated(true);
+  }
+
+  const handleLogout = () => {
+    SessionManager.clearSession();
+    setPlayerData(null);
+    setIsAuthenticated(false);
+  }
 
   // Callbacks for GameEngine to update React state
   //updating in game energy
@@ -105,12 +123,9 @@ export const GameProvider = ({ children }) => {
 
       //Save the result to backend
       try {
-        const sessionId = SessionManager.getOrCreateSessionId();
-        await fetch(`http://localhost:8080/api/player/session/${sessionId}/complete-level`, {
+        await fetch(`http://localhost:8080/api/player/complete-level`, {
           method: "POST",
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: SessionManager.authHeaders(),
           body: JSON.stringify({
             levelId: level,
             score: score,
@@ -162,12 +177,9 @@ export const GameProvider = ({ children }) => {
         });
 
         try {
-          const sessionId = SessionManager.getOrCreateSessionId();
-          await fetch(`http://localhost:8080/api/player/session/${sessionId}/update-resources`, {
+          await fetch(`http://localhost:8080/api/player/update-resources`, {
             method: "POST",
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: SessionManager.authHeaders(),
             body: JSON.stringify({
               resourcesChange: {
                 gold: goldEarned,
@@ -179,11 +191,9 @@ export const GameProvider = ({ children }) => {
             })
           });
 
-          await fetch(`http://localhost:8080/api/player/session/${sessionId}/endless-score`, {
+          await fetch(`http://localhost:8080/api/player/endless-score`, {
             method: "POST",
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: SessionManager.authHeaders(),
             body: JSON.stringify({
               waveReached: endlessWave
                                  })
@@ -228,12 +238,9 @@ export const GameProvider = ({ children }) => {
         });
 
         try {
-          const sessionId = SessionManager.getOrCreateSessionId();
-          await fetch(`http://localhost:8080/api/player/session/${sessionId}/update-resources`, {
+          await fetch(`http://localhost:8080/api/player/update-resources`, {
             method: "POST",
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: SessionManager.authHeaders(),
             body: JSON.stringify({
               resourcesChange: {
               gold: -goldPenalty,
@@ -276,12 +283,9 @@ export const GameProvider = ({ children }) => {
   // Backend API integration points
   const fetchPlayerData = useCallback(async () => {
     try {
-      const sessionId = SessionManager.getOrCreateSessionId();
-      const response = await fetch(`http://localhost:8080/api/player/session/${sessionId}`, {
+      const response = await fetch(`http://localhost:8080/api/player/me`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: SessionManager.authHeaders(),
       });
       const data = await response.json();
 
@@ -404,7 +408,7 @@ export const GameProvider = ({ children }) => {
   const getDefaultPlayerData = () => {
     return {
       id: "default-player",
-      sessionId: SessionManager.getOrCreateSessionId(),
+      sessionId: "default",
       name: "Garden Defender",
       rank: "Novice Gardener",
       resources: {
@@ -470,12 +474,12 @@ export const GameProvider = ({ children }) => {
         }
         return prev;
       });
-    }, 30000); // Check every 30 seconds
+    }, 1000); // Check every second so the UI updates as soon as the minute rolls over
 
     return () => clearInterval(interval);
   }, []);
 
-  const savePlayerData = useCallback(async (data) => {
+  const savePlayerData = useCallback(async (_data) => {
     try {
      // console.log("Player data saved (simulated)");
     } catch (error) {
@@ -484,15 +488,20 @@ export const GameProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    fetchPlayerData();
+    playerDataRef.current = playerData;
+  }, [playerData]);
 
-    // Cleanup: save data when component unmounts or playerData changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchPlayerData();
+    }
+
     return () => {
-      if (playerData) {
-        savePlayerData(playerData);
+      if (playerDataRef.current) {
+        savePlayerData(playerDataRef.current);
       }
     };
-  }, [fetchPlayerData, savePlayerData]); // Added savePlayerData to dependencies
+  }, [fetchPlayerData, savePlayerData, isAuthenticated]);
 
   // Resources management
   const updateResource = useCallback((resource, amount) => {
@@ -544,7 +553,7 @@ export const GameProvider = ({ children }) => {
   );
 
   // Game State management
-  const startLevel = useCallback(async (levelId, selectedCards = null, options = {}) => {
+  const startLevel = useCallback(async (levelId, selectedCards = null, _options = {}) => {
       if (!playerData) {
         console.error("Cannot start level: Player data or canvas not ready.");
         return;
@@ -573,10 +582,9 @@ export const GameProvider = ({ children }) => {
 
       if (levelCost > 0) {
         try {
-          const sessionId = SessionManager.getOrCreateSessionId();
-          await fetch(`http://localhost:8080/api/player/session/${sessionId}/update-resources`, {
+          await fetch(`http://localhost:8080/api/player/update-resources`, {
             method: "POST",
-            headers: { 'Content-Type': 'application/json' },
+            headers: SessionManager.authHeaders(),
             body: JSON.stringify({
                    resourcesChange: {lobbyEnergy: -levelCost}
                                  })
@@ -647,7 +655,6 @@ export const GameProvider = ({ children }) => {
 
         //send the cardpiece collected to backend
         try {
-          const sessionId = SessionManager.getOrCreateSessionId();
           //group the pieces by cardName
           const piecesMap = collectedCardPieces.reduce((acc, pieceName) => {
             acc[pieceName] = (acc[pieceName] || 0) + 1;
@@ -655,11 +662,9 @@ export const GameProvider = ({ children }) => {
           }, {});
           //call backend for each card type
           for (const [cardName, count] of Object.entries(piecesMap)) {
-            await fetch(`http://localhost:8080/api/player/session/${sessionId}/add-card-pieces`, {
+            await fetch(`http://localhost:8080/api/player/add-card-pieces`, {
               method: "POST",
-              headers: {
-                'Content-Type': 'application/json',
-              },
+              headers: SessionManager.authHeaders(),
               body: JSON.stringify({
                 cardName: cardName,
                 pieces: count
@@ -811,8 +816,6 @@ export const GameProvider = ({ children }) => {
     });
 
     try {
-      const sessionId = SessionManager.getOrCreateSessionId();
-
       const backendRewards = {};
       Object.entries(chest.rewards).forEach(([resource, amount]) => {
         if (resource !== "defender" && resource !== "all") {
@@ -824,9 +827,9 @@ export const GameProvider = ({ children }) => {
         }
       });
 
-      await fetch(`http://localhost:8080/api/player/session/${sessionId}/collect-treasure`, {
+      await fetch(`http://localhost:8080/api/player/collect-treasure`, {
         method: "POST",
-        headers: {'Content-Type': 'application/json'},
+        headers: SessionManager.authHeaders(),
         body: JSON.stringify({
                                chestId: chestId,
                                rewards: backendRewards
@@ -851,12 +854,9 @@ export const GameProvider = ({ children }) => {
     if (!defenderName) return;
 
     try {
-      const sessionId = SessionManager.getOrCreateSessionId();
-      await fetch(`http://localhost:8080/api/player/session/${sessionId}/unlock-defender`, {
+      await fetch(`http://localhost:8080/api/player/unlock-defender`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: SessionManager.authHeaders(),
         body: JSON.stringify({ defenderName })
       });
     } catch (error) {
@@ -902,7 +902,12 @@ export const GameProvider = ({ children }) => {
     collectedCardPieces,
     unlockedDefender,
     setUnlockedDefender,
+    handleLogout,
   };
+
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
 
   return (
     <GameContext.Provider value={gameAPI}>{children}</GameContext.Provider>

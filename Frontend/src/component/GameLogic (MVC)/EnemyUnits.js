@@ -212,6 +212,11 @@ export class Enemy {
         if (this.attackCountdown <= 0) {
           targetDefender.takeDamage(this.attackDamage);
           this.attackCountdown = this.attackRate;
+          // Restart the attack animation so the visible swing lines up with damage ticks
+          if (this.currentAnimation === 'attack') {
+            this.animationFrame = 0;
+            this.animationTimer = 0;
+          }
         }
       } else {
         this.isAttacking = false;
@@ -351,7 +356,7 @@ export class Enemy {
     ctx.fillText(this.name.charAt(0), this.x + 5, this.y + 15);
   }
 
-  takeDamage(amount, ignoreArmor = false) {
+  takeDamage(amount, _ignoreArmor = false) {
     //console.log(`${this.name} took damage: ${amount}`);
     this.health -= amount;
     if (this.health <= 0) {
@@ -1751,13 +1756,13 @@ export class MageEnemy extends Enemy {
   }
 
   // Override canAttack to prevent CombatManager from handling our attacks
-  canAttack(currentTime) {
+  canAttack(_currentTime) {
     // Return false so CombatManager doesn't try to create projectiles for us
     return false;
   }
 
   // Keep the original attack method in case something else calls it
-  attack(target, currentTime) {
+  attack(target, _currentTime) {
     // Redirect to our casting system
     if (this.attackCooldown <= 0 && !this.isCasting) {
       this.startCasting(target);
