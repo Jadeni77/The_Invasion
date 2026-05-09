@@ -69,7 +69,7 @@ export const GameProvider = ({ children }) => {
   }, []);
 
   //handle game win logiv
-  const onWinCb = useCallback(async ({ score, level }) => {
+  const onWinCb = useCallback(async ({ score, level, enemiesKilled = 0, defendersDeployed = 0, energyCollected = 0, defendersLost = 0, baseDamageTaken = 0, timeElapsed = 0 }) => {
     setGameOver(true);
     setGameWon(true);
     console.log(`Game won! Level: ${level}, Score: ${score}`);
@@ -138,20 +138,36 @@ export const GameProvider = ({ children }) => {
       await fetch(`http://localhost:8080/api/player/complete-level`, {
         method: "POST",
         headers: SessionManager.authHeaders(),
-        body: JSON.stringify({
-          levelId: level,
-          score: score,
-          stars: stars,
-        }),
+        body: JSON.stringify({ levelId: level, score: score, stars: stars }),
       });
+
+      await fetch(`http://localhost:8080/api/player/update-stats`, {
+        method: "POST",
+        headers: SessionManager.authHeaders(),
+        body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
+      });
+
+      const specialUnlocks = [];
+      if (defendersLost === 0) specialUnlocks.push('perfect_defense');
+      if (baseDamageTaken === 0) specialUnlocks.push('untouchable');
+      if (timeElapsed < 120000 && level !== 999) specialUnlocks.push('speed_demon');
+      for (const id of specialUnlocks) {
+        await fetch(`http://localhost:8080/api/player/unlock-special-achievement`, {
+          method: "POST",
+          headers: SessionManager.authHeaders(),
+          body: JSON.stringify({ achievementId: id }),
+        });
+      }
+
+      await fetchPlayerData();
     } catch (error) {
       console.error("Failed to save to backend:", error);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   //handle game loss logic
   const onLoseCb = useCallback(
-    async ({ score, level, reason, endlessWave }) => {
+    async ({ score, level, reason, endlessWave, enemiesKilled = 0, defendersDeployed = 0, energyCollected = 0 }) => {
       setGameOver(true);
       setGameWon(false);
       console.log(
@@ -217,12 +233,13 @@ export const GameProvider = ({ children }) => {
             }),
           });
 
-          console.log(`Endless rewards saved: ${goldEarned} gold, ${ironEarned} iron,
-          ${grainEarned}, ${waterEarned}, ${gemEarned} gems for ${endlessWave} waves`);
-          console.log(`Endless high score saved: ${endlessWave} waves`);
+          await fetch(`http://localhost:8080/api/player/update-stats`, {
+            method: "POST",
+            headers: SessionManager.authHeaders(),
+            body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
+          });
         } catch (e) {
           console.error("Failed to save endless rewards:", e);
-          console.error("Failed to save endless data:", e);
         }
       } else {
         // Deduct resources on loss
@@ -270,8 +287,11 @@ export const GameProvider = ({ children }) => {
               },
             }),
           });
-          console.log(`Loss penalties saved: -${goldPenalty} gold, -${ironPenalty} iron,
-          -${grainPenalty} grain, -${waterPenalty} water, -${gemPenalty} gem`);
+          await fetch(`http://localhost:8080/api/player/update-stats`, {
+            method: "POST",
+            headers: SessionManager.authHeaders(),
+            body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
+          });
         } catch (e) {
           console.error("Failed to save loss penalties:", e);
         }
@@ -364,16 +384,20 @@ export const GameProvider = ({ children }) => {
         revealedSecrets: [],
         endlessHighScore: data.endlessHighScore || 0,
         endlessStats: { totalWaves: 0, totalRuns: 0 },
-        achievements: [],
         totalStars: data.levelStars
           ? data.levelStars.reduce((a, b) => a + b, 0)
           : 0,
+        totalEnemiesKilled: data.totalEnemiesKilled || 0,
+        totalDefendersDeployed: data.totalDefendersDeployed || 0,
+        totalEnergyCollected: data.totalEnergyCollected || 0,
+        claimedAchievements: data.claimedAchievements || [],
+        specialAchievements: data.specialAchievements || [],
       };
       setPlayerData(playerData);
     } catch (e) {
       console.error("Fail to fetch data:", e);
-      //fallback to default data
-      setPlayerData(getDefaultPlayerData());
+      // Only fall back to defaults if there's no existing player data in memory
+      setPlayerData((prev) => prev ?? getDefaultPlayerData());
     }
   }, []);
 
@@ -467,8 +491,12 @@ export const GameProvider = ({ children }) => {
       revealedSecrets: [],
       endlessHighScore: 0,
       endlessStats: { totalWaves: 0, totalRuns: 0 },
-      achievements: [],
       totalStars: 0,
+      totalEnemiesKilled: 0,
+      totalDefendersDeployed: 0,
+      totalEnergyCollected: 0,
+      claimedAchievements: [],
+      specialAchievements: [],
     };
   };
 
@@ -942,6 +970,7 @@ export const GameProvider = ({ children }) => {
     unlockedDefender,
     setUnlockedDefender,
     handleLogout,
+    fetchPlayerData,
   };
 
   if (!isAuthenticated) {

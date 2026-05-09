@@ -297,6 +297,39 @@ public class PlayerService {
     return playerRepository.save(player);
   }
 
+  public Player updateStats(String sessionId, int enemiesKilled, int defendersDeployed, int energyCollected) {
+    Player player = getOrCreatePlayer(sessionId);
+    player.setTotalEnemiesKilled(player.getTotalEnemiesKilled() + enemiesKilled);
+    player.setTotalDefendersDeployed(player.getTotalDefendersDeployed() + defendersDeployed);
+    player.setTotalEnergyCollected(player.getTotalEnergyCollected() + energyCollected);
+    return playerRepository.save(player);
+  }
+
+  public Player claimAchievement(String sessionId, String achievementId, Map<String, Integer> rewards) {
+    Player player = getOrCreatePlayer(sessionId);
+    if (!player.getClaimedAchievements().contains(achievementId)) {
+      player.getClaimedAchievements().add(achievementId);
+      rewards.forEach((resource, amount) -> {
+        switch (resource) {
+          case "gold": player.setGold(player.getGold() + amount); break;
+          case "iron": player.setIron(player.getIron() + amount); break;
+          case "grain": player.setGrain(player.getGrain() + amount); break;
+          case "water": player.setWater(player.getWater() + amount); break;
+          case "gem": player.setGem(player.getGem() + amount); break;
+        }
+      });
+    }
+    return playerRepository.save(player);
+  }
+
+  public Player unlockSpecialAchievement(String sessionId, String achievementId) {
+    Player player = getOrCreatePlayer(sessionId);
+    if (!player.getSpecialAchievements().contains(achievementId)) {
+      player.getSpecialAchievements().add(achievementId);
+    }
+    return playerRepository.save(player);
+  }
+
   public Player createPlayerWithEmail(String email, String hashedPassword, String displayName) {
     Player player = new Player();
     player.setEmail(email);

@@ -84,6 +84,14 @@ export class GameEngine {
     this.inGameEnergy = 0; // Will be set by level config
     this.inGameScore = 0;
     this.gameOver = false;
+
+    // Achievement stat tracking
+    this.enemiesKilled = 0;
+    this.defendersDeployed = 0;
+    this.energyCollected = 0;
+    this.defendersLost = 0;
+    this.baseDamageTaken = 0;
+    this.levelStartTime = Date.now();
     this.defenseLineX = 0; // Dynamic based on canvas width
 
     this.updateBaseHealthCb = updateBaseHealthCb;
@@ -172,6 +180,7 @@ export class GameEngine {
       if (drop.checkCollection(x, y)) {
         drop.startCollectionAnimation(110, 20); //where the bar locate;
         this.inGameEnergy = Math.min(9999, this.inGameEnergy + drop.amount);
+        this.energyCollected++;
         this.updateEnergyCb(this.inGameEnergy);
         return true; //energy is collected
       }
@@ -269,7 +278,7 @@ export class GameEngine {
     //initialize wave manager
     this.waveManager = new WaveManager(
       this.currentLevelConfig,
-      (enemyType) => this.spawnEnemyOfType(enemyType),
+      (enemyType, options) => this.spawnEnemyOfType(enemyType, options),
       this,
     );
 
@@ -308,7 +317,7 @@ export class GameEngine {
     }
   }
 
-  spawnEnemyOfType(enemyType) {
+  spawnEnemyOfType(enemyType, options = {}) {
     const EnemyClass = this.enemyClasses[enemyType];
     if (!EnemyClass) {
       console.warn(`Unknown enemy type: ${enemyType}`);
@@ -319,6 +328,14 @@ export class GameEngine {
     const row = this.gridManager.getRandomSpawnRow();
     const rowCenterY = this.gridManager.getRowCenterY(row);
     const enemy = new EnemyClass(spawnX, rowCenterY, null);
+
+    if (options.isBoss) {
+      enemy.isBoss = true;
+      enemy.health    = Math.floor(enemy.health    * 2.5);
+      enemy.maxHealth = Math.floor(enemy.maxHealth * 2.5);
+      enemy.attackDamage = Math.floor(enemy.attackDamage * 2);
+      enemy.bounty    = Math.floor(enemy.bounty    * 2);
+    }
 
     // Center the sprite vertically on the row so tall zombies (e.g. Titan)
     // don't visually overflow into a non-existent 7th lane.
@@ -374,6 +391,12 @@ export class GameEngine {
     this.inGameEnergy = this.currentLevelConfig.initialEnergy;
     this.inGameScore = 0;
     this.gameOver = false;
+    this.enemiesKilled = 0;
+    this.defendersDeployed = 0;
+    this.energyCollected = 0;
+    this.defendersLost = 0;
+    this.baseDamageTaken = 0;
+    this.levelStartTime = Date.now();
 
     if (this.waveManager) {
       this.waveManager.reset();
@@ -471,6 +494,7 @@ export class GameEngine {
     }
 
     this.defenders.push(newUnit);
+    this.defendersDeployed++;
     this.inGameEnergy -= newUnit.cost;
     this.updateEnergyCb(this.inGameEnergy);
 
@@ -617,6 +641,7 @@ export class GameEngine {
           if (!enemy.isSpawned) {
             //only change game score when game still playing
             this.inGameScore += enemy.bounty;
+            this.enemiesKilled++;
             this.updateScoreCb(this.inGameScore);
           }
           this.dropManager.handleEnemyDeath(enemy);
@@ -722,6 +747,7 @@ export class GameEngine {
         // Dead defenders only update their animation
         if (!defender.deathHandled) {
           defender.deathHandled = true;
+          this.defendersLost++;
         }
         // Still update animation for dead units
         if (defender.currentAnimation !== "death") {
@@ -875,6 +901,7 @@ export class GameEngine {
       if (enemy.isAlive && enemy.x + enemy.width >= this.defenseLineX) {
         if (!this.gameOver) {
           const damage = 10;
+          this.baseDamageTaken += damage;
           this.baseHealth = Math.max(0, this.baseHealth - damage);
 
           if (this.updateBaseHealthCb) {
@@ -897,6 +924,7 @@ export class GameEngine {
     if (!this.gameOver) {
       if (!enemy.isSpawned && !enemy.shouldExplode) {
         this.inGameScore += enemy.bounty;
+        this.enemiesKilled++;
         this.updateScoreCb(this.inGameScore);
         this.dropManager.handleEnemyDeath(enemy);
         this.waveManager.totalEnemiesKilled++;
@@ -955,6 +983,7 @@ export class GameEngine {
           if (died && !this.gameOver) {
             if (!projectile.target.isSpawned) {
               this.inGameScore += projectile.target.bounty;
+              this.enemiesKilled++;
               this.updateScoreCb(this.inGameScore);
             }
             this.dropManager.handleEnemyDeath(projectile.target);
@@ -1186,6 +1215,9 @@ export class GameEngine {
             level: 999,
             reason: "Defense breached",
             endlessWave: this.waveManager ? this.waveManager.currentWave : 0,
+            enemiesKilled: this.enemiesKilled,
+            defendersDeployed: this.defendersDeployed,
+            energyCollected: this.energyCollected,
           });
         }
       } else {
@@ -1196,6 +1228,9 @@ export class GameEngine {
             score: this.inGameScore,
             level: this.currentLevelConfig.levelNumber,
             reason: "Defense breached",
+            enemiesKilled: this.enemiesKilled,
+            defendersDeployed: this.defendersDeployed,
+            energyCollected: this.energyCollected,
           });
         }
       }
@@ -1214,6 +1249,12 @@ export class GameEngine {
       this.onWinCb({
         score: this.inGameScore,
         level: this.currentLevelConfig.levelNumber,
+        enemiesKilled: this.enemiesKilled,
+        defendersDeployed: this.defendersDeployed,
+        energyCollected: this.energyCollected,
+        defendersLost: this.defendersLost,
+        baseDamageTaken: this.baseDamageTaken,
+        timeElapsed: Date.now() - this.levelStartTime,
       });
     }
   }

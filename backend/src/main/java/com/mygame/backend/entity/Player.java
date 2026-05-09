@@ -69,6 +69,19 @@ public class Player {
   @Column(name = "endless_high_score")
   private Integer endlessHighScore = 0;
 
+  // Achievement stat counters
+  private Integer totalEnemiesKilled = 0;
+  private Integer totalDefendersDeployed = 0;
+  private Integer totalEnergyCollected = 0;
+
+  @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
+  @CollectionTable(name = "claimed_achievements", joinColumns = @JoinColumn(name = "player_id"))
+  private List<String> claimedAchievements = new ArrayList<>();
+
+  @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
+  @CollectionTable(name = "special_achievements", joinColumns = @JoinColumn(name = "player_id"))
+  private List<String> specialAchievements = new ArrayList<>();
+
   @PrePersist
   protected void onCreate() {
     createdAt = LocalDateTime.now();

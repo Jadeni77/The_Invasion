@@ -79,4 +79,26 @@ public class PlayerController {
     int waveReached = (int) request.get("waveReached");
     return ResponseEntity.ok(playerService.updateEndlessHighScore(player.getSessionId(), waveReached));
   }
+
+  @PostMapping("/update-stats")
+  public ResponseEntity<Player> updateStats(@AuthenticationPrincipal Player player, @RequestBody Map<String, Object> request) {
+    int enemiesKilled = (int) request.getOrDefault("enemiesKilled", 0);
+    int defendersDeployed = (int) request.getOrDefault("defendersDeployed", 0);
+    int energyCollected = (int) request.getOrDefault("energyCollected", 0);
+    return ResponseEntity.ok(playerService.updateStats(player.getSessionId(), enemiesKilled, defendersDeployed, energyCollected));
+  }
+
+  @PostMapping("/claim-achievement")
+  public ResponseEntity<Player> claimAchievement(@AuthenticationPrincipal Player player, @RequestBody Map<String, Object> request) {
+    String achievementId = (String) request.get("achievementId");
+    @SuppressWarnings("unchecked")
+    Map<String, Integer> rewards = (Map<String, Integer>) request.getOrDefault("rewards", Map.of());
+    return ResponseEntity.ok(playerService.claimAchievement(player.getSessionId(), achievementId, rewards));
+  }
+
+  @PostMapping("/unlock-special-achievement")
+  public ResponseEntity<Player> unlockSpecialAchievement(@AuthenticationPrincipal Player player, @RequestBody Map<String, Object> request) {
+    String achievementId = (String) request.get("achievementId");
+    return ResponseEntity.ok(playerService.unlockSpecialAchievement(player.getSessionId(), achievementId));
+  }
 }

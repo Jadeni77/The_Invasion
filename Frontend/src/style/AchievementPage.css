@@ -234,6 +234,32 @@
     font-style: italic;
 }
 
+.claim-button {
+    padding: 6px 14px;
+    background-color: #f39c12;
+    border: none;
+    border-radius: 12px;
+    color: #1a1a2e;
+    font-size: 0.85rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.claim-button:hover:not(:disabled) {
+    background-color: #e67e22;
+    transform: translateY(-1px);
+}
+
+.claim-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.achievement-card.claimed {
+    border-color: #27ae60;
+}
+
 .back-button {
     margin: 20px auto;
     padding: 15px 40px;

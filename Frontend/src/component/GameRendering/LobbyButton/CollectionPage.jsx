@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useGame } from "../../GameLogic (MVC)/GameContext.jsx";
 import { useSpriteFrame } from "../../common/useSpriteFrame.js";
+import { calculateCardStats } from "../../GameLogic (MVC)/DefenderClassUtils.js";
 import "../../../style/CollectionPage.css";
 
 const DEFENDERS = [
@@ -179,6 +180,7 @@ const ENEMIES = [
   {
     id: "vampire",
     name: "Vampire",
+    boss: true,
     stats: { health: 90, speed: 1.2, damage: 15, lifeSteal: "100%", bounty: 30 },
     description:
       "Heals for 100% of damage dealt. Becomes stronger as it feeds.",
@@ -203,6 +205,7 @@ const ENEMIES = [
   {
     id: "necromancer",
     name: "Necromancer",
+    boss: true,
     stats: { health: 100, speed: 0.2, damage: 10, bounty: 35 },
     description:
       "Raises fallen enemies as new units. Letting it linger lets a wave snowball.",
@@ -219,6 +222,7 @@ const ENEMIES = [
   {
     id: "mage",
     name: "Mage",
+    boss: true,
     stats: { health: 90, speed: 0.5, damage: 80, bounty: 15 },
     description:
       "Long-range spellcaster. Stops to channel devastating bolts at your defenders.",
@@ -227,6 +231,7 @@ const ENEMIES = [
   {
     id: "titan",
     name: "Titan",
+    boss: true,
     stats: { health: 5000, speed: 0.1, damage: 50, bounty: 100 },
     description:
       "Massive elite enemy with enormous health. Slow but each hit is devastating.",
@@ -253,47 +258,62 @@ const UnitImage = ({ category, name }) => {
   );
 };
 
-const DefenderCard = ({ defender }) => (
-  <div className="collection-unit-card">
-    <UnitImage category="defenders" name={defender.name} />
-    <h3 className="collection-unit-name">{defender.name}</h3>
+const DefenderCard = ({ defender, playerCard, liveStats }) => {
+  const dmg    = liveStats?.damage  ?? defender.stats.damage;
+  const hp     = liveStats?.health  ?? defender.stats.health;
+  const rng    = liveStats?.range   ?? defender.stats.range;
+  const cost   = liveStats?.cost    ?? defender.stats.cost;
 
-    <div className="collection-unit-stats">
-      {defender.stats.damage > 0 && (
-        <div className="collection-stat">DMG: {defender.stats.damage}</div>
-      )}
-      <div className="collection-stat">HP: {defender.stats.health}</div>
-      {defender.stats.range > 0 && (
-        <div className="collection-stat">RNG: {defender.stats.range}</div>
-      )}
-      {defender.stats.healAmount && (
-        <div className="collection-stat">HEAL: {defender.stats.healAmount}</div>
-      )}
-      {defender.stats.energyDrop && (
-        <div className="collection-stat">ENG: +{defender.stats.energyDrop}</div>
-      )}
-      <div className="collection-stat cost">COST: {defender.stats.cost}</div>
-    </div>
+  return (
+    <div className="collection-unit-card">
+      <UnitImage category="defenders" name={defender.name} />
+      <h3 className="collection-unit-name">{defender.name}</h3>
 
-    <div className="collection-unit-description">
-      <p>{defender.description}</p>
-    </div>
+      {playerCard && (
+        <div className="collection-card-meta">
+          <span className="collection-level-badge">Lv. {playerCard.level}</span>
+          <span className="collection-pieces-text">
+            {playerCard.pieces}/{playerCard.piecesNeeded * playerCard.level} pieces
+          </span>
+        </div>
+      )}
 
-    <div className="special-abilities">
-      <strong>Special Abilities:</strong>
-      <ul>
-        {defender.specialAbilities.map((ability, index) => (
-          <li key={index}>{ability}</li>
-        ))}
-      </ul>
+      <div className="collection-unit-stats">
+        {dmg > 0 && <div className="collection-stat">DMG: {dmg}</div>}
+        <div className="collection-stat">HP: {hp}</div>
+        {rng > 0 && <div className="collection-stat">RNG: {rng}</div>}
+        {defender.stats.healAmount && (
+          <div className="collection-stat">HEAL: {defender.stats.healAmount}</div>
+        )}
+        {defender.stats.energyDrop && (
+          <div className="collection-stat">ENG: +{defender.stats.energyDrop}</div>
+        )}
+        <div className="collection-stat cost">COST: {cost}</div>
+      </div>
+
+      <div className="collection-unit-description">
+        <p>{defender.description}</p>
+      </div>
+
+      <div className="special-abilities">
+        <strong>Special Abilities:</strong>
+        <ul>
+          {defender.specialAbilities.map((ability, index) => (
+            <li key={index}>{ability}</li>
+          ))}
+        </ul>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const EnemyCard = ({ enemy }) => (
-  <div className="collection-unit-card enemy-card">
+  <div className={`collection-unit-card enemy-card ${enemy.boss ? "boss-card" : ""}`}>
     <UnitImage category="enemies" name={enemy.name} />
-    <h3 className="collection-unit-name">{enemy.name}</h3>
+    <div className="collection-unit-name-row">
+      <h3 className="collection-unit-name">{enemy.name}</h3>
+      {enemy.boss && <span className="boss-badge">BOSS</span>}
+    </div>
 
     <div className="collection-unit-stats">
       <div className="collection-stat">HP: {enemy.stats.health}</div>
@@ -322,8 +342,11 @@ const EnemyCard = ({ enemy }) => (
 );
 
 const CollectionPage = () => {
-  const { closeCollection } = useGame();
+  const { closeCollection, playerData } = useGame();
+
   const [selectedTab, setSelectedTab] = useState("defenders");
+
+  const playerCardMap = new Map((playerData?.cards || []).map((c) => [c.name, c]));
 
   return (
     <div className="collection-page">
@@ -356,7 +379,21 @@ const CollectionPage = () => {
 
         <div className="collection-grid">
           {selectedTab === "defenders"
-            ? DEFENDERS.map((d) => <DefenderCard key={d.id} defender={d} />)
+            ? DEFENDERS.map((d) => {
+                const playerCard = playerCardMap.get(d.name);
+                const liveStats  = playerCard ? calculateCardStats(playerCard) : null;
+                return (
+                  <div key={d.id} className={`collection-card-wrapper ${!playerCard ? "locked" : ""}`}>
+                    {!playerCard && (
+                      <div className="collection-lock-overlay">
+                        <span className="collection-lock-icon">🔒</span>
+                        <span className="collection-lock-text">Locked</span>
+                      </div>
+                    )}
+                    <DefenderCard defender={d} playerCard={playerCard} liveStats={liveStats} />
+                  </div>
+                );
+              })
             : ENEMIES.map((e) => <EnemyCard key={e.id} enemy={e} />)}
         </div>
       </div>

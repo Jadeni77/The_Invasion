@@ -271,7 +271,7 @@ export class WaveManager {
     spawnBossPattern(waveConfig) {
         if (!this.bossSpawned) {
             // Spawn boss with minions
-            this.spawnEnemy(waveConfig.bossType);
+            this.spawnEnemy(waveConfig.bossType, { isBoss: true });
             this.bossSpawned = true;
             this.waveEnemiesSpawned++;
             this.enemiesSpawnedThisLevel++;

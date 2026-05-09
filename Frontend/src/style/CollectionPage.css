@@ -176,6 +176,32 @@
 
 .enemy-card .collection-unit-name {
     color: #e74c3c;
+    margin: 0;
+}
+
+.collection-unit-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.boss-badge {
+    background: linear-gradient(135deg, #FFD700, #FF8C00);
+    color: #1a1a2e;
+    font-size: 0.65rem;
+    font-weight: bold;
+    padding: 2px 7px;
+    border-radius: 8px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.boss-card {
+    border-color: #FFD700 !important;
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.35);
 }
 
 .collection-unit-stats {
@@ -265,6 +291,64 @@
     color: #7f8c8d;
     font-style: italic;
     padding: 20px;
+}
+
+.collection-card-wrapper {
+    position: relative;
+}
+
+.collection-card-wrapper.locked .collection-unit-card {
+    opacity: 0.35;
+    filter: grayscale(80%);
+    pointer-events: none;
+}
+
+.collection-lock-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+}
+
+.collection-lock-icon {
+    font-size: 2rem;
+}
+
+.collection-lock-text {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: #bdc3c7;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.collection-card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    gap: 8px;
+}
+
+.collection-level-badge {
+    background-color: #f39c12;
+    color: #1a1a2e;
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.collection-pieces-text {
+    font-size: 0.75rem;
+    color: #bdc3c7;
 }
 
 .back-button {

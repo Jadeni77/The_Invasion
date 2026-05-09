@@ -25,3 +25,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# H2 database files
+backend/data/
+
+# Claude Code local memory
+.claude/
