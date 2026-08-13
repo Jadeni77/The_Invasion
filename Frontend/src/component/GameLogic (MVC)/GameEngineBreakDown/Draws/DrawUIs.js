@@ -149,6 +149,8 @@ export class DrawUIs {
 
     // Fix: Draw normal mode wave info
     drawNormalWaveInfo(ctx) {
+        ctx.save();
+
         ctx.fillStyle = "#FFF";
         ctx.font = "16px Arial";
         ctx.textAlign = "center";
@@ -178,6 +180,8 @@ export class DrawUIs {
             ctx.fillStyle = "#4CAF50";
             ctx.fillRect(progressX, progressY, progressWidth * Math.min(1, progress), 8);
         }
+
+        ctx.restore();
     }
 
     // Fix: Draw endless mode wave info

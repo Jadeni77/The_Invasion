@@ -53,6 +53,8 @@ export class CardPieceDrop {
 
         const alpha = this.opacity;
 
+        ctx.save();
+
         // Glow effect
         ctx.beginPath();
         ctx.arc(this.x, this.y + this.floatOffset, this.radius + 6, 0, Math.PI * 2);
@@ -80,6 +82,7 @@ export class CardPieceDrop {
         ctx.textAlign = "center";
         ctx.fillText("⬟", this.x, this.y + this.floatOffset + 3);
 
+        ctx.restore();
     }
 
     checkCollection(mouseX, mouseY) {
