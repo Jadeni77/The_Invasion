@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AudioManager } from '../AudioManager.js';
+import { AudioManager, volumeToGain } from '../AudioManager.js';
 
 function createMockContext() {
   const made = { gains: [], oscillators: [], buffers: [] };
@@ -111,5 +111,41 @@ describe('AudioManager', () => {
   it('does not throw when playing before init', () => {
     const fresh = new AudioManager(() => createMockContext().ctx);
     expect(() => fresh.playSfx('enemyHit')).not.toThrow();
+  });
+
+  it('connects oscillator-based sound envelope to sfx gain', () => {
+    audio.resume();
+    audio.playSfx('projectileFired');
+    expect(made.gains[3].connect).toHaveBeenCalledWith(made.gains[1]);
+  });
+
+  it('connects noise-based sound envelope to sfx gain', () => {
+    audio.resume();
+    audio.playSfx('enemyDied');
+    expect(made.gains[3].connect).toHaveBeenCalledWith(made.gains[1]);
+  });
+});
+
+describe('volumeToGain', () => {
+  it('converts valid 0–100 slider values to squared gain', () => {
+    expect(volumeToGain(0)).toBe(0);
+    expect(volumeToGain(100)).toBe(1);
+    expect(volumeToGain(50)).toBeCloseTo(0.25);
+  });
+
+  it('handles undefined by returning 0', () => {
+    expect(volumeToGain(undefined)).toBe(0);
+  });
+
+  it('handles NaN by returning 0', () => {
+    expect(volumeToGain(NaN)).toBe(0);
+  });
+
+  it('handles null by returning 0', () => {
+    expect(volumeToGain(null)).toBe(0);
+  });
+
+  it('handles non-numeric string by returning 0', () => {
+    expect(volumeToGain('foo')).toBe(0);
   });
 });
