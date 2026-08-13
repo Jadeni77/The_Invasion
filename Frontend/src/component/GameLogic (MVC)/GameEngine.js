@@ -405,7 +405,7 @@ export class GameEngine {
 
     if (this.waveManager) {
       this.waveManager.reset();
-      this.waveManager.lastSpawnTime = Date.now() + 5000; // 1 second delay
+      this.waveManager.lastSpawnTime = this.gameClock.now + 5000; // 5 second delay
     }
 
     this.baseHealth = 100;

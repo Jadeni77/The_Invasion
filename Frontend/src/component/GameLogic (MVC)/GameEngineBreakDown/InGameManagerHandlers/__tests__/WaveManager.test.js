@@ -307,4 +307,44 @@ describe('WaveManager', () => {
             expect(waveManager.currentWave).toBe(0);
         });
     });
+
+    describe('spawnWaveEnemies clock domain', () => {
+        // Regression test for a bug where GameEngine.resetGame() set
+        // waveManager.lastSpawnTime = Date.now() + 5000 (wall-clock scale,
+        // ~1.7e12) while `now` is injected from the gameplay clock, which
+        // starts at 0 and only advances by real per-frame deltas (see
+        // Feedback/GameClock.js). That mismatch made `now - lastSpawnTime`
+        // permanently negative, so spawnWaveEnemies's guard
+        // (`if (now - this.lastSpawnTime < this.nextSpawnDelay) return;`)
+        // never let an enemy spawn. lastSpawnTime must always live in the
+        // same clock domain as `now`.
+        const waveConfig = {
+            enemyCount: 5,
+            spawnInterval: 500,
+            enemyTypes: ['Basic Zombie'],
+            spawnPattern: 'standard',
+        };
+
+        it('spawns once now passes a gameplay-clock-relative lastSpawnTime + nextSpawnDelay', () => {
+            waveManager.lastSpawnTime = 5000; // e.g. gameClock.now (0) + 5000, as GameEngine.resetGame() sets it
+            waveManager.nextSpawnDelay = 500;
+            waveManager.waveEnemiesSpawned = 0;
+
+            waveManager.spawnWaveEnemies(5501, 0, waveConfig); // gameplay-clock-relative now, past 5000 + 500
+
+            expect(spawnCallback).toHaveBeenCalled();
+            expect(waveManager.waveEnemiesSpawned).toBe(1);
+        });
+
+        it('never spawns if lastSpawnTime is wall-clock-scale while now is gameplay-clock-scale', () => {
+            waveManager.lastSpawnTime = Date.now(); // ~1.7e12 - the pre-fix bug's value
+            waveManager.nextSpawnDelay = 500;
+            waveManager.waveEnemiesSpawned = 0;
+
+            waveManager.spawnWaveEnemies(5501, 0, waveConfig); // gameplay-clock-relative now stays tiny by comparison
+
+            expect(spawnCallback).not.toHaveBeenCalled();
+            expect(waveManager.waveEnemiesSpawned).toBe(0);
+        });
+    });
 });
