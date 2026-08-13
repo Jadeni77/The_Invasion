@@ -42,6 +42,13 @@ export class MusicPlayer {
     this.tick();
   }
 
+  /**
+   * Stops scheduling new chords, but already-scheduled chords continue sounding
+   * for up to ~2.5 seconds (LOOKAHEAD_SECONDS + SECONDS_PER_CHORD) as their
+   * envelopes decay. This audible tail is intentional — it avoids clicks and
+   * provides a smooth fade-out. Callers expecting immediate silence on unmount
+   * should account for this duration.
+   */
   stop() {
     if (this.timer !== null) {
       clearInterval(this.timer);
@@ -53,6 +60,15 @@ export class MusicPlayer {
   tick() {
     const ctx = this.audio.ctx;
     if (!ctx) return;
+
+    // A backgrounded tab or a sleeping machine can leave nextChordTime far
+    // behind currentTime. Without this clamp the loop below schedules every
+    // missed chord in one pass, and Web Audio pins their past start times to
+    // "now" - producing an overlapping pile-up on tab restore. Ambient music
+    // has nothing to catch up on, so skip the gap and resume from the present.
+    if (this.nextChordTime < ctx.currentTime) {
+      this.nextChordTime = ctx.currentTime;
+    }
 
     while (this.nextChordTime < ctx.currentTime + LOOKAHEAD_SECONDS) {
       this.scheduleChord(PROGRESSION[this.chordIndex], this.nextChordTime);

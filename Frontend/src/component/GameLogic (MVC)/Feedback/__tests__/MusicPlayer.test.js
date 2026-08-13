@@ -3,17 +3,24 @@ import { MusicPlayer, PROGRESSION } from '../MusicPlayer.js';
 
 function createMockAudio() {
   const oscillators = [];
+  const envelopeConnections = [];
+  const musicBus = { id: 'musicBus' };
   const ctx = {
     currentTime: 0,
-    createGain: () => ({
-      gain: {
-        value: 1,
-        setValueAtTime: vi.fn(),
-        linearRampToValueAtTime: vi.fn(),
-        exponentialRampToValueAtTime: vi.fn(),
-      },
-      connect: vi.fn(),
-    }),
+    createGain: () => {
+      const connectFn = vi.fn((destination) => {
+        envelopeConnections.push(destination);
+      });
+      return {
+        gain: {
+          value: 1,
+          setValueAtTime: vi.fn(),
+          linearRampToValueAtTime: vi.fn(),
+          exponentialRampToValueAtTime: vi.fn(),
+        },
+        connect: connectFn,
+      };
+    },
     createOscillator: () => {
       const osc = {
         type: 'sine',
@@ -24,15 +31,15 @@ function createMockAudio() {
       return osc;
     },
   };
-  return { audio: { ctx, musicBus: { id: 'musicBus' } }, ctx, oscillators };
+  return { audio: { ctx, musicBus }, ctx, oscillators, envelopeConnections, musicBus };
 }
 
 describe('MusicPlayer', () => {
-  let audio, ctx, oscillators, player;
+  let audio, ctx, oscillators, envelopeConnections, musicBus, player;
 
   beforeEach(() => {
     vi.useFakeTimers();
-    ({ audio, ctx, oscillators } = createMockAudio());
+    ({ audio, ctx, oscillators, envelopeConnections, musicBus } = createMockAudio());
     player = new MusicPlayer(audio);
   });
 
@@ -62,7 +69,10 @@ describe('MusicPlayer', () => {
   it('routes every note to the music bus, never the destination', () => {
     player.start();
     vi.advanceTimersByTime(100);
-    for (const osc of oscillators) expect(osc.connect).toHaveBeenCalled();
+    expect(envelopeConnections.length).toBeGreaterThan(0);
+    for (const destination of envelopeConnections) {
+      expect(destination).toBe(musicBus);
+    }
   });
 
   it('keeps scheduling as time advances, wrapping the loop', () => {
@@ -99,5 +109,26 @@ describe('MusicPlayer', () => {
     vi.advanceTimersByTime(0);
 
     expect(oscillators.length).toBe(count);
+  });
+
+  it('does not burst-schedule missed chords when woken from suspension', () => {
+    player.start();
+    vi.advanceTimersByTime(100);
+
+    // Jump the audio clock forward 30 seconds without advancing the timer.
+    // This simulates a tab being backgrounded or the machine sleeping.
+    ctx.currentTime += 30;
+
+    const beforeJump = oscillators.length;
+
+    // A single tick should not schedule the entire backlog but instead skip
+    // to current time and only schedule what fits in the lookahead window.
+    player.tick();
+
+    const createdInTick = oscillators.length - beforeJump;
+
+    // One chord = 3 frequencies; allow up to 2 chords as margin (6 oscillators).
+    // Without the fix, this would be ~15 chords = 45 oscillators.
+    expect(createdInTick).toBeLessThanOrEqual(6);
   });
 });
