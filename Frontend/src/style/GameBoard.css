@@ -37,6 +37,20 @@
   min-width: fit-content; /* Ensures minimum width for content */
 }
 
+/* Numeric readouts must not change width as their values change.
+   .game-top-bar is flex + space-between, so any width change in one child
+   repositions its siblings, which reads on screen as text jumping sideways.
+   tabular-nums gives every digit an identical advance width; the fixed
+   widths below absorb digit-count changes up to each value's maximum. */
+.energy-value,
+.score-value,
+.health-value {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  text-align: right;
+  flex: 0 0 auto;
+}
+
 .energy-container {
   min-width: 100px; /* Fixed minimum width */
 }
@@ -48,7 +62,7 @@
 }
 
 .energy-value {
-  min-width: 35px; /* Reserve space for 3 digits */
+  width: 4.5ch;
   font-size: 20px;
   font-weight: bold;
   color: white;
@@ -67,6 +81,7 @@
 }
 
 .score-value {
+  width: 6.5ch;
   font-size: 20px;
   font-weight: bold;
   color: white;
@@ -100,7 +115,7 @@
 .health-value {
   font-size: 16px;
   color: white;
-  min-width: 50px;
+  width: 4.5ch;
 }
 
 /* Game Canvas */
@@ -660,7 +675,6 @@
 
   .health-value {
     font-size: 14px;
-    min-width: 40px;
   }
 
   /* Bottom bar adjustments */
