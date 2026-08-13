@@ -377,7 +377,12 @@ export class WaveManager {
         return 180; // 3 seconds for normal mode
     }
 
-    startNextWave() {
+    // announce (default true) gates only the wave:started horn/banner - the
+    // wave counters themselves always advance. Passed through from reset()
+    // so cleanup-only resets (end of level) don't fire the wave horn on top
+    // of the win/loss sting, while genuine wave advances (from update(), or
+    // reset() at the start of a new level) still announce.
+    startNextWave(announce = true) {
         // Don't exceed max waves for normal mode
         if (!this.isEndlessMode && this.currentWave >= this.config.waves) {
             return;
@@ -399,12 +404,12 @@ export class WaveManager {
         }
 
         // Show wave announcement
-        if (this.gameEngine && this.gameEngine.showWaveAnnouncement) {
+        if (announce && this.gameEngine && this.gameEngine.showWaveAnnouncement) {
             this.gameEngine.showWaveAnnouncement(this.currentWave, waveConfig.isBossWave);
         }
     }
 
-    reset() {
+    reset(announceWaveStart = true) {
         this.currentWave = 0;
         this.waveEnemiesSpawned = 0;
         this.waveEnemiesKilled = 0;
@@ -419,7 +424,7 @@ export class WaveManager {
         this.currentBoss = null;
         this.patternIndex = 0;
 
-        this.startNextWave();
+        this.startNextWave(announceWaveStart);
     }
 
 }

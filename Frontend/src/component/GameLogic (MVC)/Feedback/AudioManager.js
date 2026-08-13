@@ -20,21 +20,40 @@ export class AudioManager {
     this.masterGain = null;
     this.sfxGain = null;
     this.musicGain = null;
+    // Set once construction has failed, so we don't keep retrying (and
+    // re-logging) a doomed AudioContext on every subsequent init() call.
+    this._unavailable = false;
   }
 
+  /**
+   * Builds the AudioContext and its gain graph. Never throws: environments
+   * that block or lack Web Audio (Tor Browser, dom.webaudio.enabled=false,
+   * fingerprint-blocking extensions, non-browser renders, ...) leave this.ctx
+   * null and every other method degrades to a silent no-op.
+   */
   init() {
-    if (this.ctx) return;
-    this.ctx = this.contextFactory();
+    if (this.ctx || this._unavailable) return;
 
-    // Order matters: tests assert master is the first gain created.
-    this.masterGain = this.ctx.createGain();
-    this.masterGain.connect(this.ctx.destination);
+    try {
+      this.ctx = this.contextFactory();
 
-    this.sfxGain = this.ctx.createGain();
-    this.sfxGain.connect(this.masterGain);
+      // Order matters: tests assert master is the first gain created.
+      this.masterGain = this.ctx.createGain();
+      this.masterGain.connect(this.ctx.destination);
 
-    this.musicGain = this.ctx.createGain();
-    this.musicGain.connect(this.masterGain);
+      this.sfxGain = this.ctx.createGain();
+      this.sfxGain.connect(this.masterGain);
+
+      this.musicGain = this.ctx.createGain();
+      this.musicGain.connect(this.masterGain);
+    } catch (err) {
+      console.error('AudioManager: Web Audio unavailable; continuing without sound.', err);
+      this.ctx = null;
+      this.masterGain = null;
+      this.sfxGain = null;
+      this.musicGain = null;
+      this._unavailable = true;
+    }
   }
 
   get isReady() {
@@ -42,18 +61,21 @@ export class AudioManager {
   }
 
   get musicBus() {
+    if (!this.ctx) return null;
     return this.musicGain;
   }
 
   /** Must be called from a user gesture handler. */
   resume() {
     if (!this.ctx) this.init();
+    if (!this.ctx) return Promise.resolve();
     if (this.ctx.state !== 'running') return this.ctx.resume();
     return Promise.resolve();
   }
 
   setVolumes({ masterVolume, musicVolume, soundEffects }) {
     if (!this.ctx) this.init();
+    if (!this.ctx) return;
     this.masterGain.gain.value = volumeToGain(masterVolume);
     this.sfxGain.gain.value = volumeToGain(soundEffects);
     this.musicGain.gain.value = volumeToGain(musicVolume);

@@ -7,7 +7,8 @@
  * freqEnd   - Hz at note end (a slide from freqStart)
  * duration  - seconds
  * gain      - peak gain, 0..1, before bus volumes are applied
- * noise     - when true, plays a filtered noise burst instead of a tone
+ * noise     - when true, plays a plain white-noise burst instead of a tone
+ *             (unfiltered - every sample is independent random amplitude)
  */
 export const SFX = {
   // Placing a unit: short low thunk.

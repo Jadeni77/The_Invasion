@@ -117,6 +117,28 @@ describe('JuiceManager', () => {
     });
   });
 
+  describe('reset', () => {
+    it('clears trauma, hit-stop, damage numbers, and flash', () => {
+      juice.addTrauma(0.5);
+      juice.triggerHitStop(50);
+      juice.addDamageNumber(10, 20, 35);
+      juice.triggerFlash('#ff0000', 300);
+
+      // Sanity-check all four kinds of state are actually populated first.
+      expect(juice.trauma).toBeGreaterThan(0);
+      expect(juice.isFrozen()).toBe(true);
+      expect(juice.damageNumbers).toHaveLength(1);
+      expect(juice.getFlash()).not.toBeNull();
+
+      juice.reset();
+
+      expect(juice.trauma).toBe(0);
+      expect(juice.isFrozen()).toBe(false);
+      expect(juice.damageNumbers).toHaveLength(0);
+      expect(juice.getFlash()).toBeNull();
+    });
+  });
+
   describe('flash', () => {
     it('is absent by default', () => {
       expect(juice.getFlash()).toBeNull();

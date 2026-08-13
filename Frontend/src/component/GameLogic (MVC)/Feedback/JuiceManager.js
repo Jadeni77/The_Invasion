@@ -28,6 +28,20 @@ export class JuiceManager {
     if (showDamageNumbers !== undefined) this.damageNumbersEnabled = showDamageNumbers;
   }
 
+  /**
+   * Clears all transient feedback state. Without this, state persists across
+   * levels: a loss always lands a frame after base:damaged, so trauma and the
+   * red flash are frozen mid-decay when the loop stops, then replay over the
+   * first ~700ms of the next level along with stale damage numbers positioned
+   * at the previous level's coordinates.
+   */
+  reset() {
+    this.trauma = 0;
+    this.hitStopRemainingMs = 0;
+    this._damageNumbers = [];
+    this.flash = null;
+  }
+
   addTrauma(amount) {
     this.trauma = Math.min(1, this.trauma + amount);
   }

@@ -53,3 +53,104 @@ describe('GameEngine.emitEnemyDeathFeedback', () => {
     expect(engine.feedbackBus.emit).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * collectEnergy is tested the same way: real prototype method pulled onto a
+ * minimal fake with just the fields it touches, plus fake EnergyDrop-shaped
+ * objects (checkCollection/collectAnimation/startCollectionAnimation/amount).
+ */
+function createFakeEnergyEngine() {
+  return {
+    energyDrops: [],
+    inGameEnergy: 0,
+    energyCollected: 0,
+    emitFeedback: vi.fn(),
+    updateEnergyCb: vi.fn(),
+    collectEnergy: GameEngine.prototype.collectEnergy,
+  };
+}
+
+describe('GameEngine.collectEnergy', () => {
+  it('does not award energy or consume the click for a drop already flying to the bar', () => {
+    const engine = createFakeEnergyEngine();
+    const drop = {
+      collectAnimation: true, // already in-flight (e.g. autoCollectEnergy)
+      amount: 10,
+      checkCollection: vi.fn(() => true), // pure geometry says the click lands on it
+      startCollectionAnimation: vi.fn(),
+    };
+    engine.energyDrops = [drop];
+
+    const collected = engine.collectEnergy(100, 100);
+
+    expect(collected).toBe(false);
+    expect(engine.inGameEnergy).toBe(0);
+    expect(drop.startCollectionAnimation).not.toHaveBeenCalled();
+  });
+
+  it('still collects a drop that is not yet animating', () => {
+    const engine = createFakeEnergyEngine();
+    const drop = {
+      collectAnimation: false,
+      amount: 10,
+      checkCollection: vi.fn(() => true),
+      startCollectionAnimation: vi.fn(),
+    };
+    engine.energyDrops = [drop];
+
+    const collected = engine.collectEnergy(100, 100);
+
+    expect(collected).toBe(true);
+    expect(engine.inGameEnergy).toBe(10);
+    expect(drop.startCollectionAnimation).toHaveBeenCalledOnce();
+  });
+});
+
+/**
+ * resetGame is tested the same way: real prototype method pulled onto a
+ * minimal fake with just the fields it touches, so we don't need to stand up
+ * a full GameEngine (canvas, level configs, animations, ...).
+ */
+function createFakeResetEngine(overrides = {}) {
+  return {
+    currentLevelConfig: { initialEnergy: 100 },
+    gameClock: { reset: vi.fn(), now: 0 },
+    waveManager: null,
+    gridManager: null,
+    juiceManager: null,
+    updateEnergyCb: vi.fn(),
+    updateScoreCb: vi.fn(),
+    updateBaseHealthCb: vi.fn(),
+    stopLoop: vi.fn(),
+    resetGame: GameEngine.prototype.resetGame,
+    ...overrides,
+  };
+}
+
+describe('GameEngine.resetGame', () => {
+  it('resets the juiceManager when one is attached', () => {
+    const juiceManager = { reset: vi.fn() };
+    const engine = createFakeResetEngine({ juiceManager });
+    engine.resetGame();
+    expect(juiceManager.reset).toHaveBeenCalledOnce();
+  });
+
+  it('does not throw when juiceManager is null', () => {
+    const engine = createFakeResetEngine({ juiceManager: null });
+    expect(() => engine.resetGame()).not.toThrow();
+  });
+
+  it('defaults to announcing wave 1 (genuine new-level start via initialize())', () => {
+    const waveManager = { reset: vi.fn(), lastSpawnTime: 0 };
+    const engine = createFakeResetEngine({ waveManager });
+    engine.resetGame();
+    expect(waveManager.reset).toHaveBeenCalledWith(true);
+  });
+
+  it('passes announceWaveStart=false through so end-of-level cleanup stays silent', () => {
+    const waveManager = { reset: vi.fn(), lastSpawnTime: 0 };
+    const engine = createFakeResetEngine({ waveManager });
+    engine.resetGame(false);
+    expect(waveManager.reset).toHaveBeenCalledWith(false);
+  });
+});

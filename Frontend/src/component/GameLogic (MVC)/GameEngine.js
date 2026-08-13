@@ -182,7 +182,10 @@ export class GameEngine {
   collectEnergy(x, y) {
     for (let i = this.energyDrops.length - 1; i >= 0; i--) {
       const drop = this.energyDrops[i];
-      if (drop.checkCollection(x, y)) {
+      // Skip drops already flying to the energy bar (e.g. from
+      // autoCollectEnergy) - otherwise a click landing on an in-flight orb
+      // awards its energy a second time and swallows the click.
+      if (!drop.collectAnimation && drop.checkCollection(x, y)) {
         drop.startCollectionAnimation(110, 20); //where the bar locate;
         this.inGameEnergy = Math.min(9999, this.inGameEnergy + drop.amount);
         this.energyCollected++;
@@ -388,8 +391,12 @@ export class GameEngine {
     }
   }
 
-  // Resets the game state to its initial values for the current level
-  resetGame() {
+  // Resets the game state to its initial values for the current level.
+  // announceWaveStart controls whether the wave-1 horn plays: true for a
+  // genuine new-level start (called from initialize()), false when this is
+  // just end-of-level cleanup (called from GameContext.endGame()) so the
+  // win/loss sting doesn't get a wave horn stacked on top of it.
+  resetGame(announceWaveStart = true) {
     this.stopLoop(); // Stop any active animation loop
     this.defenders = [];
     this.enemies = [];
@@ -408,7 +415,7 @@ export class GameEngine {
     this.lastFrameTime = null;
 
     if (this.waveManager) {
-      this.waveManager.reset();
+      this.waveManager.reset(announceWaveStart);
       this.waveManager.lastSpawnTime = this.gameClock.now + 5000; // 5 second delay
     }
 
@@ -420,6 +427,10 @@ export class GameEngine {
     if (this.gridManager) {
       this.gridManager.resetGrid();
     }
+
+    // Clear trauma/hit-stop/damage-numbers/flash so they don't freeze at
+    // level-end values and replay over the start of the next level.
+    this.juiceManager?.reset();
 
     // Update UI via callbacks
     this.updateEnergyCb(this.inGameEnergy);

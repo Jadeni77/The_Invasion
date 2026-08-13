@@ -82,6 +82,18 @@ describe('WaveManager', () => {
             endlessWM.startNextWave();
             expect(endlessWM.currentWave).toBe(51);
         });
+
+        it('should announce the wave by default', () => {
+            waveManager.startNextWave();
+            expect(mockGameEngine.showWaveAnnouncement).toHaveBeenCalledWith(1, undefined); // wave 1 is not a boss wave
+        });
+
+        it('should still advance the wave counter when announce=false, but not call showWaveAnnouncement', () => {
+            waveManager.startNextWave(false);
+            expect(waveManager.currentWave).toBe(1);
+            expect(waveManager.waveActive).toBe(true);
+            expect(mockGameEngine.showWaveAnnouncement).not.toHaveBeenCalled();
+        });
     });
 
     describe('shouldStartNextWave', () => {
@@ -270,6 +282,17 @@ describe('WaveManager', () => {
             expect(waveManager.totalEnemiesKilled).toBe(0);
             expect(waveManager.allWavesComplete).toBe(false);
             expect(waveManager.waveActive).toBe(true);
+        });
+
+        it('should announce wave 1 by default (genuine new-level start)', () => {
+            waveManager.reset();
+            expect(mockGameEngine.showWaveAnnouncement).toHaveBeenCalledWith(1, undefined); // wave 1 is not a boss wave
+        });
+
+        it('should not announce when announceWaveStart=false (end-of-level cleanup)', () => {
+            waveManager.reset(false);
+            expect(waveManager.currentWave).toBe(1); // wave state still advances
+            expect(mockGameEngine.showWaveAnnouncement).not.toHaveBeenCalled();
         });
     });
 

@@ -46,15 +46,28 @@ export const GameProvider = ({ children }) => {
 
   // Browsers block AudioContext until a user gesture, so start on first click.
   useEffect(() => {
+    let cancelled = false;
     const startAudio = () => {
-      feedbackRef.current.audio.resume().then(() => {
-        feedbackRef.current.audio.setVolumes(loadSettings().audio);
-        feedbackRef.current.music.start();
-      });
-      window.removeEventListener("pointerdown", startAudio);
+      feedbackRef.current.audio
+        .resume()
+        .then(() => {
+          if (cancelled) return;
+          feedbackRef.current.audio.setVolumes(loadSettings().audio);
+          feedbackRef.current.music.start();
+          // Only remove the listener once resume actually succeeds, so a
+          // rejected resume() (e.g. blocked by browser policy) can retry on
+          // the next gesture instead of being silently stuck forever.
+          window.removeEventListener("pointerdown", startAudio);
+        })
+        .catch((err) => {
+          console.error("Failed to resume AudioContext on user gesture; will retry on next interaction.", err);
+        });
     };
     window.addEventListener("pointerdown", startAudio);
-    return () => window.removeEventListener("pointerdown", startAudio);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("pointerdown", startAudio);
+    };
   }, []);
 
   const [gameState, setGameState] = useState("lobby"); // lobby, inGame, upgrade
@@ -717,7 +730,9 @@ export const GameProvider = ({ children }) => {
       // Result can be 'win' or 'loss'
       if (gameEngineRef.current) {
         gameEngineRef.current.stopLoop(); // Ensure engine loop stops
-        gameEngineRef.current.resetGame(); // Reset engine's internal state
+        // false: this is end-of-level cleanup, not a new level starting, so
+        // don't let the wave-1 horn stack on top of the win/loss sting.
+        gameEngineRef.current.resetGame(false); // Reset engine's internal state
       }
 
       if (result === "quit") {

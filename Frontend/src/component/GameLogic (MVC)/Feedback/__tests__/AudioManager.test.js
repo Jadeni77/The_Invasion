@@ -126,6 +126,56 @@ describe('AudioManager', () => {
   });
 });
 
+describe('AudioManager when the AudioContext cannot be constructed', () => {
+  // Simulates Tor Browser, dom.webaudio.enabled=false, fingerprint-blocking
+  // extensions, or any other environment where `new AudioContext()` throws.
+  // init() must never throw, and every other method must degrade to a
+  // silent no-op instead of crashing the caller (GameProvider's render body).
+  function createThrowingAudioManager() {
+    return new AudioManager(() => {
+      throw new Error('AudioContext construction blocked');
+    });
+  }
+
+  it('init() does not throw and leaves ctx null', () => {
+    const audio = createThrowingAudioManager();
+    expect(() => audio.init()).not.toThrow();
+    expect(audio.ctx).toBeNull();
+  });
+
+  it('setVolumes() does not throw with no context', () => {
+    const audio = createThrowingAudioManager();
+    expect(() => audio.setVolumes({ masterVolume: 50, musicVolume: 50, soundEffects: 50 })).not.toThrow();
+  });
+
+  it('resume() does not throw and still returns a Promise', () => {
+    const audio = createThrowingAudioManager();
+    let result;
+    expect(() => { result = audio.resume(); }).not.toThrow();
+    expect(result).toBeInstanceOf(Promise);
+  });
+
+  it('playSfx() does not throw with no context', () => {
+    const audio = createThrowingAudioManager();
+    expect(() => audio.playSfx('enemyHit')).not.toThrow();
+  });
+
+  it('musicBus getter does not throw and returns null', () => {
+    const audio = createThrowingAudioManager();
+    expect(() => audio.musicBus).not.toThrow();
+    expect(audio.musicBus).toBeNull();
+  });
+
+  it('all of the above still hold true after calling init() explicitly first', () => {
+    const audio = createThrowingAudioManager();
+    audio.init();
+    expect(() => audio.setVolumes({ masterVolume: 50, musicVolume: 50, soundEffects: 50 })).not.toThrow();
+    expect(() => audio.resume()).not.toThrow();
+    expect(() => audio.playSfx('enemyHit')).not.toThrow();
+    expect(audio.musicBus).toBeNull();
+  });
+});
+
 describe('volumeToGain', () => {
   it('converts valid 0–100 slider values to squared gain', () => {
     expect(volumeToGain(0)).toBe(0);
