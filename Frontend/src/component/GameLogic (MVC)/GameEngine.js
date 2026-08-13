@@ -47,6 +47,7 @@ import { AnimationManager } from "./Animation/AnimationManager.js";
 import { AnimationSources } from "./Animation/AnimationSources.js";
 import { AssetManifest } from "../../assets/AssetManifest.js";
 import { GameLevelConfigs } from "./GameEngineBreakDown/GameLevelConfigs.js";
+import { GameClock } from "./Feedback/GameClock.js";
 
 export class GameEngine {
   constructor(
@@ -104,6 +105,8 @@ export class GameEngine {
 
     this.waveManager = null;
     this.gridManager = null;
+    this.gameClock = new GameClock();
+    this.lastFrameTime = null;
     this.dropManager = new DropManager(this);
     this.combatManager = new CombatManager(this);
     this.drawExplosionEffect = new DrawExplosionEffect(this);
@@ -397,6 +400,8 @@ export class GameEngine {
     this.defendersLost = 0;
     this.baseDamageTaken = 0;
     this.levelStartTime = Date.now();
+    this.gameClock.reset();
+    this.lastFrameTime = null;
 
     if (this.waveManager) {
       this.waveManager.reset();
@@ -685,8 +690,18 @@ export class GameEngine {
 
   /** Main update loop for the game state. */
   update() {
-    if (this.gameOver || this.isPaused) return;
-    const now = Date.now();
+    if (this.gameOver || this.isPaused) {
+      // Drop the frame reference so the pause does not count as one huge frame.
+      this.lastFrameTime = null;
+      return;
+    }
+
+    const realNow = performance.now();
+    const deltaMs = this.lastFrameTime === null ? 0 : realNow - this.lastFrameTime;
+    this.lastFrameTime = realNow;
+
+    this.gameClock.advance(deltaMs);
+    const now = this.gameClock.now;
 
     this.waveManager.update(now, this.enemies.length, this.gameOver);
 

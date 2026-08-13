@@ -1,0 +1,32 @@
+/**
+ * Monotonic gameplay clock, advanced only while the game is actually running.
+ *
+ * Wave timing must not use Date.now(): update() is skipped while paused and
+ * during hit-stop, so wall-clock time would keep running and produce a burst
+ * of waves on resume.
+ */
+const MAX_DELTA_MS = 1000;
+
+export class GameClock {
+  constructor() {
+    this.elapsedMs = 0;
+  }
+
+  get now() {
+    return this.elapsedMs;
+  }
+
+  /**
+   * Advances by one frame's real elapsed time. Negative deltas are ignored and
+   * large ones clamped, so a backgrounded tab resumes smoothly instead of
+   * fast-forwarding the match.
+   */
+  advance(realDeltaMs) {
+    if (!Number.isFinite(realDeltaMs) || realDeltaMs <= 0) return;
+    this.elapsedMs += Math.min(realDeltaMs, MAX_DELTA_MS);
+  }
+
+  reset() {
+    this.elapsedMs = 0;
+  }
+}

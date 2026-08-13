@@ -32,7 +32,7 @@ export class WaveManager {
         this.currentBoss = null;
 
         this.waveInterval = 15000;
-        this.lastWaveStartTime = Date.now();
+        this.lastWaveStartTime = 0;
         this.autoStartNextWave = true; // Enable continuous spawning
 
         this.waveFullySpawned = false;
