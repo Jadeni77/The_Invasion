@@ -80,3 +80,79 @@ describe('spell damage immunity', () => {
     expect(died).toBe(true);
   });
 });
+
+describe('healer resurrection targeting', () => {
+  /**
+   * A level-5 healer with resurrection unlocked, primed to act on the very next
+   * update().
+   *
+   * The healing and resurrection logic sits behind `this.healingCountdown--;
+   * if (this.healingCountdown <= 0)`, and a healer starts at healingCountdown =
+   * 120. Without priming it to 1, a single update() call decrements to 119 and
+   * never reaches the resurrection block at all - so every "does not resurrect"
+   * assertion would pass vacuously, proving nothing.
+   */
+  function createResurrectingHealer() {
+    const healer = new HealerDefender(0, 0, { level: 5, image: null });
+    healer.applySpecialAbilities();
+    healer.gameEngine = { recentlyDiedDefenders: [], explosions: [] };
+    healer.healingCountdown = 1;
+    return healer;
+  }
+
+  /** Puts a unit in the state the resurrection filter looks for. */
+  function kill(unit) {
+    unit.isAlive = false;
+    unit.health = 0;
+    return unit;
+  }
+
+  it('has resurrection unlocked at level 5', () => {
+    const healer = createResurrectingHealer();
+    expect(healer.hasResurrection).toBe(true);
+    expect(healer.canResurrect).toBe(true);
+  });
+
+  it('does not resurrect a spent Fire Blast', () => {
+    const healer = createResurrectingHealer();
+    const spell = kill(new FireBlast(50, 50, CARD));
+
+    healer.update([], [healer, spell]);
+
+    expect(spell.health).toBe(0);
+    expect(spell.isAlive).toBe(false);
+    expect(spell.hasBeenResurrected).toBeFalsy();
+    expect(healer.canResurrect).toBe(true); // charge not spent on a spell
+  });
+
+  it('does not resurrect a spent Ice Bomb', () => {
+    const healer = createResurrectingHealer();
+    const spell = kill(new IceBomb(50, 50, CARD));
+
+    healer.update([], [healer, spell]);
+
+    expect(spell.health).toBe(0);
+    expect(spell.hasBeenResurrected).toBeFalsy();
+  });
+
+  it('still resurrects an ordinary dead defender', () => {
+    const healer = createResurrectingHealer();
+    const defender = kill(new BasicDefender(50, 50, CARD));
+
+    healer.update([], [healer, defender]);
+
+    expect(defender.health).toBeGreaterThan(0);
+    expect(defender.hasBeenResurrected).toBe(true);
+  });
+
+  it('picks the ordinary defender when a spell is also dead', () => {
+    const healer = createResurrectingHealer();
+    const spell = kill(new FireBlast(50, 50, CARD));
+    const defender = kill(new BasicDefender(60, 60, CARD));
+
+    healer.update([], [healer, spell, defender]);
+
+    expect(defender.health).toBeGreaterThan(0);
+    expect(spell.health).toBe(0);
+  });
+});

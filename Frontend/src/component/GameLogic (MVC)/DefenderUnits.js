@@ -560,7 +560,13 @@ export class HealerDefender extends DefenderUnit {
           ];
         }
         const deadUnits = allDefender.filter(
-          (unit) => !unit.isAlive && unit.id !== this.id && unit.health <= 0,
+          (unit) =>
+            !unit.isAlive &&
+            unit.id !== this.id &&
+            unit.health <= 0 &&
+            // A spent spell is not a casualty - it fired. Reviving one would
+            // hand out unlimited free casts.
+            !isConsumableSpell(unit),
         );
         console.log(`Found ${deadUnits.length} dead units`);
         if (deadUnits.length > 0) {
