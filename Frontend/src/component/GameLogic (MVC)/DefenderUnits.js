@@ -2209,6 +2209,7 @@ export class FrostArcher extends DefenderUnit {
       onHit: () => this.onProjectileHit(target),
     };
     this.gameEngine.projectiles.push(projectile);
+    this.gameEngine.emitFeedback('projectile:fired', { defenderType: this.constructor.name });
     this.lastAttackTime = currentTime;
   }
 

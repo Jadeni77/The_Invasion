@@ -29,6 +29,7 @@ const GameBoard = () => {
     addCollectedPieces,
     collectedCardPieces,
     currentEndlessWave,
+    feedback,
   } = useGame();
 
   const gameEngineRef = useRef(null);
@@ -159,6 +160,8 @@ const GameBoard = () => {
         };
 
         gameEngineRef.current = engine;
+        gameEngineRef.current.feedbackBus = feedback.bus;
+        gameEngineRef.current.juiceManager = feedback.juice;
         setGameEngine(engine);
 
         // Pass selected cards to the engine
@@ -209,6 +212,7 @@ const GameBoard = () => {
     setGameEngine,
     selectedCardsForGame,
     addCollectedPieces,
+    feedback,
   ]);
 
   const handleCardSelection = (card) => {

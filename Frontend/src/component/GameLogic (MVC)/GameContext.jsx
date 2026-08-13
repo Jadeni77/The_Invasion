@@ -11,6 +11,12 @@ import React, {
 import { chestsData } from "../GameRendering/MapLayout.jsx";
 import { SessionManager } from "./SessionManager.js";
 import LoginPage from "../login/LoginPage.jsx";
+import { FeedbackBus } from "./Feedback/FeedbackBus.js";
+import { AudioManager } from "./Feedback/AudioManager.js";
+import { JuiceManager } from "./Feedback/JuiceManager.js";
+import { MusicPlayer } from "./Feedback/MusicPlayer.js";
+import { FeedbackManager } from "./Feedback/FeedbackManager.js";
+import { loadSettings, subscribe } from "./Feedback/SettingsStore.js";
 
 export const GameContext = createContext();
 
@@ -20,6 +26,36 @@ export const useGame = () => {
 
 export const GameProvider = ({ children }) => {
   const gameEngineRef = useRef(null); // Ref to hold the GameEngine instance
+
+  const feedbackRef = useRef(null);
+  if (feedbackRef.current === null) {
+    const bus = new FeedbackBus();
+    const audio = new AudioManager();
+    const juice = new JuiceManager();
+    const music = new MusicPlayer(audio);
+    const manager = new FeedbackManager(bus, audio, juice);
+    manager.attach();
+    manager.applySettings(loadSettings());
+    feedbackRef.current = { bus, audio, juice, music, manager };
+  }
+
+  // Keep audio and juice in step with the settings panel.
+  useEffect(() => subscribe((settings) => {
+    feedbackRef.current.manager.applySettings(settings);
+  }), []);
+
+  // Browsers block AudioContext until a user gesture, so start on first click.
+  useEffect(() => {
+    const startAudio = () => {
+      feedbackRef.current.audio.resume().then(() => {
+        feedbackRef.current.audio.setVolumes(loadSettings().audio);
+        feedbackRef.current.music.start();
+      });
+      window.removeEventListener("pointerdown", startAudio);
+    };
+    window.addEventListener("pointerdown", startAudio);
+    return () => window.removeEventListener("pointerdown", startAudio);
+  }, []);
 
   const [gameState, setGameState] = useState("lobby"); // lobby, inGame, upgrade
   const [selectedLevel, setSelectedLevel] = useState(null); // The level selected to play
@@ -971,6 +1007,7 @@ export const GameProvider = ({ children }) => {
     setUnlockedDefender,
     handleLogout,
     fetchPlayerData,
+    feedback: feedbackRef.current,
   };
 
   if (!isAuthenticated) {

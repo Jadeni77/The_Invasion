@@ -106,6 +106,7 @@ export class GameEngine {
     this.waveManager = null;
     this.gridManager = null;
     this.gameClock = new GameClock();
+    this.feedbackBus = null; // injected by GameContext; null in tests
     this.lastFrameTime = null;
     this.dropManager = new DropManager(this);
     this.combatManager = new CombatManager(this);
@@ -184,6 +185,7 @@ export class GameEngine {
         drop.startCollectionAnimation(110, 20); //where the bar locate;
         this.inGameEnergy = Math.min(9999, this.inGameEnergy + drop.amount);
         this.energyCollected++;
+        this.emitFeedback('energy:collected', { amount: drop.amount });
         this.updateEnergyCb(this.inGameEnergy);
         return true; //energy is collected
       }
@@ -238,6 +240,7 @@ export class GameEngine {
     if (this.drawUIs && this.drawUIs.showWaveAnnouncement(waveNumber, isBoss)) {
       this.drawUIs.showWaveAnnouncement(waveNumber, isBoss);
     }
+    this.emitFeedback('wave:started', { number: waveNumber, isBoss });
   }
 
   /**
@@ -474,6 +477,7 @@ export class GameEngine {
       )
     ) {
       console.log("Invalid deployment position");
+      this.emitFeedback('deploy:rejected', { reason: 'invalidPosition' });
       return false;
     }
 
@@ -500,6 +504,7 @@ export class GameEngine {
 
     this.defenders.push(newUnit);
     this.defendersDeployed++;
+    this.emitFeedback('defender:placed', { type: newUnit.constructor.name });
     this.inGameEnergy -= newUnit.cost;
     this.updateEnergyCb(this.inGameEnergy);
 
@@ -647,6 +652,9 @@ export class GameEngine {
             //only change game score when game still playing
             this.inGameScore += enemy.bounty;
             this.enemiesKilled++;
+            this.emitFeedback('enemy:died', {
+              isBoss: Boolean(enemy.isBoss), x: enemy.x, y: enemy.y,
+            });
             this.updateScoreCb(this.inGameScore);
           }
           this.dropManager.handleEnemyDeath(enemy);
@@ -688,6 +696,11 @@ export class GameEngine {
     }
   }
 
+  /** Emits a feedback event if a bus is attached. Safe when it is not. */
+  emitFeedback(event, payload) {
+    this.feedbackBus?.emit(event, payload);
+  }
+
   /** Main update loop for the game state. */
   update() {
     if (this.gameOver || this.isPaused) {
@@ -701,6 +714,9 @@ export class GameEngine {
     this.lastFrameTime = realNow;
 
     this.gameClock.advance(deltaMs);
+    this.juiceManager?.update(deltaMs);
+    // Hit-stop freezes gameplay for a few frames while drawing continues.
+    if (this.juiceManager?.isFrozen()) return;
     const now = this.gameClock.now;
 
     this.waveManager.update(now, this.enemies.length, this.gameOver);
@@ -763,6 +779,7 @@ export class GameEngine {
         if (!defender.deathHandled) {
           defender.deathHandled = true;
           this.defendersLost++;
+          this.emitFeedback('defender:died', { x: defender.x, y: defender.y });
         }
         // Still update animation for dead units
         if (defender.currentAnimation !== "death") {
@@ -917,6 +934,7 @@ export class GameEngine {
         if (!this.gameOver) {
           const damage = 10;
           this.baseDamageTaken += damage;
+          this.emitFeedback('base:damaged', { damage });
           this.baseHealth = Math.max(0, this.baseHealth - damage);
 
           if (this.updateBaseHealthCb) {
@@ -995,6 +1013,11 @@ export class GameEngine {
             projectile.damage,
             projectile.ignoreArmor,
           );
+          this.emitFeedback('enemy:hit', {
+            damage: projectile.damage,
+            x: projectile.target.x + projectile.target.width / 2,
+            y: projectile.target.y,
+          });
           if (died && !this.gameOver) {
             if (!projectile.target.isSpawned) {
               this.inGameScore += projectile.target.bounty;
@@ -1225,6 +1248,7 @@ export class GameEngine {
 
       if (this.currentLevelConfig.levelNumber === 999) {
         if (this.onLoseCb) {
+          this.emitFeedback('level:lost', {});
           this.onLoseCb({
             score: this.inGameScore,
             level: 999,
@@ -1239,6 +1263,7 @@ export class GameEngine {
         if (this.onLoseCb) {
           console.log("Calling onLoseCb now");
 
+          this.emitFeedback('level:lost', {});
           this.onLoseCb({
             score: this.inGameScore,
             level: this.currentLevelConfig.levelNumber,
@@ -1261,6 +1286,7 @@ export class GameEngine {
     this.stopLoop(); // Stop the game loop
 
     if (this.onWinCb) {
+      this.emitFeedback('level:won', {});
       this.onWinCb({
         score: this.inGameScore,
         level: this.currentLevelConfig.levelNumber,
@@ -1278,10 +1304,15 @@ export class GameEngine {
   draw(ctx) {
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight); // Clear canvas
+    ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
 
     this.drawUIs.drawBackground(ctx);
-    this.drawUIs.drawUI(ctx);
+
+    // World layer: shake applies here only, never to the HUD.
+    const shake = this.juiceManager?.getShakeOffset() ?? { x: 0, y: 0 };
+    ctx.save();
+    ctx.translate(shake.x, shake.y);
+
     this.gridManager.drawGrid(ctx);
     this.drawEntities.drawDefenders(ctx);
     this.drawEntities.drawEnemies(ctx);
@@ -1290,6 +1321,13 @@ export class GameEngine {
     this.drawEntities.drawEnergyDrops(ctx);
     this.drawEntities.drawCardPieceDrops(ctx);
     this.drawExplosionEffect.drawExplosions(ctx);
+
+    ctx.restore();
+
+    // HUD layer: unaffected by shake.
+    this.drawUIs.drawUI(ctx);
+    this.drawUIs.drawDamageNumbers(ctx, this.juiceManager?.damageNumbers ?? []);
+    this.drawUIs.drawFlash(ctx, this.juiceManager?.getFlash() ?? null);
   }
 
   /** The main game animation loop. */
