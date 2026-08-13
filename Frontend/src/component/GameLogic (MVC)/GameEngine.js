@@ -13,6 +13,7 @@ import {
   FireBlast,
   IceBomb,
   DefenderUnit,
+  isConsumableSpell,
 } from "./DefenderUnits.js";
 import {
   BasicEnemy,
@@ -793,6 +794,25 @@ export class GameEngine {
     }
   }
 
+  /**
+   * Records a defender's death exactly once.
+   *
+   * Consumable spells end by firing, not by being destroyed, so they are not
+   * casualties: counting them made the perfect_defense achievement (zero
+   * defenders lost) unobtainable for anyone who cast one, and played a crumble
+   * death sound on a successful cast. They are still marked handled so the
+   * death sweep does not reprocess them every frame.
+   */
+  markDefenderDead(defender) {
+    if (defender.deathHandled) return;
+    defender.deathHandled = true;
+
+    if (isConsumableSpell(defender)) return;
+
+    this.defendersLost++;
+    this.emitFeedback('defender:died', { x: defender.x, y: defender.y });
+  }
+
   updateDefenders(now) {
     if (this.gameOver) return;
 
@@ -808,11 +828,7 @@ export class GameEngine {
         defender.update(this.enemies, this.defenders);
       } else {
         // Dead defenders only update their animation
-        if (!defender.deathHandled) {
-          defender.deathHandled = true;
-          this.defendersLost++;
-          this.emitFeedback('defender:died', { x: defender.x, y: defender.y });
-        }
+        this.markDefenderDead(defender);
         // Still update animation for dead units
         if (defender.currentAnimation !== "death") {
           defender.setAnimation("death");

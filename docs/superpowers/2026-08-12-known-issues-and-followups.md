@@ -96,6 +96,17 @@ Scoping it to `.game-top-bar .score-value` is the obvious fix, but note that a l
 (`.score-value, .gold-value`) already overrides font-size and colour — so naive scoping would change
 how the top bar looks. Wants a design eye rather than a mechanical edit.
 
+### 9. Spells are modelled as defenders
+
+`FireBlast` and `IceBomb` are `DefenderUnit` subclasses distinguished only by an `isSpell` flag, so
+every rule written for defenders applies to them unless individually guarded. Four such guards exist
+today, all consulting `isConsumableSpell(unit)`: the base `takeDamage`, the Healer's resurrection
+filter, `CombatManager.findTargetForEnemy`, and `GameEngine.markDefenderDead`.
+
+Three bugs came from this before the guards were added — a resurrection exploit, destructible spells,
+and casts counting as casualties. If a third spell type is ever added, move spells into their own
+entity collection instead of adding a fifth guard.
+
 ## Not a defect: known verification limits
 
 - **jsdom has no layout engine** (`offsetWidth` is always `0`), so no automated test can prove the
