@@ -652,9 +652,7 @@ export class GameEngine {
             //only change game score when game still playing
             this.inGameScore += enemy.bounty;
             this.enemiesKilled++;
-            this.emitFeedback('enemy:died', {
-              isBoss: Boolean(enemy.isBoss), x: enemy.x, y: enemy.y,
-            });
+            this.emitEnemyDeathFeedback(enemy);
             this.updateScoreCb(this.inGameScore);
           }
           this.dropManager.handleEnemyDeath(enemy);
@@ -699,6 +697,19 @@ export class GameEngine {
   /** Emits a feedback event if a bus is attached. Safe when it is not. */
   emitFeedback(event, payload) {
     this.feedbackBus?.emit(event, payload);
+  }
+
+  /**
+   * Emits enemy:died at most once per enemy. Splash damage and the
+   * updateEnemies death sweep can both observe the same death within a
+   * single frame, which would double the sound and the screen shake.
+   */
+  emitEnemyDeathFeedback(enemy) {
+    if (!enemy || enemy.deathFeedbackEmitted) return;
+    enemy.deathFeedbackEmitted = true;
+    this.emitFeedback('enemy:died', {
+      isBoss: Boolean(enemy.isBoss), x: enemy.x, y: enemy.y,
+    });
   }
 
   /** Main update loop for the game state. */
@@ -958,9 +969,7 @@ export class GameEngine {
       if (!enemy.isSpawned && !enemy.shouldExplode) {
         this.inGameScore += enemy.bounty;
         this.enemiesKilled++;
-        this.emitFeedback('enemy:died', {
-          isBoss: Boolean(enemy.isBoss), x: enemy.x, y: enemy.y,
-        });
+        this.emitEnemyDeathFeedback(enemy);
         this.updateScoreCb(this.inGameScore);
         this.dropManager.handleEnemyDeath(enemy);
         this.waveManager.totalEnemiesKilled++;
@@ -1025,11 +1034,7 @@ export class GameEngine {
             if (!projectile.target.isSpawned) {
               this.inGameScore += projectile.target.bounty;
               this.enemiesKilled++;
-              this.emitFeedback('enemy:died', {
-                isBoss: Boolean(projectile.target.isBoss),
-                x: projectile.target.x,
-                y: projectile.target.y,
-              });
+              this.emitEnemyDeathFeedback(projectile.target);
               this.updateScoreCb(this.inGameScore);
             }
             this.dropManager.handleEnemyDeath(projectile.target);
