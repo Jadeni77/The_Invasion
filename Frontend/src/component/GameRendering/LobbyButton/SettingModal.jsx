@@ -198,13 +198,13 @@ const SettingModal = () => {
                         </div>
 
                         <div className="setting-item">
-                            <label>Confirm Deployment</label>
+                            <label>Confirm Deployment (Coming Soon)</label>
                             <button
                                 aria-label="Confirm Deployment toggle"
-                                className={`toggle-button ${settings.gameplay.confirmDeployment ? 'active' : ''}`}
-                                onClick={() => handleGameplayChange('confirmDeployment')}
+                                className="toggle-button disabled"
+                                disabled
                             >
-                                {settings.gameplay.confirmDeployment ? '✓ Enabled' : 'Disabled'}
+                                Disabled
                             </button>
                         </div>
                     </div>

@@ -37,4 +37,9 @@ describe('SettingModal', () => {
     render(<SettingModal />);
     expect(screen.getByRole('button', { name: /Tutorial Hints toggle/i })).toBeDisabled();
   });
+
+  it('disables the confirm deployment control, which has nothing to control', () => {
+    render(<SettingModal />);
+    expect(screen.getByRole('button', { name: /Confirm Deployment toggle/i })).toBeDisabled();
+  });
 });
