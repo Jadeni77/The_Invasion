@@ -958,6 +958,9 @@ export class GameEngine {
       if (!enemy.isSpawned && !enemy.shouldExplode) {
         this.inGameScore += enemy.bounty;
         this.enemiesKilled++;
+        this.emitFeedback('enemy:died', {
+          isBoss: Boolean(enemy.isBoss), x: enemy.x, y: enemy.y,
+        });
         this.updateScoreCb(this.inGameScore);
         this.dropManager.handleEnemyDeath(enemy);
         this.waveManager.totalEnemiesKilled++;
@@ -1022,6 +1025,11 @@ export class GameEngine {
             if (!projectile.target.isSpawned) {
               this.inGameScore += projectile.target.bounty;
               this.enemiesKilled++;
+              this.emitFeedback('enemy:died', {
+                isBoss: Boolean(projectile.target.isBoss),
+                x: projectile.target.x,
+                y: projectile.target.y,
+              });
               this.updateScoreCb(this.inGameScore);
             }
             this.dropManager.handleEnemyDeath(projectile.target);

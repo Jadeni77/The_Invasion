@@ -35,6 +35,9 @@ export class CombatManager {
                                                                  onHit: () => {
                                                                      defender.attack(target, now);
                                                                  }});
+                            this.gameEngine.emitFeedback?.('projectile:fired', {
+                                defenderType: defender.constructor.name,
+                            });
                             defender.lastAttackTime = now;
                         } else {
                             defender.attack(target, now);
