@@ -82,6 +82,28 @@ describe('JuiceManager', () => {
       expect(juice.damageNumbers[0].alpha).toBeLessThan(1);
     });
 
+    it('is frame-rate independent (single update vs many small updates)', () => {
+      // Ensure the implementation computes position from originY and ageMs,
+      // not by decrementing y each frame (which would accelerate drift on higher framerates)
+      const juice1 = new JuiceManager();
+      const juice2 = new JuiceManager();
+
+      juice1.addDamageNumber(10, 100, 5);
+      juice2.addDamageNumber(10, 100, 5);
+
+      // Advance juice1 with a single 300ms update
+      juice1.update(300);
+
+      // Advance juice2 with many small 10ms updates totaling 300ms
+      for (let i = 0; i < 30; i++) {
+        juice2.update(10);
+      }
+
+      // Both should be at identical y and alpha
+      expect(juice1.damageNumbers[0].y).toBe(juice2.damageNumbers[0].y);
+      expect(juice1.damageNumbers[0].alpha).toBe(juice2.damageNumbers[0].alpha);
+    });
+
     it('expires them', () => {
       juice.addDamageNumber(10, 20, 5);
       juice.update(2000);
