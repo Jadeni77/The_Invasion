@@ -1,31 +1,14 @@
 // src/component/GameRendering/SettingsModal.jsx
 import React, { useState } from 'react';
 import { useGame } from '../../GameLogic (MVC)/GameContext.jsx';
+import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../GameLogic (MVC)/Feedback/SettingsStore.js';
 import '../../../style/SettingModal.css';
 
 const SettingModal = () => {
     const { closeSettings } = useGame();
 
-    // Mock settings state - will be saved to localStorage/backend later
-    const [settings, setSettings] = useState({
-                                                 audio: {
-                                                     musicVolume: 50,
-                                                     soundEffects: 70,
-                                                     masterVolume: 80
-                                                 },
-                                                 display: {
-                                                     graphicsQuality: 'medium',
-                                                     showDamageNumbers: true,
-                                                     showHealthBars: true,
-                                                     screenShake: true
-                                                 },
-                                                 gameplay: {
-                                                     autoCollectEnergy: false,
-                                                     autoDeployDefenders: false,
-                                                     showTutorialHints: true,
-                                                     confirmDeployment: false
-                                                 }
-                                             });
+    // Seed from persisted settings, not hardcoded values.
+    const [settings, setSettings] = useState(() => loadSettings());
 
     const handleVolumeChange = (category, value) => {
         setSettings(prev => ({
@@ -58,33 +41,12 @@ const SettingModal = () => {
     };
 
     const handleApply = () => {
-        // Save settings to localStorage for now
-        localStorage.setItem('gameSettings', JSON.stringify(settings));
-        console.log('Settings saved:', settings);
+        saveSettings(settings);
         closeSettings();
     };
 
     const handleReset = () => {
-        const defaultSettings = {
-            audio: {
-                musicVolume: 50,
-                soundEffects: 70,
-                masterVolume: 80
-            },
-            display: {
-                graphicsQuality: 'medium',
-                showDamageNumbers: true,
-                showHealthBars: true,
-                screenShake: true
-            },
-            gameplay: {
-                autoCollectEnergy: false,
-                autoDeployDefenders: false,
-                showTutorialHints: true,
-                confirmDeployment: false
-            }
-        };
-        setSettings(defaultSettings);
+        setSettings(DEFAULT_SETTINGS);
     };
 
     return (
@@ -168,6 +130,7 @@ const SettingModal = () => {
                         <div className="setting-item">
                             <label>Show Damage Numbers</label>
                             <button
+                                aria-label="Damage Numbers toggle"
                                 className={`toggle-button ${settings.display.showDamageNumbers ? 'active' : ''}`}
                                 onClick={() => handleDisplayChange('showDamageNumbers', !settings.display.showDamageNumbers)}
                             >
@@ -178,6 +141,7 @@ const SettingModal = () => {
                         <div className="setting-item">
                             <label>Show Health Bars</label>
                             <button
+                                aria-label="Health Bars toggle"
                                 className={`toggle-button ${settings.display.showHealthBars ? 'active' : ''}`}
                                 onClick={() => handleDisplayChange('showHealthBars', !settings.display.showHealthBars)}
                             >
@@ -188,6 +152,7 @@ const SettingModal = () => {
                         <div className="setting-item">
                             <label>Screen Shake</label>
                             <button
+                                aria-label="Screen Shake toggle"
                                 className={`toggle-button ${settings.display.screenShake ? 'active' : ''}`}
                                 onClick={() => handleDisplayChange('screenShake', !settings.display.screenShake)}
                             >
@@ -203,6 +168,7 @@ const SettingModal = () => {
                         <div className="setting-item">
                             <label>Auto-collect Energy</label>
                             <button
+                                aria-label="Auto-collect Energy toggle"
                                 className={`toggle-button ${settings.gameplay.autoCollectEnergy ? 'active' : ''}`}
                                 onClick={() => handleGameplayChange('autoCollectEnergy')}
                             >
@@ -221,18 +187,20 @@ const SettingModal = () => {
                         </div>
 
                         <div className="setting-item">
-                            <label>Show Tutorial Hints</label>
+                            <label>Show Tutorial Hints (Coming Soon)</label>
                             <button
-                                className={`toggle-button ${settings.gameplay.showTutorialHints ? 'active' : ''}`}
-                                onClick={() => handleGameplayChange('showTutorialHints')}
+                                aria-label="Tutorial Hints toggle"
+                                className="toggle-button disabled"
+                                disabled
                             >
-                                {settings.gameplay.showTutorialHints ? '✓ Enabled' : 'Disabled'}
+                                Disabled
                             </button>
                         </div>
 
                         <div className="setting-item">
                             <label>Confirm Deployment</label>
                             <button
+                                aria-label="Confirm Deployment toggle"
                                 className={`toggle-button ${settings.gameplay.confirmDeployment ? 'active' : ''}`}
                                 onClick={() => handleGameplayChange('confirmDeployment')}
                             >

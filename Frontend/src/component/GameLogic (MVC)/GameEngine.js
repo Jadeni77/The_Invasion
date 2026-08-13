@@ -48,6 +48,7 @@ import { AnimationSources } from "./Animation/AnimationSources.js";
 import { AssetManifest } from "../../assets/AssetManifest.js";
 import { GameLevelConfigs } from "./GameEngineBreakDown/GameLevelConfigs.js";
 import { GameClock } from "./Feedback/GameClock.js";
+import { getSettings } from "./Feedback/SettingsStore.js";
 
 export class GameEngine {
   constructor(
@@ -758,7 +759,16 @@ export class GameEngine {
 
   updateEnergyDrops() {
     for (let i = this.energyDrops.length - 1; i >= 0; i--) {
-      if (!this.energyDrops[i].update()) {
+      const drop = this.energyDrops[i];
+      // Auto-collect pulls orbs in without a click when the setting is on.
+      if (getSettings().gameplay.autoCollectEnergy && !drop.collectAnimation) {
+        drop.startCollectionAnimation(110, 20);
+        this.inGameEnergy = Math.min(9999, this.inGameEnergy + drop.amount);
+        this.energyCollected++;
+        this.updateEnergyCb(this.inGameEnergy);
+        this.emitFeedback('energy:collected', { amount: drop.amount });
+      }
+      if (!drop.update()) {
         this.energyDrops.splice(i, 1);
       }
     }
