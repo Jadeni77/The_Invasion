@@ -1376,7 +1376,7 @@ export class Sniper extends DefenderUnit {
     const targetDied = target.takeDamage(damage, true); //always have armor piercing
     this.gameEngine?.emitFeedback?.('enemy:hit', {
       unitType: target.constructor.name,
-      damage: this.attackDamage,
+      damage,
       x: target.x + target.width / 2,
       y: target.y,
     });
@@ -2243,7 +2243,7 @@ export class FrostArcher extends DefenderUnit {
     const died = enemy.takeDamage(this.attackDamage + extraDamage, false);
     this.gameEngine?.emitFeedback?.('enemy:hit', {
       unitType: enemy.constructor.name,
-      damage: this.attackDamage,
+      damage: this.attackDamage + extraDamage,
       x: enemy.x + enemy.width / 2,
       y: enemy.y,
     });

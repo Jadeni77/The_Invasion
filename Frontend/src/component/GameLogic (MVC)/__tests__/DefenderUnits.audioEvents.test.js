@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Sniper, Mortar, GrenadeDefender, HealerDefender } from '../DefenderUnits.js';
+import { Sniper, Mortar, GrenadeDefender, HealerDefender, FrostArcher } from '../DefenderUnits.js';
 
 /**
  * Task 3 (per-unit audio, fix wave): before this change, only BasicDefender
@@ -151,5 +151,61 @@ describe('HealerDefender emits its own firing event on a successful heal', () =>
     };
 
     expect(() => healer.update([], [healer, ally])).not.toThrow();
+  });
+});
+
+/**
+ * Fix round 1: enemy:hit's `damage` field is not cosmetic - GameEngine feeds
+ * it straight into juice.addDamageNumber(x, y, damage), the floating number
+ * the player reads on screen. Sniper and FrostArcher both emitted
+ * this.attackDamage there, ignoring the actual damage applied a couple of
+ * lines above (crit multiplier for Sniper, PermaFrost bonus for FrostArcher).
+ * These tests force the bonus path deterministically - no reliance on a
+ * random crit roll - and assert the emitted damage matches what was really
+ * dealt, not the unit's base stat.
+ */
+describe('enemy:hit carries the real damage dealt, not the base stat', () => {
+  it('Sniper emits the post-crit damage when a critical hit occurs', () => {
+    const sniper = new Sniper(0, 0, CARD);
+    sniper.gameEngine = { emitFeedback: vi.fn(), enemies: [], gameOver: false };
+    const target = createTarget();
+
+    // Force the crit roll deterministically instead of relying on chance.
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+    try {
+      sniper.attack(target, 1000);
+    } finally {
+      randomSpy.mockRestore();
+    }
+
+    const expectedDamage = sniper.attackDamage * sniper.critMultiplier;
+    expect(expectedDamage).not.toBe(sniper.attackDamage); // sanity: crit actually changes the value
+    expect(sniper.gameEngine.emitFeedback).toHaveBeenCalledWith(
+      'enemy:hit',
+      expect.objectContaining({ damage: expectedDamage }),
+    );
+  });
+
+  it('FrostArcher emits attackDamage + PermaFrost bonus against an already-slowed target', () => {
+    const archer = new FrostArcher(0, 0, { level: 3, image: null });
+    archer.applySpecialAbilities(); // unlocks PermaFrost at level 3
+    expect(archer.hasPermaFrost).toBe(true);
+    archer.gameEngine = { emitFeedback: vi.fn(), explosions: [] };
+
+    const enemy = {
+      x: 100, y: 100, width: 40, height: 40, isAlive: true,
+      slowed: true, frozen: false,
+      takeDamage: vi.fn(() => false),
+    };
+
+    archer.onProjectileHit(enemy);
+
+    const extraDamage = archer.attackDamage * 0.5;
+    const expectedDamage = archer.attackDamage + extraDamage;
+    expect(expectedDamage).not.toBe(archer.attackDamage); // sanity: bonus actually changes the value
+    expect(archer.gameEngine.emitFeedback).toHaveBeenCalledWith(
+      'enemy:hit',
+      expect.objectContaining({ damage: expectedDamage }),
+    );
   });
 });
