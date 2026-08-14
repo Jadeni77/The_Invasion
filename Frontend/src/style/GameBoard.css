@@ -364,12 +364,26 @@
   background: rgba(0, 10, 30, 0.9);
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* A good run collects enough card pieces to make this taller than the
+     screen. Without overflow the extra content escapes the tinted background
+     entirely, leaving the return button stranded on the page background. And
+     plain `center` splits the overflow both ways, putting the top of the list
+     above the scroll origin where it cannot be reached at all.
+     `safe center` centres while the content fits and falls back to flex-start
+     once it does not; browsers without it degrade to today's centring. */
+  justify-content: safe center;
   align-items: center;
+  overflow-y: auto;
   z-index: 20;
   color: white;
   text-align: center;
   padding: 20px;
+}
+
+/* Flex children shrink to fit by default, which would squash the results
+   panel instead of letting the container scroll. */
+.game-over-screen > * {
+  flex-shrink: 0;
 }
 
 .game-over-screen h2 {
