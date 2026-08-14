@@ -23,9 +23,12 @@ describe('GameEngine.emitEnemyDeathFeedback', () => {
     engine.emitEnemyDeathFeedback(enemy);
     engine.emitEnemyDeathFeedback(enemy);
 
+    // Per-unit voices (Task 3): the payload now carries unitType, taken from
+    // enemy.constructor.name. These fixtures are plain object literals, so
+    // that name is 'Object' rather than a real unit class.
     expect(engine.feedbackBus.emit).toHaveBeenCalledTimes(1);
     expect(engine.feedbackBus.emit).toHaveBeenCalledWith('enemy:died', {
-      isBoss: false, x: 10, y: 20,
+      unitType: 'Object', isBoss: false, x: 10, y: 20,
     });
   });
 
@@ -38,12 +41,13 @@ describe('GameEngine.emitEnemyDeathFeedback', () => {
     engine.emitEnemyDeathFeedback(enemyA); // repeat: suppressed
     engine.emitEnemyDeathFeedback(enemyB); // different enemy: not suppressed
 
+    // Per-unit voices (Task 3): unitType is included in the payload (see comment above).
     expect(engine.feedbackBus.emit).toHaveBeenCalledTimes(2);
     expect(engine.feedbackBus.emit).toHaveBeenNthCalledWith(1, 'enemy:died', {
-      isBoss: false, x: 1, y: 2,
+      unitType: 'Object', isBoss: false, x: 1, y: 2,
     });
     expect(engine.feedbackBus.emit).toHaveBeenNthCalledWith(2, 'enemy:died', {
-      isBoss: true, x: 3, y: 4,
+      unitType: 'Object', isBoss: true, x: 3, y: 4,
     });
   });
 

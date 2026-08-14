@@ -721,6 +721,7 @@ export class GameEngine {
     if (!enemy || enemy.deathFeedbackEmitted) return;
     enemy.deathFeedbackEmitted = true;
     this.emitFeedback('enemy:died', {
+      unitType: enemy.constructor.name,
       isBoss: Boolean(enemy.isBoss), x: enemy.x, y: enemy.y,
     });
   }
@@ -810,7 +811,11 @@ export class GameEngine {
     if (isConsumableSpell(defender)) return;
 
     this.defendersLost++;
-    this.emitFeedback('defender:died', { x: defender.x, y: defender.y });
+    this.emitFeedback('defender:died', {
+      unitType: defender.constructor.name,
+      x: defender.x,
+      y: defender.y,
+    });
   }
 
   updateDefenders(now) {
@@ -1063,6 +1068,7 @@ export class GameEngine {
             projectile.ignoreArmor,
           );
           this.emitFeedback('enemy:hit', {
+            unitType: projectile.target.constructor.name,
             damage: projectile.damage,
             x: projectile.target.x + projectile.target.width / 2,
             y: projectile.target.y,
