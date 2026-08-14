@@ -684,11 +684,12 @@ export class GameEngine {
           y: enemy.y,
         });
         if (died && !this.gameOver) {
+          this.emitEnemyDeathFeedback(enemy);
+
           if (!enemy.isSpawned) {
             //only change game score when game still playing
             this.inGameScore += enemy.bounty;
             this.enemiesKilled++;
-            this.emitEnemyDeathFeedback(enemy);
             this.updateScoreCb(this.inGameScore);
           }
           this.dropManager.handleEnemyDeath(enemy);
@@ -1031,10 +1032,13 @@ export class GameEngine {
 
   handleEnemyDeath(enemy) {
     if (!this.gameOver) {
+      // Feedback is not score: a spawned mini or a self-destructing bomber
+      // awards nothing, but it is still a death the player should hear.
+      this.emitEnemyDeathFeedback(enemy);
+
       if (!enemy.isSpawned && !enemy.shouldExplode) {
         this.inGameScore += enemy.bounty;
         this.enemiesKilled++;
-        this.emitEnemyDeathFeedback(enemy);
         this.updateScoreCb(this.inGameScore);
         this.dropManager.handleEnemyDeath(enemy);
         this.waveManager.totalEnemiesKilled++;
@@ -1097,10 +1101,11 @@ export class GameEngine {
             y: projectile.target.y,
           });
           if (died && !this.gameOver) {
+            this.emitEnemyDeathFeedback(projectile.target);
+
             if (!projectile.target.isSpawned) {
               this.inGameScore += projectile.target.bounty;
               this.enemiesKilled++;
-              this.emitEnemyDeathFeedback(projectile.target);
               this.updateScoreCb(this.inGameScore);
             }
             this.dropManager.handleEnemyDeath(projectile.target);

@@ -44,14 +44,12 @@ will look like the drop did nothing.
 - [ ] `BasicEnemy.ogg`
 - [ ] `FastEnemy.ogg`
 - [ ] `TankEnemy.ogg`
-- [ ] `BombEnemy.ogg` — heard only on hit; it always explodes on death instead of
-      emitting `enemy:died`, so its death sound never plays
+- [ ] `BombEnemy.ogg`
 - [ ] `RangeEnemy.ogg`
 - [ ] `ShieldEnemy.ogg`
 - [ ] `HealerEnemy.ogg`
 - [ ] `SplitterEnemy.ogg`
-- [ ] `MiniEnemy.ogg` — heard only on hit; it's a spawned enemy, and spawned enemies
-      don't emit `enemy:died`, so its death sound never plays
+- [ ] `MiniEnemy.ogg`
 - [ ] `SwarmLeader.ogg`
 - [ ] `EMPEnemy.ogg`
 - [ ] `VampireEnemy.ogg`
