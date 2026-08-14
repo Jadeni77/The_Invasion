@@ -1,5 +1,6 @@
 import { resolveVoice } from './UnitVoices.js';
 import { SFX } from './SfxLibrary.js';
+import { SAMPLE_VARIANTS } from './UnitSamples.js';
 
 /**
  * Translates gameplay events into sound and juice.
@@ -17,17 +18,19 @@ export class FeedbackManager {
   }
 
   /**
-   * Plays a unit's own voice for one variant, keyed so repeats collapse.
-   *
-   * fallbackRecipe overrides the generic sound used when the unit is
-   * unrecognised - e.g. an unknown defender should fall back to
-   * SFX.defenderDied, not the enemy death squelch.
+   * Plays a unit's own sound, preferring a supplied sample over the synthesized
+   * voice. The decision is per unit, so samples can be adopted one at a time and
+   * every unit still makes a sound.
    */
   playUnitVoice(unitName, variant, fallbackRecipe) {
-    this.audio.playRecipe(
-      resolveVoice(unitName, variant, undefined, fallbackRecipe),
-      `${unitName}:${variant}`,
-    );
+    const key = `${unitName}:${variant}`;
+
+    if (this.audio.hasSample?.(unitName)) {
+      this.audio.playSample(unitName, SAMPLE_VARIANTS[variant] ?? SAMPLE_VARIANTS.fire, key);
+      return;
+    }
+
+    this.audio.playRecipe(resolveVoice(unitName, variant, undefined, fallbackRecipe), key);
   }
 
   attach() {

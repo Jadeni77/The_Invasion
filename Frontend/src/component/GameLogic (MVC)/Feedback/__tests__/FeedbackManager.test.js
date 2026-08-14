@@ -4,6 +4,7 @@ import { FeedbackManager } from '../FeedbackManager.js';
 import { DEFAULT_SETTINGS } from '../SettingsStore.js';
 import { resolveVoice, UNIT_VOICES } from '../UnitVoices.js';
 import { SFX } from '../SfxLibrary.js';
+import { SAMPLE_VARIANTS } from '../UnitSamples.js';
 
 describe('FeedbackManager', () => {
   let bus, audio, juice, manager;
@@ -242,5 +243,82 @@ describe('death fallback selection (defender vs enemy)', () => {
       SFX.enemyDied,
       'SomeUnknownEnemy:death',
     );
+  });
+});
+
+describe('sample-or-synth routing', () => {
+  let bus, audio, juice, manager;
+
+  beforeEach(() => {
+    bus = new FeedbackBus();
+    audio = {
+      playSfx: vi.fn(), playRecipe: vi.fn(), playSample: vi.fn(),
+      hasSample: vi.fn(() => false), setVolumes: vi.fn(),
+    };
+    juice = {
+      addTrauma: vi.fn(), triggerHitStop: vi.fn(),
+      addDamageNumber: vi.fn(), triggerFlash: vi.fn(), setEnabled: vi.fn(),
+    };
+    manager = new FeedbackManager(bus, audio, juice);
+    manager.attach();
+  });
+
+  it('falls back to the synthesized voice when no sample exists', () => {
+    audio.hasSample.mockReturnValue(false);
+
+    bus.emit('enemy:died', { unitType: 'TitanEnemy', isBoss: false, x: 1, y: 2 });
+
+    expect(audio.playRecipe).toHaveBeenCalled();
+    expect(audio.playSample).not.toHaveBeenCalled();
+  });
+
+  it('plays the sample when one exists', () => {
+    audio.hasSample.mockReturnValue(true);
+
+    bus.emit('enemy:died', { unitType: 'TitanEnemy', isBoss: false, x: 1, y: 2 });
+
+    expect(audio.playSample).toHaveBeenCalledWith(
+      'TitanEnemy', SAMPLE_VARIANTS.death, 'TitanEnemy:death',
+    );
+    expect(audio.playRecipe).not.toHaveBeenCalled();
+  });
+
+  it('decides per unit, not globally', () => {
+    audio.hasSample.mockImplementation((name) => name === 'Mortar');
+
+    bus.emit('projectile:fired', { defenderType: 'Mortar' });
+    bus.emit('projectile:fired', { defenderType: 'Sniper' });
+
+    expect(audio.playSample).toHaveBeenCalledWith('Mortar', SAMPLE_VARIANTS.fire, 'Mortar:fire');
+    expect(audio.playRecipe).toHaveBeenCalledOnce();
+  });
+
+  it('uses the hit transform for hits and still shows a damage number', () => {
+    audio.hasSample.mockReturnValue(true);
+
+    bus.emit('enemy:hit', { unitType: 'TankEnemy', damage: 12, x: 30, y: 40 });
+
+    expect(audio.playSample).toHaveBeenCalledWith(
+      'TankEnemy', SAMPLE_VARIANTS.hit, 'TankEnemy:hit',
+    );
+    expect(juice.addDamageNumber).toHaveBeenCalledWith(30, 40, 12);
+  });
+
+  it('keeps boss deaths weighty regardless of source', () => {
+    audio.hasSample.mockReturnValue(true);
+
+    bus.emit('enemy:died', { unitType: 'BossEnemy', isBoss: true, x: 1, y: 2 });
+
+    expect(juice.triggerHitStop).toHaveBeenCalled();
+    expect(juice.addTrauma).toHaveBeenCalledWith(0.6);
+  });
+
+  it('leaves deployment on the shared sound even with samples present', () => {
+    audio.hasSample.mockReturnValue(true);
+
+    bus.emit('defender:placed', { type: 'Mortar' });
+
+    expect(audio.playSfx).toHaveBeenCalledWith('defenderPlaced');
+    expect(audio.playSample).not.toHaveBeenCalled();
   });
 });
