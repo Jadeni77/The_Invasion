@@ -444,6 +444,23 @@ export class GameEngine {
   }
 
   /**
+   * Sizes a unit to exactly one grid cell.
+   *
+   * Sprites declare a fixed 64px while the cell is computed from window size and
+   * ranges 40-80. At any cell under 64 a placed unit overhangs its neighbours,
+   * and isValidDeploymentPosition then refuses to place anything in an adjacent
+   * cell - so on an ordinary laptop window later levels could not be filled.
+   */
+  sizeUnitToGrid(unit) {
+    const cellSize = this.gridManager?.gridSize;
+    if (!cellSize) return unit;
+
+    unit.width = cellSize;
+    unit.height = cellSize;
+    return unit;
+  }
+
+  /**
    * Deploys a defender unit onto the game board.
    * @param {object} cardData - The data of the card being deployed.
    * @param {number} x - X coordinate for deployment.
@@ -466,7 +483,7 @@ export class GameEngine {
       return false;
     }
 
-    const tempUnit = new UnitClass(0, 0, cardData);
+    const tempUnit = this.sizeUnitToGrid(new UnitClass(0, 0, cardData));
 
     if (this.inGameEnergy < cardData.cost) {
       console.log(`Not enough energy: ${this.inGameEnergy}/${cardData.cost}`);
@@ -494,7 +511,7 @@ export class GameEngine {
       return false;
     }
 
-    const newUnit = new UnitClass(deployX, deployY, cardData);
+    const newUnit = this.sizeUnitToGrid(new UnitClass(deployX, deployY, cardData));
 
     // ADD THIS: Attach animation frames if available
     if (

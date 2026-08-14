@@ -158,3 +158,94 @@ describe('GameEngine.resetGame', () => {
     expect(waveManager.reset).toHaveBeenCalledWith(false);
   });
 });
+
+describe('sizeUnitToGrid', () => {
+  function engineWithCell(gridSize) {
+    return {
+      gridManager: gridSize === null ? null : { gridSize },
+      sizeUnitToGrid: GameEngine.prototype.sizeUnitToGrid,
+      checkCollision: GameEngine.prototype.checkCollision,
+    };
+  }
+
+  it('sizes a unit to the cell when the cell is small', () => {
+    const engine = engineWithCell(48);
+    const unit = { width: 64, height: 64 };
+
+    engine.sizeUnitToGrid(unit);
+
+    expect(unit.width).toBe(48);
+    expect(unit.height).toBe(48);
+  });
+
+  it('sizes a unit up to a larger cell too', () => {
+    const engine = engineWithCell(80);
+    const unit = { width: 64, height: 64 };
+
+    engine.sizeUnitToGrid(unit);
+
+    expect(unit.width).toBe(80);
+    expect(unit.height).toBe(80);
+  });
+
+  it('returns the unit so it can be used inline', () => {
+    const engine = engineWithCell(60);
+    const unit = { width: 64, height: 64 };
+
+    expect(engine.sizeUnitToGrid(unit)).toBe(unit);
+  });
+
+  it('leaves the unit alone when no grid manager is attached', () => {
+    const engine = engineWithCell(null);
+    const unit = { width: 64, height: 64 };
+
+    engine.sizeUnitToGrid(unit);
+
+    expect(unit.width).toBe(64);
+  });
+});
+
+describe('adjacent deployment at small cell sizes', () => {
+  /**
+   * Reproduces the reported bug directly: two units in neighbouring cells.
+   * checkCollision is strict AABB, so units that exactly touch do not collide.
+   */
+  function placeInCell(engine, cellIndex, cellSize, unitSize) {
+    const cellX = cellIndex * cellSize;
+    return {
+      x: cellX + (cellSize - unitSize) / 2,
+      y: 0,
+      width: unitSize,
+      height: unitSize,
+    };
+  }
+
+  const engine = { checkCollision: GameEngine.prototype.checkCollision };
+
+  it('64px units in 60px cells DO overlap - this is the bug', () => {
+    const a = placeInCell(engine, 0, 60, 64);
+    const b = placeInCell(engine, 1, 60, 64);
+
+    expect(
+      engine.checkCollision(a.x, a.y, a.width, a.height, b.x, b.y, b.width, b.height),
+    ).toBe(true);
+  });
+
+  it('cell-sized units in 60px cells do NOT overlap - this is the fix', () => {
+    const a = placeInCell(engine, 0, 60, 60);
+    const b = placeInCell(engine, 1, 60, 60);
+
+    expect(
+      engine.checkCollision(a.x, a.y, a.width, a.height, b.x, b.y, b.width, b.height),
+    ).toBe(false);
+  });
+
+  it('cell-sized units do not overlap at the minimum cell size either', () => {
+    const a = placeInCell(engine, 0, 40, 40);
+    const b = placeInCell(engine, 1, 40, 40);
+
+    expect(
+      engine.checkCollision(a.x, a.y, a.width, a.height, b.x, b.y, b.width, b.height),
+    ).toBe(false);
+  });
+});
