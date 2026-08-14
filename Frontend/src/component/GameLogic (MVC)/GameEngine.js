@@ -660,6 +660,12 @@ export class GameEngine {
       ); // Distance from enemy center to explosion center
       if (distance <= radius) {
         const died = enemy.takeDamage(damage, false); //explosion does not ignore armor
+        this.emitFeedback('enemy:hit', {
+          unitType: enemy.constructor.name,
+          damage,
+          x: enemy.x + enemy.width / 2,
+          y: enemy.y,
+        });
         if (died && !this.gameOver) {
           if (!enemy.isSpawned) {
             //only change game score when game still playing

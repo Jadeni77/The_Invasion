@@ -1374,6 +1374,12 @@ export class Sniper extends DefenderUnit {
     this.piercingTargets.add(target.id);
 
     const targetDied = target.takeDamage(damage, true); //always have armor piercing
+    this.gameEngine?.emitFeedback?.('enemy:hit', {
+      unitType: target.constructor.name,
+      damage: this.attackDamage,
+      x: target.x + target.width / 2,
+      y: target.y,
+    });
     if (
       targetDied &&
       !target.isSpawned &&
@@ -2235,6 +2241,12 @@ export class FrostArcher extends DefenderUnit {
     const extraDamage =
       this.hasPermaFrost && enemy.slowed ? this.attackDamage * 0.5 : 0;
     const died = enemy.takeDamage(this.attackDamage + extraDamage, false);
+    this.gameEngine?.emitFeedback?.('enemy:hit', {
+      unitType: enemy.constructor.name,
+      damage: this.attackDamage,
+      x: enemy.x + enemy.width / 2,
+      y: enemy.y,
+    });
 
     //apply slow effect
     if (!enemy.frozen) {
@@ -2507,6 +2519,7 @@ export class FireBlast extends DefenderUnit {
         }, i * 500); // Apply every 0.5 seconds
       }
     }
+    this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
     // Remove this unit after activation
     this.isAlive = false;
     this.health = 0;
@@ -2726,6 +2739,7 @@ export class IceBomb extends DefenderUnit {
         }
       }
     }
+    this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
     this.isAlive = false;
     this.health = 0;
   }
