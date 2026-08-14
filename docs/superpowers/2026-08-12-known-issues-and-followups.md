@@ -153,6 +153,39 @@ to useless even allowing for its slow effect. Almost certainly a debugging lefto
 Fixing these is the natural first step of any balance pass, ahead of retuning the curve across all 20
 levels.
 
+### 11. `constructor.name` is a load-bearing key — the build must preserve it
+
+The per-unit audio system keys its voice table on `constructor.name`. Vite's esbuild minifier renames
+classes by default, so in a production build `Mortar` became `Ef`, every one of the 29 lookups missed,
+and the whole feature silently fell back to generic sounds. **All 340 tests passed** while this was
+true, because every test supplied the class name as a string literal rather than deriving it from a
+real instance.
+
+`Frontend/vite.config.js` now sets `esbuild: { keepNames: true }`. **Do not remove it**, and be wary of
+adding any other code that relies on `constructor.name`, `function.name`, or class names surviving the
+build.
+
+Two lessons worth keeping:
+
+- A test that supplies an identifier as a literal proves nothing about whether the real caller produces
+  that identifier. `UnitVoices.test.js` now constructs a real `Mortar` and reads
+  `instance.constructor.name`, which is the only version of that test that can fail.
+- A green suite is not evidence a feature works end to end. This one was fully compatible with the
+  feature being completely dead in the shipped game.
+
+### 12. Remaining audio gaps
+
+- **`enemy:hit` does not fire for `onHit`-callback attacks.** The emit sits on the `else` branch of
+  the projectile-hit path, so any attack using an `onHit` callback — Sniper hitscan, FrostArcher,
+  Mortar splash — produces no hit sound. Recorded during the per-unit audio work, not fixed.
+- **Mortar's firing sound is not frame-synced with its shell's visual launch.** It queues a
+  locally-tracked shell rather than pushing to `gameEngine.projectiles`, so the sound plays when it
+  commits to firing rather than when the shell appears.
+- **`BossEnemy` is never imported by `GameEngine`.** It is dead code, tree-shaken out of the bundle,
+  so its voice is unreachable. Either wire the class up or delete it.
+- **A suspended `AudioContext` freezes `ctx.currentTime`**, so `AudioManager`'s active-voice list never
+  prunes and the concurrency cap would steal on every call past 12. Edge case, low priority.
+
 ## Not a defect: known verification limits
 
 - **jsdom has no layout engine** (`offsetWidth` is always `0`), so no automated test can prove the
