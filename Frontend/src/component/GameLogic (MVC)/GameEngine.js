@@ -47,6 +47,8 @@ import { AnimationManager } from "./Animation/AnimationManager.js";
 import { AnimationSources } from "./Animation/AnimationSources.js";
 import { AssetManifest } from "../../assets/AssetManifest.js";
 import { GameLevelConfigs } from "./GameEngineBreakDown/GameLevelConfigs.js";
+import { GameClock } from "./Feedback/GameClock.js";
+import { getSettings } from "./Feedback/SettingsStore.js";
 
 export class GameEngine {
   constructor(
@@ -104,6 +106,9 @@ export class GameEngine {
 
     this.waveManager = null;
     this.gridManager = null;
+    this.gameClock = new GameClock();
+    this.feedbackBus = null; // injected by GameContext; null in tests
+    this.lastFrameTime = null;
     this.dropManager = new DropManager(this);
     this.combatManager = new CombatManager(this);
     this.drawExplosionEffect = new DrawExplosionEffect(this);
@@ -177,10 +182,14 @@ export class GameEngine {
   collectEnergy(x, y) {
     for (let i = this.energyDrops.length - 1; i >= 0; i--) {
       const drop = this.energyDrops[i];
-      if (drop.checkCollection(x, y)) {
+      // Skip drops already flying to the energy bar (e.g. from
+      // autoCollectEnergy) - otherwise a click landing on an in-flight orb
+      // awards its energy a second time and swallows the click.
+      if (!drop.collectAnimation && drop.checkCollection(x, y)) {
         drop.startCollectionAnimation(110, 20); //where the bar locate;
         this.inGameEnergy = Math.min(9999, this.inGameEnergy + drop.amount);
         this.energyCollected++;
+        this.emitFeedback('energy:collected', { amount: drop.amount });
         this.updateEnergyCb(this.inGameEnergy);
         return true; //energy is collected
       }
@@ -235,6 +244,7 @@ export class GameEngine {
     if (this.drawUIs && this.drawUIs.showWaveAnnouncement(waveNumber, isBoss)) {
       this.drawUIs.showWaveAnnouncement(waveNumber, isBoss);
     }
+    this.emitFeedback('wave:started', { number: waveNumber, isBoss });
   }
 
   /**
@@ -381,8 +391,12 @@ export class GameEngine {
     }
   }
 
-  // Resets the game state to its initial values for the current level
-  resetGame() {
+  // Resets the game state to its initial values for the current level.
+  // announceWaveStart controls whether the wave-1 horn plays: true for a
+  // genuine new-level start (called from initialize()), false when this is
+  // just end-of-level cleanup (called from GameContext.endGame()) so the
+  // win/loss sting doesn't get a wave horn stacked on top of it.
+  resetGame(announceWaveStart = true) {
     this.stopLoop(); // Stop any active animation loop
     this.defenders = [];
     this.enemies = [];
@@ -397,10 +411,12 @@ export class GameEngine {
     this.defendersLost = 0;
     this.baseDamageTaken = 0;
     this.levelStartTime = Date.now();
+    this.gameClock.reset();
+    this.lastFrameTime = null;
 
     if (this.waveManager) {
-      this.waveManager.reset();
-      this.waveManager.lastSpawnTime = Date.now() + 5000; // 1 second delay
+      this.waveManager.reset(announceWaveStart);
+      this.waveManager.lastSpawnTime = this.gameClock.now + 5000; // 5 second delay
     }
 
     this.baseHealth = 100;
@@ -411,6 +427,10 @@ export class GameEngine {
     if (this.gridManager) {
       this.gridManager.resetGrid();
     }
+
+    // Clear trauma/hit-stop/damage-numbers/flash so they don't freeze at
+    // level-end values and replay over the start of the next level.
+    this.juiceManager?.reset();
 
     // Update UI via callbacks
     this.updateEnergyCb(this.inGameEnergy);
@@ -469,6 +489,7 @@ export class GameEngine {
       )
     ) {
       console.log("Invalid deployment position");
+      this.emitFeedback('deploy:rejected', { reason: 'invalidPosition' });
       return false;
     }
 
@@ -495,6 +516,7 @@ export class GameEngine {
 
     this.defenders.push(newUnit);
     this.defendersDeployed++;
+    this.emitFeedback('defender:placed', { type: newUnit.constructor.name });
     this.inGameEnergy -= newUnit.cost;
     this.updateEnergyCb(this.inGameEnergy);
 
@@ -642,6 +664,7 @@ export class GameEngine {
             //only change game score when game still playing
             this.inGameScore += enemy.bounty;
             this.enemiesKilled++;
+            this.emitEnemyDeathFeedback(enemy);
             this.updateScoreCb(this.inGameScore);
           }
           this.dropManager.handleEnemyDeath(enemy);
@@ -683,10 +706,41 @@ export class GameEngine {
     }
   }
 
+  /** Emits a feedback event if a bus is attached. Safe when it is not. */
+  emitFeedback(event, payload) {
+    this.feedbackBus?.emit(event, payload);
+  }
+
+  /**
+   * Emits enemy:died at most once per enemy. Splash damage and the
+   * updateEnemies death sweep can both observe the same death within a
+   * single frame, which would double the sound and the screen shake.
+   */
+  emitEnemyDeathFeedback(enemy) {
+    if (!enemy || enemy.deathFeedbackEmitted) return;
+    enemy.deathFeedbackEmitted = true;
+    this.emitFeedback('enemy:died', {
+      isBoss: Boolean(enemy.isBoss), x: enemy.x, y: enemy.y,
+    });
+  }
+
   /** Main update loop for the game state. */
   update() {
-    if (this.gameOver || this.isPaused) return;
-    const now = Date.now();
+    if (this.gameOver || this.isPaused) {
+      // Drop the frame reference so the pause does not count as one huge frame.
+      this.lastFrameTime = null;
+      return;
+    }
+
+    const realNow = performance.now();
+    const deltaMs = this.lastFrameTime === null ? 0 : realNow - this.lastFrameTime;
+    this.lastFrameTime = realNow;
+
+    this.gameClock.advance(deltaMs);
+    this.juiceManager?.update(deltaMs);
+    // Hit-stop freezes gameplay for a few frames while drawing continues.
+    if (this.juiceManager?.isFrozen()) return;
+    const now = this.gameClock.now;
 
     this.waveManager.update(now, this.enemies.length, this.gameOver);
 
@@ -716,7 +770,16 @@ export class GameEngine {
 
   updateEnergyDrops() {
     for (let i = this.energyDrops.length - 1; i >= 0; i--) {
-      if (!this.energyDrops[i].update()) {
+      const drop = this.energyDrops[i];
+      // Auto-collect pulls orbs in without a click when the setting is on.
+      if (getSettings().gameplay.autoCollectEnergy && !drop.collectAnimation) {
+        drop.startCollectionAnimation(110, 20);
+        this.inGameEnergy = Math.min(9999, this.inGameEnergy + drop.amount);
+        this.energyCollected++;
+        this.updateEnergyCb(this.inGameEnergy);
+        this.emitFeedback('energy:collected', { amount: drop.amount });
+      }
+      if (!drop.update()) {
         this.energyDrops.splice(i, 1);
       }
     }
@@ -748,6 +811,7 @@ export class GameEngine {
         if (!defender.deathHandled) {
           defender.deathHandled = true;
           this.defendersLost++;
+          this.emitFeedback('defender:died', { x: defender.x, y: defender.y });
         }
         // Still update animation for dead units
         if (defender.currentAnimation !== "death") {
@@ -902,6 +966,7 @@ export class GameEngine {
         if (!this.gameOver) {
           const damage = 10;
           this.baseDamageTaken += damage;
+          this.emitFeedback('base:damaged', { damage });
           this.baseHealth = Math.max(0, this.baseHealth - damage);
 
           if (this.updateBaseHealthCb) {
@@ -925,6 +990,7 @@ export class GameEngine {
       if (!enemy.isSpawned && !enemy.shouldExplode) {
         this.inGameScore += enemy.bounty;
         this.enemiesKilled++;
+        this.emitEnemyDeathFeedback(enemy);
         this.updateScoreCb(this.inGameScore);
         this.dropManager.handleEnemyDeath(enemy);
         this.waveManager.totalEnemiesKilled++;
@@ -980,10 +1046,16 @@ export class GameEngine {
             projectile.damage,
             projectile.ignoreArmor,
           );
+          this.emitFeedback('enemy:hit', {
+            damage: projectile.damage,
+            x: projectile.target.x + projectile.target.width / 2,
+            y: projectile.target.y,
+          });
           if (died && !this.gameOver) {
             if (!projectile.target.isSpawned) {
               this.inGameScore += projectile.target.bounty;
               this.enemiesKilled++;
+              this.emitEnemyDeathFeedback(projectile.target);
               this.updateScoreCb(this.inGameScore);
             }
             this.dropManager.handleEnemyDeath(projectile.target);
@@ -1210,6 +1282,7 @@ export class GameEngine {
 
       if (this.currentLevelConfig.levelNumber === 999) {
         if (this.onLoseCb) {
+          this.emitFeedback('level:lost', {});
           this.onLoseCb({
             score: this.inGameScore,
             level: 999,
@@ -1224,6 +1297,7 @@ export class GameEngine {
         if (this.onLoseCb) {
           console.log("Calling onLoseCb now");
 
+          this.emitFeedback('level:lost', {});
           this.onLoseCb({
             score: this.inGameScore,
             level: this.currentLevelConfig.levelNumber,
@@ -1246,6 +1320,7 @@ export class GameEngine {
     this.stopLoop(); // Stop the game loop
 
     if (this.onWinCb) {
+      this.emitFeedback('level:won', {});
       this.onWinCb({
         score: this.inGameScore,
         level: this.currentLevelConfig.levelNumber,
@@ -1263,10 +1338,15 @@ export class GameEngine {
   draw(ctx) {
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight); // Clear canvas
+    ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
 
     this.drawUIs.drawBackground(ctx);
-    this.drawUIs.drawUI(ctx);
+
+    // World layer: shake applies here only, never to the HUD.
+    const shake = this.juiceManager?.getShakeOffset() ?? { x: 0, y: 0 };
+    ctx.save();
+    ctx.translate(shake.x, shake.y);
+
     this.gridManager.drawGrid(ctx);
     this.drawEntities.drawDefenders(ctx);
     this.drawEntities.drawEnemies(ctx);
@@ -1275,6 +1355,13 @@ export class GameEngine {
     this.drawEntities.drawEnergyDrops(ctx);
     this.drawEntities.drawCardPieceDrops(ctx);
     this.drawExplosionEffect.drawExplosions(ctx);
+
+    ctx.restore();
+
+    // HUD layer: unaffected by shake.
+    this.drawUIs.drawUI(ctx);
+    this.drawUIs.drawDamageNumbers(ctx, this.juiceManager?.damageNumbers ?? []);
+    this.drawUIs.drawFlash(ctx, this.juiceManager?.getFlash() ?? null);
   }
 
   /** The main game animation loop. */

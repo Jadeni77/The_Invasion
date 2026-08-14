@@ -13,6 +13,7 @@ TODO:
 */
 
 import {DrawNegativeEffect} from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
+import { getSettings } from "./Feedback/SettingsStore.js";
 
 export class Enemy {
   constructor(x, y, typeData = {}) {
@@ -334,7 +335,7 @@ export class Enemy {
       );
 
       // Health bar and value
-      if (this.health < this.maxHealth) {
+      if (this.health < this.maxHealth && getSettings().display.showHealthBars) {
         ctx.fillStyle = "red";
         ctx.fillRect(this.x, this.y - 10, this.width, 5);
         ctx.fillStyle = "lime";

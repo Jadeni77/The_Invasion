@@ -149,6 +149,8 @@ export class DrawUIs {
 
     // Fix: Draw normal mode wave info
     drawNormalWaveInfo(ctx) {
+        ctx.save();
+
         ctx.fillStyle = "#FFF";
         ctx.font = "16px Arial";
         ctx.textAlign = "center";
@@ -178,6 +180,8 @@ export class DrawUIs {
             ctx.fillStyle = "#4CAF50";
             ctx.fillRect(progressX, progressY, progressWidth * Math.min(1, progress), 8);
         }
+
+        ctx.restore();
     }
 
     // Fix: Draw endless mode wave info
@@ -361,5 +365,32 @@ export class DrawUIs {
         if (this.milestoneAnimation) {
             this.milestoneAnimation.timer--;
         }
+    }
+
+    /** Draws floating damage numbers. State-neutral. */
+    drawDamageNumbers(ctx, numbers) {
+        if (!numbers.length) return;
+        ctx.save();
+        ctx.font = "bold 14px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        for (const number of numbers) {
+            ctx.fillStyle = `rgba(255, 80, 80, ${number.alpha})`;
+            ctx.strokeStyle = `rgba(0, 0, 0, ${number.alpha})`;
+            ctx.lineWidth = 3;
+            ctx.strokeText(String(number.damage), number.x, number.y);
+            ctx.fillText(String(number.damage), number.x, number.y);
+        }
+        ctx.restore();
+    }
+
+    /** Draws a full-screen colour flash. State-neutral. */
+    drawFlash(ctx, flash) {
+        if (!flash) return;
+        ctx.save();
+        ctx.globalAlpha = flash.alpha * 0.35;
+        ctx.fillStyle = flash.color;
+        ctx.fillRect(0, 0, this.gameEngine.canvasWidth, this.gameEngine.canvasHeight);
+        ctx.restore();
     }
 }

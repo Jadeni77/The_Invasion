@@ -2,6 +2,7 @@
 // Data for different types of Defender Units
 
 import { DrawNegativeEffect } from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
+import { getSettings } from "./Feedback/SettingsStore.js";
 
 export class DefenderUnit {
   constructor(x, y, cardData = {}) {
@@ -279,7 +280,7 @@ export class DefenderUnit {
       );
 
       // Health bar
-      if (this.health < this.maxHealth) {
+      if (this.health < this.maxHealth && getSettings().display.showHealthBars) {
         ctx.fillStyle = "red";
         ctx.fillRect(this.x, this.y - 10, this.width, 5);
         ctx.fillStyle = "lime";
@@ -2209,6 +2210,7 @@ export class FrostArcher extends DefenderUnit {
       onHit: () => this.onProjectileHit(target),
     };
     this.gameEngine.projectiles.push(projectile);
+    this.gameEngine.emitFeedback('projectile:fired', { defenderType: this.constructor.name });
     this.lastAttackTime = currentTime;
   }
 

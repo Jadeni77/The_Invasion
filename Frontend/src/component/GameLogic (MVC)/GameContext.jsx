@@ -11,6 +11,12 @@ import React, {
 import { chestsData } from "../GameRendering/MapLayout.jsx";
 import { SessionManager } from "./SessionManager.js";
 import LoginPage from "../login/LoginPage.jsx";
+import { FeedbackBus } from "./Feedback/FeedbackBus.js";
+import { AudioManager } from "./Feedback/AudioManager.js";
+import { JuiceManager } from "./Feedback/JuiceManager.js";
+import { MusicPlayer } from "./Feedback/MusicPlayer.js";
+import { FeedbackManager } from "./Feedback/FeedbackManager.js";
+import { loadSettings, subscribe } from "./Feedback/SettingsStore.js";
 
 export const GameContext = createContext();
 
@@ -20,6 +26,49 @@ export const useGame = () => {
 
 export const GameProvider = ({ children }) => {
   const gameEngineRef = useRef(null); // Ref to hold the GameEngine instance
+
+  const feedbackRef = useRef(null);
+  if (feedbackRef.current === null) {
+    const bus = new FeedbackBus();
+    const audio = new AudioManager();
+    const juice = new JuiceManager();
+    const music = new MusicPlayer(audio);
+    const manager = new FeedbackManager(bus, audio, juice);
+    manager.attach();
+    manager.applySettings(loadSettings());
+    feedbackRef.current = { bus, audio, juice, music, manager };
+  }
+
+  // Keep audio and juice in step with the settings panel.
+  useEffect(() => subscribe((settings) => {
+    feedbackRef.current.manager.applySettings(settings);
+  }), []);
+
+  // Browsers block AudioContext until a user gesture, so start on first click.
+  useEffect(() => {
+    let cancelled = false;
+    const startAudio = () => {
+      feedbackRef.current.audio
+        .resume()
+        .then(() => {
+          if (cancelled) return;
+          feedbackRef.current.audio.setVolumes(loadSettings().audio);
+          feedbackRef.current.music.start();
+          // Only remove the listener once resume actually succeeds, so a
+          // rejected resume() (e.g. blocked by browser policy) can retry on
+          // the next gesture instead of being silently stuck forever.
+          window.removeEventListener("pointerdown", startAudio);
+        })
+        .catch((err) => {
+          console.error("Failed to resume AudioContext on user gesture; will retry on next interaction.", err);
+        });
+    };
+    window.addEventListener("pointerdown", startAudio);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("pointerdown", startAudio);
+    };
+  }, []);
 
   const [gameState, setGameState] = useState("lobby"); // lobby, inGame, upgrade
   const [selectedLevel, setSelectedLevel] = useState(null); // The level selected to play
@@ -681,7 +730,9 @@ export const GameProvider = ({ children }) => {
       // Result can be 'win' or 'loss'
       if (gameEngineRef.current) {
         gameEngineRef.current.stopLoop(); // Ensure engine loop stops
-        gameEngineRef.current.resetGame(); // Reset engine's internal state
+        // false: this is end-of-level cleanup, not a new level starting, so
+        // don't let the wave-1 horn stack on top of the win/loss sting.
+        gameEngineRef.current.resetGame(false); // Reset engine's internal state
       }
 
       if (result === "quit") {
@@ -971,6 +1022,7 @@ export const GameProvider = ({ children }) => {
     setUnlockedDefender,
     handleLogout,
     fetchPlayerData,
+    feedback: feedbackRef.current,
   };
 
   if (!isAuthenticated) {

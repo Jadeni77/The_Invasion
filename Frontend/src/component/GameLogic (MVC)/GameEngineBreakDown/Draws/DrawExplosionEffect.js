@@ -1,7 +1,16 @@
+import { getSettings } from '../../Feedback/SettingsStore.js';
 
 export class DrawExplosionEffect {
     constructor(engine) {
         this.gameEngine = engine;
+    }
+
+    /** Scales particle counts by the graphics quality setting. */
+    particleScale() {
+        const quality = getSettings().display.graphicsQuality;
+        if (quality === 'low') return 0.3;
+        if (quality === 'high') return 1.5;
+        return 1;
     }
 
     drawExplosions(ctx) {
@@ -82,7 +91,7 @@ export class DrawExplosionEffect {
         ctx.fill();
 
         // Particle effects
-        const particleCount = 8;
+        const particleCount = Math.max(1, Math.round(8 * this.particleScale()));
         for (let i = 0; i < particleCount; i++) {
             const angle = (Math.PI * 2 * i) / particleCount;
             const particleDistance = radius * 0.8;
@@ -363,7 +372,7 @@ export class DrawExplosionEffect {
         }
 
         // Fire particles
-        const particleCount = 12;
+        const particleCount = Math.max(1, Math.round(12 * this.particleScale()));
         for (let i = 0; i < particleCount; i++) {
             const angle = (Math.PI * 2 * i) / particleCount;
             const distance = radius * (0.5 + explosion.timer / 30 * 0.5);
