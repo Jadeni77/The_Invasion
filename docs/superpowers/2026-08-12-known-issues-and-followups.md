@@ -27,6 +27,26 @@ is deduplicated per enemy via `GameEngine.emitEnemyDeathFeedback`. So the death 
 the honest signal and the score is the inaccurate one. **Settle this before tuning achievement
 thresholds**, since existing player data is already inflated.
 
+**Fuller detail, from a later trace.** The double-award is not limited to score and `enemiesKilled` —
+`addDefenderExplosion` also runs `dropManager.handleEnemyDeath` and, via the second pass, increments
+`waveManager.totalEnemiesKilled`. So a splash kill double-counts score, kill count, wave kills, and
+rolls for drops twice.
+
+Relatedly, the three death sites' scoring guards **disagree with each other**: `handleEnemyDeath`
+excludes both `isSpawned` and `shouldExplode`, while the splash and projectile-hit sites exclude only
+`isSpawned`. Any fix should reconcile all three rather than patching one.
+
+### 13. Sprite scaling is now non-integer at most window sizes
+
+Defenders are sized to the grid cell (40–80px) rather than a fixed 64, which is what lets units be
+placed in adjacent cells at any window size. But sprite source frames are 64px and the canvas runs
+with `imageSmoothingEnabled = false`, so nearest-neighbour scaling now lands on a non-integer ratio at
+almost every window size, producing uneven pixel rows.
+
+Purely cosmetic, and invisible in tests. Worth addressing as part of the PvZ-style art direction —
+either by authoring sprites at a size that divides cleanly, or by snapping the cell size to a multiple
+of the source frame.
+
 ### 2. CI pins Node 20 with thin margin
 
 `.github/workflows/frontend-tests.yml` and `pr-checks.yml` both set `node-version: '20'`, while
