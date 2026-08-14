@@ -120,6 +120,16 @@ targeting living in three independent code paths that the first pass of guards m
 spell type is ever added, move spells into their own entity collection instead of adding a ninth
 guard.
 
+**Two further proximity searches remain deliberately unguarded**, because neither causes an enemy to
+halt and both are balance quirks rather than defects: `GhostEnemy`'s phase-trigger (around
+`EnemyUnits.js:1232`) and `TitanEnemy`'s ground-pound trigger (around `EnemyUnits.js:2097`). Each can
+still react to a spell.
+
+They are worth knowing about mainly as evidence for the structural fix: `EnemyUnits.js` contains
+copy-pasted proximity searches throughout, so the guard count keeps growing with each one discovered.
+Eight guards were needed to cover what was originally believed to be one targeting path. That is the
+argument for moving spells out of `this.defenders` rather than continuing to guard individually.
+
 ## Not a defect: known verification limits
 
 - **jsdom has no layout engine** (`offsetWidth` is always `0`), so no automated test can prove the
