@@ -12,6 +12,9 @@ export const DEDUPE_WINDOW_SECONDS = 0.04;
 /** Maximum simultaneously sounding voices. */
 export const MAX_VOICES = 12;
 
+/** Base gain applied to every sample before its variant gainScale. */
+export const SAMPLE_BASE_GAIN = 0.7;
+
 /**
  * Owns the AudioContext and its gain graph, and renders SfxLibrary recipes.
  *
@@ -31,6 +34,7 @@ export class AudioManager {
     this._unavailable = false;
     this.lastPlayedAt = new Map(); // dedupe key -> AudioContext time
     this.activeVoices = [];        // { source, endTime }, oldest first
+    this.samples = new Map(); // unit name -> AudioBuffer
   }
 
   /**
@@ -134,6 +138,77 @@ export class AudioManager {
       : this.createToneSource(recipe, now, end);
 
     output.connect(envelope);
+    source.start(now);
+    source.stop(end);
+
+    this.activeVoices.push({ source, endTime: end });
+  }
+
+  /**
+   * Fetches and decodes every supplied sample.
+   *
+   * Failures are isolated per file: one bad download or corrupt file leaves that
+   * unit on its synthesized voice while every other sample still loads.
+   */
+  async loadSamples(urlMap) {
+    if (!this.ctx) return;
+
+    await Promise.all(Object.entries(urlMap).map(async ([name, url]) => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const encoded = await response.arrayBuffer();
+        this.samples.set(name, await this.ctx.decodeAudioData(encoded));
+      } catch (err) {
+        console.error(`Could not load audio sample "${name}" from ${url}:`, err);
+      }
+    }));
+  }
+
+  hasSample(name) {
+    return this.samples.has(name);
+  }
+
+  /**
+   * Plays a loaded sample, applying a variant transform.
+   *
+   * Shares the dedupe window, voice cap and envelope with playRecipe - only the
+   * source node differs. Effective duration divides by playbackRate, because
+   * pitching a sample down lengthens it; using the raw buffer duration would cut
+   * every death sound off early.
+   */
+  playSample(name, transform, dedupeKey) {
+    const buffer = this.samples.get(name);
+    if (!buffer || !this.ctx) return;
+
+    const now = this.ctx.currentTime;
+
+    const lastPlayed = this.lastPlayedAt.get(dedupeKey);
+    if (lastPlayed !== undefined && now - lastPlayed < DEDUPE_WINDOW_SECONDS) return;
+    this.lastPlayedAt.set(dedupeKey, now);
+
+    this.activeVoices = this.activeVoices.filter((voice) => voice.endTime > now);
+    if (this.activeVoices.length >= MAX_VOICES) {
+      const oldest = this.activeVoices.shift();
+      try {
+        oldest.source.stop(now);
+      } catch {
+        // Already stopped; nothing to do.
+      }
+    }
+
+    const duration = (buffer.duration / transform.playbackRate) * transform.durationScale;
+    const end = now + duration;
+
+    const envelope = this.ctx.createGain();
+    envelope.connect(this.sfxGain);
+    envelope.gain.setValueAtTime(SAMPLE_BASE_GAIN * transform.gainScale, now);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, end);
+
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    source.playbackRate.value = transform.playbackRate;
+    source.connect(envelope);
     source.start(now);
     source.stop(end);
 

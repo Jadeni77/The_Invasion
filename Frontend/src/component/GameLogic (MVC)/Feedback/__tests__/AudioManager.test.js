@@ -1,4 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {
+  describe, it, expect, vi, beforeEach, afterEach,
+} from 'vitest';
 import { AudioManager, volumeToGain, DEDUPE_WINDOW_SECONDS, MAX_VOICES } from '../AudioManager.js';
 
 function createMockContext() {
@@ -32,10 +34,15 @@ function createMockContext() {
       return osc;
     }),
     createBufferSource: vi.fn(() => {
-      const src = { buffer: null, connect: vi.fn(), start: vi.fn(), stop: vi.fn() };
+      const src = {
+        buffer: null,
+        playbackRate: { value: 1 },
+        connect: vi.fn(), start: vi.fn(), stop: vi.fn(),
+      };
       made.buffers.push(src);
       return src;
     }),
+    decodeAudioData: vi.fn(() => Promise.resolve({ duration: 0.4 })),
     createBuffer: vi.fn(() => ({ getChannelData: () => new Float32Array(256) })),
     createBiquadFilter: vi.fn(() => {
       const filter = {
@@ -375,5 +382,152 @@ describe('voice limiting', () => {
   it('ignores an unknown sound id without throwing', () => {
     const { audio } = readyAudio();
     expect(() => audio.playSfx('nope')).not.toThrow();
+  });
+});
+
+describe('samples', () => {
+  const FIRE = { playbackRate: 1, gainScale: 1, durationScale: 1 };
+  const DEATH = { playbackRate: 0.75, gainScale: 1, durationScale: 1 };
+  const HIT = { playbackRate: 1, gainScale: 0.55, durationScale: 0.35 };
+
+  function readyAudio() {
+    const { ctx, made } = createMockContext();
+    const audio = new AudioManager(() => ctx);
+    audio.init();
+    audio.resume();
+    return { ctx, made, audio };
+  }
+
+  function stubFetchOk() {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
+    })));
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('has no samples before loading', () => {
+    const { audio } = readyAudio();
+    expect(audio.hasSample('Mortar')).toBe(false);
+  });
+
+  it('loads and caches a sample', async () => {
+    stubFetchOk();
+    const { audio } = readyAudio();
+
+    await audio.loadSamples({ Mortar: '/assets/Mortar.ogg' });
+
+    expect(audio.hasSample('Mortar')).toBe(true);
+    expect(audio.hasSample('Sniper')).toBe(false);
+  });
+
+  it('isolates a failed fetch so other samples still load', async () => {
+    vi.stubGlobal('fetch', vi.fn((url) => (
+      String(url).includes('Broken')
+        ? Promise.reject(new Error('network'))
+        : Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) })
+    )));
+    const { audio } = readyAudio();
+
+    await audio.loadSamples({ Broken: '/a/Broken.ogg', Mortar: '/a/Mortar.ogg' });
+
+    expect(audio.hasSample('Broken')).toBe(false);
+    expect(audio.hasSample('Mortar')).toBe(true);
+  });
+
+  it('isolates a failed decode the same way', async () => {
+    stubFetchOk();
+    const { ctx, audio } = readyAudio();
+    ctx.decodeAudioData = vi.fn((_buf) => Promise.reject(new Error('bad audio')));
+
+    await audio.loadSamples({ Mortar: '/a/Mortar.ogg' });
+
+    expect(audio.hasSample('Mortar')).toBe(false);
+  });
+
+  it('does not throw when loading with no context', async () => {
+    const audio = new AudioManager(() => { throw new Error('no web audio'); });
+    audio.init();
+    await expect(audio.loadSamples({ Mortar: '/a/Mortar.ogg' })).resolves.toBeUndefined();
+  });
+
+  it('plays a loaded sample through the sfx bus', async () => {
+    stubFetchOk();
+    const { ctx, made, audio } = readyAudio();
+    await audio.loadSamples({ Mortar: '/a/Mortar.ogg' });
+
+    audio.playSample('Mortar', FIRE, 'Mortar:fire');
+
+    expect(ctx.createBufferSource).toHaveBeenCalledOnce();
+    const src = made.buffers.at(-1);
+    expect(src.start).toHaveBeenCalled();
+    expect(src.stop).toHaveBeenCalled();
+    // envelope is the most recently created gain, and must reach the sfx bus
+    expect(made.gains.at(-1).connect).toHaveBeenCalledWith(made.gains[1]);
+  });
+
+  it('applies the variant playbackRate', async () => {
+    stubFetchOk();
+    const { made, audio } = readyAudio();
+    await audio.loadSamples({ Mortar: '/a/Mortar.ogg' });
+
+    audio.playSample('Mortar', DEATH, 'Mortar:death');
+
+    expect(made.buffers.at(-1).playbackRate.value).toBeCloseTo(0.75);
+  });
+
+  it('lengthens death rather than cutting it off early', async () => {
+    stubFetchOk();
+    const { ctx, made, audio } = readyAudio();
+    await audio.loadSamples({ Mortar: '/a/Mortar.ogg' });
+
+    audio.playSample('Mortar', DEATH, 'Mortar:death');
+
+    // buffer 0.4s at rate 0.75 lasts 0.5333s, so stop must be later than 0.4
+    const stopAt = made.buffers.at(-1).stop.mock.calls[0][0];
+    expect(stopAt).toBeGreaterThan(ctx.currentTime + 0.4);
+  });
+
+  it('truncates hit', async () => {
+    stubFetchOk();
+    const { ctx, made, audio } = readyAudio();
+    await audio.loadSamples({ Mortar: '/a/Mortar.ogg' });
+
+    audio.playSample('Mortar', HIT, 'Mortar:hit');
+
+    const stopAt = made.buffers.at(-1).stop.mock.calls[0][0];
+    expect(stopAt).toBeCloseTo(ctx.currentTime + 0.4 * 0.35);
+  });
+
+  it('ignores an unloaded sample without throwing', () => {
+    const { ctx, audio } = readyAudio();
+    expect(() => audio.playSample('NoSuch', FIRE, 'NoSuch:fire')).not.toThrow();
+    expect(ctx.createBufferSource).not.toHaveBeenCalled();
+  });
+
+  it('applies the dedupe window to samples', async () => {
+    stubFetchOk();
+    const { ctx, audio } = readyAudio();
+    await audio.loadSamples({ Mortar: '/a/Mortar.ogg' });
+
+    audio.playSample('Mortar', FIRE, 'Mortar:fire');
+    audio.playSample('Mortar', FIRE, 'Mortar:fire');
+
+    expect(ctx.createBufferSource).toHaveBeenCalledOnce();
+  });
+
+  it('counts samples against the voice cap', async () => {
+    stubFetchOk();
+    const { made, audio } = readyAudio();
+    await audio.loadSamples({ Mortar: '/a/Mortar.ogg' });
+
+    for (let i = 0; i < MAX_VOICES + 1; i++) {
+      audio.playSample('Mortar', FIRE, `key${i}`);
+    }
+
+    expect(made.buffers[0].stop.mock.calls.length).toBe(2);
   });
 });
