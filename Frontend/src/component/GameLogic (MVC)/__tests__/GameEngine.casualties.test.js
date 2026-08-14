@@ -89,3 +89,52 @@ describe('markDefenderDead', () => {
     expect(engine.emitFeedback).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * markDefenderDead is only reachable in production through the
+ * `this.markDefenderDead(defender)` call site inside updateDefenders. Every
+ * test above calls markDefenderDead directly, so deleting that call site
+ * would leave all of them green while silently un-wiring the guard. This
+ * test borrows updateDefenders itself onto a stub, the same way the tests
+ * above borrow markDefenderDead, to close that gap.
+ */
+function createUpdateDefendersStub(defenders) {
+  return {
+    gameOver: false,
+    recentlyDiedDefenders: [],
+    defenders,
+    enemies: [],
+    defendersLost: 0,
+    emitFeedback: vi.fn(),
+    combatManager: { updateDefenderCombat: vi.fn() },
+    // A dead unit with no animationFrames marks its own death animation
+    // complete on the very first updateAnimation() call, so the "remove
+    // dead defenders" sweep in updateDefenders will also run and needs a
+    // gridManager to consult.
+    gridManager: { getGridCell: vi.fn(() => null) },
+    markDefenderDead: GameEngine.prototype.markDefenderDead,
+  };
+}
+
+function callUpdateDefenders(engine) {
+  return GameEngine.prototype.updateDefenders.call(engine, 0);
+}
+
+describe('updateDefenders wiring to markDefenderDead', () => {
+  it('a dead spell does not count as a casualty but a dead ordinary defender does', () => {
+    const spell = new FireBlast(0, 0, CARD);
+    spell.isAlive = false;
+    spell.health = 0;
+
+    const defender = new BasicDefender(50, 50, CARD);
+    defender.isAlive = false;
+    defender.health = 0;
+
+    const engine = createUpdateDefendersStub([spell, defender]);
+
+    callUpdateDefenders(engine);
+
+    expect(engine.defendersLost).toBe(1);
+    expect(engine.emitFeedback).toHaveBeenCalledTimes(1);
+  });
+});
