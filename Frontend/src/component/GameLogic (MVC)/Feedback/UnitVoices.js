@@ -61,7 +61,8 @@ const FALLBACK = {
 
 const MIN_FREQ = 20;
 const MAX_FREQ = 20000;
-const MAX_DURATION = 2;
+/** Longest a single voice - synthesized or sampled - may occupy a slot. */
+export const MAX_DURATION = 2;
 const MAX_GAIN = 1;
 
 function clamp(value, min, max) {

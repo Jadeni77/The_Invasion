@@ -2,6 +2,7 @@ import {
   describe, it, expect, vi, beforeEach, afterEach,
 } from 'vitest';
 import { AudioManager, volumeToGain, DEDUPE_WINDOW_SECONDS, MAX_VOICES } from '../AudioManager.js';
+import { MAX_DURATION } from '../UnitVoices.js';
 
 function createMockContext() {
   const made = { gains: [], oscillators: [], buffers: [], filters: [] };
@@ -502,6 +503,54 @@ describe('samples', () => {
     expect(stopAt).toBeCloseTo(ctx.currentTime + 0.4 * 0.35);
   });
 
+  it('clamps a long sample duration to MAX_DURATION so it cannot hog a voice slot', async () => {
+    stubFetchOk();
+    const { ctx, made, audio } = readyAudio();
+    ctx.decodeAudioData = vi.fn(() => Promise.resolve({ duration: 4 }));
+    await audio.loadSamples({ Mortar: '/a/Mortar.ogg' });
+
+    // 4s buffer / 0.75 playback rate would be 5.33s uncapped - well over MAX_DURATION.
+    audio.playSample('Mortar', DEATH, 'Mortar:death');
+
+    const stopAt = made.buffers.at(-1).stop.mock.calls[0][0];
+    expect(stopAt).toBeCloseTo(ctx.currentTime + MAX_DURATION);
+  });
+
+  it('holds a fire sample flat well into the second half of playback', async () => {
+    stubFetchOk();
+    const { ctx, made, audio } = readyAudio();
+    await audio.loadSamples({ Mortar: '/a/Mortar.ogg' }); // buffer.duration is 0.4s
+
+    audio.playSample('Mortar', FIRE, 'Mortar:fire');
+
+    const envelope = made.gains.at(-1);
+    const peakGain = 0.7 * FIRE.gainScale;
+    const halfway = ctx.currentTime + 0.4 / 2;
+
+    // A second setValueAtTime call re-pins the peak gain at the start of the
+    // release tail. It must land after the halfway point of the buffer,
+    // proving the level was held flat rather than decaying across the whole
+    // sample the way the synth envelope does.
+    expect(envelope.gain.setValueAtTime).toHaveBeenCalledTimes(2);
+    const [heldValue, heldAt] = envelope.gain.setValueAtTime.mock.calls[1];
+    expect(heldValue).toBeCloseTo(peakGain);
+    expect(heldAt).toBeGreaterThan(halfway);
+  });
+
+  it('does not hold a hit sample - its ramp spans the whole truncated duration', async () => {
+    stubFetchOk();
+    const { made, audio } = readyAudio();
+    await audio.loadSamples({ Mortar: '/a/Mortar.ogg' });
+
+    audio.playSample('Mortar', HIT, 'Mortar:hit');
+
+    const envelope = made.gains.at(-1);
+    // Only the initial peak is pinned - no second "hold" event - so the
+    // exponential ramp decays across the entire (already truncated) buffer.
+    expect(envelope.gain.setValueAtTime).toHaveBeenCalledTimes(1);
+    expect(envelope.gain.exponentialRampToValueAtTime).toHaveBeenCalledTimes(1);
+  });
+
   it('ignores an unloaded sample without throwing', () => {
     const { ctx, audio } = readyAudio();
     expect(() => audio.playSample('NoSuch', FIRE, 'NoSuch:fire')).not.toThrow();
@@ -529,5 +578,79 @@ describe('samples', () => {
     }
 
     expect(made.buffers[0].stop.mock.calls.length).toBe(2);
+  });
+});
+
+describe('playRecipe and playSample sharing state', () => {
+  const RECIPE = { wave: 'sine', freqStart: 440, freqEnd: 220, duration: 0.2, gain: 0.5, noise: false };
+  const FIRE = { playbackRate: 1, gainScale: 1, durationScale: 1 };
+
+  function readyAudio() {
+    const { ctx, made } = createMockContext();
+    const audio = new AudioManager(() => ctx);
+    audio.init();
+    audio.resume();
+    return { ctx, made, audio };
+  }
+
+  function stubFetchOk() {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
+    })));
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('draws synthesized and sampled voices from the same 12-voice budget', async () => {
+    stubFetchOk();
+    const { made, audio } = readyAudio();
+    await audio.loadSamples({ Mortar: '/a/Mortar.ogg' });
+
+    // Fill the shared cap, alternating recipe and sample voices.
+    for (let i = 0; i < MAX_VOICES; i++) {
+      if (i % 2 === 0) {
+        audio.playRecipe(RECIPE, `recipe${i}:death`);
+      } else {
+        audio.playSample('Mortar', FIRE, `sample${i}:fire`);
+      }
+    }
+    expect(made.oscillators.every((osc) => osc.stop.mock.calls.length === 1)).toBe(true);
+    expect(made.buffers.every((src) => src.stop.mock.calls.length === 1)).toBe(true);
+
+    // One more voice - a sample this time - must evict the oldest voice
+    // (the very first, a recipe/oscillator voice) early, proving both call
+    // types draw from the one shared budget rather than separate caps.
+    audio.playSample('Mortar', FIRE, 'overflow:fire');
+
+    expect(made.oscillators[0].stop.mock.calls.length).toBe(2);
+  });
+
+  it('plays a synthesized and a sampled sound with different keys in the same frame', async () => {
+    stubFetchOk();
+    const { ctx, audio } = readyAudio();
+    await audio.loadSamples({ Mortar: '/a/Mortar.ogg' });
+
+    audio.playRecipe(RECIPE, 'Sniper:fire');
+    audio.playSample('Mortar', FIRE, 'Mortar:fire');
+
+    expect(ctx.createOscillator).toHaveBeenCalledOnce();
+    expect(ctx.createBufferSource).toHaveBeenCalledOnce();
+  });
+
+  it('dedupes across call types when the same key is reused inside the window', async () => {
+    stubFetchOk();
+    const { ctx, audio } = readyAudio();
+    await audio.loadSamples({ Mortar: '/a/Mortar.ogg' });
+
+    audio.playRecipe(RECIPE, 'shared:key');
+    // Same dedupe key, now via playSample: the shared lastPlayedAt map must
+    // block this even though the call type differs.
+    audio.playSample('Mortar', FIRE, 'shared:key');
+
+    expect(ctx.createOscillator).toHaveBeenCalledOnce();
+    expect(ctx.createBufferSource).not.toHaveBeenCalled();
   });
 });
