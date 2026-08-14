@@ -130,6 +130,29 @@ copy-pasted proximity searches throughout, so the guard count keeps growing with
 Eight guards were needed to cover what was originally believed to be one targeting path. That is the
 argument for moving spells out of `this.defenders` rather than continuing to guard individually.
 
+### 10. Level 1 is in a debug state, and the level 1 → 2 curve is a cliff
+
+Found while scoping balance work; not yet fixed, and not a matter of taste — these are broken values.
+
+In `GameLevelConfigs.js`, level 1 ("The Outbreak", the tutorial level):
+
+- **`initialEnergy: 10000`** while every other level gets 120–200. A leftover debug value.
+- **Its first wave spawns a `Necromancer`** — one of the most advanced enemy types, listed 15th of 18.
+  It is the first enemy a new player ever meets.
+- **The config contradicts itself:** `totalEnemiesToSpawn: 1` and `maxActiveEnemies: 1`, while its
+  `waveConfigurations` define 11 enemies across three waves.
+
+The result is a difficulty cliff at the worst possible place. Level 1 gives one enemy and effectively
+unlimited energy; level 2 gives **25 enemies, 8 active at once, and 120 energy** — precisely when a new
+player is still learning the game.
+
+Separately, in `DefenderUnits.js`, **FrostArcher has `damage: 2` with the comment
+`// Increased from 80`.** The comment and the value disagree, and 2 damage on a 35-cost unit is close
+to useless even allowing for its slow effect. Almost certainly a debugging leftover.
+
+Fixing these is the natural first step of any balance pass, ahead of retuning the curve across all 20
+levels.
+
 ## Not a defect: known verification limits
 
 - **jsdom has no layout engine** (`offsetWidth` is always `0`), so no automated test can prove the
