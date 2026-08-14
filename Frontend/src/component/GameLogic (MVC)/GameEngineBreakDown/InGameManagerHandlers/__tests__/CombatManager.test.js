@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CombatManager } from '../CombatManager.js';
+import { FireBlast, BasicDefender } from '../../../DefenderUnits.js';
 
 // Helper to create mock defender
 function createDefender(overrides = {}) {
@@ -225,5 +226,44 @@ describe('CombatManager', () => {
             combatManager.updateEnemyCombat([defender], [enemy], 1000);
             expect(enemy.attack).not.toHaveBeenCalled();
         });
+    });
+});
+
+describe('findTargetForEnemy spell exclusion', () => {
+    const CARD = { level: 1, image: null };
+
+    /** A minimal enemy positioned at the origin with generous reach. */
+    function createEnemy() {
+        return { x: 0, y: 0, width: 40, height: 40, attackRange: 500 };
+    }
+
+    it('ignores a spell even when it is the only unit in range', () => {
+        const combat = new CombatManager({});
+        const spell = new FireBlast(50, 0, CARD);
+
+        expect(combat.findTargetForEnemy(createEnemy(), [spell])).toBeNull();
+    });
+
+    it('still targets an ordinary defender in range', () => {
+        const combat = new CombatManager({});
+        const defender = new BasicDefender(50, 0, CARD);
+
+        expect(combat.findTargetForEnemy(createEnemy(), [defender])).toBe(defender);
+    });
+
+    it('targets the defender behind a nearer spell', () => {
+        const combat = new CombatManager({});
+        const spell = new FireBlast(20, 0, CARD);
+        const defender = new BasicDefender(120, 0, CARD);
+
+        expect(combat.findTargetForEnemy(createEnemy(), [spell, defender])).toBe(defender);
+    });
+
+    it('still ignores dead defenders', () => {
+        const combat = new CombatManager({});
+        const defender = new BasicDefender(50, 0, CARD);
+        defender.isAlive = false;
+
+        expect(combat.findTargetForEnemy(createEnemy(), [defender])).toBeNull();
     });
 });

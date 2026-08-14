@@ -57,11 +57,11 @@ would NOT close this, since a shallow freeze leaves the category objects mutable
 
 ### 5. Test coverage gaps
 
-- **No `GameEngine` integration test exists anywhere in the repo.** Consequently, reverting the
-  clock-domain fix at `GameEngine.resetGame()` (`lastSpawnTime = this.gameClock.now + 5000`) would
-  not be caught by any test, and neither would a regression in auto-collect. Both are currently
-  covered only at the unit level or by manual play. Building a minimal engine harness would close
-  several gaps at once.
+- **No test constructs a `GameEngine`; `GameEngine.test.js` (and `GameEngine.casualties.test.js`)
+  only borrow prototype methods onto stubs.** Consequently, reverting the clock-domain fix at
+  `GameEngine.resetGame()` (`lastSpawnTime = this.gameClock.now + 5000`) would not be caught by any
+  test, and neither would a regression in auto-collect. Both are currently covered only at the unit
+  level or by manual play. Building a minimal engine harness would close several gaps at once.
 - `canvasState.test.js` guards only the two drop classes. `DrawUIs.drawNormalWaveInfo` and the other
   17 `textAlign` assignment sites have no regression guard, which is narrower than the design spec's
   "after every `draw*`" intent.
@@ -95,6 +95,40 @@ also matches an unrelated span on the post-game results screen. Inert today, bec
 Scoping it to `.game-top-bar .score-value` is the obvious fix, but note that a later rule
 (`.score-value, .gold-value`) already overrides font-size and colour — so naive scoping would change
 how the top bar looks. Wants a design eye rather than a mechanical edit.
+
+### 9. Spells are modelled as defenders
+
+`FireBlast` and `IceBomb` are `DefenderUnit` subclasses distinguished only by an `isSpell` flag, so
+every rule written for defenders applies to them unless individually guarded. Eight such guards exist
+today, all consulting `isConsumableSpell(unit)`:
+
+- `DefenderUnit.takeDamage` (base) — spells are invulnerable.
+- `HealerDefender`'s resurrection filter — spells are never revived.
+- `CombatManager.findTargetForEnemy` — the combat-manager targeting path.
+- `GameEngine.markDefenderDead` — a spent spell is not a casualty.
+- `Enemy.updateBehavior` (base melee bounding-box search) — melee enemies do not halt on a spell.
+- `Enemy.findClosestDefender` (shared by every ranged/special-target enemy) — ranged enemies skip
+  spells (not an early exit) to keep looking for a real defender standing behind one.
+- `BombEnemy.updateBehavior` (self-destruct proximity check) — a bomber does not detonate on a spell.
+- `AssassinEnemy.updateBehavior` (critical-strike search) — the one-shot `hasStruck` crit is not
+  burned on a spell.
+
+Three bugs came from this before the first four guards were added — a resurrection exploit,
+destructible spells, and casts counting as casualties. A fourth class of bug (enemies treating spells
+as targetable/collidable obstacles, addressed by the last four guards above) came from enemy
+targeting living in three independent code paths that the first pass of guards missed. If a third
+spell type is ever added, move spells into their own entity collection instead of adding a ninth
+guard.
+
+**Two further proximity searches remain deliberately unguarded**, because neither causes an enemy to
+halt and both are balance quirks rather than defects: `GhostEnemy`'s phase-trigger (around
+`EnemyUnits.js:1232`) and `TitanEnemy`'s ground-pound trigger (around `EnemyUnits.js:2097`). Each can
+still react to a spell.
+
+They are worth knowing about mainly as evidence for the structural fix: `EnemyUnits.js` contains
+copy-pasted proximity searches throughout, so the guard count keeps growing with each one discovered.
+Eight guards were needed to cover what was originally believed to be one targeting path. That is the
+argument for moving spells out of `this.defenders` rather than continuing to guard individually.
 
 ## Not a defect: known verification limits
 

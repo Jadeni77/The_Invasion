@@ -14,6 +14,7 @@ TODO:
 
 import {DrawNegativeEffect} from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
+import { isConsumableSpell } from "./DefenderUnits.js";
 
 export class Enemy {
   constructor(x, y, typeData = {}) {
@@ -198,6 +199,7 @@ export class Enemy {
       targetDefender = defenderUnits.find((defender) => {
         return (
             defender.isAlive &&
+            !isConsumableSpell(defender) &&
             this.x + this.width >= defender.x &&
             this.x <= defender.x + defender.width &&
             this.y + this.height >= defender.y &&
@@ -374,6 +376,7 @@ export class Enemy {
 
     for (const defender of defenderUnits) {
       if (!defender.isAlive) continue;
+      if (isConsumableSpell(defender)) continue;
 
       const distance = this.getDistanceTo(defender);
       if (distance < minDistance) {
@@ -525,6 +528,7 @@ export class BombEnemy extends Enemy {
     // If close then explode
     const nearestDefender = defenderUnits.find(
         (defender) => defender.isAlive &&
+                      !isConsumableSpell(defender) &&
                       Math.hypot(this.x - defender.x, this.y - defender.y) <
                       this.explosionRadius / 2); //reduce range for explosion detection
     if (nearestDefender && !this.frozen && !this.stunned) {
@@ -1571,6 +1575,7 @@ export class AssassinEnemy extends Enemy {
       const targetDefender = defenderUnits.find(defender => {
         return(
             defender.isAlive &&
+            !isConsumableSpell(defender) &&
             this.x + this.width >= defender.x &&
             this.x <= defender.x + defender.width &&
             this.y + this.height >= defender.y &&

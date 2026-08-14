@@ -1,3 +1,5 @@
+import { isConsumableSpell } from '../../DefenderUnits.js';
+
 /**
  * This class represent the combat system of how defender and enemy interact
  * with each other.
@@ -127,6 +129,9 @@ export class CombatManager {
 
         for (const defender of defenders) {
             if (!defender.isAlive) continue;
+            // Enemies walk past consumable spells as though the cell were empty.
+            // Stopping to attack something invulnerable reads as a stuck enemy.
+            if (isConsumableSpell(defender)) continue;
 
             const distance = Math.hypot(
                 enemy.x + enemy.width / 2 - (defender.x + defender.width / 2),

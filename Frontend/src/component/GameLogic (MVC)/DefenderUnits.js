@@ -307,6 +307,10 @@ export class DefenderUnit {
   }
 
   takeDamage(amount) {
+    // Consumable spells are invulnerable for their whole fuse. They end by
+    // firing, never by being destroyed - by enemies or by friendly-fire splash.
+    if (isConsumableSpell(this)) return false;
+
     console.log(`Damage took ${amount}`);
     this.health -= amount;
     if (this.health <= 0) {
@@ -556,7 +560,13 @@ export class HealerDefender extends DefenderUnit {
           ];
         }
         const deadUnits = allDefender.filter(
-          (unit) => !unit.isAlive && unit.id !== this.id && unit.health <= 0,
+          (unit) =>
+            !unit.isAlive &&
+            unit.id !== this.id &&
+            unit.health <= 0 &&
+            // A spent spell is not a casualty - it fired. Reviving one would
+            // hand out unlimited free casts.
+            !isConsumableSpell(unit),
         );
         console.log(`Found ${deadUnits.length} dead units`);
         if (deadUnits.length > 0) {
@@ -2293,6 +2303,16 @@ export class FrostArcher extends DefenderUnit {
 
     return { ...base, slowEffect: "50% slow", newAbilities };
   }
+}
+
+/**
+ * True for one-shot consumables - Fire Blast and Ice Bomb - which fire once and
+ * then remove themselves. Defender rules (resurrection, enemy targeting,
+ * casualty counting) must not apply to them, because their "death" is a
+ * successful cast rather than a loss.
+ */
+export function isConsumableSpell(unit) {
+  return Boolean(unit?.isSpell);
 }
 
 export class FireBlast extends DefenderUnit {
