@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as DefenderUnits from '../../DefenderUnits.js';
 import * as EnemyUnits from '../../EnemyUnits.js';
+import { Mortar } from '../../DefenderUnits.js';
 import { UNIT_VOICES, resolveVoice } from '../UnitVoices.js';
 import { SFX } from '../SfxLibrary.js';
 
@@ -126,5 +127,63 @@ describe('resolveVoice', () => {
 
   it('falls back to the fire variant for an unknown variant name', () => {
     expect(resolveVoice('Sniper', 'nonsense')).toEqual(UNIT_VOICES.Sniper);
+  });
+
+  it('returns a copy of the fallback recipe, not the shared SFX object', () => {
+    const fallback = resolveVoice('NoSuchUnit', 'death');
+    expect(fallback).not.toBe(SFX.enemyDied);
+
+    fallback.gain = 999;
+    expect(SFX.enemyDied.gain).not.toBe(999);
+  });
+});
+
+describe('resolveVoice fallback override (unknown-unit sound selection)', () => {
+  it('uses the caller-supplied fallback recipe for an unknown unit, ignoring the variant default', () => {
+    const recipe = resolveVoice('NoSuchDefender', 'death', undefined, SFX.defenderDied);
+    expect(recipe).toEqual(SFX.defenderDied);
+    expect(recipe).not.toEqual(SFX.enemyDied);
+  });
+
+  it('hands back a copy of the supplied fallback, not the shared object', () => {
+    const recipe = resolveVoice('NoSuchDefender', 'death', undefined, SFX.defenderDied);
+    expect(recipe).not.toBe(SFX.defenderDied);
+
+    recipe.gain = 999;
+    expect(SFX.defenderDied.gain).not.toBe(999);
+  });
+
+  it('keeps the enemy fallback (SFX.enemyDied) when no override is supplied', () => {
+    expect(resolveVoice('NoSuchEnemy', 'death')).toEqual(SFX.enemyDied);
+  });
+
+  it('a known unit ignores the fallback override entirely, since it never needs it', () => {
+    expect(resolveVoice('Sniper', 'death', undefined, SFX.defenderDied)).toEqual(
+      resolveVoice('Sniper', 'death'),
+    );
+  });
+});
+
+describe('resolveVoice against a real instance (production minification guard)', () => {
+  /**
+   * Every other test in this file derives the lookup key from a string
+   * literal (`'Mortar'`), which is exactly why 340 green tests were once
+   * compatible with the feature being a complete no-op: esbuild's production
+   * minifier renames classes (`Mortar` -> `Ef`), so `constructor.name` no
+   * longer matches, and every unit silently falls back to the generic sound.
+   * `keepNames: true` in vite.config.js is what prevents that renaming; this
+   * test would have caught the regression by asserting against a REAL
+   * instance's `constructor.name` rather than a literal that can't drift.
+   */
+  it('recognises a real Mortar instance and does not fall back to the generic sound', () => {
+    const mortar = new Mortar(0, 0, { level: 1, image: null });
+
+    const death = resolveVoice(mortar.constructor.name, 'death');
+
+    expect(mortar.constructor.name).toBe('Mortar');
+    expect(death).not.toEqual(SFX.enemyDied);
+    expect(death.wave).toBe(UNIT_VOICES.Mortar.wave);
+    expect(death.noise).toBe(UNIT_VOICES.Mortar.noise);
+    expect(death.freqStart).toBeCloseTo(UNIT_VOICES.Mortar.freqStart * 0.5);
   });
 });

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AudioManager, volumeToGain, DEDUPE_WINDOW_SECONDS, MAX_VOICES } from '../AudioManager.js';
 
 function createMockContext() {
-  const made = { gains: [], oscillators: [], buffers: [] };
+  const made = { gains: [], oscillators: [], buffers: [], filters: [] };
   const gainNode = () => {
     const node = {
       gain: {
@@ -37,9 +37,15 @@ function createMockContext() {
       return src;
     }),
     createBuffer: vi.fn(() => ({ getChannelData: () => new Float32Array(256) })),
-    createBiquadFilter: vi.fn(() => ({
-      type: 'lowpass', frequency: { setValueAtTime: vi.fn() }, connect: vi.fn(),
-    })),
+    createBiquadFilter: vi.fn(() => {
+      const filter = {
+        type: 'lowpass',
+        frequency: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
+        connect: vi.fn(),
+      };
+      made.filters.push(filter);
+      return filter;
+    }),
     resume: vi.fn(function () { this.state = 'running'; return Promise.resolve(); }),
     sampleRate: 44100,
   };
@@ -123,6 +129,69 @@ describe('AudioManager', () => {
     audio.resume();
     audio.playSfx('enemyDied');
     expect(made.gains[3].connect).toHaveBeenCalledWith(made.gains[1]);
+  });
+});
+
+describe('noise timbre (bandpass filtering)', () => {
+  const NOISE_RECIPE = { wave: 'sawtooth', freqStart: 120, freqEnd: 60, duration: 0.3, gain: 0.5, noise: true };
+  const TONE_RECIPE = { wave: 'square', freqStart: 640, freqEnd: 880, duration: 0.06, gain: 0.18, noise: false };
+
+  function readyAudio() {
+    const { ctx, made } = createMockContext();
+    const audio = new AudioManager(() => ctx);
+    audio.init();
+    audio.resume();
+    return { ctx, made, audio };
+  }
+
+  it('creates a bandpass filter driven by the recipe frequencies for a noise recipe', () => {
+    const { ctx, made, audio } = readyAudio();
+
+    audio.playRecipe(NOISE_RECIPE, 'noise-unit:fire');
+
+    expect(ctx.createBiquadFilter).toHaveBeenCalledOnce();
+    const filter = made.filters[0];
+    expect(filter.type).toBe('bandpass');
+    expect(filter.frequency.setValueAtTime).toHaveBeenCalledWith(NOISE_RECIPE.freqStart, 0);
+    expect(filter.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(
+      NOISE_RECIPE.freqEnd,
+      NOISE_RECIPE.duration,
+    );
+  });
+
+  it('creates no biquad filter for a tone recipe', () => {
+    const { ctx, audio } = readyAudio();
+
+    audio.playRecipe(TONE_RECIPE, 'tone-unit:fire');
+
+    expect(ctx.createBiquadFilter).not.toHaveBeenCalled();
+    expect(ctx.createOscillator).toHaveBeenCalledOnce();
+  });
+
+  it('still connects a noise recipe to the sfx bus through the filter', () => {
+    const { made, audio } = readyAudio();
+
+    audio.playRecipe(NOISE_RECIPE, 'noise-unit:fire');
+
+    const filter = made.filters[0];
+    const source = made.buffers[0];
+    const envelope = made.gains[3];
+    // The buffer source feeds the filter, and the filter (not the raw
+    // source) is what ultimately reaches the envelope -> sfx bus.
+    expect(source.connect).toHaveBeenCalledWith(filter);
+    expect(filter.connect).toHaveBeenCalledWith(envelope);
+    expect(envelope.connect).toHaveBeenCalledWith(made.gains[1]);
+  });
+
+  it('still connects a tone recipe directly to the envelope (no filter in the path)', () => {
+    const { made, audio } = readyAudio();
+
+    audio.playRecipe(TONE_RECIPE, 'tone-unit:fire');
+
+    const osc = made.oscillators[0];
+    const envelope = made.gains[3];
+    expect(osc.connect).toHaveBeenCalledWith(envelope);
+    expect(envelope.connect).toHaveBeenCalledWith(made.gains[1]);
   });
 });
 

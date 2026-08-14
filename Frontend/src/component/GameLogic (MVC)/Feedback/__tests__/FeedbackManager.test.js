@@ -3,6 +3,7 @@ import { FeedbackBus } from '../FeedbackBus.js';
 import { FeedbackManager } from '../FeedbackManager.js';
 import { DEFAULT_SETTINGS } from '../SettingsStore.js';
 import { resolveVoice, UNIT_VOICES } from '../UnitVoices.js';
+import { SFX } from '../SfxLibrary.js';
 
 describe('FeedbackManager', () => {
   let bus, audio, juice, manager;
@@ -115,10 +116,15 @@ describe('per-unit voices', () => {
   });
 
   it('plays the firing defender its own voice', () => {
+    // Asserted against a literal expected recipe (not resolveVoice() itself):
+    // the fire variant applies no scaling, so this should equal Sniper's raw
+    // UNIT_VOICES signature. Comparing to resolveVoice('Sniper', 'fire') would
+    // just check the implementation against itself - it would pass no matter
+    // how resolveVoice derived the recipe.
     bus.emit('projectile:fired', { defenderType: 'Sniper' });
 
     expect(audio.playRecipe).toHaveBeenCalledWith(
-      resolveVoice('Sniper', 'fire'),
+      { wave: 'square', noise: false, freqStart: 1400, freqEnd: 700, duration: 0.05, gain: 0.3 },
       'Sniper:fire',
     );
   });
@@ -133,19 +139,30 @@ describe('per-unit voices', () => {
   });
 
   it('plays the dying enemy its own death voice', () => {
+    // Literal expected recipe: TitanEnemy's signature is
+    // { wave: 'sawtooth', freqStart: 100, freqEnd: 50, duration: 0.4, gain: 0.55, noise: true },
+    // and the death variant scales freq by 0.5, duration by 2.5, gain by 1.15.
+    // Computed here with the same arithmetic resolveVoice performs (not by
+    // calling resolveVoice), so a change to either the signature or the
+    // VARIANTS.death scale factors would actually break this test.
     bus.emit('enemy:died', { unitType: 'TitanEnemy', isBoss: false, x: 1, y: 2 });
 
     expect(audio.playRecipe).toHaveBeenCalledWith(
-      resolveVoice('TitanEnemy', 'death'),
+      { wave: 'sawtooth', noise: true, freqStart: 100 * 0.5, freqEnd: 50 * 0.5, duration: 0.4 * 2.5, gain: 0.55 * 1.15 },
       'TitanEnemy:death',
     );
   });
 
   it('plays the hit enemy its own hit voice and still shows a damage number', () => {
+    // Literal expected recipe: TankEnemy's signature is
+    // { wave: 'sawtooth', freqStart: 150, freqEnd: 90, duration: 0.22, gain: 0.4, noise: true },
+    // and the hit variant scales duration by 0.35 and gain by 0.55 (freq
+    // unscaled). See the note above on why this is spelled out rather than
+    // compared against resolveVoice('TankEnemy', 'hit').
     bus.emit('enemy:hit', { unitType: 'TankEnemy', damage: 12, x: 30, y: 40 });
 
     expect(audio.playRecipe).toHaveBeenCalledWith(
-      resolveVoice('TankEnemy', 'hit'),
+      { wave: 'sawtooth', noise: true, freqStart: 150, freqEnd: 90, duration: 0.22 * 0.35, gain: 0.4 * 0.55 },
       'TankEnemy:hit',
     );
     expect(juice.addDamageNumber).toHaveBeenCalledWith(30, 40, 12);
@@ -188,5 +205,42 @@ describe('per-unit voices', () => {
 
     expect(audio.playSfx).toHaveBeenCalledWith('energyCollected');
     expect(audio.playSfx).toHaveBeenCalledWith('levelWon');
+  });
+});
+
+describe('death fallback selection (defender vs enemy)', () => {
+  // Regression coverage for: resolveVoice's fallback used to map every
+  // unrecognised unit's death to SFX.enemyDied unconditionally, so an
+  // unrecognised DEFENDER played the enemy squelch. defender:died must now
+  // fall back to SFX.defenderDied instead, while enemy:died is unaffected.
+  let bus, audio, juice, manager;
+
+  beforeEach(() => {
+    bus = new FeedbackBus();
+    audio = { playSfx: vi.fn(), playRecipe: vi.fn(), setVolumes: vi.fn() };
+    juice = {
+      addTrauma: vi.fn(), triggerHitStop: vi.fn(),
+      addDamageNumber: vi.fn(), triggerFlash: vi.fn(), setEnabled: vi.fn(),
+    };
+    manager = new FeedbackManager(bus, audio, juice);
+    manager.attach();
+  });
+
+  it('falls back to the DEFENDER squelch for an unrecognised defender death', () => {
+    bus.emit('defender:died', { unitType: 'SomeUnknownDefender', x: 1, y: 2 });
+
+    expect(audio.playRecipe).toHaveBeenCalledWith(
+      SFX.defenderDied,
+      'SomeUnknownDefender:death',
+    );
+  });
+
+  it('falls back to the ENEMY squelch for an unrecognised enemy death', () => {
+    bus.emit('enemy:died', { unitType: 'SomeUnknownEnemy', isBoss: false, x: 1, y: 2 });
+
+    expect(audio.playRecipe).toHaveBeenCalledWith(
+      SFX.enemyDied,
+      'SomeUnknownEnemy:death',
+    );
   });
 });

@@ -129,26 +129,37 @@ export class AudioManager {
     // Exponential fade to near-silence; exponentialRamp cannot reach exactly 0.
     envelope.gain.exponentialRampToValueAtTime(0.0001, end);
 
-    const source = recipe.noise
-      ? this.createNoiseSource(recipe)
+    const { source, output } = recipe.noise
+      ? this.createNoiseSource(recipe, now, end)
       : this.createToneSource(recipe, now, end);
 
-    source.connect(envelope);
+    output.connect(envelope);
     source.start(now);
     source.stop(end);
 
     this.activeVoices.push({ source, endTime: end });
   }
 
+  /**
+   * Builds an oscillator. For a tone, the node that is started/stopped and
+   * the node that is connected onward are the same object.
+   */
   createToneSource(recipe, now, end) {
     const osc = this.ctx.createOscillator();
     osc.type = recipe.wave;
     osc.frequency.setValueAtTime(recipe.freqStart, now);
     osc.frequency.exponentialRampToValueAtTime(recipe.freqEnd, end);
-    return osc;
+    return { source: osc, output: osc };
   }
 
-  createNoiseSource(recipe) {
+  /**
+   * Builds a white-noise burst filtered through a bandpass whose center
+   * frequency sweeps recipe.freqStart -> recipe.freqEnd, so a noise unit's
+   * authored frequency curve actually shapes its timbre instead of being
+   * dead data. The buffer source is the node to start/stop; the filter is
+   * the node to connect onward, since the source's raw output is unfiltered.
+   */
+  createNoiseSource(recipe, now, end) {
     const frames = Math.floor(this.ctx.sampleRate * recipe.duration);
     const buffer = this.ctx.createBuffer(1, Math.max(1, frames), this.ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -156,6 +167,14 @@ export class AudioManager {
 
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
-    return source;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(recipe.freqStart, now);
+    filter.frequency.exponentialRampToValueAtTime(recipe.freqEnd, end);
+
+    source.connect(filter);
+
+    return { source, output: filter };
   }
 }

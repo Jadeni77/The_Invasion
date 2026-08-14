@@ -75,13 +75,22 @@ function clamp(value, min, max) {
  * throwing - a unit added later is quieter than intended, never broken.
  *
  * The optional signature parameter exists for testing derivation against a known
- * input; production callers pass two arguments.
+ * input; production callers pass two arguments (or four, to override the
+ * fallback).
+ *
+ * The optional fallbackRecipe parameter lets a caller pick which generic sound
+ * plays for an unrecognised unit. Without it, every unknown unit's death plays
+ * SFX.enemyDied - which is wrong for a defender: an unrecognised defender
+ * should fall back to SFX.defenderDied, not the enemy squelch. Callers that
+ * omit it keep today's behaviour (FALLBACK keyed by variant).
  */
-export function resolveVoice(unitName, variant, signature = UNIT_VOICES[unitName]) {
+export function resolveVoice(unitName, variant, signature = UNIT_VOICES[unitName], fallbackRecipe) {
   const scale = VARIANTS[variant] ?? VARIANTS.fire;
 
   if (!signature) {
-    return FALLBACK[variant] ?? FALLBACK.fire;
+    // Copy rather than hand back the shared SFX/FALLBACK object by reference,
+    // so a careless downstream mutation can't corrupt the shared recipe.
+    return { ...(fallbackRecipe ?? FALLBACK[variant] ?? FALLBACK.fire) };
   }
 
   return {

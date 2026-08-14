@@ -1,4 +1,5 @@
 import { resolveVoice } from './UnitVoices.js';
+import { SFX } from './SfxLibrary.js';
 
 /**
  * Translates gameplay events into sound and juice.
@@ -15,9 +16,18 @@ export class FeedbackManager {
     this.unsubscribers = [];
   }
 
-  /** Plays a unit's own voice for one variant, keyed so repeats collapse. */
-  playUnitVoice(unitName, variant) {
-    this.audio.playRecipe(resolveVoice(unitName, variant), `${unitName}:${variant}`);
+  /**
+   * Plays a unit's own voice for one variant, keyed so repeats collapse.
+   *
+   * fallbackRecipe overrides the generic sound used when the unit is
+   * unrecognised - e.g. an unknown defender should fall back to
+   * SFX.defenderDied, not the enemy death squelch.
+   */
+  playUnitVoice(unitName, variant, fallbackRecipe) {
+    this.audio.playRecipe(
+      resolveVoice(unitName, variant, undefined, fallbackRecipe),
+      `${unitName}:${variant}`,
+    );
   }
 
   attach() {
@@ -26,7 +36,7 @@ export class FeedbackManager {
     on('defender:placed', () => this.audio.playSfx('defenderPlaced'));
 
     on('defender:died', ({ unitType }) => {
-      this.playUnitVoice(unitType, 'death');
+      this.playUnitVoice(unitType, 'death', SFX.defenderDied);
       this.juice.addTrauma(0.15);
     });
 
