@@ -6,6 +6,12 @@ export function volumeToGain(value) {
   return (clamped / 100) ** 2;
 }
 
+/** The same sound key repeated inside this window plays once. */
+export const DEDUPE_WINDOW_SECONDS = 0.04;
+
+/** Maximum simultaneously sounding voices. */
+export const MAX_VOICES = 12;
+
 /**
  * Owns the AudioContext and its gain graph, and renders SfxLibrary recipes.
  *
@@ -23,6 +29,8 @@ export class AudioManager {
     // Set once construction has failed, so we don't keep retrying (and
     // re-logging) a doomed AudioContext on every subsequent init() call.
     this._unavailable = false;
+    this.lastPlayedAt = new Map(); // dedupe key -> AudioContext time
+    this.activeVoices = [];        // { source, endTime }, oldest first
   }
 
   /**
@@ -82,10 +90,37 @@ export class AudioManager {
   }
 
   playSfx(id) {
-    const recipe = SFX[id];
+    this.playRecipe(SFX[id], id);
+  }
+
+  /**
+   * Plays any recipe, keyed for deduplication.
+   *
+   * Two limits keep a busy wave readable. The same key inside DEDUPE_WINDOW_SECONDS
+   * plays once - six splash kills would otherwise start six identical sounds whose
+   * amplitudes sum to six times the intended level, which clips. And no more than
+   * MAX_VOICES sound at once; beyond that the oldest is stopped early.
+   */
+  playRecipe(recipe, dedupeKey) {
     if (!recipe || !this.ctx) return;
 
     const now = this.ctx.currentTime;
+
+    const lastPlayed = this.lastPlayedAt.get(dedupeKey);
+    if (lastPlayed !== undefined && now - lastPlayed < DEDUPE_WINDOW_SECONDS) return;
+    this.lastPlayedAt.set(dedupeKey, now);
+
+    // Drop voices that have already finished before judging the cap.
+    this.activeVoices = this.activeVoices.filter((voice) => voice.endTime > now);
+    if (this.activeVoices.length >= MAX_VOICES) {
+      const oldest = this.activeVoices.shift();
+      try {
+        oldest.source.stop(now);
+      } catch {
+        // Already stopped; nothing to do.
+      }
+    }
+
     const end = now + recipe.duration;
 
     const envelope = this.ctx.createGain();
@@ -101,6 +136,8 @@ export class AudioManager {
     source.connect(envelope);
     source.start(now);
     source.stop(end);
+
+    this.activeVoices.push({ source, endTime: end });
   }
 
   createToneSource(recipe, now, end) {

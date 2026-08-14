@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AudioManager, volumeToGain } from '../AudioManager.js';
+import { AudioManager, volumeToGain, DEDUPE_WINDOW_SECONDS, MAX_VOICES } from '../AudioManager.js';
 
 function createMockContext() {
   const made = { gains: [], oscillators: [], buffers: [] };
@@ -197,5 +197,114 @@ describe('volumeToGain', () => {
 
   it('handles non-numeric string by returning 0', () => {
     expect(volumeToGain('foo')).toBe(0);
+  });
+});
+
+describe('voice limiting', () => {
+  const RECIPE = { wave: 'sine', freqStart: 440, freqEnd: 220, duration: 0.2, gain: 0.5, noise: false };
+
+  function readyAudio() {
+    const { ctx, made } = createMockContext();
+    const audio = new AudioManager(() => ctx);
+    audio.init();
+    audio.resume();
+    return { ctx, made, audio };
+  }
+
+  it('exposes the configured window and cap', () => {
+    expect(DEDUPE_WINDOW_SECONDS).toBe(0.04);
+    expect(MAX_VOICES).toBe(12);
+  });
+
+  it('plays a recipe object directly', () => {
+    const { ctx, audio } = readyAudio();
+    audio.playRecipe(RECIPE, 'Sniper:fire');
+    expect(ctx.createOscillator).toHaveBeenCalledOnce();
+  });
+
+  it('collapses the same key repeated inside the window', () => {
+    const { ctx, audio } = readyAudio();
+
+    audio.playRecipe(RECIPE, 'BasicEnemy:death');
+    audio.playRecipe(RECIPE, 'BasicEnemy:death');
+    audio.playRecipe(RECIPE, 'BasicEnemy:death');
+
+    expect(ctx.createOscillator).toHaveBeenCalledOnce();
+  });
+
+  it('plays the same key again once the window has passed', () => {
+    const { ctx, audio } = readyAudio();
+
+    audio.playRecipe(RECIPE, 'BasicEnemy:death');
+    ctx.currentTime += 0.05;
+    audio.playRecipe(RECIPE, 'BasicEnemy:death');
+
+    expect(ctx.createOscillator).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not collapse DIFFERENT keys in the same frame', () => {
+    const { ctx, audio } = readyAudio();
+
+    audio.playRecipe(RECIPE, 'BasicEnemy:death');
+    audio.playRecipe(RECIPE, 'TitanEnemy:death');
+    audio.playRecipe(RECIPE, 'Sniper:fire');
+
+    expect(ctx.createOscillator).toHaveBeenCalledTimes(3);
+  });
+
+  it('stops the oldest voice when the cap is exceeded', () => {
+    const { made, audio } = readyAudio();
+
+    for (let i = 0; i < MAX_VOICES; i++) {
+      audio.playRecipe(RECIPE, `unit${i}:death`);
+    }
+    expect(made.oscillators.every((osc) => osc.stop.mock.calls.length === 1)).toBe(true);
+
+    audio.playRecipe(RECIPE, 'overflow:death');
+
+    // The oldest voice is stopped a second time, early.
+    expect(made.oscillators[0].stop.mock.calls.length).toBe(2);
+  });
+
+  it('leaves voices untouched at exactly the cap', () => {
+    const { made, audio } = readyAudio();
+
+    for (let i = 0; i < MAX_VOICES; i++) {
+      audio.playRecipe(RECIPE, `unit${i}:death`);
+    }
+
+    expect(made.oscillators.every((osc) => osc.stop.mock.calls.length === 1)).toBe(true);
+  });
+
+  it('forgets voices that have already finished', () => {
+    const { ctx, made, audio } = readyAudio();
+
+    for (let i = 0; i < MAX_VOICES; i++) {
+      audio.playRecipe(RECIPE, `unit${i}:death`);
+    }
+    // Advance past the recipe duration so every voice has ended naturally.
+    // The cap should then have room again without stopping anything early.
+    ctx.currentTime += 1;
+    audio.playRecipe(RECIPE, 'later:death');
+
+    expect(made.oscillators[0].stop.mock.calls.length).toBe(1);
+  });
+
+  it('still plays shared sounds through playSfx', () => {
+    const { ctx, audio } = readyAudio();
+    audio.playSfx('enemyHit');
+    expect(ctx.createOscillator).toHaveBeenCalledOnce();
+  });
+
+  it('dedupes playSfx by its sound id', () => {
+    const { ctx, audio } = readyAudio();
+    audio.playSfx('enemyHit');
+    audio.playSfx('enemyHit');
+    expect(ctx.createOscillator).toHaveBeenCalledOnce();
+  });
+
+  it('ignores an unknown sound id without throwing', () => {
+    const { audio } = readyAudio();
+    expect(() => audio.playSfx('nope')).not.toThrow();
   });
 });
