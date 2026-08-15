@@ -27,13 +27,53 @@ import { SFX } from './SfxLibrary.js';
 export const UNIT_VOICES = {
   projectile:       { wave: 'square',   freqStart: 640,  freqEnd: 880,  duration: 0.06, gain: 0.18, noise: false },
   artillery:        { wave: 'sawtooth', freqStart: 520,  freqEnd: 300,  duration: 0.14, gain: 0.40, noise: true  },
-  mortar:           { wave: 'sawtooth', freqStart: 380,  freqEnd: 220,  duration: 0.30, gain: 0.50, noise: true  },
+  /**
+   * The Mortar is artillery - 天鹰火炮 / 玉米加农炮 - and artillery is three
+   * things at once, which is why this is the one layered voice here.
+   *
+   * It used to be a single 380->220Hz bandpassed noise burst: one band, so all
+   * a player got was a hiss, and no amount of retuning fixes that, because
+   * AudioManager plays either the oscillator or the noise, never both.
+   *
+   *   crack  0.05s  bandpass 3200->900Hz   the transient - a hard mechanical
+   *                                        snap, wide open at the top where a
+   *                                        laptop speaker is most efficient
+   *   body   0.22s  sawtooth  600->250Hz   the launch you feel. A pitched
+   *                 (from +8ms)            layer, so the harmonic stack keeps
+   *                                        speaking after the rolloff eats the
+   *                                        fundamental; falling by 1.3
+   *                                        octaves, which is what reads as a
+   *                                        heavy thing leaving the tube
+   *   tail   0.45s  bandpass 700->300Hz    the decay, still midrange. It ends
+   *                 (from +30ms)           lowest of the three and never dips
+   *                                        under 300Hz
+   *
+   * Nothing here is sub-bass; the weight is in the transient and the midrange
+   * body, per this file's header. Span is 0.48s, inside MAX_DURATION.
+   *
+   * The three gains ARE directly comparable, and that is new. They were first
+   * authored around the noise path being ~14dB quieter than the tone path,
+   * which forced the two noise layers to carry inflated numbers (0.55 and
+   * 0.70) against the sawtooth's 0.38 just to be heard alongside it. Once
+   * AudioManager.noiseMakeupGain corrected that at the source, those numbers
+   * became a 14dB overshoot: the tail, meant to sit underneath, measured the
+   * LOUDEST layer of the three. Re-authored against corrected levels, the
+   * balance now reads straight off the gains - body loudest, crack an accent
+   * over it, tail underneath both.
+   */
+  mortar: {
+    wave: 'sawtooth', freqStart: 3200, freqEnd: 900, duration: 0.05, gain: 0.28, noise: true,
+    layers: [
+      { offset: 0.008, wave: 'sawtooth', freqStart: 600, freqEnd: 250, duration: 0.22, gain: 0.60, noise: false },
+      { offset: 0.030, wave: 'sawtooth', freqStart: 700, freqEnd: 300, duration: 0.45, gain: 0.20, noise: true },
+    ],
+  },
   sniper:           { wave: 'square',   freqStart: 1400, freqEnd: 700,  duration: 0.05, gain: 0.30, noise: false },
   magic:            { wave: 'triangle', freqStart: 1100, freqEnd: 1500, duration: 0.12, gain: 0.22, noise: false },
   fire:             { wave: 'sawtooth', freqStart: 520,  freqEnd: 240,  duration: 0.40, gain: 0.50, noise: true  },
   heal:             { wave: 'sine',     freqStart: 660,  freqEnd: 990,  duration: 0.18, gain: 0.28, noise: false },
   melee:            { wave: 'triangle', freqStart: 340,  freqEnd: 220,  duration: 0.10, gain: 0.30, noise: true  },
-  summon:           { wave: 'triangle', freqStart: 200,  freqEnd: 130,  duration: 0.30, gain: 0.35, noise: false },
+  summon:           { wave: 'triangle', freqStart: 330,  freqEnd: 220,  duration: 0.30, gain: 0.35, noise: false },
   hit:              { wave: 'triangle', freqStart: 320,  freqEnd: 240,  duration: 0.07, gain: 0.25, noise: false },
   // The death family reads light -> heavy by falling pitch, rising length and
   // rising level together. Every entry is authored so that the death variant's
@@ -122,11 +162,34 @@ export function resolveVoice(soundKey, variant, signature = UNIT_VOICES[soundKey
   }
 
   return {
-    wave: signature.wave,
-    noise: signature.noise,
-    freqStart: clamp(signature.freqStart * scale.freqScale, MIN_FREQ, MAX_FREQ),
-    freqEnd: clamp(signature.freqEnd * scale.freqScale, MIN_FREQ, MAX_FREQ),
-    duration: clamp(signature.duration * scale.durationScale, 0.01, MAX_DURATION),
-    gain: clamp(signature.gain * scale.gainScale, 0.001, MAX_GAIN),
+    ...scaleRecipe(signature, scale),
+    // Only when the signature has layers: adding `layers: undefined` to every
+    // other voice would put a meaningless key on 14 of the 15 entries.
+    ...(signature.layers ? { layers: signature.layers.map((layer) => scaleLayer(layer, scale)) } : {}),
+  };
+}
+
+/** Applies one variant's scale factors to a single recipe (or layer). */
+function scaleRecipe(recipe, scale) {
+  return {
+    wave: recipe.wave,
+    noise: recipe.noise,
+    freqStart: clamp(recipe.freqStart * scale.freqScale, MIN_FREQ, MAX_FREQ),
+    freqEnd: clamp(recipe.freqEnd * scale.freqScale, MIN_FREQ, MAX_FREQ),
+    duration: clamp(recipe.duration * scale.durationScale, 0.01, MAX_DURATION),
+    gain: clamp(recipe.gain * scale.gainScale, 0.001, MAX_GAIN),
+  };
+}
+
+/**
+ * As scaleRecipe, plus the offset - which scales with DURATION, not with time
+ * unscaled. A death stretches its sound 2.5x; if the offsets stayed fixed the
+ * layers would bunch up against the front and the sound would lose the shape
+ * that made it worth layering.
+ */
+function scaleLayer(layer, scale) {
+  return {
+    ...scaleRecipe(layer, scale),
+    offset: clamp((layer.offset ?? 0) * scale.durationScale, 0, MAX_DURATION),
   };
 }

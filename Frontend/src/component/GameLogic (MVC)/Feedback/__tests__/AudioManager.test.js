@@ -1,9 +1,12 @@
 import {
   describe, it, expect, vi, beforeEach, afterEach,
 } from 'vitest';
-import { AudioManager, volumeToGain, DEDUPE_WINDOW_SECONDS, MAX_VOICES } from '../AudioManager.js';
-import { MAX_DURATION } from '../UnitVoices.js';
-import { SFX } from '../SfxLibrary.js';
+import {
+  AudioManager, volumeToGain, DEDUPE_WINDOW_SECONDS, MAX_VOICES,
+  NOISE_BANDPASS_Q, noiseMakeupGain,
+} from '../AudioManager.js';
+import { MAX_DURATION, UNIT_VOICES } from '../UnitVoices.js';
+import { SFX, recipeLayers } from '../SfxLibrary.js';
 
 function createMockContext() {
   const made = { gains: [], oscillators: [], buffers: [], filters: [] };
@@ -50,6 +53,10 @@ function createMockContext() {
       const filter = {
         type: 'lowpass',
         frequency: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
+        // Deliberately NOT BiquadFilterNode's real default of 1: the makeup
+        // gain is derived from Q, so a test has to be able to tell
+        // "AudioManager set this" from "it happened to already be right".
+        Q: { value: -1, setValueAtTime: vi.fn() },
         connect: vi.fn(),
       };
       made.filters.push(filter);
@@ -185,10 +192,14 @@ describe('noise timbre (bandpass filtering)', () => {
     const filter = made.filters[0];
     const source = made.buffers[0];
     const envelope = made.gains[3];
-    // The buffer source feeds the filter, and the filter (not the raw
-    // source) is what ultimately reaches the envelope -> sfx bus.
+    const makeup = made.gains[4];
+    // The chain gained a stage: the bandpass throws away most of the noise's
+    // power, and the makeup gain puts it back so that `gain` means the same
+    // loudness here as it does on the tone path (see noiseMakeupGain). The
+    // raw source still reaches nothing directly.
     expect(source.connect).toHaveBeenCalledWith(filter);
-    expect(filter.connect).toHaveBeenCalledWith(envelope);
+    expect(filter.connect).toHaveBeenCalledWith(makeup);
+    expect(makeup.connect).toHaveBeenCalledWith(envelope);
     expect(envelope.connect).toHaveBeenCalledWith(made.gains[1]);
   });
 
@@ -201,6 +212,398 @@ describe('noise timbre (bandpass filtering)', () => {
     const envelope = made.gains[3];
     expect(osc.connect).toHaveBeenCalledWith(envelope);
     expect(envelope.connect).toHaveBeenCalledWith(made.gains[1]);
+  });
+});
+
+describe('layered recipes', () => {
+  /**
+   * A recipe may carry `layers`: further recipes, each with an `offset` in
+   * seconds from the trigger. AudioManager renders the base recipe and every
+   * layer, but the result is ONE sound - one voice against MAX_VOICES and one
+   * dedupe slot. Without that accounting a three-layer sound would triple the
+   * voice pressure and its layers would each burn a slot, so twelve of them
+   * would silence everything else in the game.
+   *
+   * The mechanism exists because a single source cannot be artillery:
+   * playRecipe renders either an oscillator or a bandpassed noise burst, never
+   * both, and a cannon needs a crack, a body and a tail sounding together.
+   */
+  const LAYERED = {
+    wave: 'square', freqStart: 800, freqEnd: 400, duration: 0.05, gain: 0.5, noise: false,
+    layers: [
+      { offset: 0.02, wave: 'sawtooth', freqStart: 600, freqEnd: 300, duration: 0.20, gain: 0.4, noise: false },
+      { offset: 0.05, wave: 'sawtooth', freqStart: 700, freqEnd: 350, duration: 0.30, gain: 0.3, noise: true },
+    ],
+  };
+  const SINGLE = { wave: 'sine', freqStart: 440, freqEnd: 220, duration: 0.2, gain: 0.5, noise: false };
+
+  function readyAudio() {
+    const { ctx, made } = createMockContext();
+    const audio = new AudioManager(() => ctx);
+    audio.init();
+    audio.resume();
+    return { ctx, made, audio };
+  }
+
+  it('starts one source per layer, the base recipe included', () => {
+    const { ctx, audio } = readyAudio();
+
+    audio.playRecipe(LAYERED, 'Mortar:fire');
+
+    // Two tone layers (base + first layer) and one noise layer.
+    expect(ctx.createOscillator).toHaveBeenCalledTimes(2);
+    expect(ctx.createBufferSource).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts each layer at its own offset from the trigger', () => {
+    const { ctx, made, audio } = readyAudio();
+    ctx.currentTime = 5;
+
+    audio.playRecipe(LAYERED, 'Mortar:fire');
+
+    expect(made.oscillators[0].start).toHaveBeenCalledWith(5);
+    expect(made.oscillators[1].start).toHaveBeenCalledWith(5 + 0.02);
+    expect(made.buffers[0].start).toHaveBeenCalledWith(5 + 0.05);
+  });
+
+  it('stops each layer after its own duration, not the base layer’s', () => {
+    const { ctx, made, audio } = readyAudio();
+    ctx.currentTime = 5;
+
+    audio.playRecipe(LAYERED, 'Mortar:fire');
+
+    expect(made.oscillators[0].stop).toHaveBeenCalledWith(5 + 0.05);
+    expect(made.oscillators[1].stop).toHaveBeenCalledWith(5 + 0.02 + 0.20);
+    expect(made.buffers[0].stop).toHaveBeenCalledWith(5 + 0.05 + 0.30);
+  });
+
+  it('gives every layer its own envelope at its own gain, all on the sfx bus', () => {
+    const { made, audio } = readyAudio();
+
+    audio.playRecipe(LAYERED, 'Mortar:fire', 0.7);
+
+    // gains[0..2] are master/sfx/music; one envelope per layer follows. A
+    // noise layer also builds a constant makeup gain, which is not an
+    // envelope - envelopes are the nodes that get a scheduled peak.
+    const envelopes = made.gains.slice(3).filter((g) => g.gain.setValueAtTime.mock.calls.length > 0);
+    expect(envelopes).toHaveLength(3);
+    const peaks = envelopes.map((g) => g.gain.setValueAtTime.mock.calls[0][0]);
+    expect(peaks).toEqual([0.5 * 0.7, 0.4 * 0.7, 0.3 * 0.7].map((v) => expect.closeTo(v, 10)));
+    for (const envelope of envelopes) {
+      expect(envelope.connect).toHaveBeenCalledWith(made.gains[1]);
+    }
+  });
+
+  it('drives a noise layer’s bandpass from that layer’s own frequencies', () => {
+    const { ctx, made, audio } = readyAudio();
+    ctx.currentTime = 5;
+
+    audio.playRecipe(LAYERED, 'Mortar:fire');
+
+    // Rejects an implementation that renders layers but hands each one the
+    // BASE recipe's sweep, which would collapse a three-band sound to one band.
+    expect(made.filters).toHaveLength(1);
+    expect(made.filters[0].frequency.setValueAtTime).toHaveBeenCalledWith(700, 5 + 0.05);
+    expect(made.filters[0].frequency.exponentialRampToValueAtTime)
+      .toHaveBeenCalledWith(350, 5 + 0.05 + 0.30);
+  });
+
+  it('treats a layer with no offset as landing on the trigger', () => {
+    const { ctx, made, audio } = readyAudio();
+    ctx.currentTime = 5;
+
+    audio.playRecipe({ ...SINGLE, layers: [{ ...SINGLE, wave: 'square' }] }, 'k');
+
+    expect(made.oscillators[1].start).toHaveBeenCalledWith(5);
+  });
+
+  it('counts the whole layered sound as ONE voice against the cap', () => {
+    const { made, audio } = readyAudio();
+
+    // Three sources each; if layers counted individually the cap would be
+    // reached after four sounds and eviction would start there.
+    for (let i = 0; i < MAX_VOICES; i++) audio.playRecipe(LAYERED, `unit${i}:fire`);
+
+    expect(made.oscillators.every((osc) => osc.stop.mock.calls.length === 1)).toBe(true);
+    expect(made.buffers.every((src) => src.stop.mock.calls.length === 1)).toBe(true);
+  });
+
+  it('stops every layer of the voice the cap evicts, not just its first source', () => {
+    const { made, audio } = readyAudio();
+
+    for (let i = 0; i < MAX_VOICES; i++) audio.playRecipe(LAYERED, `unit${i}:fire`);
+    audio.playRecipe(SINGLE, 'overflow:fire');
+
+    // The first sound's three sources are the oldest voice; all three must be
+    // stopped early, or an evicted layer keeps sounding past its eviction.
+    expect(made.oscillators[0].stop.mock.calls.length).toBe(2);
+    expect(made.oscillators[1].stop.mock.calls.length).toBe(2);
+    expect(made.buffers[0].stop.mock.calls.length).toBe(2);
+    // The second sound is still untouched.
+    expect(made.oscillators[2].stop.mock.calls.length).toBe(1);
+  });
+
+  it('takes ONE dedupe slot for the whole sound, not one per layer', () => {
+    const { ctx, audio } = readyAudio();
+
+    audio.playRecipe(LAYERED, 'Mortar:fire');
+    audio.playRecipe(LAYERED, 'Mortar:fire');
+
+    // The repeat is suppressed entirely: still three sources, not six. A
+    // per-layer dedupe would instead let the repeat's later layers through,
+    // because each layer would carry its own key.
+    expect(ctx.createOscillator).toHaveBeenCalledTimes(2);
+    expect(ctx.createBufferSource).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let its own layers dedupe each other away', () => {
+    const { ctx, audio } = readyAudio();
+
+    // Three layers that are byte-identical apart from their offsets. Keyed per
+    // layer they would collapse to one; keyed per sound all three must sound.
+    audio.playRecipe({
+      ...SINGLE,
+      layers: [{ ...SINGLE, offset: 0.01 }, { ...SINGLE, offset: 0.02 }],
+    }, 'k');
+
+    expect(ctx.createOscillator).toHaveBeenCalledTimes(3);
+  });
+
+  it('holds the voice slot until the last layer’s tail, not the base layer’s', () => {
+    const { ctx, made, audio } = readyAudio();
+
+    for (let i = 0; i < MAX_VOICES; i++) audio.playRecipe(LAYERED, `unit${i}:fire`);
+    // Past the 0.05s base layer but well inside the 0.35s tail. The voices are
+    // still sounding, so the cap must still evict rather than find free room.
+    ctx.currentTime = 0.1;
+    audio.playRecipe(SINGLE, 'overflow:fire');
+
+    expect(made.oscillators[0].stop.mock.calls.length).toBe(2);
+  });
+
+  it('releases the voice slot once even the last layer has finished', () => {
+    const { ctx, made, audio } = readyAudio();
+
+    for (let i = 0; i < MAX_VOICES; i++) audio.playRecipe(LAYERED, `unit${i}:fire`);
+    ctx.currentTime = 0.4; // past 0.05 + 0.30
+    audio.playRecipe(SINGLE, 'later:fire');
+
+    expect(made.oscillators[0].stop.mock.calls.length).toBe(1);
+  });
+
+  it('leaves a recipe with no layers rendering exactly as before', () => {
+    const { ctx, made, audio } = readyAudio();
+    ctx.currentTime = 5;
+
+    audio.playRecipe(SINGLE, 'Sniper:fire');
+
+    expect(ctx.createOscillator).toHaveBeenCalledOnce();
+    expect(ctx.createBufferSource).not.toHaveBeenCalled();
+    expect(made.gains).toHaveLength(4); // master, sfx, music, one envelope
+    expect(made.oscillators[0].start).toHaveBeenCalledWith(5);
+    expect(made.oscillators[0].stop).toHaveBeenCalledWith(5 + SINGLE.duration);
+    expect(made.gains[3].gain.setValueAtTime).toHaveBeenCalledWith(SINGLE.gain, 5);
+    expect(made.gains[3].connect).toHaveBeenCalledWith(made.gains[1]);
+  });
+
+  it('treats an empty layers array as a plain one-source recipe', () => {
+    const { ctx, made, audio } = readyAudio();
+
+    audio.playRecipe({ ...SINGLE, layers: [] }, 'k');
+
+    expect(ctx.createOscillator).toHaveBeenCalledOnce();
+    expect(made.gains).toHaveLength(4);
+  });
+});
+
+/**
+ * The invariant that was silently false for 589 tests.
+ *
+ * `gain: 0.5` meant two different loudnesses depending on `noise`, a boolean
+ * elsewhere in the same recipe. AudioManager renders a noise recipe through a
+ * bandpass, which throws away everything outside a narrow band - about 97% of
+ * white noise's power at a Q=1 midrange centre - while a tone recipe reaches
+ * the envelope at full scale. Measured, that put the noise path ~14dB under
+ * the tone path at identical authored gain.
+ *
+ * It explains three separate symptoms the owner reported as unrelated: the
+ * original Mortar being inaudible, enemy deaths being inaudible, and the whole
+ * death family sitting ~22dB under baseDamaged, Titan and Boss included. Every
+ * one of those is a `noise: true` recipe.
+ *
+ * These tests model the rendered level from what AudioManager actually
+ * schedules on the mock graph. The bandpass's noise power gain is obtained by
+ * NUMERICALLY INTEGRATING |H(f)|^2 across the spectrum, which is a different
+ * derivation from the closed-form equivalent-noise-bandwidth identity
+ * noiseMakeupGain uses - so agreement between them is evidence, not a
+ * tautology. A test that reused the production formula could only prove the
+ * code equals itself.
+ */
+describe('authored gain means the same level on both render paths', () => {
+  /** RMS of a full-scale oscillator, by shape. */
+  const WAVE_RMS = {
+    sine: Math.SQRT1_2, square: 1, sawtooth: 1 / Math.sqrt(3), triangle: 1 / Math.sqrt(3),
+  };
+  /** RMS of the uniform [-1,1) buffer createNoiseSource fills. */
+  const UNIFORM_NOISE_RMS = 1 / Math.sqrt(3);
+
+  /**
+   * The Q this model assumes, stated independently of the production constant
+   * so that the model keeps working - and keeps failing honestly - even when
+   * the production side does not exist or is wrong. A separate test below
+   * pins production to this value.
+   */
+  const ASSUMED_Q = 1;
+
+  /**
+   * White-noise power gain of the Web Audio bandpass at `centre`, by direct
+   * integration of the biquad's magnitude response over 0..Nyquist. The
+   * coefficients are the spec's constant-0dB-peak-gain bandpass.
+   */
+  function bandpassNoisePowerGain(centre, q, sampleRate, bins = 8192) {
+    const w0 = (2 * Math.PI * centre) / sampleRate;
+    const alpha = Math.sin(w0) / (2 * q);
+    const a0 = 1 + alpha;
+    const b0 = alpha / a0, b2 = -alpha / a0;
+    const a1 = (-2 * Math.cos(w0)) / a0, a2 = (1 - alpha) / a0;
+
+    let total = 0;
+    for (let i = 0; i < bins; i++) {
+      const w = (Math.PI * (i + 0.5)) / bins;
+      const cw = Math.cos(w), sw = Math.sin(w);
+      const c2 = Math.cos(2 * w), s2 = Math.sin(2 * w);
+      const numRe = b0 + b2 * c2, numIm = -(b2 * s2);
+      const denRe = 1 + a1 * cw + a2 * c2, denIm = -(a1 * sw + a2 * s2);
+      total += (numRe * numRe + numIm * numIm) / (denRe * denRe + denIm * denIm);
+    }
+    return total / bins;
+  }
+
+  function readyAudio() {
+    const { ctx, made } = createMockContext();
+    const audio = new AudioManager(() => ctx);
+    audio.init();
+    audio.resume();
+    return { ctx, made, audio };
+  }
+
+  /**
+   * Peak output amplitude of a single-layer recipe, read off the graph
+   * AudioManager built rather than assumed: the envelope's scheduled peak,
+   * times every constant gain in the path (the makeup node, if any), times the
+   * source's own RMS after whatever filtering it went through.
+   */
+  function renderedLevel(recipe, mixGain = 1) {
+    const { ctx, made, audio } = readyAudio();
+    audio.playRecipe(recipe, 'level-probe', mixGain);
+
+    const built = made.gains.slice(3); // past master, sfx, music
+    const envelope = built.find((g) => g.gain.setValueAtTime.mock.calls.length > 0);
+    // Anything else in the path is a constant gain, i.e. makeup. Before the
+    // fix there is none, and the product is 1 - which is exactly the state
+    // this suite has to be able to observe and reject.
+    const makeup = built
+      .filter((g) => g.gain.setValueAtTime.mock.calls.length === 0)
+      .reduce((product, g) => product * g.gain.value, 1);
+
+    const envelopePeak = envelope.gain.setValueAtTime.mock.calls[0][0];
+    const sourceRms = recipe.noise
+      ? UNIFORM_NOISE_RMS * Math.sqrt(bandpassNoisePowerGain(
+        Math.sqrt(recipe.freqStart * recipe.freqEnd), ASSUMED_Q, ctx.sampleRate,
+      ))
+      : WAVE_RMS[recipe.wave];
+
+    return envelopePeak * makeup * sourceRms;
+  }
+
+  const dbBetween = (a, b) => 20 * Math.log10(a / b);
+
+  /** How far apart two paths may land and still be "the same level". */
+  const TOLERANCE_DB = 2;
+
+  const SWEEPS = [[520, 320], [700, 300], [900, 400], [3200, 900], [250, 220]];
+
+  it.each(SWEEPS)('a noise burst at %s->%sHz matches a tone at the same gain', (from, to) => {
+    const shared = { wave: 'sawtooth', freqStart: from, freqEnd: to, duration: 0.3, gain: 0.5 };
+
+    const tone = renderedLevel({ ...shared, noise: false });
+    const noise = renderedLevel({ ...shared, noise: true });
+
+    // Same envelope shape and duration on both sides, so comparing the levels
+    // the two paths reach is a fair comparison of the paths themselves.
+    expect(Math.abs(dbBetween(noise, tone)), `${from}->${to}Hz differs by dB`)
+      .toBeLessThanOrEqual(TOLERANCE_DB);
+  });
+
+  it('holds across the whole authored gain range, not just at one level', () => {
+    for (const gain of [0.05, 0.2, 0.5, 0.9]) {
+      const shared = { wave: 'sawtooth', freqStart: 520, freqEnd: 320, duration: 0.2, gain };
+      const gap = dbBetween(renderedLevel({ ...shared, noise: true }), renderedLevel({ ...shared, noise: false }));
+      expect(Math.abs(gap), `gain ${gain}`).toBeLessThanOrEqual(TOLERANCE_DB);
+    }
+  });
+
+  it('holds after the mix tier is applied, so tiers still mean what they say', () => {
+    const shared = { wave: 'sawtooth', freqStart: 660, freqEnd: 300, duration: 0.2, gain: 0.4 };
+    const gap = dbBetween(renderedLevel({ ...shared, noise: true }, 0.4), renderedLevel({ ...shared, noise: false }, 0.4));
+    expect(Math.abs(gap)).toBeLessThanOrEqual(TOLERANCE_DB);
+  });
+
+  /**
+   * Derived from the recipe tables, so a noise recipe authored later is
+   * covered the day it is written. Each is compared against a tone carrying
+   * the SAME authored gain - which is the whole claim: gain means one thing.
+   */
+  const authoredNoiseLayers = Object.entries({ ...SFX, ...UNIT_VOICES })
+    .flatMap(([id, recipe]) => recipeLayers(recipe).map((layer, index) => [`${id}[${index}]`, layer]))
+    .filter(([, layer]) => layer.noise);
+
+  it('finds the authored noise recipes, so the checks below are not vacuous', () => {
+    expect(authoredNoiseLayers.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it.each(authoredNoiseLayers)('%s lands where its authored gain says it should', (id, layer) => {
+    const asNoise = renderedLevel({ ...layer, noise: true });
+    const asTone = renderedLevel({ ...layer, wave: 'sawtooth', noise: false });
+
+    expect(Math.abs(dbBetween(asNoise, asTone)), `${id} differs by dB`).toBeLessThanOrEqual(TOLERANCE_DB);
+  });
+
+  it('puts the makeup gain inside the noise path and nowhere near the tone path', () => {
+    const { made, audio } = readyAudio();
+
+    audio.playRecipe({ wave: 'square', freqStart: 640, freqEnd: 880, duration: 0.06, gain: 0.2, noise: false }, 'tone');
+
+    // A tone reaches the envelope at full scale already; a makeup node here
+    // would make gain mean something different again.
+    expect(made.gains).toHaveLength(4); // master, sfx, music, envelope
+  });
+
+  it('derives the makeup from the filter Q it actually sets on the bandpass', () => {
+    // Rejects a makeup computed for one Q while the filter is built with
+    // another - the two would drift apart silently and only be audible.
+    const { made, audio } = readyAudio();
+
+    audio.playRecipe({ wave: 'sawtooth', freqStart: 520, freqEnd: 320, duration: 0.2, gain: 0.5, noise: true }, 'n');
+
+    expect(made.filters[0].Q.value).toBe(NOISE_BANDPASS_Q);
+    // ...and that Q is the one this file's independent model assumes, so the
+    // agreement measured above is agreement about the real filter.
+    expect(NOISE_BANDPASS_Q).toBe(ASSUMED_Q);
+  });
+
+  it('never attenuates: a band wider than the spectrum needs no makeup', () => {
+    // Guards the clamp. Above roughly a fifth of the sample rate the
+    // closed-form bandwidth exceeds Nyquist, and an unclamped formula would
+    // return a makeup below 1 and start quietening sounds it should leave be.
+    expect(noiseMakeupGain(19000, 19000, 44100)).toBe(1);
+    expect(noiseMakeupGain(200, 200, 44100)).toBeGreaterThan(1);
+  });
+
+  it('needs more makeup for a narrow low band than a wide high one', () => {
+    // The whole point of deriving it per recipe rather than using one
+    // constant: the loss depends on where the band sits.
+    expect(noiseMakeupGain(300, 300, 44100)).toBeGreaterThan(noiseMakeupGain(3000, 3000, 44100));
   });
 });
 

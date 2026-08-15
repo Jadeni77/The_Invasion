@@ -1,4 +1,4 @@
-import { SFX } from './SfxLibrary.js';
+import { SFX, recipeLayers } from './SfxLibrary.js';
 import { MAX_DURATION } from './UnitVoices.js';
 
 /** Converts a 0..100 slider value to gain using a perceptual (squared) curve. */
@@ -15,6 +15,54 @@ export const MAX_VOICES = 12;
 
 /** Base gain applied to every sample before its variant gainScale. */
 export const SAMPLE_BASE_GAIN = 0.7;
+
+/**
+ * Q of the noise bandpass, set explicitly rather than left to
+ * BiquadFilterNode's default because noiseMakeupGain is derived from it. Two
+ * places depending on one unstated default is how they drift apart silently.
+ */
+export const NOISE_BANDPASS_Q = 1;
+
+/**
+ * Restores the level a bandpass takes out of a noise burst, so that `gain`
+ * means the same loudness whether a recipe renders as a tone or as noise.
+ *
+ * THE BUG THIS FIXES. A tone reaches the envelope at full scale. Noise reaches
+ * it having lost everything outside a narrow band - at a Q=1 midrange centre,
+ * about 97% of its power - so `gain: 0.5` was roughly 14dB quieter on the
+ * noise path than on the tone path. That single defect made the original
+ * Mortar inaudible, made enemy deaths inaudible, and held the whole death
+ * family ~22dB under baseDamaged, Titan and Boss included. Compensating here
+ * rather than in the recipes means authors never have to know which path their
+ * sound takes.
+ *
+ * THE DERIVATION. For a 2nd-order bandpass with unity peak gain, the
+ * equivalent noise bandwidth is (pi/2)(f0/Q) Hz. White noise emerges with
+ * power scaled by that bandwidth over the Nyquist span, i.e.
+ *
+ *     powerGain = ((pi/2)(f0/Q)) / (sampleRate/2) = pi*f0 / (Q*sampleRate)
+ *
+ * and the makeup is 1/sqrt(powerGain), which restores the burst's RMS to what
+ * an unfiltered one would have had. `centre` is the geometric mean of the
+ * sweep's endpoints, which is where an exponential sweep spends its time.
+ *
+ * ACCURACY, AND WHAT WOULD INVALIDATE IT. That identity is the analog one; the
+ * digital biquad departs from it as the centre approaches a significant
+ * fraction of the sample rate. Checked against direct numerical integration of
+ * the biquad's response (see AudioManager.test.js, which integrates |H(f)|^2
+ * independently), it is within 0.06dB at 200Hz, 0.16dB at 520Hz, 0.53dB at
+ * 1700Hz and 1.0dB at 3200Hz - all inaudible - but reaches 2.6dB by 8kHz and
+ * would keep growing. It would also be invalidated by changing
+ * NOISE_BANDPASS_Q without changing this, or by giving the filter a Q that
+ * varies across the sweep. The clamp below keeps the degenerate case
+ * (bandwidth wider than the spectrum) from returning a makeup under 1 and
+ * quietening sounds instead of leaving them alone.
+ */
+export function noiseMakeupGain(freqStart, freqEnd, sampleRate, q = NOISE_BANDPASS_Q) {
+  const centre = Math.sqrt(freqStart * freqEnd);
+  const powerGain = Math.min(1, (Math.PI * centre) / (q * sampleRate));
+  return 1 / Math.sqrt(powerGain);
+}
 
 /**
  * Owns the AudioContext and its gain graph, and renders SfxLibrary recipes.
@@ -34,7 +82,9 @@ export class AudioManager {
     // re-logging) a doomed AudioContext on every subsequent init() call.
     this._unavailable = false;
     this.lastPlayedAt = new Map(); // dedupe key -> AudioContext time
-    this.activeVoices = [];        // { source, endTime }, oldest first
+    // One entry per SOUND, oldest first - a layered recipe contributes a
+    // single entry holding all of its sources, not one entry per layer.
+    this.activeVoices = [];        // { sources, endTime }
     this.samples = new Map(); // unit name -> AudioBuffer
   }
 
@@ -116,10 +166,14 @@ export class AudioManager {
     this.activeVoices = this.activeVoices.filter((voice) => voice.endTime > now);
     if (this.activeVoices.length >= MAX_VOICES) {
       const oldest = this.activeVoices.shift();
-      try {
-        oldest.source.stop(now);
-      } catch {
-        // Already stopped; nothing to do.
+      // Every source of the evicted sound, or a layered voice would keep
+      // sounding through the layers eviction forgot about.
+      for (const source of oldest.sources) {
+        try {
+          source.stop(now);
+        } catch {
+          // Already stopped; nothing to do.
+        }
       }
     }
 
@@ -133,6 +187,14 @@ export class AudioManager {
    * plays once - six splash kills would otherwise start six identical sounds whose
    * amplitudes sum to six times the intended level, which clips. And no more than
    * MAX_VOICES sound at once; beyond that the oldest is stopped early.
+   *
+   * A layered recipe (see SfxLibrary's header) renders one source per layer but
+   * is ONE sound to both limits: reserveVoiceSlot is called once, before any
+   * layer is built, and all the layers land in a single activeVoices entry.
+   * Charging per layer instead would triple a three-layer sound's voice
+   * pressure, and would break dedupe outright, since each layer would carry its
+   * own key and so could never collapse against the repeat it is meant to
+   * suppress.
    */
   playRecipe(recipe, dedupeKey, mixGain = 1) {
     if (!recipe || !this.ctx) return;
@@ -140,23 +202,40 @@ export class AudioManager {
     const now = this.ctx.currentTime;
     if (!this.reserveVoiceSlot(dedupeKey, now)) return;
 
-    const end = now + recipe.duration;
+    const layers = recipeLayers(recipe);
+    const sources = layers.map((layer) => this.startLayer(layer, now, mixGain));
+    // The slot is held until the last layer to FINISH, which is not
+    // necessarily the last one declared.
+    const endTime = Math.max(...layers.map((layer) => now + layer.offset + layer.duration));
+
+    this.activeVoices.push({ sources, endTime });
+  }
+
+  /**
+   * Builds and schedules one layer, returning the node to stop if the voice is
+   * evicted. Each layer gets its own envelope, so layers can decay at their
+   * own rates - the point of the crack/body/tail split - and its own start
+   * time, so `offset` actually places it in the sound.
+   */
+  startLayer(layer, triggerTime, mixGain) {
+    const start = triggerTime + layer.offset;
+    const end = start + layer.duration;
 
     const envelope = this.ctx.createGain();
     envelope.connect(this.sfxGain);
-    envelope.gain.setValueAtTime(Math.max(0.0001, recipe.gain * mixGain), now);
+    envelope.gain.setValueAtTime(Math.max(0.0001, layer.gain * mixGain), start);
     // Exponential fade to near-silence; exponentialRamp cannot reach exactly 0.
     envelope.gain.exponentialRampToValueAtTime(0.0001, end);
 
-    const { source, output } = recipe.noise
-      ? this.createNoiseSource(recipe, now, end)
-      : this.createToneSource(recipe, now, end);
+    const { source, output } = layer.noise
+      ? this.createNoiseSource(layer, start, end)
+      : this.createToneSource(layer, start, end);
 
     output.connect(envelope);
-    source.start(now);
+    source.start(start);
     source.stop(end);
 
-    this.activeVoices.push({ source, endTime: end });
+    return source;
   }
 
   /**
@@ -235,7 +314,7 @@ export class AudioManager {
     source.start(now);
     source.stop(end);
 
-    this.activeVoices.push({ source, endTime: end });
+    this.activeVoices.push({ sources: [source], endTime: end });
   }
 
   /**
@@ -254,8 +333,14 @@ export class AudioManager {
    * Builds a white-noise burst filtered through a bandpass whose center
    * frequency sweeps recipe.freqStart -> recipe.freqEnd, so a noise unit's
    * authored frequency curve actually shapes its timbre instead of being
-   * dead data. The buffer source is the node to start/stop; the filter is
-   * the node to connect onward, since the source's raw output is unfiltered.
+   * dead data. The buffer source is the node to start/stop; the makeup gain
+   * is the node to connect onward, since the source's raw output is neither
+   * filtered nor level-corrected.
+   *
+   * The makeup stage is what makes `gain` mean one thing across both render
+   * paths - see noiseMakeupGain. It is a plain constant gain rather than part
+   * of the envelope so that the two concerns stay separable: the envelope
+   * shapes the sound, this only undoes the filter's loss.
    */
   createNoiseSource(recipe, now, end) {
     const frames = Math.floor(this.ctx.sampleRate * recipe.duration);
@@ -268,11 +353,16 @@ export class AudioManager {
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'bandpass';
+    filter.Q.value = NOISE_BANDPASS_Q;
     filter.frequency.setValueAtTime(recipe.freqStart, now);
     filter.frequency.exponentialRampToValueAtTime(recipe.freqEnd, end);
 
-    source.connect(filter);
+    const makeup = this.ctx.createGain();
+    makeup.gain.value = noiseMakeupGain(recipe.freqStart, recipe.freqEnd, this.ctx.sampleRate);
 
-    return { source, output: filter };
+    source.connect(filter);
+    filter.connect(makeup);
+
+    return { source, output: makeup };
   }
 }

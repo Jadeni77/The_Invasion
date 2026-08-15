@@ -3,7 +3,7 @@ import { Mortar } from '../../DefenderUnits.js';
 import * as EnemyModule from '../../EnemyUnits.js';
 import * as DefenderModule from '../../DefenderUnits.js';
 import { UNIT_VOICES, VARIANTS, resolveVoice } from '../UnitVoices.js';
-import { SFX } from '../SfxLibrary.js';
+import { SFX, recipeLayers, recipeSpan } from '../SfxLibrary.js';
 import { soundKeyFor, SOUND_KEYS } from '../SoundGroups.js';
 
 describe('voice coverage', () => {
@@ -184,6 +184,112 @@ describe('resolveVoice', () => {
 
     fallback.gain = 999;
     expect(SFX.enemyDied.gain).not.toBe(999);
+  });
+});
+
+describe('resolveVoice carries layers through', () => {
+  /**
+   * resolveVoice builds its result field by field, so anything it does not
+   * name is DROPPED. A layered signature whose layers it forgot would resolve
+   * to its base layer alone - a Mortar reduced to its crack, with no body and
+   * no tail - and every existing test here would still pass, because they all
+   * read the top-level fields.
+   */
+  const LAYERED = {
+    wave: 'square', freqStart: 800, freqEnd: 400, duration: 0.10, gain: 0.5, noise: true,
+    layers: [{ offset: 0.04, wave: 'sawtooth', freqStart: 600, freqEnd: 300, duration: 0.2, gain: 0.4, noise: false }],
+  };
+
+  it('returns the layers untouched for the fire variant', () => {
+    expect(resolveVoice('__layered__', 'fire', LAYERED)).toEqual(LAYERED);
+  });
+
+  it('scales each layer by the variant, exactly as it scales the base', () => {
+    const death = resolveVoice('__layered__', 'death', LAYERED);
+    const [layer] = death.layers;
+    const scale = VARIANTS.death;
+
+    expect(death.layers).toHaveLength(1);
+    expect(layer.freqStart).toBeCloseTo(600 * scale.freqScale);
+    expect(layer.freqEnd).toBeCloseTo(300 * scale.freqScale);
+    expect(layer.duration).toBeCloseTo(0.2 * scale.durationScale);
+    expect(layer.gain).toBeCloseTo(0.4 * scale.gainScale);
+    expect(layer.wave).toBe('sawtooth');
+    expect(layer.noise).toBe(false);
+  });
+
+  it('scales a layer offset with the duration, keeping the sound in proportion', () => {
+    // A stretched sound whose offsets stayed fixed would bunch every layer up
+    // against the front and lose its shape.
+    const death = resolveVoice('__layered__', 'death', LAYERED);
+    expect(death.layers[0].offset).toBeCloseTo(0.04 * VARIANTS.death.durationScale);
+  });
+
+  it('does not invent a layers key on an unlayered signature', () => {
+    // Guards `expect(resolveVoice('sniper','fire')).toEqual(UNIT_VOICES.sniper)`
+    // against passing only because toEqual ignores an undefined property.
+    expect(Object.keys(resolveVoice('sniper', 'fire'))).not.toContain('layers');
+  });
+
+  it('does not alias the signature’s layer objects', () => {
+    const resolved = resolveVoice('__layered__', 'fire', LAYERED);
+    resolved.layers[0].gain = 999;
+    expect(LAYERED.layers[0].gain).toBe(0.4);
+  });
+
+  it('leaves the generic fallback unlayered for an unknown unit', () => {
+    expect(resolveVoice('NoSuchUnit', 'fire')).not.toHaveProperty('layers');
+  });
+});
+
+describe('the Mortar sounds like artillery, not one burst', () => {
+  /**
+   * The owner asked for 天鹰火炮 / 玉米加农炮 - a launch, not a hiss. That shape
+   * is a sharp transient, a midrange body that drops in pitch, and a tail that
+   * decays after both. One source cannot be all three at once, which is the
+   * whole reason layering exists, so these assert the SHAPE rather than the
+   * exact numbers: retuning a gain should not have to fight the suite, but
+   * flattening the Mortar back to a single burst should.
+   */
+  const mortar = () => resolveVoice(soundKeyFor('Mortar', 'fire'), 'fire');
+
+  it('has a transient, a body and a tail', () => {
+    expect(recipeLayers(mortar())).toHaveLength(3);
+  });
+
+  it('opens with the shortest, highest layer - the crack', () => {
+    const [crack, ...rest] = recipeLayers(mortar());
+
+    expect(crack.offset).toBe(0);
+    expect(crack.noise, 'a crack is broadband, not a pitched note').toBe(true);
+    for (const layer of rest) {
+      expect(crack.duration, 'the crack must be the shortest layer').toBeLessThan(layer.duration);
+      expect(crack.freqStart, 'the crack must be the highest layer').toBeGreaterThan(layer.freqStart);
+    }
+  });
+
+  it('carries its body on a pitched layer that drops', () => {
+    // The thing that reads as weight on a laptop: a tone whose harmonics
+    // survive the rolloff, falling rather than rising. A noise-only Mortar is
+    // the hiss the owner reported.
+    const body = recipeLayers(mortar()).find((layer) => !layer.noise);
+
+    expect(body, 'the Mortar needs a pitched layer').toBeDefined();
+    expect(body.freqEnd).toBeLessThan(body.freqStart);
+    expect(body.freqStart / body.freqEnd, 'the drop must be audible as a drop').toBeGreaterThan(1.5);
+  });
+
+  it('decays into a tail that outlasts everything else', () => {
+    const layers = recipeLayers(mortar());
+    const ends = layers.map((layer) => layer.offset + layer.duration);
+    const tail = layers[ends.indexOf(Math.max(...ends))];
+
+    expect(tail.offset, 'the tail follows the crack rather than opening the sound').toBeGreaterThan(0);
+    expect(Math.max(...ends)).toBeGreaterThan(2 * Math.min(...ends));
+  });
+
+  it('still fits in one voice slot', () => {
+    expect(recipeSpan(mortar())).toBeLessThanOrEqual(2);
   });
 });
 
@@ -368,6 +474,97 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
     expect(VARIANTS.death.gainScale).toBeGreaterThan(1);
     expect(VARIANTS.death.freqScale).toBeLessThan(1);
     expect(VARIANTS.death.freqScale).toBeGreaterThanOrEqual(0.75);
+  });
+
+  /**
+   * The check that would have caught the original bug directly.
+   *
+   * The 25-90Hz Mortar and death family shipped because nothing asserted where
+   * a recipe's energy actually sat - the suite only checked that frequencies
+   * were positive and finite. Layering multiplies the exposure: a three-layer
+   * sound has three chances to put its weight under the speaker, and two of
+   * them are invisible to every existing check, which reads only the top-level
+   * fields.
+   *
+   * Derived by walking BOTH recipe tables and expanding through the same
+   * recipeLayers() AudioManager plays, so a layered sound added to either
+   * table is covered the day it is written, and the layers checked here are
+   * provably the layers rendered. The floor is a literal for the same reason
+   * the block above gives: reading it from the module under test would make
+   * the assertion true by construction.
+   */
+  const ALL_TABLES = { ...SFX, ...UNIT_VOICES };
+  const layeredEntries = Object.entries(ALL_TABLES).filter(([, recipe]) => recipe.layers);
+
+  /**
+   * EVERY authored recipe, layered or not, in both tables.
+   *
+   * This started scoped to layered recipes only, which left seven
+   * single-source sounds sitting at or below the rolloff - defenderPlaced,
+   * defenderDied, enemyDied, bossDied, deployRejected, levelLost and summon.
+   * They were inaudible on a laptop for exactly the reason the death sounds
+   * were, and the owner would have hit them one at a time, each looking like a
+   * fresh bug. The floor is a property of the whole sound set or it is not a
+   * floor.
+   *
+   * Checked against AUTHORED values. The resolved-after-variant-scaling case
+   * is a separate question and is covered by the reachable-pairs check above,
+   * which is careful to test only the (key, variant) combinations the game can
+   * actually produce - the raw cross product would demand that e.g. 'hit'
+   * survive death-variant scaling, which nothing ever asks it to do.
+   */
+  const authoredLayers = Object.entries(ALL_TABLES)
+    .flatMap(([id, recipe]) => recipeLayers(recipe).map((layer, index) => [
+      recipeLayers(recipe).length > 1 ? `${id} layer ${index}` : id, layer,
+    ]));
+
+  it('covers every recipe in both tables, so nothing escapes the floor', () => {
+    // Rejects a filter that silently stops matching, and pins the counts so a
+    // recipe deleted rather than fixed - or a `layers` array quietly dropped -
+    // is visible rather than just shrinking the it.each below.
+    const extraLayers = Object.values(ALL_TABLES).reduce((n, recipe) => n + (recipe.layers?.length ?? 0), 0);
+
+    expect(Object.keys(ALL_TABLES)).toHaveLength(Object.keys(SFX).length + Object.keys(UNIT_VOICES).length);
+    expect(extraLayers, 'waveStarted +1, bossWaveStarted +2, mortar +2').toBe(5);
+    expect(authoredLayers.length).toBe(Object.keys(ALL_TABLES).length + extraLayers);
+  });
+
+  it.each(authoredLayers)('%s is authored above the laptop speaker floor', (where, layer) => {
+    expect(layer.freqStart, `${where} freqStart`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+    expect(layer.freqEnd, `${where} freqEnd`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+  });
+
+  it('finds every layered sound in both tables, so the floor check is not vacuous', () => {
+    // SFX and UNIT_VOICES share no key (asserted by 'game-event sounds are
+    // served by SFX, not the voice table'), so merging them loses nothing.
+    expect(layeredEntries.map(([id]) => id).sort())
+      .toEqual(['bossWaveStarted', 'mortar', 'waveStarted']);
+  });
+
+  it.each(layeredEntries)('%s keeps every one of its layers above the floor', (id, recipe) => {
+    const layers = recipeLayers(recipe);
+    expect(layers.length, `${id} should have expanded to more than one layer`).toBeGreaterThan(1);
+
+    for (const [index, layer] of layers.entries()) {
+      const where = `${id} layer ${index} (${layer.noise ? 'noise' : layer.wave})`;
+      expect(layer.freqStart, `${where} freqStart`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+      expect(layer.freqEnd, `${where} freqEnd`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+    }
+  });
+
+  it('keeps a layered unit voice above the floor after variant scaling too', () => {
+    // resolveVoice can pitch a whole sound down (death scales by 0.8). A
+    // layered voice that clears the floor as authored could still be dragged
+    // under it once resolved, and only the resolved recipe is ever played.
+    for (const [key, recipe] of Object.entries(UNIT_VOICES)) {
+      if (!recipe.layers) continue;
+      for (const variant of Object.keys(VARIANTS)) {
+        for (const layer of recipeLayers(resolveVoice(key, variant))) {
+          expect(layer.freqStart, `${key}/${variant} freqStart`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+          expect(layer.freqEnd, `${key}/${variant} freqEnd`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+        }
+      }
+    }
   });
 
   it('keeps the death family ordered from lightest to heaviest', () => {
