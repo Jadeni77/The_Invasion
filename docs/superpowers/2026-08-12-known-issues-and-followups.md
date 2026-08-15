@@ -64,6 +64,55 @@ would remove the risk entirely.
   `waveStartTime`.
 - `WaveManager.getTimeUntilNextWave` does not exist, so `DrawUIs.drawNextWaveTimer` is dead code.
 
+### 14. Melee enemies deal roughly double damage through two independent paths
+
+Found 2026-08-15 while adding enemy melee sound on `feature/per-unit-audio`.
+
+A melee enemy in contact with a defender is damaged by **two live paths every engagement**:
+
+1. `Enemy.updateBehavior` — overlap/AABB based, driven by the frame counter `attackCountdown`,
+   applying `targetDefender.takeDamage(this.attackDamage)` when it reaches zero.
+2. `CombatManager.updateEnemyCombat` → `Enemy.attack()` — distance based against `attackRange`,
+   gated by `canAttack(now)` / `lastAttackTime`.
+
+`GameEngine` runs `enemy.update(this.defenders)` and then `combatManager.updateEnemyCombat(...)` in
+the same frame, so both fire. The two cooldowns are nominally the same rate (`attackRate` frames
+versus `attackRate * 1000 / 60` ms) but are tracked separately, so they also drift against each
+other. Net effect: melee enemies deal about **twice** their configured DPS.
+
+This is the same family as issue 1 — one logical event handled at two sites that do not know about
+each other. **It matters for the balance pass** (issue 10): melee `attackDamage` values are
+effectively doubled today, so tuning them without fixing this first would bake the doubling in.
+
+The audio layer added on this branch deliberately depends on the two emits collapsing inside
+`AudioManager`'s 0.04s dedupe window, since both land in one frame and share the constant dedupe key
+`'melee:melee'`. A test pins that collapse. **Whoever fixes this bug should expect that test to
+change** — with one damage path there should be exactly one emit, and the collapse becomes
+unnecessary rather than load-bearing.
+
+### 15. `attackAnimationLock` is read but never assigned, so defenders' attack animation never resets
+
+Found 2026-08-15 while looking for a frame-lock precedent to copy.
+
+`DefenderUnits.js` contains:
+
+```js
+    if (this.isAttacking && this.attackAnimationLock <= 0) {
+      this.isAttacking = false;
+    }
+```
+
+`attackAnimationLock` appears exactly once in the whole file — that read. It is never initialised
+and never assigned, so it is always `undefined`, `undefined <= 0` is `false`, and the reset never
+runs. Whatever clears a defender's `isAttacking` today, it is not this.
+
+Add it to the dead-field list in issue 3, but it is worth its own entry because it is not merely
+unused — it is a guard that silently never fires, which reads as working code.
+
+`RangeEnemy` on this branch implements the pattern this was evidently meant to be (a lock set on
+fire, decremented in `updateBehavior`, clearing `isAttacking` when it expires) and can serve as the
+reference if someone repairs the defender side.
+
 ## Deferred from the branch
 
 ### 4. `SettingsStore.merge()` returns a shallow copy
