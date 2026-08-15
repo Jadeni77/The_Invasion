@@ -654,3 +654,62 @@ describe('playRecipe and playSample sharing state', () => {
     expect(ctx.createBufferSource).not.toHaveBeenCalled();
   });
 });
+
+describe('mix gain', () => {
+  const RECIPE = { wave: 'sine', freqStart: 440, freqEnd: 220, duration: 0.2, gain: 0.5, noise: false };
+
+  function readyAudio() {
+    const { ctx, made } = createMockContext();
+    const audio = new AudioManager(() => ctx);
+    audio.init();
+    audio.resume();
+    return { ctx, made, audio };
+  }
+
+  it('defaults to full level when no multiplier is given', () => {
+    const { made, audio } = readyAudio();
+    audio.playRecipe(RECIPE, 'a');
+    expect(made.gains.at(-1).gain.setValueAtTime).toHaveBeenCalledWith(0.5, expect.any(Number));
+  });
+
+  it('scales the envelope by the multiplier', () => {
+    const { made, audio } = readyAudio();
+    audio.playRecipe(RECIPE, 'a', 0.4);
+    expect(made.gains.at(-1).gain.setValueAtTime).toHaveBeenCalledWith(0.2, expect.any(Number));
+  });
+
+  it('a quiet sound ends up quieter than a loud one', () => {
+    const { made, audio } = readyAudio();
+
+    audio.playRecipe(RECIPE, 'quiet', 0.4);
+    const quiet = made.gains.at(-1).gain.setValueAtTime.mock.calls[0][0];
+
+    audio.playRecipe(RECIPE, 'loud', 1.0);
+    const loud = made.gains.at(-1).gain.setValueAtTime.mock.calls[0][0];
+
+    expect(quiet).toBeLessThan(loud);
+  });
+
+  it('never produces a zero or negative gain, which would break the ramp', () => {
+    const { made, audio } = readyAudio();
+    audio.playRecipe(RECIPE, 'a', 0);
+    expect(made.gains.at(-1).gain.setValueAtTime.mock.calls[0][0]).toBeGreaterThan(0);
+  });
+
+  // playRecipe's tests above don't exercise playSample, which Step 3 also
+  // scales by mixGain. Without this, a playSample that dropped its `*
+  // mixGain` factor would pass the whole suite undetected.
+  it('scales a sample envelope by the multiplier the same way as a recipe', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
+    })));
+    const { made, audio } = readyAudio();
+    await audio.loadSamples({ Mortar: '/a/Mortar.ogg' });
+
+    audio.playSample('Mortar', { playbackRate: 1, gainScale: 1, durationScale: 1 }, 'a', 0.4);
+
+    expect(made.gains.at(-1).gain.setValueAtTime).toHaveBeenCalledWith(0.7 * 0.4, expect.any(Number));
+    vi.unstubAllGlobals();
+  });
+});

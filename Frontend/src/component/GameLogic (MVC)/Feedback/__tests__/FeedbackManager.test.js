@@ -4,6 +4,7 @@ import { FeedbackManager } from '../FeedbackManager.js';
 import { DEFAULT_SETTINGS } from '../SettingsStore.js';
 import { resolveVoice, UNIT_VOICES } from '../UnitVoices.js';
 import { SAMPLE_VARIANTS } from '../UnitSamples.js';
+import { mixGainFor } from '../SoundGroups.js';
 
 describe('FeedbackManager', () => {
   let bus, audio, juice, manager;
@@ -21,12 +22,12 @@ describe('FeedbackManager', () => {
 
   it('plays the placement sound when a defender is placed', () => {
     bus.emit('defender:placed', { type: 'Shooter' });
-    expect(audio.playSfx).toHaveBeenCalledWith('defenderPlaced');
+    expect(audio.playSfx).toHaveBeenCalledWith('defenderPlaced', mixGainFor('defenderPlaced'));
   });
 
   it('plays the collection sound when energy is collected', () => {
     bus.emit('energy:collected', { amount: 25 });
-    expect(audio.playSfx).toHaveBeenCalledWith('energyCollected');
+    expect(audio.playSfx).toHaveBeenCalledWith('energyCollected', mixGainFor('energyCollected'));
   });
 
   it('shows a damage number when an enemy is hit', () => {
@@ -37,12 +38,13 @@ describe('FeedbackManager', () => {
     expect(audio.playRecipe).toHaveBeenCalledWith(
       resolveVoice('hit', 'hit'),
       'hit:hit',
+      mixGainFor('hit'),
     );
   });
 
   it('shakes and flashes when the base is damaged', () => {
     bus.emit('base:damaged', { damage: 10 });
-    expect(audio.playSfx).toHaveBeenCalledWith('baseDamaged');
+    expect(audio.playSfx).toHaveBeenCalledWith('baseDamaged', mixGainFor('baseDamaged'));
     expect(juice.addTrauma).toHaveBeenCalled();
     expect(juice.triggerFlash).toHaveBeenCalled();
   });
@@ -56,6 +58,7 @@ describe('FeedbackManager', () => {
     expect(audio.playRecipe).toHaveBeenCalledWith(
       resolveVoice('boss', 'death'),
       'boss:death',
+      mixGainFor('boss'),
     );
     expect(juice.triggerHitStop).toHaveBeenCalled();
   });
@@ -67,23 +70,24 @@ describe('FeedbackManager', () => {
     expect(audio.playRecipe).toHaveBeenCalledWith(
       resolveVoice('death-small', 'death'),
       'death-small:death',
+      mixGainFor('death-small'),
     );
     expect(juice.triggerHitStop).not.toHaveBeenCalled();
   });
 
   it('distinguishes boss waves from ordinary waves', () => {
     bus.emit('wave:started', { number: 3, isBoss: false });
-    expect(audio.playSfx).toHaveBeenCalledWith('waveStarted');
+    expect(audio.playSfx).toHaveBeenCalledWith('waveStarted', mixGainFor('waveStarted'));
     audio.playSfx.mockClear();
     bus.emit('wave:started', { number: 4, isBoss: true });
-    expect(audio.playSfx).toHaveBeenCalledWith('bossWaveStarted');
+    expect(audio.playSfx).toHaveBeenCalledWith('bossWaveStarted', mixGainFor('bossWaveStarted'));
   });
 
   it('plays win and lose stings', () => {
     bus.emit('level:won', {});
-    expect(audio.playSfx).toHaveBeenCalledWith('levelWon');
+    expect(audio.playSfx).toHaveBeenCalledWith('levelWon', mixGainFor('levelWon'));
     bus.emit('level:lost', {});
-    expect(audio.playSfx).toHaveBeenCalledWith('levelLost');
+    expect(audio.playSfx).toHaveBeenCalledWith('levelLost', mixGainFor('levelLost'));
   });
 
   it('forwards volumes and toggles to audio and juice on settings change', () => {
@@ -129,6 +133,7 @@ describe('per-unit voices', () => {
     expect(audio.playRecipe).toHaveBeenCalledWith(
       { wave: 'square', noise: false, freqStart: 1400, freqEnd: 700, duration: 0.05, gain: 0.3 },
       'sniper:fire',
+      mixGainFor('sniper'),
     );
   });
 
@@ -154,6 +159,7 @@ describe('per-unit voices', () => {
     expect(audio.playRecipe).toHaveBeenCalledWith(
       { wave: 'sawtooth', noise: true, freqStart: 100 * 0.5, freqEnd: 50 * 0.5, duration: 0.4 * 2.5, gain: 0.55 * 1.15 },
       'titan:death',
+      mixGainFor('titan'),
     );
   });
 
@@ -170,6 +176,7 @@ describe('per-unit voices', () => {
     expect(audio.playRecipe).toHaveBeenCalledWith(
       { wave: 'triangle', noise: false, freqStart: 320, freqEnd: 240, duration: 0.07 * 0.35, gain: 0.25 * 0.55 },
       'hit:hit',
+      mixGainFor('hit'),
     );
     expect(juice.addDamageNumber).toHaveBeenCalledWith(30, 40, 12);
   });
@@ -182,6 +189,7 @@ describe('per-unit voices', () => {
     expect(audio.playRecipe).toHaveBeenCalledWith(
       resolveVoice('death-defender', 'death'),
       'death-defender:death',
+      mixGainFor('death-defender'),
     );
     expect(juice.addTrauma).toHaveBeenCalled();
   });
@@ -198,7 +206,7 @@ describe('per-unit voices', () => {
     bus.emit('defender:placed', { type: 'Mortar' });
 
     expect(audio.playSfx).toHaveBeenCalledTimes(2);
-    expect(audio.playSfx).toHaveBeenCalledWith('defenderPlaced');
+    expect(audio.playSfx).toHaveBeenCalledWith('defenderPlaced', mixGainFor('defenderPlaced'));
     expect(audio.playRecipe).not.toHaveBeenCalled();
   });
 
@@ -211,8 +219,8 @@ describe('per-unit voices', () => {
     bus.emit('energy:collected', { amount: 25 });
     bus.emit('level:won', {});
 
-    expect(audio.playSfx).toHaveBeenCalledWith('energyCollected');
-    expect(audio.playSfx).toHaveBeenCalledWith('levelWon');
+    expect(audio.playSfx).toHaveBeenCalledWith('energyCollected', mixGainFor('energyCollected'));
+    expect(audio.playSfx).toHaveBeenCalledWith('levelWon', mixGainFor('levelWon'));
   });
 });
 
@@ -253,6 +261,7 @@ describe('death fallback selection (defender vs enemy)', () => {
     expect(audio.playRecipe).toHaveBeenCalledWith(
       resolveVoice('death-medium', 'death'),
       'death-medium:death',
+      mixGainFor('death-medium'),
     );
   });
 
@@ -262,6 +271,7 @@ describe('death fallback selection (defender vs enemy)', () => {
     expect(audio.playRecipe).toHaveBeenCalledWith(
       resolveVoice('death-medium', 'death'),
       'death-medium:death',
+      mixGainFor('death-medium'),
     );
   });
 });
@@ -300,7 +310,7 @@ describe('sample-or-synth routing', () => {
     // TitanEnemy keeps its own death signature, so it resolves to the 'titan'
     // sound key rather than a group key.
     expect(audio.playSample).toHaveBeenCalledWith(
-      'titan', SAMPLE_VARIANTS.death, 'titan:death',
+      'titan', SAMPLE_VARIANTS.death, 'titan:death', mixGainFor('titan'),
     );
     expect(audio.playRecipe).not.toHaveBeenCalled();
   });
@@ -314,7 +324,9 @@ describe('sample-or-synth routing', () => {
     bus.emit('projectile:fired', { defenderType: 'Mortar' });
     bus.emit('projectile:fired', { defenderType: 'Sniper' });
 
-    expect(audio.playSample).toHaveBeenCalledWith('mortar', SAMPLE_VARIANTS.fire, 'mortar:fire');
+    expect(audio.playSample).toHaveBeenCalledWith(
+      'mortar', SAMPLE_VARIANTS.fire, 'mortar:fire', mixGainFor('mortar'),
+    );
     expect(audio.playRecipe).toHaveBeenCalledOnce();
   });
 
@@ -325,7 +337,7 @@ describe('sample-or-synth routing', () => {
 
     // Every hit resolves to the shared 'hit' sound key, not TankEnemy's name.
     expect(audio.playSample).toHaveBeenCalledWith(
-      'hit', SAMPLE_VARIANTS.hit, 'hit:hit',
+      'hit', SAMPLE_VARIANTS.hit, 'hit:hit', mixGainFor('hit'),
     );
     expect(juice.addDamageNumber).toHaveBeenCalledWith(30, 40, 12);
   });
@@ -344,7 +356,7 @@ describe('sample-or-synth routing', () => {
 
     bus.emit('defender:placed', { type: 'Mortar' });
 
-    expect(audio.playSfx).toHaveBeenCalledWith('defenderPlaced');
+    expect(audio.playSfx).toHaveBeenCalledWith('defenderPlaced', mixGainFor('defenderPlaced'));
     expect(audio.playSample).not.toHaveBeenCalled();
   });
 

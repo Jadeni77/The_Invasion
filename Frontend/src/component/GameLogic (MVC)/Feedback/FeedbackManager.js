@@ -1,6 +1,6 @@
 import { resolveVoice } from './UnitVoices.js';
 import { SAMPLE_VARIANTS } from './UnitSamples.js';
-import { soundKeyFor } from './SoundGroups.js';
+import { soundKeyFor, mixGainFor } from './SoundGroups.js';
 
 /**
  * Translates gameplay events into sound and juice.
@@ -25,19 +25,20 @@ export class FeedbackManager {
   playUnitVoice(unitName, variant) {
     const soundKey = soundKeyFor(unitName, variant);
     const dedupeKey = `${soundKey}:${variant}`;
+    const mixGain = mixGainFor(soundKey);
 
     if (this.audio.hasSample?.(soundKey)) {
-      this.audio.playSample(soundKey, SAMPLE_VARIANTS[variant] ?? SAMPLE_VARIANTS.fire, dedupeKey);
+      this.audio.playSample(soundKey, SAMPLE_VARIANTS[variant] ?? SAMPLE_VARIANTS.fire, dedupeKey, mixGain);
       return;
     }
 
-    this.audio.playRecipe(resolveVoice(soundKey, variant), dedupeKey);
+    this.audio.playRecipe(resolveVoice(soundKey, variant), dedupeKey, mixGain);
   }
 
   attach() {
     const on = (event, handler) => this.unsubscribers.push(this.bus.on(event, handler));
 
-    on('defender:placed', () => this.audio.playSfx('defenderPlaced'));
+    on('defender:placed', () => this.audio.playSfx('defenderPlaced', mixGainFor('defenderPlaced')));
 
     on('defender:died', ({ unitType }) => {
       this.playUnitVoice(unitType, 'death');
@@ -61,22 +62,23 @@ export class FeedbackManager {
       }
     });
 
-    on('energy:collected', () => this.audio.playSfx('energyCollected'));
+    on('energy:collected', () => this.audio.playSfx('energyCollected', mixGainFor('energyCollected')));
 
-    on('deploy:rejected', () => this.audio.playSfx('deployRejected'));
+    on('deploy:rejected', () => this.audio.playSfx('deployRejected', mixGainFor('deployRejected')));
 
     on('base:damaged', () => {
-      this.audio.playSfx('baseDamaged');
+      this.audio.playSfx('baseDamaged', mixGainFor('baseDamaged'));
       this.juice.addTrauma(0.5);
       this.juice.triggerFlash('#ff0000', 250);
     });
 
     on('wave:started', ({ isBoss }) => {
-      this.audio.playSfx(isBoss ? 'bossWaveStarted' : 'waveStarted');
+      const id = isBoss ? 'bossWaveStarted' : 'waveStarted';
+      this.audio.playSfx(id, mixGainFor(id));
     });
 
-    on('level:won', () => this.audio.playSfx('levelWon'));
-    on('level:lost', () => this.audio.playSfx('levelLost'));
+    on('level:won', () => this.audio.playSfx('levelWon', mixGainFor('levelWon')));
+    on('level:lost', () => this.audio.playSfx('levelLost', mixGainFor('levelLost')));
 
     return () => this.detach();
   }

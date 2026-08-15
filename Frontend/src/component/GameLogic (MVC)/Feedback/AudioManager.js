@@ -94,8 +94,8 @@ export class AudioManager {
     this.musicGain.gain.value = volumeToGain(musicVolume);
   }
 
-  playSfx(id) {
-    this.playRecipe(SFX[id], id);
+  playSfx(id, mixGain = 1) {
+    this.playRecipe(SFX[id], id, mixGain);
   }
 
   /**
@@ -134,7 +134,7 @@ export class AudioManager {
    * amplitudes sum to six times the intended level, which clips. And no more than
    * MAX_VOICES sound at once; beyond that the oldest is stopped early.
    */
-  playRecipe(recipe, dedupeKey) {
+  playRecipe(recipe, dedupeKey, mixGain = 1) {
     if (!recipe || !this.ctx) return;
 
     const now = this.ctx.currentTime;
@@ -144,7 +144,7 @@ export class AudioManager {
 
     const envelope = this.ctx.createGain();
     envelope.connect(this.sfxGain);
-    envelope.gain.setValueAtTime(recipe.gain, now);
+    envelope.gain.setValueAtTime(Math.max(0.0001, recipe.gain * mixGain), now);
     // Exponential fade to near-silence; exponentialRamp cannot reach exactly 0.
     envelope.gain.exponentialRampToValueAtTime(0.0001, end);
 
@@ -203,7 +203,7 @@ export class AudioManager {
    * the full-length ramp because it truncates the buffer at 35% - the long fade
    * is what masks that truncation's click.
    */
-  playSample(name, transform, dedupeKey) {
+  playSample(name, transform, dedupeKey, mixGain = 1) {
     const buffer = this.samples.get(name);
     if (!buffer || !this.ctx) return;
 
@@ -216,7 +216,7 @@ export class AudioManager {
 
     const envelope = this.ctx.createGain();
     envelope.connect(this.sfxGain);
-    const peakGain = SAMPLE_BASE_GAIN * transform.gainScale;
+    const peakGain = Math.max(0.0001, SAMPLE_BASE_GAIN * transform.gainScale * mixGain);
     envelope.gain.setValueAtTime(peakGain, now);
     if (transform.durationScale < 1) {
       // Truncated (hit): exponentialRamp cannot reach exactly 0.
