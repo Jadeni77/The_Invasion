@@ -1,4 +1,5 @@
 import { isConsumableSpell } from '../../DefenderUnits.js';
+import { ATTACK_ANIMATION_LOCK_FRAMES } from '../../EnemyUnits.js';
 
 /**
  * This class represent the combat system of how defender and enemy interact
@@ -80,13 +81,41 @@ export class CombatManager {
                         enemy.lastAttackTime = now;
                         // The animation is driven from the actual shot, not from a
                         // separate countdown - two independent timers is why the
-                        // skeleton's attack and its projectile never lined up.
+                        // skeleton's attack and its projectile never lined up. The
+                        // lock is what ends the swing again; updateBehavior runs it
+                        // down, because a flag cleared in this same frame would be
+                        // gone before the enemy's next determineAnimationState.
                         enemy.isAttacking = true;
+                        enemy.attackAnimationLock = ATTACK_ANIMATION_LOCK_FRAMES;
                         this.gameEngine.emitFeedback?.('enemy:fired', {
                             unitType: enemy.constructor.name,
                         });
                     } else {
                         enemy.attack(target, now);
+                        // The one call site that is unambiguously a melee strike -
+                        // the ranged branch above never reaches it, and the onHit
+                        // callback that also calls attack() is a landing arrow.
+                        // Some enemies (Necromancer, Swarm Witch) apply melee
+                        // damage through here and nowhere else, so without this
+                        // their strikes are silent.
+                        //
+                        // For an enemy that also deals damage on the base
+                        // updateBehavior countdown (a known pre-existing double
+                        // damage path) this fires alongside that tick's emit. Both
+                        // land in one frame - GameEngine runs enemy.update() then
+                        // updateEnemyCombat - and share the constant dedupe key
+                        // 'melee:melee', so AudioManager's 40ms window collapses
+                        // them into one sound.
+                        //
+                        // stunned is checked because attack() bails out on it
+                        // before dealing damage, while this loop only filters
+                        // frozen: without the guard a stunned enemy would announce
+                        // a swing that never happened.
+                        if (!enemy.stunned) {
+                            this.gameEngine.emitFeedback?.('enemy:melee', {
+                                unitType: enemy.constructor.name,
+                            });
+                        }
                     }
                 }
             }

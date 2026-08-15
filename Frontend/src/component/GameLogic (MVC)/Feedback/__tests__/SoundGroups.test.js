@@ -44,6 +44,15 @@ describe('archetype grouping', () => {
     expect(soundKeyFor('GrenadeDefender', 'fire')).toBe('artillery');
   });
 
+  it('groups the summoners together', () => {
+    // Rejects: SwarmLeader missing from FIRE_GROUPS. It summons on a timer and
+    // splits into five on death, but without an entry it falls through to the
+    // default and its summons play the generic arrow sound.
+    expect(soundKeyFor('NecromancerEnemy', 'fire')).toBe('summon');
+    expect(soundKeyFor('SplitterEnemy', 'fire')).toBe('summon');
+    expect(soundKeyFor('SwarmLeader', 'fire')).toBe('summon');
+  });
+
   it('groups healers on both sides', () => {
     expect(soundKeyFor('HealerDefender', 'fire')).toBe('heal');
     expect(soundKeyFor('HealerEnemy', 'fire')).toBe('heal');

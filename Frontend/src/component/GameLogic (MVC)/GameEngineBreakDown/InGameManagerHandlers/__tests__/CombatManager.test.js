@@ -350,10 +350,10 @@ describe('enemy ranged fire is audible and animated', () => {
     expect(() => combat.updateEnemyCombat([createDefender()], [createEnemy()], 1000)).not.toThrow();
   });
 
-  it('says nothing when a melee enemy strikes through this path', () => {
+  it('calls a melee strike a strike, not a shot', () => {
     // Rejects: emitting 'enemy:fired' from the shared branch rather than from
-    // the projectile branch. A melee swing is not a shot, and CombatManager is
-    // not the site that owns the melee sound (see EnemyUnits.audioEvents).
+    // the projectile branch. A melee swing is not a shot - it gets its own
+    // event, and the two must not be confused.
     const engine = createEngine();
     const combat = new CombatManager(engine);
     const enemy = createEnemy({ isRanged: false, attack: vi.fn() });
@@ -363,5 +363,22 @@ describe('enemy ranged fire is audible and animated', () => {
     expect(enemy.attack).toHaveBeenCalled();
     const fired = engine.emitFeedback.mock.calls.filter((c) => c[0] === 'enemy:fired');
     expect(fired).toHaveLength(0);
+    expect(engine.emitFeedback).toHaveBeenCalledWith(
+      'enemy:melee',
+      expect.objectContaining({ unitType: 'RangeEnemy' }),
+    );
+  });
+
+  it('does not hold a melee enemy in an attack animation', () => {
+    // The animation lock belongs to the shot: a melee enemy's swing is driven
+    // by its own damage tick in updateBehavior, which restarts the animation
+    // itself. Setting the flag here as well would fight that.
+    const engine = createEngine();
+    const combat = new CombatManager(engine);
+    const enemy = createEnemy({ isRanged: false, attack: vi.fn() });
+
+    combat.updateEnemyCombat([createDefender()], [enemy], 1000);
+
+    expect(enemy.isAttacking).toBe(false);
   });
 });

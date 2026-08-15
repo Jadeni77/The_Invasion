@@ -1,10 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  BasicEnemy, RangeEnemy, VampireEnemy, BerserkerEnemy, AssassinEnemy,
-  MageEnemy, NecromancerEnemy, SplitterEnemy,
+  BasicEnemy, RangeEnemy, MiniEnemy, VampireEnemy, BerserkerEnemy, AssassinEnemy,
+  MageEnemy, NecromancerEnemy, SplitterEnemy, SwarmLeader,
+  ATTACK_ANIMATION_LOCK_FRAMES,
 } from '../EnemyUnits.js';
 import { BasicDefender } from '../DefenderUnits.js';
 import { CombatManager } from '../GameEngineBreakDown/InGameManagerHandlers/CombatManager.js';
+import { FeedbackBus } from '../Feedback/FeedbackBus.js';
+import { FeedbackManager } from '../Feedback/FeedbackManager.js';
+import { AudioManager } from '../Feedback/AudioManager.js';
 
 /**
  * Task 4: enemy melee, spells and summons were silent, and the enemy attack
@@ -125,6 +129,44 @@ describe('melee strikes are audible', () => {
     expect(eventsNamed(engine, 'enemy:melee')).toHaveLength(0);
   });
 
+  it.each([
+    ['NecromancerEnemy', () => new NecromancerEnemy(0, 0, null)],
+    ['SwarmLeader', () => new SwarmLeader(0, 0, null)],
+  ])('%s strikes through CombatManager alone, and is still heard', (name, build) => {
+    // Fix round 1. These two override updateBehavior WITHOUT calling super and
+    // WITHOUT applying damage there, and do not override attack() either, so
+    // their melee damage arrives only through CombatManager's melee branch ->
+    // base Enemy.attack(). Every emit site added in the first round missed
+    // them and their strikes were silent.
+    const engine = createEngine();
+    const enemy = build();
+    enemy.gameEngine = engine;
+    const defender = { x: enemy.x, y: enemy.y, width: 40, height: 40, isAlive: true, takeDamage: vi.fn(() => false) };
+    const combat = new CombatManager(engine);
+
+    combat.updateEnemyCombat([defender], [enemy], 5000);
+
+    expect(defender.takeDamage).toHaveBeenCalled(); // the strike really landed
+    expect(engine.emitFeedback).toHaveBeenCalledWith('enemy:melee', { unitType: name });
+  });
+
+  it('says nothing for a stunned enemy, whose strike is a no-op', () => {
+    // Enemy.attack() bails out on stunned before dealing damage, but
+    // updateEnemyCombat only filters frozen - so without a guard the melee
+    // branch would announce a swing that never happened.
+    const engine = createEngine();
+    const enemy = new MiniEnemy(0, 0, null);
+    enemy.gameEngine = engine;
+    enemy.stunned = true;
+    const defender = { x: 0, y: 0, width: 40, height: 40, isAlive: true, takeDamage: vi.fn(() => false) };
+    const combat = new CombatManager(engine);
+
+    combat.updateEnemyCombat([defender], [enemy], 5000);
+
+    expect(defender.takeDamage).not.toHaveBeenCalled();
+    expect(eventsNamed(engine, 'enemy:melee')).toHaveLength(0);
+  });
+
   it('VampireEnemy emits its own melee event - its attack() never calls super', () => {
     const engine = createEngine();
     const vampire = new VampireEnemy(0, 0, null);
@@ -240,6 +282,45 @@ describe('enemy spells are audible', () => {
 });
 
 describe('enemy summons are audible', () => {
+  it('the swarm witch emits enemy:summon for each periodic spawn', () => {
+    const engine = createEngine();
+    const witch = new SwarmLeader(0, 0, null);
+    witch.gameEngine = engine;
+
+    witch.spawnEnemy();
+    witch.spawnEnemy();
+
+    expect(engine.enemies).toHaveLength(2);
+    expect(eventsNamed(engine, 'enemy:summon')).toHaveLength(2);
+    expect(engine.emitFeedback).toHaveBeenCalledWith(
+      'enemy:summon',
+      { unitType: 'SwarmLeader' },
+    );
+  });
+
+  it('the swarm witch emits one summon for its whole death split, not five', () => {
+    const engine = createEngine();
+    const witch = new SwarmLeader(0, 0, null);
+    witch.gameEngine = engine;
+
+    witch.takeDamage(9999); // dies, splitting into splitCount splitters
+
+    expect(engine.enemies).toHaveLength(witch.splitCount);
+    expect(eventsNamed(engine, 'enemy:summon')).toHaveLength(1);
+  });
+
+  it('the swarm witch says nothing while frozen, when no spawn happens', () => {
+    const engine = createEngine();
+    const witch = new SwarmLeader(0, 0, null);
+    witch.gameEngine = engine;
+    witch.frozen = true;
+
+    witch.spawnEnemy();
+
+    expect(engine.enemies).toHaveLength(0);
+    expect(eventsNamed(engine, 'enemy:summon')).toHaveLength(0);
+  });
+
   it('the necromancer emits enemy:summon when a skeleton actually appears', () => {
     const engine = createEngine();
     const necromancer = new NecromancerEnemy(0, 0, null);
@@ -295,12 +376,128 @@ describe('enemy summons are audible', () => {
   });
 });
 
+describe('the two melee damage paths collapse to one sound', () => {
+  /**
+   * The smallest AudioContext AudioManager.playRecipe can render into, plus a
+   * count of the voices actually started. The melee recipe has noise: true, so
+   * a voice is a BufferSource. currentTime is writable so a test can advance
+   * the clock between frames instead of relying on a frozen zero, which would
+   * make the dedupe window look like a mute.
+   */
+  function createFakeAudio() {
+    const counts = { voices: 0 };
+    const param = () => ({
+      value: 1, setValueAtTime() {}, exponentialRampToValueAtTime() {}, linearRampToValueAtTime() {},
+    });
+    const ctx = {
+      state: 'running',
+      currentTime: 0,
+      sampleRate: 44100,
+      destination: {},
+      createGain: () => ({ gain: param(), connect() {}, disconnect() {} }),
+      createOscillator: () => {
+        counts.voices++;
+        return { type: 'sine', frequency: param(), connect() {}, start() {}, stop() {} };
+      },
+      createBufferSource: () => {
+        counts.voices++;
+        return { buffer: null, playbackRate: { value: 1 }, connect() {}, start() {}, stop() {} };
+      },
+      createBuffer: () => ({ getChannelData: () => new Float32Array(64) }),
+      createBiquadFilter: () => ({ type: 'lowpass', frequency: param(), connect() {} }),
+    };
+    const audio = new AudioManager(() => ctx);
+    audio.init();
+    return { ctx, audio, counts };
+  }
+
+  /**
+   * A melee enemy wired to a real bus, FeedbackManager and AudioManager, in
+   * contact with a defender. MiniEnemy has a real attackRange (40), so BOTH
+   * melee damage paths are live for it: the base updateBehavior countdown and
+   * CombatManager's melee branch.
+   */
+  function createWiredMelee() {
+    const { ctx, audio, counts } = createFakeAudio();
+    const bus = new FeedbackBus();
+    const juice = {
+      addTrauma: vi.fn(), triggerHitStop: vi.fn(),
+      addDamageNumber: vi.fn(), triggerFlash: vi.fn(), setEnabled: vi.fn(),
+    };
+    new FeedbackManager(bus, audio, juice).attach();
+
+    const heard = [];
+    bus.on('enemy:melee', () => heard.push('melee'));
+
+    const engine = {
+      emitFeedback: (event, payload) => bus.emit(event, payload),
+      enemyProjectiles: [], projectiles: [], enemies: [], explosions: [], defenders: [],
+    };
+    const enemy = new MiniEnemy(0, 0, null);
+    enemy.gameEngine = engine;
+    enemy.attackCountdown = 1; // the base tick lands on the next update()
+    const defender = { x: 0, y: 0, width: 32, height: 32, isAlive: true, takeDamage: vi.fn(() => false) };
+
+    return { ctx, counts, heard, engine, enemy, defender, combat: new CombatManager(engine) };
+  }
+
+  it('emits twice in one frame but starts only one voice', () => {
+    // Verifies the reasoning behind emitting in CombatManager's melee branch
+    // while the base updateBehavior tick also emits: GameEngine runs
+    // enemy.update() and then updateEnemyCombat within a single frame, so both
+    // events land far inside AudioManager's 40ms dedupe window and, sharing
+    // the constant dedupe key 'melee:melee', collapse to one sound.
+    const { ctx, counts, heard, enemy, defender, combat } = createWiredMelee();
+    ctx.currentTime = 10;
+
+    enemy.update([defender]);           // base damage tick
+    combat.updateEnemyCombat([defender], [enemy], 5000); // melee branch
+
+    expect(heard).toHaveLength(2);      // the double emit is real
+    expect(counts.voices).toBe(1);      // ...and it is heard once
+  });
+
+  it('still plays a second sound for a strike beyond the dedupe window', () => {
+    // The collapse must be a window, not a mute: a genuinely separate strike
+    // later still makes its own sound. Without this, the test above would be
+    // satisfied by an implementation that simply never played melee twice.
+    const { ctx, counts, enemy, defender, combat } = createWiredMelee();
+    ctx.currentTime = 10;
+
+    enemy.update([defender]);
+    combat.updateEnemyCombat([defender], [enemy], 5000);
+    expect(counts.voices).toBe(1);
+
+    ctx.currentTime = 10 + 0.05; // just past DEDUPE_WINDOW_SECONDS (0.04)
+    enemy.attackCountdown = 1;
+    enemy.update([defender]);
+
+    expect(counts.voices).toBe(2);
+  });
+});
+
 describe('the attack animation follows the shot, not a countdown of its own', () => {
   /** A skeleton with a defender comfortably inside its 150px attack range. */
   function createSkeletonAndDefender() {
     const skeleton = new RangeEnemy(0, 0, null);
     const defender = new BasicDefender(50, 0, CARD);
     return { skeleton, defender };
+  }
+
+  /**
+   * Attaches minimal animation data so setAnimation actually records a state -
+   * it is a no-op on a unit with no frames, which is how the real units are
+   * built in these tests. This lets a test read the animation the player would
+   * see rather than only the isAttacking flag that feeds it.
+   */
+  function withAnimations(enemy) {
+    enemy.animationFrames = { idle: ['idle'], move: ['move'], attack: ['attack'] };
+    enemy.animationConfig = {
+      idle: { frameCount: 1, fps: 10 },
+      move: { frameCount: 1, fps: 10 },
+      attack: { frameCount: 1, fps: 10 },
+    };
+    return enemy;
   }
 
   it('does not play the attack animation just because a defender is in range', () => {
@@ -331,6 +528,62 @@ describe('the attack animation follows the shot, not a countdown of its own', ()
 
     expect(engine.enemyProjectiles).toHaveLength(1);
     expect(skeleton.isAttacking).toBe(true);
+  });
+
+  it('stops attacking between two shots, while still in range', () => {
+    // THE case the first round missed, and the one the spec's own regression
+    // test names: "an enemy in range but not firing is not stuck in its attack
+    // animation". Setting isAttacking at the shot without ever clearing it
+    // leaves the flag latched on until the target leaves range, so between
+    // shots the skeleton is still mid-swing - which is what the player sees as
+    // "the attack and the projectile don't correlate".
+    const engine = createEngine();
+    const { skeleton, defender } = createSkeletonAndDefender();
+    withAnimations(skeleton);
+    skeleton.gameEngine = engine;
+    const combat = new CombatManager(engine);
+
+    combat.updateEnemyCombat([defender], [skeleton], 1000);
+    expect(skeleton.isAttacking).toBe(true);
+
+    // 40 frames in range with the cooldown still running: canAttack stays
+    // false, so this is exactly "in range but not firing".
+    for (let i = 1; i <= 40; i++) {
+      skeleton.update([defender]);
+      combat.updateEnemyCombat([defender], [skeleton], 1000 + i);
+    }
+
+    expect(engine.enemyProjectiles).toHaveLength(1); // no second shot happened
+    expect(skeleton.isAttacking).toBe(false);
+    expect(skeleton.currentAnimation).not.toBe('attack');
+  });
+
+  it('keeps the swing on screen for the frames right after the shot', () => {
+    // The other half of the same requirement: clearing the flag too eagerly
+    // means the attack animation never renders at all, because GameEngine runs
+    // enemy.update() BEFORE updateEnemyCombat, so determineAnimationState
+    // would read a flag that was already cleared.
+    const engine = createEngine();
+    const { skeleton, defender } = createSkeletonAndDefender();
+    withAnimations(skeleton);
+    skeleton.gameEngine = engine;
+    const combat = new CombatManager(engine);
+
+    combat.updateEnemyCombat([defender], [skeleton], 1000);
+    skeleton.update([defender]);
+
+    expect(skeleton.isAttacking).toBe(true);
+    expect(skeleton.currentAnimation).toBe('attack');
+  });
+
+  it('holds the swing for less time than the gap between shots', () => {
+    // Rejects: a lock as long as (or longer than) the firing cadence, which
+    // would re-latch the animation permanently by always being renewed before
+    // it expired. attackRate is frames-per-attack, so it IS the gap in frames.
+    const { skeleton } = createSkeletonAndDefender();
+
+    expect(ATTACK_ANIMATION_LOCK_FRAMES).toBeGreaterThan(0);
+    expect(ATTACK_ANIMATION_LOCK_FRAMES).toBeLessThan(skeleton.attackRate);
   });
 
   it('returns to the walk animation once nothing is in range', () => {

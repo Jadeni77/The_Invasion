@@ -28,6 +28,7 @@ const FIRE_GROUPS = {
   HealerEnemy: 'heal',
   NecromancerEnemy: 'summon',
   SplitterEnemy: 'summon',
+  SwarmLeader: 'summon',
 };
 
 /** Units whose death sound is their own. */

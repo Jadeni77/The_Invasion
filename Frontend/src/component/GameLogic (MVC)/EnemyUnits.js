@@ -16,6 +16,26 @@ import {DrawNegativeEffect} from "./GameEngineBreakDown/Draws/DrawNegativeEffect
 import { getSettings } from "./Feedback/SettingsStore.js";
 import { isConsumableSpell } from "./DefenderUnits.js";
 
+/**
+ * Frames a ranged enemy holds its attack animation after firing.
+ *
+ * The animation is started by the shot itself (CombatManager) and released by
+ * this countdown, because neither end can be done in one place: the flag has
+ * to survive past the frame it was set on - GameEngine runs enemy.update()
+ * BEFORE updateEnemyCombat, so clearing it in the same frame it was set means
+ * determineAnimationState never sees it and the swing never renders - and it
+ * has to expire on its own, or it latches on until the target leaves range and
+ * the animation runs continuously again, which is the bug this replaces.
+ *
+ * Must stay comfortably below the enemy's firing cadence (attackRate, in
+ * frames - 50 for a Skeleton Shooter) or the lock is renewed before it expires
+ * and the latch comes back. At the fixed 16ms tick updateAnimation is driven
+ * with, 20 frames is ~333ms, which shows the front of the 10-frame/10fps
+ * Skeleton attack sheet and still leaves ~30 frames of the cooldown visibly
+ * not attacking, so each shot reads as a separate swing.
+ */
+export const ATTACK_ANIMATION_LOCK_FRAMES = 20;
+
 export class Enemy {
   constructor(x, y, typeData = {}) {
     this.x = x;
@@ -40,6 +60,10 @@ export class Enemy {
     this.attackRate = typeData.attackRate || 60; // frames per attack
     this.attackCountdown = this.attackRate;
     this.isAttacking = false; // if entity is engage in attack
+    // Frames left to hold the attack animation after a shot; see
+    // ATTACK_ANIMATION_LOCK_FRAMES. Only ranged enemies use it - a melee
+    // enemy's swing is driven by its own damage tick in updateBehavior.
+    this.attackAnimationLock = 0;
 
     this.isRanged = typeData.isRanged || false; //same as useProjectile check
     this.lastAttackTime = 0;
@@ -609,11 +633,21 @@ export class RangeEnemy extends Enemy {
         this.getDistanceTo(targetDefender) <= this.attackRange) {
       // Stop to shoot, but let CombatManager decide when a shot actually happens -
       // it owns the real cooldown. Setting isAttacking here made the animation play
-      // continuously while a defender was in range.
+      // continuously while a defender was in range. All this branch does now is
+      // run down the lock the shot started, so the swing ends between shots
+      // instead of latching on for as long as a target stays in range.
       this.isMoving = false;
+
+      if (this.attackAnimationLock > 0) {
+        this.attackAnimationLock--;
+        if (this.attackAnimationLock === 0) {
+          this.isAttacking = false;
+        }
+      }
     } else {
       this.isMoving = true;
       this.isAttacking = false;
+      this.attackAnimationLock = 0;
     }
   }
 
@@ -900,6 +934,9 @@ export class SwarmLeader extends Enemy {
 
       this.gameEngine.enemies.push(splitEnemy);
     }
+    // One event for the whole split, as for SplitterEnemy: five splitters
+    // appearing at once are one moment, not five.
+    this.gameEngine?.emitFeedback?.('enemy:summon', { unitType: this.constructor.name });
   }
 
   updateBehavior(defenderUnits) {
@@ -961,6 +998,7 @@ export class SwarmLeader extends Enemy {
       spawnEnemy.setGameEngine(this.gameEngine);
     }
     this.gameEngine.enemies.push(spawnEnemy);
+    this.gameEngine?.emitFeedback?.('enemy:summon', { unitType: this.constructor.name });
   }
 
   buffNearbyEnemies() {
