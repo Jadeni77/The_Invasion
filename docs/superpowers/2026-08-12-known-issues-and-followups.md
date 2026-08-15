@@ -64,11 +64,11 @@ would remove the risk entirely.
   `waveStartTime`.
 - `WaveManager.getTimeUntilNextWave` does not exist, so `DrawUIs.drawNextWaveTimer` is dead code.
 
-### 14. Melee enemies deal roughly double damage through two independent paths
+### 14. Two independent melee damage paths, and BossEnemy runs both (double damage, double sound)
 
 Found 2026-08-15 while adding enemy melee sound on `feature/per-unit-audio`.
 
-A melee enemy in contact with a defender is damaged by **two live paths every engagement**:
+A defender in contact with a melee enemy can be damaged by **two independent paths**:
 
 1. `Enemy.updateBehavior` — overlap/AABB based, driven by the frame counter `attackCountdown`,
    applying `targetDefender.takeDamage(this.attackDamage)` when it reaches zero.
@@ -76,19 +76,48 @@ A melee enemy in contact with a defender is damaged by **two live paths every en
    gated by `canAttack(now)` / `lastAttackTime`.
 
 `GameEngine` runs `enemy.update(this.defenders)` and then `combatManager.updateEnemyCombat(...)` in
-the same frame, so both fire. The two cooldowns are nominally the same rate (`attackRate` frames
-versus `attackRate * 1000 / 60` ms) but are tracked separately, so they also drift against each
-other. Net effect: melee enemies deal about **twice** their configured DPS.
+the same frame, so both are *reached* every frame. The two cooldowns are nominally the same rate
+(`attackRate` frames versus `attackRate * 1000 / 60` ms) but are tracked separately, so they also
+drift against each other.
 
-This is the same family as issue 1 — one logical event handled at two sites that do not know about
-each other. **It matters for the balance pass** (issue 10): melee `attackDamage` values are
-effectively doubled today, so tuning them without fixing this first would bake the doubling in.
+**Corrected 2026-08-15, measured rather than reasoned.** An earlier version of this entry (and of the
+task-4 report it was copied from) said the net effect is that melee enemies deal about twice their
+configured DPS. That is not what happens for most of them. Both paths only run when an enemy is a
+`CombatManager` target *while in contact*, which needs
 
-The audio layer added on this branch deliberately depends on the two emits collapsing inside
-`AudioManager`'s 0.04s dedupe window, since both land in one frame and share the constant dedupe key
-`'melee:melee'`. A test pins that collapse. **Whoever fixes this bug should expect that test to
-change** — with one damage path there should be exactly one emit, and the collapse becomes
-unnecessary rather than load-bearing.
+```
+attackRange >= (enemy.width + defender.width) / 2      // the centre distance it stops at
+```
+
+because `Enemy.updateBehavior` halts the enemy the frame its bounding box first overlaps. Every
+non-spell defender is 64 wide, so this is a stable per-enemy property. Driving each enemy into a
+Shooter on a real `GameEngine` tick and counting damage applications:
+
+| Enemy | `attackRange` | contact distance | paths that fire |
+|---|---|---|---|
+| BasicEnemy, TankEnemy, ShieldEnemy, SplitterEnemy, MiniEnemy, EMPEnemy, AssassinEnemy | 0-50 | 48-77 | base tick only — **1× damage** |
+| VampireEnemy, BerserkerEnemy, NecromancerEnemy, SwarmLeader | 100-250 | 64-82 | `CombatManager` only (they override `updateBehavior` with no damage tick) — **1× damage** |
+| **BossEnemy** | **1000** | **82** | **both — 2× damage** |
+
+So the doubling is real but currently affects **`BossEnemy` alone**. The architecture is still the
+bug: an enemy silently flips into double damage the moment someone raises its `attackRange` past its
+contact distance, or widens a unit, with nothing to catch it. That is what makes it a balance-pass
+blocker (issue 10) — not a blanket 2× on every melee enemy.
+
+**Audio consequence, also corrected.** The melee sound emits sit on the damage sites, so the same
+measurement decides how many sounds the player hears. The earlier claim that both emits always land
+in one frame and collapse inside `AudioManager`'s 0.04s dedupe window is **false**: the two are gated
+by different conditions on different clocks, so their phase offset is arbitrary. Measured on a real
+tick, `BossEnemy` emits twice per attack cycle **750-917ms apart** and the player hears **two melee
+thumps per swing**. Where the collapse does hold — `VampireEnemy` and `BerserkerEnemy`, which emit
+twice for a single strike — it holds because both emits are in one call stack, zero milliseconds
+apart, regardless of frame ordering.
+
+`EnemyUnits.audioEvents.test.js` characterises all three shapes on a real `GameEngine` tick
+(`how many melee sounds a real engine tick actually produces`), including the Boss double-thump as a
+known defect. **Whoever fixes this bug should expect the Boss test to fail** — with one damage path
+there should be one emit and one sound, and that test should then be rewritten to assert exactly
+that.
 
 ### 15. `attackAnimationLock` is read but never assigned, so defenders' attack animation never resets
 

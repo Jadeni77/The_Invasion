@@ -99,13 +99,15 @@ export class CombatManager {
                         // damage through here and nowhere else, so without this
                         // their strikes are silent.
                         //
-                        // For an enemy that also deals damage on the base
-                        // updateBehavior countdown (a known pre-existing double
-                        // damage path) this fires alongside that tick's emit. Both
-                        // land in one frame - GameEngine runs enemy.update() then
-                        // updateEnemyCombat - and share the constant dedupe key
-                        // 'melee:melee', so AudioManager's 40ms window collapses
-                        // them into one sound.
+                        // An enemy whose attackRange reaches past the distance it
+                        // stops at on contact - BossEnemy alone today - also deals
+                        // damage on the base updateBehavior countdown, and then
+                        // emits twice per cycle from two independent clocks. Those
+                        // two emits are NOT close enough together to be deduped
+                        // (measured ~750-917ms apart) and the player hears two
+                        // thumps. That is issue 14, the melee double-damage bug,
+                        // audible; it is characterised by a test and is fixed by
+                        // having one damage path, not by anything at this site.
                         //
                         // stunned is checked because attack() bails out on it
                         // before dealing damage, while this loop only filters

@@ -1,14 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   BasicEnemy, RangeEnemy, MiniEnemy, VampireEnemy, BerserkerEnemy, AssassinEnemy,
-  MageEnemy, NecromancerEnemy, SplitterEnemy, SwarmLeader,
+  MageEnemy, NecromancerEnemy, SplitterEnemy, SwarmLeader, BossEnemy, Enemy,
   ATTACK_ANIMATION_LOCK_FRAMES,
 } from '../EnemyUnits.js';
 import { BasicDefender } from '../DefenderUnits.js';
 import { CombatManager } from '../GameEngineBreakDown/InGameManagerHandlers/CombatManager.js';
+import { GameEngine } from '../GameEngine.js';
 import { FeedbackBus } from '../Feedback/FeedbackBus.js';
 import { FeedbackManager } from '../Feedback/FeedbackManager.js';
-import { AudioManager } from '../Feedback/AudioManager.js';
+import { AudioManager, DEDUPE_WINDOW_SECONDS } from '../Feedback/AudioManager.js';
 
 /**
  * Task 4: enemy melee, spells and summons were silent, and the enemy attack
@@ -376,14 +377,24 @@ describe('enemy summons are audible', () => {
   });
 });
 
-describe('the two melee damage paths collapse to one sound', () => {
+describe('how many melee sounds a real engine tick actually produces', () => {
   /**
-   * The smallest AudioContext AudioManager.playRecipe can render into, plus a
-   * count of the voices actually started. The melee recipe has noise: true, so
-   * a voice is a BufferSource. currentTime is writable so a test can advance
-   * the clock between frames instead of relying on a frozen zero, which would
-   * make the dedupe window look like a mute.
+   * These run the REAL GameEngine.updateEnemies() loop - the one that calls
+   * enemy.update(this.defenders) and then combatManager.updateEnemyCombat(...)
+   * - against real unit geometry, with the AudioContext clock advanced in step
+   * with the game clock, and count the voices AudioManager actually starts.
+   *
+   * They replace a pair of tests that pinned AudioManager's dedupe MECHANISM
+   * against a hand-built engine stub and a frozen ctx.currentTime. Those tests
+   * were green for a claim they could not check: that the two melee emits
+   * always land in the same frame and therefore always collapse. The emits are
+   * gated by different conditions on different clocks (AABB overlap driven by
+   * a frame counter, versus centre distance gated by a wall-clock cooldown),
+   * so their phase offset is arbitrary, and the numbers below are what a real
+   * tick produces rather than what the mechanism permits.
    */
+
+  /** The smallest AudioContext playRecipe can render into, counting voices. */
   function createFakeAudio() {
     const counts = { voices: 0 };
     const param = () => ({
@@ -411,13 +422,15 @@ describe('the two melee damage paths collapse to one sound', () => {
     return { ctx, audio, counts };
   }
 
+  const FRAME_MS = 1000 / 60;
+
   /**
-   * A melee enemy wired to a real bus, FeedbackManager and AudioManager, in
-   * contact with a defender. MiniEnemy has a real attackRange (40), so BOTH
-   * melee damage paths are live for it: the base updateBehavior countdown and
-   * CombatManager's melee branch.
+   * Walks one enemy into one Shooter on a real GameEngine and reports what was
+   * emitted and what was heard. The defender is given absurd health so the run
+   * covers many attack cycles, and defenseLineX is pushed far right so the
+   * enemy is never removed for reaching the base.
    */
-  function createWiredMelee() {
+  function runApproach(EnemyClass, frames = 900) {
     const { ctx, audio, counts } = createFakeAudio();
     const bus = new FeedbackBus();
     const juice = {
@@ -426,53 +439,98 @@ describe('the two melee damage paths collapse to one sound', () => {
     };
     new FeedbackManager(bus, audio, juice).attach();
 
-    const heard = [];
-    bus.on('enemy:melee', () => heard.push('melee'));
+    const engine = new GameEngine();
+    engine.defenseLineX = 1e6;
+    engine.feedbackBus = bus;
 
-    const engine = {
-      emitFeedback: (event, payload) => bus.emit(event, payload),
-      enemyProjectiles: [], projectiles: [], enemies: [], explosions: [], defenders: [],
+    const defender = new BasicDefender(400, 100, CARD);
+    defender.health = 1e9;
+    defender.maxHealth = 1e9;
+    engine.defenders = [defender];
+
+    const enemy = new EnemyClass(100, 100, null);
+    enemy.setGameEngine(engine);
+    engine.enemies = [enemy];
+
+    let now = 10000;
+    const emitsAt = [];
+    const voicesAt = [];
+    bus.on('enemy:melee', () => emitsAt.push(now));
+    // Voices are counted where AudioManager decides to start one, so a
+    // suppressed duplicate is visible as an emit with no voice behind it.
+    const reserve = audio.reserveVoiceSlot.bind(audio);
+    audio.reserveVoiceSlot = (key, at) => {
+      const allowed = reserve(key, at);
+      if (allowed && key === 'melee:melee') voicesAt.push(now);
+      return allowed;
     };
-    const enemy = new MiniEnemy(0, 0, null);
-    enemy.gameEngine = engine;
-    enemy.attackCountdown = 1; // the base tick lands on the next update()
-    const defender = { x: 0, y: 0, width: 32, height: 32, isAlive: true, takeDamage: vi.fn(() => false) };
 
-    return { ctx, counts, heard, engine, enemy, defender, combat: new CombatManager(engine) };
+    for (let i = 0; i < frames; i++) {
+      now += FRAME_MS;
+      ctx.currentTime = now / 1000;
+      engine.updateEnemies(now);
+    }
+
+    const gapsBetween = (times) => times.slice(1).map((t, i) => t - times[i]);
+    return {
+      enemy,
+      emits: emitsAt.length,
+      voices: voicesAt.length,
+      // The tail, once the enemy has stopped and is in steady-state combat.
+      voiceGaps: gapsBetween(voicesAt).slice(-6),
+      emitGaps: gapsBetween(emitsAt).slice(-6),
+      cycleMs: (enemy.attackRate * 1000) / 60,
+      counts,
+    };
   }
 
-  it('emits twice in one frame but starts only one voice', () => {
-    // Verifies the reasoning behind emitting in CombatManager's melee branch
-    // while the base updateBehavior tick also emits: GameEngine runs
-    // enemy.update() and then updateEnemyCombat within a single frame, so both
-    // events land far inside AudioManager's 40ms dedupe window and, sharing
-    // the constant dedupe key 'melee:melee', collapse to one sound.
-    const { ctx, counts, heard, enemy, defender, combat } = createWiredMelee();
-    ctx.currentTime = 10;
+  it('plays one melee sound per attack cycle for an ordinary melee enemy', () => {
+    // A MiniEnemy is 32 wide and a Shooter 64, so AABB contact happens at a
+    // centre distance of 48 - OUTSIDE the MiniEnemy's 40px attackRange. It
+    // stops on contact and never becomes a CombatManager target at all, so
+    // only the base updateBehavior tick ever fires. The two paths are mutually
+    // exclusive here by geometry, not by deduplication.
+    const run = runApproach(MiniEnemy);
 
-    enemy.update([defender]);           // base damage tick
-    combat.updateEnemyCombat([defender], [enemy], 5000); // melee branch
-
-    expect(heard).toHaveLength(2);      // the double emit is real
-    expect(counts.voices).toBe(1);      // ...and it is heard once
+    expect(run.voices).toBe(run.emits);
+    for (const gap of run.voiceGaps) {
+      expect(gap).toBeGreaterThan(run.cycleMs * 0.75);
+    }
   });
 
-  it('still plays a second sound for a strike beyond the dedupe window', () => {
-    // The collapse must be a window, not a mute: a genuinely separate strike
-    // later still makes its own sound. Without this, the test above would be
-    // satisfied by an implementation that simply never played melee twice.
-    const { ctx, counts, enemy, defender, combat } = createWiredMelee();
-    ctx.currentTime = 10;
+  it('collapses the two emits a Vampire produces for a single strike', () => {
+    // VampireEnemy emits at its own damage line inside attack(), and
+    // CombatManager emits again in the melee branch that just called it. Those
+    // two emits are in ONE call stack - zero milliseconds apart, whatever
+    // order GameEngine runs its calls in - so the dedupe window collapses them
+    // reliably. This is the case where the collapse genuinely holds, and it
+    // holds because of the call stack, not because of frame timing.
+    const run = runApproach(VampireEnemy);
 
-    enemy.update([defender]);
-    combat.updateEnemyCombat([defender], [enemy], 5000);
-    expect(counts.voices).toBe(1);
+    expect(run.emits).toBe(run.voices * 2);
+    for (const gap of run.voiceGaps) {
+      expect(gap).toBeGreaterThan(run.cycleMs * 0.75);
+    }
+  });
 
-    ctx.currentTime = 10 + 0.05; // just past DEDUPE_WINDOW_SECONDS (0.04)
-    enemy.attackCountdown = 1;
-    enemy.update([defender]);
+  it('plays TWO melee sounds per attack cycle for a Boss - a known defect', () => {
+    // KNOWN DEFECT, characterised rather than fixed. BossEnemy uses the base
+    // updateBehavior tick AND has an attackRange (1000) far larger than the
+    // 82px centre distance it stops at, so it is a CombatManager target as
+    // well. Both damage paths run, on independent clocks, and land several
+    // HUNDRED milliseconds apart - orders of magnitude outside the 40ms dedupe
+    // window. The player hears two thumps per swing.
+    //
+    // This is issue 14 (melee double damage) surfacing as audio: the correct
+    // repair is one damage path, which is a balance decision, not an audio
+    // one. When that is fixed this test SHOULD fail - replace it then with an
+    // assertion of one sound per cycle.
+    const run = runApproach(BossEnemy);
 
-    expect(counts.voices).toBe(2);
+    expect(run.voices).toBe(run.emits); // nothing is collapsed
+    const shortest = Math.min(...run.voiceGaps);
+    expect(shortest).toBeGreaterThan(DEDUPE_WINDOW_SECONDS * 1000);
+    expect(shortest).toBeLessThan(run.cycleMs * 0.75); // ...twice per cycle
   });
 });
 
@@ -578,12 +636,58 @@ describe('the attack animation follows the shot, not a countdown of its own', ()
 
   it('holds the swing for less time than the gap between shots', () => {
     // Rejects: a lock as long as (or longer than) the firing cadence, which
-    // would re-latch the animation permanently by always being renewed before
-    // it expired. attackRate is frames-per-attack, so it IS the gap in frames.
+    // would re-latch the animation permanently by being renewed before it
+    // expired.
+    //
+    // Stated in MILLISECONDS on purpose. The lock is counted in frames while
+    // the cooldown canAttack enforces is wall-clock, so a frames-to-frames
+    // comparison (20 < 50) hides the real margin: it shrinks as frame time
+    // grows, and at roughly 24fps or below the lock outlasts the cooldown and
+    // the latch comes back. See ATTACK_ANIMATION_LOCK_FRAMES for that
+    // assumption written down at the constant.
     const { skeleton } = createSkeletonAndDefender();
+    const FRAME_MS = 1000 / 60;
+    const lockMs = ATTACK_ANIMATION_LOCK_FRAMES * FRAME_MS;
+    const cooldownMs = (skeleton.attackRate * 1000) / 60;
 
     expect(ATTACK_ANIMATION_LOCK_FRAMES).toBeGreaterThan(0);
-    expect(ATTACK_ANIMATION_LOCK_FRAMES).toBeLessThan(skeleton.attackRate);
+    expect(lockMs).toBeLessThan(cooldownMs);
+  });
+
+  it('releases the lock for any ranged enemy, not only a RangeEnemy', () => {
+    // CombatManager locks on isRanged, but the countdown used to live in
+    // RangeEnemy.updateBehavior alone. MageEnemy also declares isRanged and is
+    // kept out of that branch only by its canAttack() override returning
+    // false; relax that, or add a ranged enemy that does not extend
+    // RangeEnemy, and isAttacking latches on forever - the bug this task
+    // fixed, and the shape of the dead attackAnimationLock in
+    // DefenderUnits.js. The release therefore belongs where the lock can
+    // always reach it: the base class.
+    class TurretEnemy extends Enemy {
+      constructor(x, y) {
+        super(x, y, {
+          isAttacker: true, isRanged: true, attackRange: 500,
+          attackDamage: 5, attackRate: 50, width: 40, height: 40,
+        });
+      }
+
+      // Holds position and keeps no animation state of its own, so nothing
+      // except the lock can bring isAttacking back down.
+      updateBehavior() {}
+    }
+
+    const engine = createEngine();
+    const enemy = new TurretEnemy(0, 0);
+    enemy.gameEngine = engine;
+    const defender = { x: 60, y: 0, width: 40, height: 40, isAlive: true, takeDamage: vi.fn(() => false) };
+    const combat = new CombatManager(engine);
+
+    combat.updateEnemyCombat([defender], [enemy], 1000);
+    expect(enemy.isAttacking).toBe(true);
+
+    for (let i = 0; i < ATTACK_ANIMATION_LOCK_FRAMES; i++) enemy.update([defender]);
+
+    expect(enemy.isAttacking).toBe(false);
   });
 
   it('returns to the walk animation once nothing is in range', () => {

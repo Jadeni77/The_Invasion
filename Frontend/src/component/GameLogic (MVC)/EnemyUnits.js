@@ -27,12 +27,19 @@ import { isConsumableSpell } from "./DefenderUnits.js";
  * has to expire on its own, or it latches on until the target leaves range and
  * the animation runs continuously again, which is the bug this replaces.
  *
- * Must stay comfortably below the enemy's firing cadence (attackRate, in
- * frames - 50 for a Skeleton Shooter) or the lock is renewed before it expires
- * and the latch comes back. At the fixed 16ms tick updateAnimation is driven
- * with, 20 frames is ~333ms, which shows the front of the 10-frame/10fps
- * Skeleton attack sheet and still leaves ~30 frames of the cooldown visibly
- * not attacking, so each shot reads as a separate swing.
+ * Must stay comfortably below the enemy's firing cadence or the lock is
+ * renewed before it expires and the latch comes back. 20 frames is ~333ms at
+ * 60fps, against a Skeleton Shooter's 833ms cadence (attackRate 50), which
+ * shows the front of its 10-frame/10fps attack sheet and still leaves ~30
+ * frames of the cooldown visibly not attacking, so each shot reads as a
+ * separate swing.
+ *
+ * ASSUMES 60fps. This is counted in frames while the cooldown canAttack
+ * enforces is wall-clock (attackRate * 1000 / 60 ms), so the margin between
+ * the two shrinks as frame time grows: at roughly 24fps or below, 20 frames
+ * outlasts the 833ms cooldown and the animation latches on again. If the game
+ * ever has to hold up at low frame rates, this wants to become a duration in
+ * milliseconds rather than a frame count.
  */
 export const ATTACK_ANIMATION_LOCK_FRAMES = 20;
 
@@ -201,6 +208,8 @@ export class Enemy {
       return;
     }
 
+    this.runDownAttackAnimationLock();
+
     this.updateBehavior(defenderUnits);
 
     this.updateMovementSpeed();
@@ -213,6 +222,29 @@ export class Enemy {
 
     // Handle movement
     this.handleMovement();
+  }
+
+  /**
+   * Runs down the attack-animation lock a shot started, and drops out of the
+   * attack animation when it expires.
+   *
+   * Lives here rather than in RangeEnemy because CombatManager sets the lock
+   * on ANY enemy taking its ranged branch - it keys on isRanged, and MageEnemy
+   * is kept out of that branch only by its canAttack() override. A lock that
+   * can be set by a base-class rule has to be released by one too, or the
+   * next ranged enemy that does not extend RangeEnemy latches its attack
+   * animation on forever.
+   *
+   * A no-op for melee enemies: nothing sets their lock, and their swing is
+   * driven by the damage tick in updateBehavior instead.
+   */
+  runDownAttackAnimationLock() {
+    if (this.attackAnimationLock <= 0) return;
+
+    this.attackAnimationLock--;
+    if (this.attackAnimationLock === 0) {
+      this.isAttacking = false;
+    }
   }
 
   updateBehavior(defenderUnits) {
@@ -633,17 +665,9 @@ export class RangeEnemy extends Enemy {
         this.getDistanceTo(targetDefender) <= this.attackRange) {
       // Stop to shoot, but let CombatManager decide when a shot actually happens -
       // it owns the real cooldown. Setting isAttacking here made the animation play
-      // continuously while a defender was in range. All this branch does now is
-      // run down the lock the shot started, so the swing ends between shots
-      // instead of latching on for as long as a target stays in range.
+      // continuously while a defender was in range; the swing is started by the
+      // shot and ended by the lock Enemy.runDownAttackAnimationLock counts down.
       this.isMoving = false;
-
-      if (this.attackAnimationLock > 0) {
-        this.attackAnimationLock--;
-        if (this.attackAnimationLock === 0) {
-          this.isAttacking = false;
-        }
-      }
     } else {
       this.isMoving = true;
       this.isAttacking = false;
