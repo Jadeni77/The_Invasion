@@ -54,6 +54,7 @@ export class FeedbackManager {
     on('enemy:melee', ({ unitType }) => this.playUnitVoice(unitType, 'melee'));
     on('enemy:spell', ({ unitType }) => this.playUnitVoice(unitType, 'fire'));
     on('enemy:summon', ({ unitType }) => this.playUnitVoice(unitType, 'fire'));
+    on('enemy:heal', ({ unitType }) => this.playUnitVoice(unitType, 'fire'));
 
     on('enemy:hit', ({ unitType, damage, x, y }) => {
       this.playUnitVoice(unitType, 'hit');

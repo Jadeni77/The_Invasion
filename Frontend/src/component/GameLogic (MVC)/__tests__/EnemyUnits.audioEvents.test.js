@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   BasicEnemy, RangeEnemy, MiniEnemy, VampireEnemy, BerserkerEnemy, AssassinEnemy,
-  MageEnemy, NecromancerEnemy, SplitterEnemy, SwarmLeader, BossEnemy, Enemy,
+  MageEnemy, NecromancerEnemy, SplitterEnemy, SwarmLeader, BossEnemy, HealerEnemy, Enemy,
   ATTACK_ANIMATION_LOCK_FRAMES,
 } from '../EnemyUnits.js';
 import { BasicDefender } from '../DefenderUnits.js';
@@ -374,6 +374,84 @@ describe('enemy summons are audible', () => {
 
     expect(engine.enemies).toHaveLength(0);
     expect(eventsNamed(engine, 'enemy:summon')).toHaveLength(0);
+  });
+});
+
+describe('enemy healing is audible', () => {
+  // SoundGroups maps HealerEnemy to the shared 'heal' key and the spec's
+  // taxonomy names it there alongside HealerDefender, but nothing ever emitted
+  // for it - dead config that an owner-facing README promised worked. The
+  // missing piece was the emit, not the mapping.
+  function createHealer(engine) {
+    const healer = new HealerEnemy(0, 0, null);
+    healer.gameEngine = engine;
+    healer.currentHealCooldown = 1; // the next update() reaches the heal pulse
+    return healer;
+  }
+
+  /** A wounded ally inside the healer's 200px range. */
+  function createWoundedAlly() {
+    return {
+      x: 0, y: 0, width: 32, height: 32, isAlive: true,
+      health: 10, maxHealth: 100,
+    };
+  }
+
+  it('emits enemy:heal when a pulse actually heals somebody', () => {
+    const engine = createEngine();
+    const healer = createHealer(engine);
+    const ally = createWoundedAlly();
+    engine.enemies = [healer, ally];
+
+    healer.update([]);
+
+    expect(ally.health).toBeGreaterThan(10); // the heal really landed
+    expect(engine.emitFeedback).toHaveBeenCalledWith(
+      'enemy:heal',
+      { unitType: 'HealerEnemy' },
+    );
+  });
+
+  it('emits once per pulse, not once per healed ally', () => {
+    // Rejects an emit inside the loop: a healer standing in a swarm would fire
+    // one event per enemy in range, all in the same frame.
+    const engine = createEngine();
+    const healer = createHealer(engine);
+    engine.enemies = [healer, createWoundedAlly(), createWoundedAlly(), createWoundedAlly()];
+
+    healer.update([]);
+
+    expect(eventsNamed(engine, 'enemy:heal')).toHaveLength(1);
+  });
+
+  it('says nothing when there is nobody in range to heal', () => {
+    const engine = createEngine();
+    const healer = createHealer(engine);
+    const distantAlly = { ...createWoundedAlly(), x: 5000 };
+    engine.enemies = [healer, distantAlly];
+
+    healer.update([]);
+
+    expect(distantAlly.health).toBe(10);
+    expect(eventsNamed(engine, 'enemy:heal')).toHaveLength(0);
+  });
+
+  it('stays quiet between pulses', () => {
+    // healCooldown is 240 frames, so this is also what stops it spamming.
+    const engine = createEngine();
+    const healer = createHealer(engine);
+    engine.enemies = [healer, createWoundedAlly()];
+
+    for (let i = 0; i < 200; i++) healer.update([]);
+
+    expect(eventsNamed(engine, 'enemy:heal')).toHaveLength(1);
+  });
+
+  it('does not throw when the healer has no engine reference', () => {
+    const healer = new HealerEnemy(0, 0, null);
+    healer.currentHealCooldown = 1;
+
+    expect(() => healer.update([])).not.toThrow();
   });
 });
 

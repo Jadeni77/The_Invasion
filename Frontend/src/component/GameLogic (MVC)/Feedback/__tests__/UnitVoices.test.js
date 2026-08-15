@@ -36,6 +36,69 @@ describe('voice recipes are valid', () => {
   });
 });
 
+describe('sounds the spec promises are distinguishable actually differ', () => {
+  /**
+   * With no sample files committed, every sound in the game IS its synthesized
+   * recipe, so a distinction that holds only in soundKeyFor is not audible on
+   * its own: two keys can resolve correctly and still carry byte-identical
+   * recipes. The suite used to check only the key layer, and making
+   * death-small identical to death-medium (or mortar to artillery, or boss to
+   * death-medium, or summon to melee) left it green - so criteria 3 and 4
+   * could fail in play with every test passing.
+   *
+   * These pin the distinctions the spec's success criteria name, not all 105
+   * pairs: an arbitrary future regrouping of two sounds the spec never
+   * promised to separate should not have to fight the suite.
+   */
+  const SPEC_DISTINCTIONS = [
+    // Criterion 3: Mortar, Sniper, Titan and Boss stay individually recognisable.
+    ['mortar', 'artillery'],
+    ['mortar', 'sniper'],
+    ['sniper', 'projectile'],
+    ['titan', 'death-medium'],
+    ['boss', 'death-medium'],
+    ['titan', 'boss'],
+    // Criterion 4: a small enemy and a medium enemy die with different weight.
+    ['death-small', 'death-medium'],
+    ['death-small', 'death-defender'],
+    ['death-medium', 'death-defender'],
+  ];
+
+  it.each(SPEC_DISTINCTIONS)('%s and %s are not the same sound', (a, b) => {
+    expect(UNIT_VOICES[a]).not.toEqual(UNIT_VOICES[b]);
+  });
+
+  it.each(SPEC_DISTINCTIONS)('%s and %s still differ once resolved for playback', (a, b) => {
+    // The recipes could differ in a field the variant scaling then flattens,
+    // so check the thing actually handed to the audio layer.
+    for (const variant of ['fire', 'death']) {
+      expect(resolveVoice(a, variant), `${a}/${b} as ${variant}`)
+        .not.toEqual(resolveVoice(b, variant));
+    }
+  });
+
+  it('death weight is ordered, not merely different', () => {
+    // Criterion 4 is about audible WEIGHT: a small enemy must die lighter than
+    // a medium one, and a Titan heavier than both. Inequality alone would be
+    // satisfied by a small death that is longer and louder than a Titan's.
+    const weight = (key) => {
+      const recipe = resolveVoice(key, 'death');
+      return { duration: recipe.duration, gain: recipe.gain, freq: recipe.freqStart };
+    };
+    const small = weight('death-small');
+    const medium = weight('death-medium');
+    const titan = weight('titan');
+
+    expect(small.duration).toBeLessThan(medium.duration);
+    expect(small.gain).toBeLessThan(medium.gain);
+    expect(medium.duration).toBeLessThan(titan.duration);
+    expect(medium.gain).toBeLessThan(titan.gain);
+    // Heavier things sound lower.
+    expect(titan.freq).toBeLessThan(medium.freq);
+    expect(medium.freq).toBeLessThan(small.freq);
+  });
+});
+
 describe('resolveVoice', () => {
   it('returns the signature unchanged for the fire variant', () => {
     expect(resolveVoice('sniper', 'fire')).toEqual(UNIT_VOICES.sniper);
@@ -204,6 +267,10 @@ describe('resolveVoice against a real instance (production minification guard)',
    * the full production path (soundKeyFor then resolveVoice) against a REAL
    * instance's constructor.name rather than a literal that can't drift.
    */
+  // The config key this test's premise rests on - vite.config.js's
+  // `esbuild: { keepNames: true }` - is asserted in viteConfig.test.js, which
+  // needs module mocks this file should not carry. A vitest run is never
+  // minified, so nothing here can see that key go missing.
   it('recognises a real Mortar instance and does not fall back to the generic sound', () => {
     const mortar = new Mortar(0, 0, { level: 1, image: null });
 

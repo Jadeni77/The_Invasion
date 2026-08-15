@@ -353,6 +353,27 @@ describe('enemy actions the player watches happen', () => {
     );
   });
 
+  it('plays an enemy heal as the shared heal voice', () => {
+    // HealerEnemy was mapped to 'heal' from the start and the spec's taxonomy
+    // names it there, but nothing emitted for it until now - the mapping and
+    // its test were guarding config with no consumer.
+    bus.emit('enemy:heal', { unitType: 'HealerEnemy' });
+
+    expect(audio.playRecipe).toHaveBeenCalledWith(
+      resolveVoice('heal', 'fire'),
+      'heal:fire',
+      mixGainFor('heal'),
+    );
+  });
+
+  it('gives both healers the same heal sound', () => {
+    bus.emit('enemy:heal', { unitType: 'HealerEnemy' });
+    bus.emit('projectile:fired', { defenderType: 'HealerDefender' });
+
+    const keys = audio.playRecipe.mock.calls.map((call) => call[1]);
+    expect(new Set(keys)).toEqual(new Set(['heal:fire']));
+  });
+
   it('keeps a melee strike beneath a death in the mix', () => {
     expect(mixGainFor('melee')).toBeGreaterThan(mixGainFor('projectile'));
     expect(mixGainFor('melee')).toBeLessThan(mixGainFor('boss'));

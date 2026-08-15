@@ -82,9 +82,10 @@ export class CombatManager {
                         // The animation is driven from the actual shot, not from a
                         // separate countdown - two independent timers is why the
                         // skeleton's attack and its projectile never lined up. The
-                        // lock is what ends the swing again; updateBehavior runs it
-                        // down, because a flag cleared in this same frame would be
-                        // gone before the enemy's next determineAnimationState.
+                        // lock is what ends the swing again; Enemy.update() runs it
+                        // down via runDownAttackAnimationLock(), because a flag
+                        // cleared in this same frame would be gone before the
+                        // enemy's next determineAnimationState.
                         enemy.isAttacking = true;
                         enemy.attackAnimationLock = ATTACK_ANIMATION_LOCK_FRAMES;
                         this.gameEngine.emitFeedback?.('enemy:fired', {
@@ -99,15 +100,11 @@ export class CombatManager {
                         // damage through here and nowhere else, so without this
                         // their strikes are silent.
                         //
-                        // An enemy whose attackRange reaches past the distance it
-                        // stops at on contact - BossEnemy alone today - also deals
-                        // damage on the base updateBehavior countdown, and then
-                        // emits twice per cycle from two independent clocks. Those
-                        // two emits are NOT close enough together to be deduped
-                        // (measured ~750-917ms apart) and the player hears two
-                        // thumps. That is issue 14, the melee double-damage bug,
-                        // audible; it is characterised by a test and is fixed by
-                        // having one damage path, not by anything at this site.
+                        // BossEnemy also deals damage on the base updateBehavior
+                        // countdown and so emits twice per attack cycle, far too
+                        // far apart to dedupe; see known-issue 14, which is the
+                        // authoritative account and is fixed by having one damage
+                        // path, not by anything at this site.
                         //
                         // stunned is checked because attack() bails out on it
                         // before dealing damage, while this loop only filters

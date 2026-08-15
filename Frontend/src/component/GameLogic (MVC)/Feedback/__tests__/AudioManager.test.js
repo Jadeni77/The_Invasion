@@ -3,6 +3,7 @@ import {
 } from 'vitest';
 import { AudioManager, volumeToGain, DEDUPE_WINDOW_SECONDS, MAX_VOICES } from '../AudioManager.js';
 import { MAX_DURATION } from '../UnitVoices.js';
+import { SFX } from '../SfxLibrary.js';
 
 function createMockContext() {
   const made = { gains: [], oscillators: [], buffers: [], filters: [] };
@@ -666,6 +667,21 @@ describe('mix gain', () => {
     return { ctx, made, audio };
   }
 
+  function stubFetchOk() {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
+    })));
+  }
+
+  // Unstubbing here rather than at the end of the one test that stubs: an
+  // assertion failing before the inline cleanup would leak the stub into every
+  // later test in the run. Same pattern as the 'samples' and 'playRecipe and
+  // playSample sharing state' blocks above.
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('defaults to full level when no multiplier is given', () => {
     const { made, audio } = readyAudio();
     audio.playRecipe(RECIPE, 'a');
@@ -700,16 +716,40 @@ describe('mix gain', () => {
   // scales by mixGain. Without this, a playSample that dropped its `*
   // mixGain` factor would pass the whole suite undetected.
   it('scales a sample envelope by the multiplier the same way as a recipe', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
-      ok: true,
-      arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
-    })));
+    stubFetchOk();
     const { made, audio } = readyAudio();
     await audio.loadSamples({ Mortar: '/a/Mortar.ogg' });
 
     audio.playSample('Mortar', { playbackRate: 1, gainScale: 1, durationScale: 1 }, 'a', 0.4);
 
     expect(made.gains.at(-1).gain.setValueAtTime).toHaveBeenCalledWith(0.7 * 0.4, expect.any(Number));
-    vi.unstubAllGlobals();
+  });
+
+  // The mix tiers reach the eight game-event sounds ONLY through playSfx, and
+  // this is the single line that joins the two layers. FeedbackManager's tests
+  // assert playSfx was called with the multiplier, against a mocked audio
+  // manager; the tests above call playRecipe directly. Neither can see the
+  // forward, so dropping `mixGain` from playSfx's call left the whole suite
+  // green while base damage, win and lose - the loudest moments in the game -
+  // silently flattened to one level, which is criterion 5.
+  it('forwards its multiplier to the recipe it plays', () => {
+    const { made, audio } = readyAudio();
+
+    audio.playSfx('baseDamaged', 0.4);
+
+    expect(made.gains.at(-1).gain.setValueAtTime).toHaveBeenCalledWith(
+      SFX.baseDamaged.gain * 0.4, expect.any(Number),
+    );
+  });
+
+  it('plays a game-event sound at full level when no multiplier is given', () => {
+    // Guards the default, so the forward above cannot be "fixed" by hardcoding.
+    const { made, audio } = readyAudio();
+
+    audio.playSfx('baseDamaged');
+
+    expect(made.gains.at(-1).gain.setValueAtTime).toHaveBeenCalledWith(
+      SFX.baseDamaged.gain, expect.any(Number),
+    );
   });
 });

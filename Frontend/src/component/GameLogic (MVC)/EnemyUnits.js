@@ -776,6 +776,7 @@ export class HealerEnemy extends Enemy {
   healNearbyEnemy() {
     if (this.gameEngine) {
       const enemies = this.gameEngine.enemies;
+      let healedAlly = false;
       for (const enemy of enemies) {
         if (!enemy.isAlive) continue;
 
@@ -786,7 +787,18 @@ export class HealerEnemy extends Enemy {
         if (distance <= this.healRange) {
           enemy.maxHealth += this.healAmount;
           enemy.health = Math.min(enemy.maxHealth, enemy.health + this.healAmount);
+          if (enemy.id !== this.id) healedAlly = true;
         }
+      }
+
+      // One event per pulse, and only when an ALLY was healed. The healer is
+      // itself in gameEngine.enemies, so it also tops itself up every pulse -
+      // that behaviour is untouched here - but a lone healer healing nobody
+      // but itself is not a moment the player is watching, and it would put a
+      // sound on the clock forever. HealerDefender's emit works the same way:
+      // it skips itself and stays silent with nobody to heal.
+      if (healedAlly) {
+        this.gameEngine?.emitFeedback?.('enemy:heal', { unitType: this.constructor.name });
       }
     }
   }

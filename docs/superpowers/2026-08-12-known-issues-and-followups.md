@@ -95,12 +95,20 @@ Shooter on a real `GameEngine` tick and counting damage applications:
 
 | Enemy | `attackRange` | contact distance | paths that fire |
 |---|---|---|---|
-| BasicEnemy, TankEnemy, ShieldEnemy, SplitterEnemy, MiniEnemy, EMPEnemy, AssassinEnemy | 0-50 | 48-77 | base tick only — **1× damage** |
+| BasicEnemy, FastEnemy, TankEnemy, BombEnemy, ShieldEnemy, GhostEnemy, HealerEnemy, SplitterEnemy, MiniEnemy, EMPEnemy, **TitanEnemy** | 0-50 | 48-122 | base tick only (they use, or `super`-call, `Enemy.updateBehavior`) — **1× damage** |
 | VampireEnemy, BerserkerEnemy, NecromancerEnemy, SwarmLeader | 100-250 | 64-82 | `CombatManager` only (they override `updateBehavior` with no damage tick) — **1× damage** |
+| **AssassinEnemy** | 30 | 57 | its own `updateBehavior` override for the one-shot strike, then the base tick — **1× damage** |
 | **BossEnemy** | **1000** | **82** | **both — 2× damage** |
 
-So the doubling is real but currently affects **`BossEnemy` alone**. The architecture is still the
-bug: an enemy silently flips into double damage the moment someone raises its `attackRange` past its
+*(Table corrected 2026-08-15 after review: `TitanEnemy` was missing entirely — it calls
+`super.updateBehavior()` and belongs in row 1 — and `AssassinEnemy` was filed in row 1 although its
+critical strike comes from its own override. Both re-derived from the constructors. The conclusion is
+unchanged: `BossEnemy` is the only enemy where both paths run.)*
+
+So the doubling is real but currently affects **`BossEnemy` alone** — which, per issue 12, is never
+imported by `GameEngine` and so is never spawned. **Nothing a player can currently meet takes double
+damage or makes the double sound.** That is luck, not design, and it flips the moment someone wires
+the Boss up. The architecture is still the bug: an enemy silently flips into double damage the moment someone raises its `attackRange` past its
 contact distance, or widens a unit, with nothing to catch it. That is what makes it a balance-pass
 blocker (issue 10) — not a blanket 2× on every melee enemy.
 
@@ -138,9 +146,42 @@ runs. Whatever clears a defender's `isAttacking` today, it is not this.
 Add it to the dead-field list in issue 3, but it is worth its own entry because it is not merely
 unused — it is a guard that silently never fires, which reads as working code.
 
-`RangeEnemy` on this branch implements the pattern this was evidently meant to be (a lock set on
-fire, decremented in `updateBehavior`, clearing `isAttacking` when it expires) and can serve as the
-reference if someone repairs the defender side.
+This branch implements the pattern this was evidently meant to be, and it can serve as the reference
+if someone repairs the defender side: `CombatManager` sets `isAttacking` and
+`attackAnimationLock = ATTACK_ANIMATION_LOCK_FRAMES` at the moment of the shot, and **`Enemy.update()`
+runs the lock down via `runDownAttackAnimationLock()`**, clearing `isAttacking` when it expires. Note
+the two details that matter: the countdown lives in the **base class**, because `CombatManager` sets
+the lock from a rule about `isRanged` and anything set by a base-class rule must be released by one;
+and it cannot be cleared in the same frame it is set, because `GameEngine` runs `enemy.update()`
+before `updateEnemyCombat()`, so `determineAnimationState` would never see it and the attack
+animation would never render at all.
+
+### 16. Stun does not prevent ranged enemy attacks
+
+Found 2026-08-15 during the audio-direction review, while checking whether a stunned enemy should
+make a firing sound.
+
+`CombatManager.updateEnemyCombat` skips an enemy that is `frozen` but not one that is `stunned`:
+
+```js
+if (!enemy.isAttacker || !enemy.isAlive || enemy.frozen) continue;
+```
+
+`Enemy.attack()` *does* bail out on `stunned`, so a stunned **melee** enemy deals no damage — the
+melee emit added on this branch is guarded on `stunned` for exactly that reason. But the **ranged**
+branch never calls `attack()` to deliver the shot: it pushes a projectile whose `onHit` calls
+`attack(target, now)` later, by which time the stun has usually expired. So a stunned ranged enemy
+keeps firing, and the projectiles keep landing.
+
+The audio behaviour is therefore *honest* — the shot really happens, so it should really make a sound
+— and `determineAnimationState` forces the `idle` animation while stunned, so nothing looks wrong
+either. **This is a combat bug, not an audio one.**
+
+Deliberately not fixed on the audio branch: adding `|| enemy.stunned` to that guard makes stun
+meaningfully stronger against every ranged enemy, which is a **balance change**, and an audio-only
+branch must not make one. It belongs with issue 14 as a blocker for the balance pass (issue 10). Note
+the asymmetry to resolve at the same time: the melee branch's `stunned` check is deliberate, so
+whoever fixes this should decide whether the guard belongs at the top of the loop instead.
 
 ## Deferred from the branch
 
@@ -263,6 +304,13 @@ real instance.
 adding any other code that relies on `constructor.name`, `function.name`, or class names surviving the
 build.
 
+The audio-direction branch **widened this** from one table in `UnitVoices.js` to `soundKeyFor`, which
+every sound in the game now routes through: without the setting, every unit collapses to `projectile`
+on fire and `death-medium` on death. Deleting the config block used to leave the whole suite green, so
+`Feedback/__tests__/viteConfig.test.js` now asserts the value directly. That is the only mechanical
+guard available from inside a test run — a vitest run is never minified, so no runtime test can
+observe the real failure.
+
 Two lessons worth keeping:
 
 - A test that supplies an identifier as a literal proves nothing about whether the real caller produces
@@ -281,6 +329,12 @@ Two lessons worth keeping:
   commits to firing rather than when the shell appears.
 - **`BossEnemy` is never imported by `GameEngine`.** It is dead code, tree-shaken out of the bundle,
   so its voice is unreachable. Either wire the class up or delete it.
+- **`EMPEnemy.triggerEMP` and `TitanEnemy.performGroundPound` apply visible effects to defenders with
+  no feedback event.** The EMP disables defenders outright and the ground pound damages everything in
+  a 350px radius, both in silence. Neither is a criterion 6 gap — they are not ranged fire, melee,
+  spells or summons, and the audio spec assigned them no sound — so they were deliberately skipped
+  during the enemy-audio pass rather than missed. They are the obvious candidates for the next audio
+  pass, and adding them is a design choice (which sound, which tier) rather than a bug fix.
 - **A suspended `AudioContext` freezes `ctx.currentTime`**, so `AudioManager`'s active-voice list never
   prunes and the concurrency cap would steal on every call past 12. Edge case, low priority.
 
