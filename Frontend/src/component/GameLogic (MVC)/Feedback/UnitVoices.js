@@ -30,6 +30,7 @@ export const UNIT_VOICES = {
 export const VARIANTS = {
   fire:  { freqScale: 1,   durationScale: 1,    gainScale: 1    },
   hit:   { freqScale: 1,   durationScale: 0.35, gainScale: 0.55 },
+  melee: { freqScale: 1,   durationScale: 0.35, gainScale: 0.55 },
   death: { freqScale: 0.5, durationScale: 2.5,  gainScale: 1.15 },
 };
 

@@ -47,6 +47,14 @@ export class FeedbackManager {
 
     on('projectile:fired', ({ defenderType }) => this.playUnitVoice(defenderType, 'fire'));
 
+    // The four things a player watches an enemy do. Melee uses its own variant
+    // so a strike resolves to the shared melee sound whichever enemy swung;
+    // the rest are acting sounds, which is what the fire variant means here.
+    on('enemy:fired', ({ unitType }) => this.playUnitVoice(unitType, 'fire'));
+    on('enemy:melee', ({ unitType }) => this.playUnitVoice(unitType, 'melee'));
+    on('enemy:spell', ({ unitType }) => this.playUnitVoice(unitType, 'fire'));
+    on('enemy:summon', ({ unitType }) => this.playUnitVoice(unitType, 'fire'));
+
     on('enemy:hit', ({ unitType, damage, x, y }) => {
       this.playUnitVoice(unitType, 'hit');
       this.juice.addDamageNumber(x, y, damage);

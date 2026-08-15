@@ -214,6 +214,12 @@ export class Enemy {
 
         if (this.attackCountdown <= 0) {
           targetDefender.takeDamage(this.attackDamage);
+          // Emitted here, on the damage tick, rather than in attack(): this is
+          // the site the visible swing is restarted from, and it fires once per
+          // tick instead of once per frame in contact. attack() would be wrong
+          // twice over - CombatManager calls it from a ranged projectile's
+          // onHit as well, so every landing arrow would claim to be a swing.
+          this.gameEngine?.emitFeedback?.('enemy:melee', { unitType: this.constructor.name });
           this.attackCountdown = this.attackRate;
           // Restart the attack animation so the visible swing lines up with damage ticks
           if (this.currentAnimation === 'attack') {
@@ -601,12 +607,10 @@ export class RangeEnemy extends Enemy {
 
     if (targetDefender && !this.frozen && !this.stunned &&
         this.getDistanceTo(targetDefender) <= this.attackRange) {
+      // Stop to shoot, but let CombatManager decide when a shot actually happens -
+      // it owns the real cooldown. Setting isAttacking here made the animation play
+      // continuously while a defender was in range.
       this.isMoving = false;
-      this.isAttacking = true;
-      this.attackCountdown--;
-      if (this.attackCountdown <= 0) {
-        this.attackCountdown = this.attackRate;
-      }
     } else {
       this.isMoving = true;
       this.isAttacking = false;
@@ -808,6 +812,9 @@ export class SplitterEnemy extends Enemy {
       }
       this.gameEngine.enemies.push(mini);
     }
+    // One event for the whole split, not one per mini: all three appear in the
+    // same instant, so three events would be three copies of one sound.
+    this.gameEngine?.emitFeedback?.('enemy:summon', { unitType: this.constructor.name });
   }
 }
 
@@ -1174,6 +1181,10 @@ export class VampireEnemy extends Enemy {
 
     const damageDealt = Math.min(target.health, this.attackDamage);
     target.takeDamage(this.attackDamage);
+    // Vampire applies its own damage instead of calling super.attack(), so it
+    // needs its own emit. It is melee-only, so this call site is never reached
+    // from a projectile's onHit.
+    this.gameEngine?.emitFeedback?.('enemy:melee', { unitType: this.constructor.name });
 
     //heal base on attack
     const healAmount = Math.floor(damageDealt * this.lifeStealPercent);
@@ -1348,6 +1359,8 @@ export class BerserkerEnemy extends Enemy {
 
     const totalDamage = this.attackDamage + this.damageBonus;
     const died = target.takeDamage(totalDamage);
+    // Berserker also applies its own damage rather than calling super.attack().
+    this.gameEngine?.emitFeedback?.('enemy:melee', { unitType: this.constructor.name });
     console.log(`Berserker does ${totalDamage}damage`);
     console.log(`Berserker move ${this.speed} speed`);
     console.log(`${this.killCount} killCount`)
@@ -1485,6 +1498,7 @@ export class NecromancerEnemy extends Enemy {
     }
 
     this.gameEngine.enemies.push(skeleton);
+    this.gameEngine?.emitFeedback?.('enemy:summon', { unitType: this.constructor.name });
     this.reviveCount++;
 
     this.gameEngine.explosions.push({
@@ -1591,6 +1605,9 @@ export class AssassinEnemy extends Enemy {
         //critical strike damage
         const critDamage = this.attackDamage * 5;
         targetDefender.takeDamage(critDamage);
+        // The assassination strikes from inside updateBehavior, bypassing both
+        // attack() and the base countdown; hasStruck keeps it to one event.
+        this.gameEngine?.emitFeedback?.('enemy:melee', { unitType: this.constructor.name });
 
         //strike effect
         if (this.gameEngine) {
@@ -1816,6 +1833,7 @@ export class MageEnemy extends Enemy {
       this.gameEngine.spellProjectiles = [];
     }
     this.gameEngine.spellProjectiles.push(fireBall);
+    this.gameEngine?.emitFeedback?.('enemy:spell', { unitType: this.constructor.name });
   }
 
   castIcebolt() {
@@ -1840,6 +1858,7 @@ export class MageEnemy extends Enemy {
       this.gameEngine.spellProjectiles = [];
     }
     this.gameEngine.spellProjectiles.push(icebolt);
+    this.gameEngine?.emitFeedback?.('enemy:spell', { unitType: this.constructor.name });
   }
 
   castLightning() {
@@ -1864,6 +1883,10 @@ export class MageEnemy extends Enemy {
                                     });
 
     this.currentTarget.takeDamage(this.attackDamage);
+    // The third spell has no projectile to hang a sound on, so without this it
+    // is the one cast the player cannot hear. Emitted once for the strike, not
+    // once per chained defender - the chain is one spell, not several.
+    this.gameEngine?.emitFeedback?.('enemy:spell', { unitType: this.constructor.name });
 
     //chaining
     for (const defender of this.gameEngine.defenders) {

@@ -158,6 +158,40 @@ describe('soundKeyFor covers every real unit class', () => {
   });
 });
 
+describe('the melee variant', () => {
+  it('resolves to the shared melee sound whichever enemy struck', () => {
+    // Rejects: soundKeyFor with no `melee` early return. Without it a swing
+    // falls through to the firing branch, so a Vampire's claw plays the
+    // generic arrow sound and a Necromancer's plays its summon incantation.
+    expect(soundKeyFor('VampireEnemy', 'melee')).toBe('melee');
+    expect(soundKeyFor('BasicEnemy', 'melee')).toBe('melee');
+    expect(soundKeyFor('AssassinEnemy', 'melee')).toBe('melee');
+    expect(soundKeyFor('NecromancerEnemy', 'melee')).toBe('melee');
+  });
+
+  it('gives an unknown unit the melee sound too, rather than a firing sound', () => {
+    expect(soundKeyFor('NoSuchEnemy', 'melee')).toBe('melee');
+  });
+
+  it('is a declared key with a mix tier, like every other sound', () => {
+    expect(SOUND_KEYS).toContain(soundKeyFor('BasicEnemy', 'melee'));
+    expect(MIX_TIERS).toHaveProperty('melee');
+  });
+
+  it('leaves the same units\' firing and death sounds alone', () => {
+    // A blanket early return placed above the death branch would swallow
+    // deaths as well; these stay put.
+    expect(soundKeyFor('NecromancerEnemy', 'fire')).toBe('summon');
+    expect(soundKeyFor('AssassinEnemy', 'fire')).toBe('projectile');
+    expect(soundKeyFor('BasicEnemy', 'death')).toBe('death-small');
+  });
+
+  it('does not throw on a null or undefined unit name', () => {
+    expect(() => soundKeyFor(null, 'melee')).not.toThrow();
+    expect(() => soundKeyFor(undefined, 'melee')).not.toThrow();
+  });
+});
+
 describe('mix tiers', () => {
   it('puts constant sounds in the quiet tier', () => {
     expect(mixGainFor('projectile')).toBe(0.4);

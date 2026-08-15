@@ -36,6 +36,16 @@ describe('SAMPLE_VARIANTS', () => {
     expect(SAMPLE_VARIANTS.death.durationScale).toBe(1);
   });
 
+  it('makes melee shorter and quieter at normal pitch, like a hit', () => {
+    // Rejects: a missing SAMPLE_VARIANTS.melee entry. FeedbackManager falls
+    // back to SAMPLE_VARIANTS.fire for an unknown variant, so a supplied
+    // melee sample would play at full length and full gain while the
+    // synthesized path stayed short - the two sources would not match.
+    expect(SAMPLE_VARIANTS.melee).toEqual({ playbackRate: 1, gainScale: 0.55, durationScale: 0.35 });
+    expect(SAMPLE_VARIANTS.melee.durationScale).toBeLessThan(SAMPLE_VARIANTS.fire.durationScale);
+    expect(SAMPLE_VARIANTS.melee.gainScale).toBeLessThan(SAMPLE_VARIANTS.fire.gainScale);
+  });
+
   it('every variant is within valid multiplier ranges', () => {
     for (const [name, t] of Object.entries(SAMPLE_VARIANTS)) {
       expect(t.playbackRate, `${name} playbackRate`).toBeGreaterThan(0);

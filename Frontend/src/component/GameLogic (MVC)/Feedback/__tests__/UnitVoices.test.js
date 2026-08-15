@@ -118,6 +118,43 @@ describe('resolveVoice', () => {
   });
 });
 
+describe('the melee variant', () => {
+  it('is shorter and quieter than the same sound played at full length', () => {
+    // Rejects: a missing VARIANTS.melee entry. resolveVoice would silently
+    // fall through to VARIANTS.fire and a swing would play at full duration
+    // and full gain - and EVERY other test in this suite would still pass,
+    // because the sound key still resolves and the recipe is still well
+    // formed. This comparison is the only thing that notices.
+    const fire = resolveVoice('melee', 'fire');
+    const melee = resolveVoice('melee', 'melee');
+
+    expect(melee.duration).toBeLessThan(fire.duration);
+    expect(melee.gain).toBeLessThan(fire.gain);
+  });
+
+  it('derives from the melee signature by the declared scale factors', () => {
+    const signature = UNIT_VOICES.melee;
+    const melee = resolveVoice('melee', 'melee');
+
+    expect(melee.duration).toBeCloseTo(signature.duration * 0.35);
+    expect(melee.gain).toBeCloseTo(signature.gain * 0.55);
+    expect(melee.freqStart).toBe(signature.freqStart);
+    expect(melee.freqEnd).toBe(signature.freqEnd);
+    expect(melee.wave).toBe(signature.wave);
+    expect(melee.noise).toBe(signature.noise);
+  });
+
+  it('stays inside the valid ranges for every sound key', () => {
+    for (const name of Object.keys(UNIT_VOICES)) {
+      const recipe = resolveVoice(name, 'melee');
+      expect(recipe.duration, `${name} duration`).toBeGreaterThan(0);
+      expect(recipe.duration, `${name} duration`).toBeLessThanOrEqual(2);
+      expect(recipe.gain, `${name} gain`).toBeGreaterThan(0);
+      expect(recipe.gain, `${name} gain`).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
 describe('resolveVoice has no caller-supplied fallback override', () => {
   // resolveVoice used to take a fourth `fallbackRecipe` parameter so a caller
   // could pick which generic sound played for an unrecognised unit - e.g. an

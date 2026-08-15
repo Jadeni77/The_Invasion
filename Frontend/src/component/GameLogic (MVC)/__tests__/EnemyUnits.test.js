@@ -170,30 +170,38 @@ describe('Enemy.findClosestDefender ignores consumable spells (Item 2)', () => {
   });
 });
 
+/**
+ * Note on isAttacking: RangeEnemy.updateBehavior used to set it on every frame
+ * a defender was in range, which is what these tests originally asserted.
+ * Task 4 moved that to the moment CombatManager actually fires the shot, so
+ * "is it engaged?" is now read from isMoving here, and the attack-animation
+ * behaviour lives in EnemyUnits.audioEvents.test.js. The spell-exclusion
+ * question these tests exist to answer is unchanged.
+ */
 describe('RangeEnemy.updateBehavior ignores consumable spells (Item 2, behavioural)', () => {
   function createRangedEnemy() {
     return new RangeEnemy(0, 0, null);
   }
 
-  it('does not enter its attacking state or stop moving when the only nearby unit is a spell', () => {
+  it('does not stop moving when the only nearby unit is a spell', () => {
     const enemy = createRangedEnemy();
     const spell = new FireBlast(50, 0, CARD); // well within the 150 attack range
 
     enemy.update([spell]);
 
-    expect(enemy.isAttacking).toBe(false);
     expect(enemy.isMoving).toBe(true);
     expect(enemy.x).toBeGreaterThan(0);
   });
 
-  it('does enter its attacking state against an ordinary defender in the same position', () => {
+  it('does stop to engage an ordinary defender in the same position', () => {
     const enemy = createRangedEnemy();
     const defender = new BasicDefender(50, 0, CARD);
+    const startingX = enemy.x;
 
     enemy.update([defender]);
 
-    expect(enemy.isAttacking).toBe(true);
     expect(enemy.isMoving).toBe(false);
+    expect(enemy.x).toBe(startingX);
   });
 });
 

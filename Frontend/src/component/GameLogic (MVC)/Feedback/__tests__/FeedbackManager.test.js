@@ -276,6 +276,120 @@ describe('death fallback selection (defender vs enemy)', () => {
   });
 });
 
+describe('enemy actions the player watches happen', () => {
+  // Task 4: enemy ranged fire, melee, spells and summons all emitted events
+  // that nothing listened for, so four of the things a player watches an
+  // enemy do were silent.
+  let bus, audio, juice, manager;
+
+  beforeEach(() => {
+    bus = new FeedbackBus();
+    audio = { playSfx: vi.fn(), playRecipe: vi.fn(), setVolumes: vi.fn() };
+    juice = {
+      addTrauma: vi.fn(), triggerHitStop: vi.fn(),
+      addDamageNumber: vi.fn(), triggerFlash: vi.fn(), setEnabled: vi.fn(),
+    };
+    manager = new FeedbackManager(bus, audio, juice);
+    manager.attach();
+  });
+
+  it('gives an enemy arrow the same sound a Shooter fires', () => {
+    // The spec's grouping in one assertion: a skeleton and a shooter firing
+    // carry no information that telling them apart would convey.
+    bus.emit('enemy:fired', { unitType: 'RangeEnemy' });
+
+    expect(audio.playRecipe).toHaveBeenCalledWith(
+      resolveVoice('projectile', 'fire'),
+      'projectile:fire',
+      mixGainFor('projectile'),
+    );
+  });
+
+  it('plays a melee strike short and quiet, from the shared melee voice', () => {
+    // Literal expected recipe, computed with the same arithmetic resolveVoice
+    // performs rather than by calling it: UNIT_VOICES.melee is
+    // { wave: 'triangle', freqStart: 320, freqEnd: 200, duration: 0.10, gain: 0.30, noise: true },
+    // and the melee variant scales duration by 0.35 and gain by 0.55. A
+    // missing VARIANTS.melee entry would fall through to the fire variant and
+    // produce the unscaled recipe, failing here.
+    bus.emit('enemy:melee', { unitType: 'VampireEnemy' });
+
+    expect(audio.playRecipe).toHaveBeenCalledWith(
+      { wave: 'triangle', noise: true, freqStart: 320, freqEnd: 200, duration: 0.10 * 0.35, gain: 0.30 * 0.55 },
+      'melee:melee',
+      mixGainFor('melee'),
+    );
+  });
+
+  it('gives every enemy the same melee sound, whoever struck', () => {
+    bus.emit('enemy:melee', { unitType: 'VampireEnemy' });
+    bus.emit('enemy:melee', { unitType: 'BasicEnemy' });
+    bus.emit('enemy:melee', { unitType: 'NecromancerEnemy' });
+
+    const keys = audio.playRecipe.mock.calls.map((call) => call[1]);
+    expect(new Set(keys)).toEqual(new Set(['melee:melee']));
+  });
+
+  it('plays a mage spell as the magic voice', () => {
+    bus.emit('enemy:spell', { unitType: 'MageEnemy' });
+
+    expect(audio.playRecipe).toHaveBeenCalledWith(
+      resolveVoice('magic', 'fire'),
+      'magic:fire',
+      mixGainFor('magic'),
+    );
+  });
+
+  it('plays both summoners as the summon voice', () => {
+    bus.emit('enemy:summon', { unitType: 'NecromancerEnemy' });
+    bus.emit('enemy:summon', { unitType: 'SplitterEnemy' });
+
+    const keys = audio.playRecipe.mock.calls.map((call) => call[1]);
+    expect(new Set(keys)).toEqual(new Set(['summon:fire']));
+    expect(audio.playRecipe).toHaveBeenCalledWith(
+      resolveVoice('summon', 'fire'),
+      'summon:fire',
+      mixGainFor('summon'),
+    );
+  });
+
+  it('keeps a melee strike beneath a death in the mix', () => {
+    expect(mixGainFor('melee')).toBeGreaterThan(mixGainFor('projectile'));
+    expect(mixGainFor('melee')).toBeLessThan(mixGainFor('boss'));
+  });
+
+  it('does not throw when an enemy event carries no unit type', () => {
+    expect(() => bus.emit('enemy:melee', {})).not.toThrow();
+    expect(() => bus.emit('enemy:summon', {})).not.toThrow();
+    expect(audio.playRecipe).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops responding to the new events after detach', () => {
+    manager.detach();
+
+    bus.emit('enemy:fired', { unitType: 'RangeEnemy' });
+    bus.emit('enemy:melee', { unitType: 'BasicEnemy' });
+    bus.emit('enemy:spell', { unitType: 'MageEnemy' });
+    bus.emit('enemy:summon', { unitType: 'SplitterEnemy' });
+
+    expect(audio.playRecipe).not.toHaveBeenCalled();
+  });
+
+  it('prefers a supplied melee sample and plays it with the melee transform', () => {
+    const sampled = { playSfx: vi.fn(), playRecipe: vi.fn(), playSample: vi.fn(), hasSample: vi.fn(() => true), setVolumes: vi.fn() };
+    const sampledManager = new FeedbackManager(bus, sampled, juice);
+    manager.detach();
+    sampledManager.attach();
+
+    bus.emit('enemy:melee', { unitType: 'BasicEnemy' });
+
+    expect(sampled.playSample).toHaveBeenCalledWith(
+      'melee', SAMPLE_VARIANTS.melee, 'melee:melee', mixGainFor('melee'),
+    );
+    expect(sampled.playRecipe).not.toHaveBeenCalled();
+  });
+});
+
 describe('sample-or-synth routing', () => {
   let bus, audio, juice, manager;
 

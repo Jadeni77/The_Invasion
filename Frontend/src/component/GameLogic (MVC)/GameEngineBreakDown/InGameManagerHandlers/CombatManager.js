@@ -78,6 +78,13 @@ export class CombatManager {
                                                                       enemy.attack(target, now);
                                                                   }});
                         enemy.lastAttackTime = now;
+                        // The animation is driven from the actual shot, not from a
+                        // separate countdown - two independent timers is why the
+                        // skeleton's attack and its projectile never lined up.
+                        enemy.isAttacking = true;
+                        this.gameEngine.emitFeedback?.('enemy:fired', {
+                            unitType: enemy.constructor.name,
+                        });
                     } else {
                         enemy.attack(target, now);
                     }

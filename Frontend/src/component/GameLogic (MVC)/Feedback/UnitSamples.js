@@ -34,6 +34,7 @@ export const SAMPLE_URLS = Object.fromEntries(
 export const SAMPLE_VARIANTS = {
   fire:  { playbackRate: 1,    gainScale: 1,    durationScale: 1    },
   hit:   { playbackRate: 1,    gainScale: 0.55, durationScale: 0.35 },
+  melee: { playbackRate: 1,    gainScale: 0.55, durationScale: 0.35 },
   death: { playbackRate: 0.75, gainScale: 1,    durationScale: 1    },
 };
 

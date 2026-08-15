@@ -69,6 +69,11 @@ export const SOUND_KEYS = [
 export function soundKeyFor(unitName, variant) {
   if (variant === 'hit') return 'hit';
 
+  // Every melee strike shares one sound: which enemy swung carries nothing the
+  // player needs, and a Vampire's claw would otherwise fall through to the
+  // firing branch and play a generic arrow.
+  if (variant === 'melee') return 'melee';
+
   if (variant === 'death') {
     if (DEATH_SIGNATURES[unitName]) return DEATH_SIGNATURES[unitName];
     if (DEFENDERS.has(unitName)) return 'death-defender';
