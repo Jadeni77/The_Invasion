@@ -149,15 +149,15 @@ describe('per-unit voices', () => {
   it('plays the dying enemy its own death voice', () => {
     // Literal expected recipe: TitanEnemy keeps a death signature of its own
     // (soundKeyFor resolves it to 'titan'), whose UNIT_VOICES entry is
-    // { wave: 'sawtooth', freqStart: 100, freqEnd: 50, duration: 0.4, gain: 0.55, noise: true },
-    // and the death variant scales freq by 0.5, duration by 2.5, gain by 1.15.
+    // { wave: 'sawtooth', freqStart: 400, freqEnd: 270, duration: 0.4, gain: 0.55, noise: true },
+    // and the death variant scales freq by 0.8, duration by 2.5, gain by 1.15.
     // Computed here with the same arithmetic resolveVoice performs (not by
     // calling resolveVoice), so a change to either the signature or the
     // VARIANTS.death scale factors would actually break this test.
     bus.emit('enemy:died', { unitType: 'TitanEnemy', isBoss: false, x: 1, y: 2 });
 
     expect(audio.playRecipe).toHaveBeenCalledWith(
-      { wave: 'sawtooth', noise: true, freqStart: 100 * 0.5, freqEnd: 50 * 0.5, duration: 0.4 * 2.5, gain: 0.55 * 1.15 },
+      { wave: 'sawtooth', noise: true, freqStart: 400 * 0.8, freqEnd: 270 * 0.8, duration: 0.4 * 2.5, gain: 0.55 * 1.15 },
       'titan:death',
       mixGainFor('titan'),
     );
@@ -308,14 +308,14 @@ describe('enemy actions the player watches happen', () => {
   it('plays a melee strike short and quiet, from the shared melee voice', () => {
     // Literal expected recipe, computed with the same arithmetic resolveVoice
     // performs rather than by calling it: UNIT_VOICES.melee is
-    // { wave: 'triangle', freqStart: 320, freqEnd: 200, duration: 0.10, gain: 0.30, noise: true },
+    // { wave: 'triangle', freqStart: 340, freqEnd: 220, duration: 0.10, gain: 0.30, noise: true },
     // and the melee variant scales duration by 0.35 and gain by 0.55. A
     // missing VARIANTS.melee entry would fall through to the fire variant and
     // produce the unscaled recipe, failing here.
     bus.emit('enemy:melee', { unitType: 'VampireEnemy' });
 
     expect(audio.playRecipe).toHaveBeenCalledWith(
-      { wave: 'triangle', noise: true, freqStart: 320, freqEnd: 200, duration: 0.10 * 0.35, gain: 0.30 * 0.55 },
+      { wave: 'triangle', noise: true, freqStart: 340, freqEnd: 220, duration: 0.10 * 0.35, gain: 0.30 * 0.55 },
       'melee:melee',
       mixGainFor('melee'),
     );

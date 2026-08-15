@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { Mortar } from '../../DefenderUnits.js';
-import { UNIT_VOICES, resolveVoice } from '../UnitVoices.js';
+import * as EnemyModule from '../../EnemyUnits.js';
+import * as DefenderModule from '../../DefenderUnits.js';
+import { UNIT_VOICES, VARIANTS, resolveVoice } from '../UnitVoices.js';
 import { SFX } from '../SfxLibrary.js';
 import { soundKeyFor, SOUND_KEYS } from '../SoundGroups.js';
 
@@ -117,10 +119,14 @@ describe('resolveVoice', () => {
     const signature = UNIT_VOICES.sniper;
     const death = resolveVoice('sniper', 'death');
 
-    expect(death.freqStart).toBeCloseTo(signature.freqStart * 0.5);
-    expect(death.freqEnd).toBeCloseTo(signature.freqEnd * 0.5);
-    expect(death.duration).toBeCloseTo(signature.duration * 2.5);
-    expect(death.gain).toBeCloseTo(signature.gain * 1.15);
+    // Read off VARIANTS rather than repeating the numbers: this test is about
+    // resolveVoice applying the declared scales, not about what they are. The
+    // values themselves are constrained by the audibility block at the end of
+    // this file, which is where a change to them should have to argue its case.
+    expect(death.freqStart).toBeCloseTo(signature.freqStart * VARIANTS.death.freqScale);
+    expect(death.freqEnd).toBeCloseTo(signature.freqEnd * VARIANTS.death.freqScale);
+    expect(death.duration).toBeCloseTo(signature.duration * VARIANTS.death.durationScale);
+    expect(death.gain).toBeCloseTo(signature.gain * VARIANTS.death.gainScale);
   });
 
   it('keeps the waveform and noise flag across variants', () => {
@@ -282,6 +288,112 @@ describe('resolveVoice against a real instance (production minification guard)',
     expect(death).not.toEqual(SFX.enemyDied);
     expect(death.wave).toBe(UNIT_VOICES['death-defender'].wave);
     expect(death.noise).toBe(UNIT_VOICES['death-defender'].noise);
-    expect(death.freqStart).toBeCloseTo(UNIT_VOICES['death-defender'].freqStart * 0.5);
+    expect(death.freqStart).toBeCloseTo(
+      UNIT_VOICES['death-defender'].freqStart * VARIANTS.death.freqScale,
+    );
+  });
+});
+
+/**
+ * Playtest fix, bug 2: the owner reported no enemy death sound and no Mortar
+ * sound. Neither was missing - both were being rendered below the frequency a
+ * laptop speaker reproduces.
+ *
+ * This matters far more for the death family and the big guns than for
+ * anything else in the table, because they are the `noise: true` recipes.
+ * AudioManager.createNoiseSource renders those as white noise through a
+ * BANDPASS filter whose centre sweeps freqStart -> freqEnd, so the sweep is
+ * not merely the fundamental - it is the entire spectrum of the sound. A tone
+ * recipe pitched at 130Hz still speaks through its harmonics; a bandpassed
+ * noise burst centred at 30Hz has nothing above the cutoff to be heard by.
+ *
+ * The floor below is written as a literal on purpose. Reading it out of
+ * UnitVoices.js would make this test pass against whatever value the module
+ * happened to hold, which is the failure mode that let 60Hz ship.
+ */
+describe('noise voices stay above what a laptop speaker reproduces', () => {
+  const LAPTOP_SPEAKER_FLOOR_HZ = 200;
+
+  /** Every unit class either module exports, as the game names it in a sound event. */
+  const unitNames = [...Object.entries(EnemyModule), ...Object.entries(DefenderModule)]
+    .filter(([, exported]) => typeof exported === 'function' && exported.prototype)
+    .map(([name]) => name);
+
+  /**
+   * Every (sound key, variant) pair the game can actually reach, derived by
+   * running soundKeyFor over those exports. Checking the raw cross product of
+   * UNIT_VOICES x VARIANTS instead would flag combinations no unit produces -
+   * 'melee' played as a death, say - and force the table to satisfy a
+   * constraint the game never exercises.
+   */
+  const reachable = [];
+  for (const unitName of unitNames) {
+    for (const variant of Object.keys(VARIANTS)) {
+      const key = soundKeyFor(unitName, variant);
+      if (!reachable.some(([k, v]) => k === key && v === variant)) reachable.push([key, variant]);
+    }
+  }
+
+  it('derives the whole death family from the unit exports', () => {
+    // Guards the derivation: a filter that matched nothing would make every
+    // it.each below vacuous.
+    const deathKeys = reachable.filter(([, variant]) => variant === 'death').map(([key]) => key);
+    expect([...deathKeys].sort()).toEqual(
+      ['boss', 'death-defender', 'death-medium', 'death-small', 'titan'],
+    );
+  });
+
+  const reachableNoiseVoices = reachable.filter(([key]) => UNIT_VOICES[key].noise);
+
+  it.each(reachableNoiseVoices)('%s played as a %s sweeps entirely above the floor', (key, variant) => {
+    const voice = resolveVoice(key, variant);
+
+    expect(voice.freqStart, `${key}/${variant} freqStart`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+    expect(voice.freqEnd, `${key}/${variant} freqEnd`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+  });
+
+  it('the Mortar the owner could not hear is audible', () => {
+    // Named separately from the it.each above because this is the reported
+    // symptom, and because mortar takes no variant scaling - it was inaudible
+    // in its raw recipe, independently of the death variant.
+    const mortar = resolveVoice(soundKeyFor('Mortar', 'fire'), 'fire');
+
+    expect(mortar.freqEnd).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+  });
+
+  it('a death sounds heavy because it is long and loud, not because it is subsonic', () => {
+    // Rejects: restoring weight by dropping freqScale again. Length and level
+    // are what a laptop speaker can actually deliver; an octave down is not.
+    expect(VARIANTS.death.durationScale).toBeGreaterThan(1);
+    expect(VARIANTS.death.gainScale).toBeGreaterThan(1);
+    expect(VARIANTS.death.freqScale).toBeLessThan(1);
+    expect(VARIANTS.death.freqScale).toBeGreaterThanOrEqual(0.75);
+  });
+
+  it('keeps the death family ordered from lightest to heaviest', () => {
+    const weight = (key) => resolveVoice(key, 'death');
+    const lightToHeavy = ['death-small', 'death-medium', 'death-defender'];
+
+    for (let i = 1; i < lightToHeavy.length; i++) {
+      const lighter = weight(lightToHeavy[i - 1]);
+      const heavier = weight(lightToHeavy[i]);
+      const label = `${lightToHeavy[i - 1]} vs ${lightToHeavy[i]}`;
+
+      expect(heavier.duration, label).toBeGreaterThan(lighter.duration);
+      expect(heavier.gain, label).toBeGreaterThan(lighter.gain);
+      expect(heavier.freqStart, label).toBeLessThan(lighter.freqStart);
+    }
+
+    // Titan and Boss are the heaviest deaths in the game, but they are not
+    // ordered against each other: the spec asks only that both outweigh an
+    // ordinary death, and they get there differently - the Titan by pitch, the
+    // Boss by length and level.
+    const defender = weight('death-defender');
+    for (const key of ['titan', 'boss']) {
+      const heaviest = weight(key);
+      expect(heaviest.duration, key).toBeGreaterThan(defender.duration);
+      expect(heaviest.gain, key).toBeGreaterThan(defender.gain);
+      expect(heaviest.freqStart, key).toBeLessThan(defender.freqStart);
+    }
   });
 });
