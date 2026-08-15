@@ -1,6 +1,7 @@
 import { resolveVoice } from './UnitVoices.js';
 import { SFX } from './SfxLibrary.js';
 import { SAMPLE_VARIANTS } from './UnitSamples.js';
+import { soundKeyFor } from './SoundGroups.js';
 
 /**
  * Translates gameplay events into sound and juice.
@@ -23,14 +24,15 @@ export class FeedbackManager {
    * every unit still makes a sound.
    */
   playUnitVoice(unitName, variant, fallbackRecipe) {
-    const key = `${unitName}:${variant}`;
+    const soundKey = soundKeyFor(unitName, variant);
+    const dedupeKey = `${soundKey}:${variant}`;
 
-    if (this.audio.hasSample?.(unitName)) {
-      this.audio.playSample(unitName, SAMPLE_VARIANTS[variant] ?? SAMPLE_VARIANTS.fire, key);
+    if (this.audio.hasSample?.(soundKey)) {
+      this.audio.playSample(soundKey, SAMPLE_VARIANTS[variant] ?? SAMPLE_VARIANTS.fire, dedupeKey);
       return;
     }
 
-    this.audio.playRecipe(resolveVoice(unitName, variant, undefined, fallbackRecipe), key);
+    this.audio.playRecipe(resolveVoice(soundKey, variant, undefined, fallbackRecipe), dedupeKey);
   }
 
   attach() {

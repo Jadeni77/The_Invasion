@@ -1,65 +1,47 @@
-# Unit sound files
+# Game sound files
 
-Drop a file here named exactly after a unit's class name and that unit will play it.
-No code change is needed — files are discovered at build time.
+Drop a file here named after a **sound**, not a unit. Several units share each sound
+on purpose — a Shooter and a Skeleton firing the same basic projectile use one file.
 
-Supported extensions: `.ogg`, `.wav`, `.mp3`. Prefer `.wav` or `.mp3` — Safari's
-`decodeAudioData` has long-standing gaps with Ogg Vorbis, so an `.ogg` file can silently
-fail to decode there. That failure is graceful (it's logged to the console and the unit
-falls back to its synthesized voice), but it means an `.ogg` file that works everywhere
-you tested it can still go silent for a Safari player.
+Supported extensions: `.wav` or `.mp3` (Safari has gaps decoding `.ogg`).
 
-**Any unit without a file keeps its synthesized voice**, so you can add these a few at a
-time and hear each one. Nothing goes silent.
+**Any sound without a file falls back to a synthesized version**, so you can add these a
+few at a time and hear each one. Nothing goes silent, and a page reload is needed after
+adding a file.
 
-**A file is only ever used for the events that carry its class name — no unit uses its
-file all three ways.** A defender's file plays when it fires and when it's destroyed,
-but never for a hit: only the enemy taking damage carries a class name on that event. An
-enemy's file plays when it takes a hit and when it dies, but never for firing: enemies
-don't fire projectiles the way defenders do. Short, punchy sounds work best — roughly
-0.1 to 0.5 seconds.
+## Getting them to sound like one game
 
-A file whose name matches no unit below is reported as a warning in the browser console,
-so a typo is visible rather than silent.
+Take all of these from a **single pack**. That matters more than any individual choice —
+samples from different packs carry different room tone and mastering, which is what makes
+a set sound like assorted noises rather than one game.
 
-**Samples are loaded once, on the first pointerdown, not watched for changes.** Add or
-replace a file, then reload the page before you judge whether it worked — otherwise it
-will look like the drop did nothing.
+Aim for cartoon-arcade character: soft pops, comic thuds, squelches. Short, 0.1–0.5s.
 
-## Defenders (10)
+## Combat sounds (14)
 
-- [ ] `BasicDefender.ogg` — the Shooter
-- [ ] `HealerDefender.ogg` — Healer
-- [ ] `GrenadeDefender.ogg` — Grenadier
-- [ ] `BarricadeDefender.ogg` — Barricade (heard only when destroyed)
-- [ ] `EnergyGenerator.ogg` — E-Gen (heard only when destroyed)
-- [ ] `Sniper.ogg` — Sniper
-- [ ] `Mortar.ogg` — Mortar
-- [ ] `FrostArcher.ogg` — Frost Archer
-- [ ] `FireBlast.ogg` — Fire Blast spell
-- [ ] `IceBomb.ogg` — Ice Bomb spell
+- [ ] `projectile.wav` — every basic ranged shot, both sides (Shooter, Skeleton, Assassin)
+- [ ] `artillery.wav` — Grenadier
+- [ ] `mortar.wav` — Mortar only, a heavier thump
+- [ ] `sniper.wav` — Sniper only, a sharp crack
+- [ ] `magic.wav` — Frost Archer, Ice Bomb, Mage spells
+- [ ] `fire.wav` — Fire Blast
+- [ ] `heal.wav` — Healer, both sides
+- [ ] `melee.wav` — any enemy striking a defender
+- [ ] `summon.wav` — Necromancer and Splitter creating enemies
+- [ ] `death-small.wav` — Basic, Fast, Mini, Swarm Leader
+- [ ] `death-medium.wav` — every other ordinary enemy
+- [ ] `death-defender.wav` — any defender destroyed
+- [ ] `titan.wav` — Titan death, should feel heavy
+- [ ] `boss.wav` — Boss death, the biggest sound in the game
 
-## Enemies (19)
+The shared `hit` sound (an enemy taking damage) is already in place and needs no file.
 
-- [ ] `BasicEnemy.ogg`
-- [ ] `FastEnemy.ogg`
-- [ ] `TankEnemy.ogg`
-- [ ] `BombEnemy.ogg`
-- [ ] `RangeEnemy.ogg`
-- [ ] `ShieldEnemy.ogg`
-- [ ] `HealerEnemy.ogg`
-- [ ] `SplitterEnemy.ogg`
-- [ ] `MiniEnemy.ogg`
-- [ ] `SwarmLeader.ogg`
-- [ ] `EMPEnemy.ogg`
-- [ ] `VampireEnemy.ogg`
-- [ ] `GhostEnemy.ogg`
-- [ ] `BerserkerEnemy.ogg`
-- [ ] `NecromancerEnemy.ogg`
-- [ ] `AssassinEnemy.ogg`
-- [ ] `MageEnemy.ogg`
-- [ ] `TitanEnemy.ogg`
-- [ ] `BossEnemy.ogg` — currently unreachable; `BossEnemy` is not wired into the engine
+## Levels
 
-Good CC0 sources: [Kenney](https://kenney.nl/assets?q=audio) (Impact Sounds and Digital Audio
-suit this game), and [OpenGameArt](https://opengameart.org/).
+Sounds are mixed in three tiers so the game has a foreground. You do not need to match
+these yourself — the game applies them — but it helps to know that `projectile`, `hit`
+and pickups play at 40%, most sounds at 70%, and `titan`, `boss` and base damage at full.
+Pick samples that sound right at those relative levels.
+
+Good CC0 source: [Kenney](https://kenney.nl/assets?q=audio) — Impact Sounds and Digital
+Audio suit this game, and staying inside one of them is the point.

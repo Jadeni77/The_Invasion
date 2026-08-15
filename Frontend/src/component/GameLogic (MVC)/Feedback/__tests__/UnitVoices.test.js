@@ -1,46 +1,29 @@
 import { describe, it, expect } from 'vitest';
-import * as DefenderUnits from '../../DefenderUnits.js';
-import * as EnemyUnits from '../../EnemyUnits.js';
 import { Mortar } from '../../DefenderUnits.js';
 import { UNIT_VOICES, resolveVoice } from '../UnitVoices.js';
 import { SFX } from '../SfxLibrary.js';
-
-/** Base classes are abstract - they never reach a feedback event on their own. */
-const BASE_CLASSES = ['DefenderUnit', 'Enemy'];
-
-/** True only for `class` declarations, not plain exported functions. */
-function isClass(value) {
-  return typeof value === 'function' && /^class\s/.test(Function.prototype.toString.call(value));
-}
+import { soundKeyFor } from '../SoundGroups.js';
 
 /**
- * Every concrete unit class the game can instantiate.
- *
- * The isClass filter matters: DefenderUnits.js also exports the plain function
- * isConsumableSpell, which a bare `typeof === 'function'` check would count as a
- * unit and then demand a voice for.
+ * Every sound key soundKeyFor can resolve a unit to (SoundGroups.SOUND_KEYS
+ * minus the game-event keys served by SFX rather than the voice table).
  */
-function allUnitNames() {
-  const modules = { ...DefenderUnits, ...EnemyUnits };
-  return Object.keys(modules)
-    .filter((name) => isClass(modules[name]))
-    .filter((name) => !BASE_CLASSES.includes(name));
-}
+const UNIT_SOUND_KEYS = [
+  'projectile', 'artillery', 'mortar', 'sniper', 'magic', 'fire', 'heal',
+  'melee', 'summon', 'hit', 'death-small', 'death-medium', 'death-defender',
+  'titan', 'boss',
+];
 
 describe('voice coverage', () => {
-  it('every concrete unit class has a voice', () => {
-    const missing = allUnitNames().filter((name) => !UNIT_VOICES[name]);
-    expect(missing, `units without a voice: ${missing.join(', ')}`).toEqual([]);
+  it('every unit sound key has a voice', () => {
+    const missing = UNIT_SOUND_KEYS.filter((key) => !UNIT_VOICES[key]);
+    expect(missing, `keys without a voice: ${missing.join(', ')}`).toEqual([]);
   });
 
-  it('covers all 29 units', () => {
-    expect(allUnitNames()).toHaveLength(29);
-  });
-
-  it('defines no voice for a class that does not exist', () => {
-    const known = new Set(allUnitNames());
-    const extra = Object.keys(UNIT_VOICES).filter((name) => !known.has(name));
-    expect(extra, `voices for unknown classes: ${extra.join(', ')}`).toEqual([]);
+  it('game-event sounds are served by SFX, not the voice table', () => {
+    for (const key of ['energy', 'base-damaged', 'won', 'lost']) {
+      expect(UNIT_VOICES).not.toHaveProperty(key);
+    }
   });
 });
 
@@ -58,12 +41,12 @@ describe('voice recipes are valid', () => {
 
 describe('resolveVoice', () => {
   it('returns the signature unchanged for the fire variant', () => {
-    expect(resolveVoice('Sniper', 'fire')).toEqual(UNIT_VOICES.Sniper);
+    expect(resolveVoice('sniper', 'fire')).toEqual(UNIT_VOICES.sniper);
   });
 
   it('shortens and quietens the hit variant', () => {
-    const signature = UNIT_VOICES.Sniper;
-    const hit = resolveVoice('Sniper', 'hit');
+    const signature = UNIT_VOICES.sniper;
+    const hit = resolveVoice('sniper', 'hit');
 
     expect(hit.duration).toBeCloseTo(signature.duration * 0.35);
     expect(hit.gain).toBeCloseTo(signature.gain * 0.55);
@@ -71,8 +54,8 @@ describe('resolveVoice', () => {
   });
 
   it('pitches down and stretches the death variant', () => {
-    const signature = UNIT_VOICES.Sniper;
-    const death = resolveVoice('Sniper', 'death');
+    const signature = UNIT_VOICES.sniper;
+    const death = resolveVoice('sniper', 'death');
 
     expect(death.freqStart).toBeCloseTo(signature.freqStart * 0.5);
     expect(death.freqEnd).toBeCloseTo(signature.freqEnd * 0.5);
@@ -81,9 +64,9 @@ describe('resolveVoice', () => {
   });
 
   it('keeps the waveform and noise flag across variants', () => {
-    const signature = UNIT_VOICES.Mortar;
+    const signature = UNIT_VOICES.mortar;
     for (const variant of ['fire', 'hit', 'death']) {
-      const recipe = resolveVoice('Mortar', variant);
+      const recipe = resolveVoice('mortar', variant);
       expect(recipe.wave).toBe(signature.wave);
       expect(recipe.noise).toBe(signature.noise);
     }
@@ -126,7 +109,7 @@ describe('resolveVoice', () => {
   });
 
   it('falls back to the fire variant for an unknown variant name', () => {
-    expect(resolveVoice('Sniper', 'nonsense')).toEqual(UNIT_VOICES.Sniper);
+    expect(resolveVoice('sniper', 'nonsense')).toEqual(UNIT_VOICES.sniper);
   });
 
   it('returns a copy of the fallback recipe, not the shared SFX object', () => {
@@ -158,8 +141,8 @@ describe('resolveVoice fallback override (unknown-unit sound selection)', () => 
   });
 
   it('a known unit ignores the fallback override entirely, since it never needs it', () => {
-    expect(resolveVoice('Sniper', 'death', undefined, SFX.defenderDied)).toEqual(
-      resolveVoice('Sniper', 'death'),
+    expect(resolveVoice('sniper', 'death', undefined, SFX.defenderDied)).toEqual(
+      resolveVoice('sniper', 'death'),
     );
   });
 });
@@ -167,23 +150,29 @@ describe('resolveVoice fallback override (unknown-unit sound selection)', () => 
 describe('resolveVoice against a real instance (production minification guard)', () => {
   /**
    * Every other test in this file derives the lookup key from a string
-   * literal (`'Mortar'`), which is exactly why 340 green tests were once
-   * compatible with the feature being a complete no-op: esbuild's production
-   * minifier renames classes (`Mortar` -> `Ef`), so `constructor.name` no
-   * longer matches, and every unit silently falls back to the generic sound.
-   * `keepNames: true` in vite.config.js is what prevents that renaming; this
-   * test would have caught the regression by asserting against a REAL
-   * instance's `constructor.name` rather than a literal that can't drift.
+   * literal, which is exactly why 340 green tests were once compatible with
+   * the feature being a complete no-op: esbuild's production minifier renames
+   * classes (`Mortar` -> `Ef`), so `constructor.name` no longer matches, and
+   * every unit silently falls back to the generic sound. `keepNames: true` in
+   * vite.config.js is what prevents that renaming.
+   *
+   * Now that UNIT_VOICES is keyed by sound key rather than unit class name,
+   * the class-name lookup this guards against lives in soundKeyFor
+   * (SoundGroups.js), not in resolveVoice directly - so this test exercises
+   * the full production path (soundKeyFor then resolveVoice) against a REAL
+   * instance's constructor.name rather than a literal that can't drift.
    */
   it('recognises a real Mortar instance and does not fall back to the generic sound', () => {
     const mortar = new Mortar(0, 0, { level: 1, image: null });
 
-    const death = resolveVoice(mortar.constructor.name, 'death');
+    const soundKey = soundKeyFor(mortar.constructor.name, 'death');
+    const death = resolveVoice(soundKey, 'death');
 
     expect(mortar.constructor.name).toBe('Mortar');
+    expect(soundKey).toBe('death-defender');
     expect(death).not.toEqual(SFX.enemyDied);
-    expect(death.wave).toBe(UNIT_VOICES.Mortar.wave);
-    expect(death.noise).toBe(UNIT_VOICES.Mortar.noise);
-    expect(death.freqStart).toBeCloseTo(UNIT_VOICES.Mortar.freqStart * 0.5);
+    expect(death.wave).toBe(UNIT_VOICES['death-defender'].wave);
+    expect(death.noise).toBe(UNIT_VOICES['death-defender'].noise);
+    expect(death.freqStart).toBeCloseTo(UNIT_VOICES['death-defender'].freqStart * 0.5);
   });
 });

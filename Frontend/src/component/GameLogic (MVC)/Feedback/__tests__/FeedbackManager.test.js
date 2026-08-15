@@ -31,13 +31,13 @@ describe('FeedbackManager', () => {
   });
 
   it('shows a damage number when an enemy is hit', () => {
-    // Hit sound is now per-unit (Task 3): the shared 'enemyHit' sfx was replaced
-    // by a playRecipe call keyed to the unit's own voice.
+    // Hit sound is shared by sound key (Task 2): every unit's hit resolves to
+    // the 'hit' archetype, so the lookup key is 'hit', not the unit's name.
     bus.emit('enemy:hit', { unitType: 'TankEnemy', damage: 12, x: 30, y: 40 });
     expect(juice.addDamageNumber).toHaveBeenCalledWith(30, 40, 12);
     expect(audio.playRecipe).toHaveBeenCalledWith(
-      resolveVoice('TankEnemy', 'hit'),
-      'TankEnemy:hit',
+      resolveVoice('hit', 'hit'),
+      'hit:hit',
     );
   });
 
@@ -49,24 +49,25 @@ describe('FeedbackManager', () => {
   });
 
   it('uses the boss sound and hit-stop for a boss death', () => {
-    // Death sound is now per-unit (Task 3): the shared 'bossDied' sfx was replaced
-    // by a playRecipe call keyed to the unit's own voice; the boss branch now only
-    // controls the extra shake and hit-stop, not which sound plays.
+    // Death sound is keyed by sound key (Task 2): BossEnemy keeps a signature
+    // of its own ('boss'), so the lookup key is 'boss', not 'BossEnemy'; the
+    // boss branch only controls the extra shake and hit-stop, not which sound
+    // plays.
     bus.emit('enemy:died', { unitType: 'BossEnemy', isBoss: true, x: 1, y: 2 });
     expect(audio.playRecipe).toHaveBeenCalledWith(
-      resolveVoice('BossEnemy', 'death'),
-      'BossEnemy:death',
+      resolveVoice('boss', 'death'),
+      'boss:death',
     );
     expect(juice.triggerHitStop).toHaveBeenCalled();
   });
 
   it('uses the ordinary sound and no hit-stop for a normal death', () => {
-    // Death sound is now per-unit (Task 3): the shared 'enemyDied' sfx was replaced
-    // by a playRecipe call keyed to the unit's own voice.
+    // Death sound is keyed by sound key (Task 2): BasicEnemy is a small enemy,
+    // so it resolves to the shared 'death-small' archetype.
     bus.emit('enemy:died', { unitType: 'BasicEnemy', isBoss: false, x: 1, y: 2 });
     expect(audio.playRecipe).toHaveBeenCalledWith(
-      resolveVoice('BasicEnemy', 'death'),
-      'BasicEnemy:death',
+      resolveVoice('death-small', 'death'),
+      'death-small:death',
     );
     expect(juice.triggerHitStop).not.toHaveBeenCalled();
   });
@@ -118,15 +119,17 @@ describe('per-unit voices', () => {
 
   it('plays the firing defender its own voice', () => {
     // Asserted against a literal expected recipe (not resolveVoice() itself):
-    // the fire variant applies no scaling, so this should equal Sniper's raw
-    // UNIT_VOICES signature. Comparing to resolveVoice('Sniper', 'fire') would
-    // just check the implementation against itself - it would pass no matter
-    // how resolveVoice derived the recipe.
+    // the fire variant applies no scaling, so this should equal the 'sniper'
+    // sound key's raw UNIT_VOICES signature. Sniper keeps a signature of its
+    // own (Task 1's soundKeyFor), so the lookup and dedupe key are 'sniper',
+    // not 'Sniper'. Comparing to resolveVoice('sniper', 'fire') would just
+    // check the implementation against itself - it would pass no matter how
+    // resolveVoice derived the recipe.
     bus.emit('projectile:fired', { defenderType: 'Sniper' });
 
     expect(audio.playRecipe).toHaveBeenCalledWith(
       { wave: 'square', noise: false, freqStart: 1400, freqEnd: 700, duration: 0.05, gain: 0.3 },
-      'Sniper:fire',
+      'sniper:fire',
     );
   });
 
@@ -140,7 +143,8 @@ describe('per-unit voices', () => {
   });
 
   it('plays the dying enemy its own death voice', () => {
-    // Literal expected recipe: TitanEnemy's signature is
+    // Literal expected recipe: TitanEnemy keeps a death signature of its own
+    // (soundKeyFor resolves it to 'titan'), whose UNIT_VOICES entry is
     // { wave: 'sawtooth', freqStart: 100, freqEnd: 50, duration: 0.4, gain: 0.55, noise: true },
     // and the death variant scales freq by 0.5, duration by 2.5, gain by 1.15.
     // Computed here with the same arithmetic resolveVoice performs (not by
@@ -150,31 +154,35 @@ describe('per-unit voices', () => {
 
     expect(audio.playRecipe).toHaveBeenCalledWith(
       { wave: 'sawtooth', noise: true, freqStart: 100 * 0.5, freqEnd: 50 * 0.5, duration: 0.4 * 2.5, gain: 0.55 * 1.15 },
-      'TitanEnemy:death',
+      'titan:death',
     );
   });
 
-  it('plays the hit enemy its own hit voice and still shows a damage number', () => {
-    // Literal expected recipe: TankEnemy's signature is
-    // { wave: 'sawtooth', freqStart: 150, freqEnd: 90, duration: 0.22, gain: 0.4, noise: true },
+  it('plays the hit enemy the shared hit voice and still shows a damage number', () => {
+    // Literal expected recipe: every hit resolves to the shared 'hit' sound
+    // key (soundKeyFor), NOT to TankEnemy's own fire/death signature. That
+    // key's UNIT_VOICES entry is
+    // { wave: 'triangle', freqStart: 320, freqEnd: 240, duration: 0.07, gain: 0.25, noise: false },
     // and the hit variant scales duration by 0.35 and gain by 0.55 (freq
     // unscaled). See the note above on why this is spelled out rather than
-    // compared against resolveVoice('TankEnemy', 'hit').
+    // compared against resolveVoice('hit', 'hit').
     bus.emit('enemy:hit', { unitType: 'TankEnemy', damage: 12, x: 30, y: 40 });
 
     expect(audio.playRecipe).toHaveBeenCalledWith(
-      { wave: 'sawtooth', noise: true, freqStart: 150, freqEnd: 90, duration: 0.22 * 0.35, gain: 0.4 * 0.55 },
-      'TankEnemy:hit',
+      { wave: 'triangle', noise: false, freqStart: 320, freqEnd: 240, duration: 0.07 * 0.35, gain: 0.25 * 0.55 },
+      'hit:hit',
     );
     expect(juice.addDamageNumber).toHaveBeenCalledWith(30, 40, 12);
   });
 
   it('plays the dying defender its own death voice and still shakes', () => {
+    // Mortar has no death signature of its own; soundKeyFor buckets every
+    // defender death into the shared 'death-defender' key.
     bus.emit('defender:died', { unitType: 'Mortar', x: 1, y: 2 });
 
     expect(audio.playRecipe).toHaveBeenCalledWith(
-      resolveVoice('Mortar', 'death'),
-      'Mortar:death',
+      resolveVoice('death-defender', 'death'),
+      'death-defender:death',
     );
     expect(juice.addTrauma).toHaveBeenCalled();
   });
@@ -210,10 +218,22 @@ describe('per-unit voices', () => {
 });
 
 describe('death fallback selection (defender vs enemy)', () => {
-  // Regression coverage for: resolveVoice's fallback used to map every
-  // unrecognised unit's death to SFX.enemyDied unconditionally, so an
-  // unrecognised DEFENDER played the enemy squelch. defender:died must now
-  // fall back to SFX.defenderDied instead, while enemy:died is unaffected.
+  // Pre-Task-2, resolveVoice's fallback mapped every unrecognised unit's
+  // death to SFX.enemyDied unconditionally unless overridden, so an
+  // unrecognised DEFENDER incorrectly played the enemy squelch; the fix was
+  // for defender:died to pass SFX.defenderDied as the override.
+  //
+  // Task 2 changes what "unrecognised" means here: playUnitVoice now resolves
+  // through soundKeyFor first, which always returns one of the 15 declared
+  // sound keys (see SoundGroups.SOUND_KEYS) - never something absent from
+  // UNIT_VOICES. Both names below are unrecognised BY soundKeyFor (neither is
+  // in its DEFENDERS/SMALL_ENEMIES lists), so both land on the same generic
+  // 'death-medium' bucket, which DOES have a UNIT_VOICES entry. That means
+  // resolveVoice's `!signature` branch - and therefore the fallbackRecipe
+  // override this block used to protect - is no longer reached from this call
+  // site: SFX.defenderDied/SFX.enemyDied are never played here anymore.
+  // resolveVoice's own fallback-override behaviour is still exercised
+  // directly (bypassing soundKeyFor) in UnitVoices.test.js.
   let bus, audio, juice, manager;
 
   beforeEach(() => {
@@ -227,21 +247,21 @@ describe('death fallback selection (defender vs enemy)', () => {
     manager.attach();
   });
 
-  it('falls back to the DEFENDER squelch for an unrecognised defender death', () => {
+  it('an unrecognised defender name resolves to the generic death-medium sound, not SFX.defenderDied', () => {
     bus.emit('defender:died', { unitType: 'SomeUnknownDefender', x: 1, y: 2 });
 
     expect(audio.playRecipe).toHaveBeenCalledWith(
-      SFX.defenderDied,
-      'SomeUnknownDefender:death',
+      resolveVoice('death-medium', 'death'),
+      'death-medium:death',
     );
   });
 
-  it('falls back to the ENEMY squelch for an unrecognised enemy death', () => {
+  it('an unrecognised enemy name also resolves to death-medium, not SFX.enemyDied', () => {
     bus.emit('enemy:died', { unitType: 'SomeUnknownEnemy', isBoss: false, x: 1, y: 2 });
 
     expect(audio.playRecipe).toHaveBeenCalledWith(
-      SFX.enemyDied,
-      'SomeUnknownEnemy:death',
+      resolveVoice('death-medium', 'death'),
+      'death-medium:death',
     );
   });
 });
@@ -277,19 +297,24 @@ describe('sample-or-synth routing', () => {
 
     bus.emit('enemy:died', { unitType: 'TitanEnemy', isBoss: false, x: 1, y: 2 });
 
+    // TitanEnemy keeps its own death signature, so it resolves to the 'titan'
+    // sound key rather than a group key.
     expect(audio.playSample).toHaveBeenCalledWith(
-      'TitanEnemy', SAMPLE_VARIANTS.death, 'TitanEnemy:death',
+      'titan', SAMPLE_VARIANTS.death, 'titan:death',
     );
     expect(audio.playRecipe).not.toHaveBeenCalled();
   });
 
-  it('decides per unit, not globally', () => {
-    audio.hasSample.mockImplementation((name) => name === 'Mortar');
+  it('decides per sound key, not globally', () => {
+    // Mortar keeps its own firing signature ('mortar'); Sniper keeps its own
+    // ('sniper'). Sample presence is checked per resolved sound key, so
+    // supplying a mortar sample does not make the sniper sound sampled too.
+    audio.hasSample.mockImplementation((name) => name === 'mortar');
 
     bus.emit('projectile:fired', { defenderType: 'Mortar' });
     bus.emit('projectile:fired', { defenderType: 'Sniper' });
 
-    expect(audio.playSample).toHaveBeenCalledWith('Mortar', SAMPLE_VARIANTS.fire, 'Mortar:fire');
+    expect(audio.playSample).toHaveBeenCalledWith('mortar', SAMPLE_VARIANTS.fire, 'mortar:fire');
     expect(audio.playRecipe).toHaveBeenCalledOnce();
   });
 
@@ -298,8 +323,9 @@ describe('sample-or-synth routing', () => {
 
     bus.emit('enemy:hit', { unitType: 'TankEnemy', damage: 12, x: 30, y: 40 });
 
+    // Every hit resolves to the shared 'hit' sound key, not TankEnemy's name.
     expect(audio.playSample).toHaveBeenCalledWith(
-      'TankEnemy', SAMPLE_VARIANTS.hit, 'TankEnemy:hit',
+      'hit', SAMPLE_VARIANTS.hit, 'hit:hit',
     );
     expect(juice.addDamageNumber).toHaveBeenCalledWith(30, 40, 12);
   });
@@ -320,5 +346,25 @@ describe('sample-or-synth routing', () => {
 
     expect(audio.playSfx).toHaveBeenCalledWith('defenderPlaced');
     expect(audio.playSample).not.toHaveBeenCalled();
+  });
+
+  it('a Shooter and a Skeleton firing share one sound and one dedupe key', () => {
+    audio.hasSample.mockReturnValue(false);
+
+    bus.emit('projectile:fired', { defenderType: 'BasicDefender' });
+    bus.emit('projectile:fired', { defenderType: 'RangeEnemy' });
+
+    const keys = audio.playRecipe.mock.calls.map((call) => call[1]);
+    expect(new Set(keys).size).toBe(1);
+  });
+
+  it('Mortar keeps a sound of its own', () => {
+    audio.hasSample.mockReturnValue(false);
+
+    bus.emit('projectile:fired', { defenderType: 'Mortar' });
+    bus.emit('projectile:fired', { defenderType: 'GrenadeDefender' });
+
+    const keys = audio.playRecipe.mock.calls.map((call) => call[1]);
+    expect(new Set(keys).size).toBe(2);
   });
 });
