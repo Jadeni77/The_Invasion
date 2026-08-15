@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Sniper, Mortar, GrenadeDefender, HealerDefender, FrostArcher, DefenderUnit } from '../DefenderUnits.js';
 import * as DefenderModule from '../DefenderUnits.js';
 import { CombatManager } from '../GameEngineBreakDown/InGameManagerHandlers/CombatManager.js';
+import { setFrameDeltaMs } from '../Animation/FrameTime.js';
 
 /**
  * Task 3 (per-unit audio, fix wave): before this change, only BasicDefender
@@ -24,6 +25,19 @@ function createTarget(overrides = {}) {
     ...overrides,
   };
 }
+
+/**
+ * These tests drive unit.update() by hand, standing in for GameEngine's loop,
+ * and count ticks. Movement and every countdown now advance by whatever real
+ * time the engine says the frame covered (Animation/FrameTime.js), so the loop
+ * is pinned to 60Hz here to give those tick counts the fixed meaning they
+ * always assumed.
+ */
+const FRAME_MS_60HZ = 1000 / 60;
+
+beforeEach(() => {
+  setFrameDeltaMs(FRAME_MS_60HZ);
+});
 
 describe('Sniper emits its own firing event', () => {
   it('applies damage directly (no projectile object) yet still emits projectile:fired', () => {

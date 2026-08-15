@@ -2,6 +2,20 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { Enemy, RangeEnemy, AssassinEnemy, BombEnemy } from '../EnemyUnits.js';
 import { FireBlast, BasicDefender } from '../DefenderUnits.js';
 import { DEFAULT_SETTINGS, saveSettings } from '../Feedback/SettingsStore.js';
+import { setFrameDeltaMs } from '../Animation/FrameTime.js';
+
+/**
+ * These tests drive unit.update() by hand, standing in for GameEngine's loop,
+ * and count ticks. Movement and every countdown now advance by whatever real
+ * time the engine says the frame covered (Animation/FrameTime.js), so the loop
+ * is pinned to 60Hz here to give those tick counts the fixed meaning they
+ * always assumed.
+ */
+const FRAME_MS_60HZ = 1000 / 60;
+
+beforeEach(() => {
+  setFrameDeltaMs(FRAME_MS_60HZ);
+});
 
 const CARD = { level: 1, image: null };
 
