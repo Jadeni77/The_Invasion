@@ -137,11 +137,11 @@ known defect. **Whoever fixes this bug should expect the Boss test to fail** —
 there should be one emit and one sound, and that test should then be rewritten to assert exactly
 that.
 
-### 15. `attackAnimationLock` is read but never assigned, so defenders' attack animation never resets
+### 15. `attackAnimationLock` is read but never assigned, so defenders' attack animation never resets — FIXED 2026-08-15
 
 Found 2026-08-15 while looking for a frame-lock precedent to copy.
 
-`DefenderUnits.js` contains:
+`DefenderUnits.js` contained:
 
 ```js
     if (this.isAttacking && this.attackAnimationLock <= 0) {
@@ -149,22 +149,31 @@ Found 2026-08-15 while looking for a frame-lock precedent to copy.
     }
 ```
 
-`attackAnimationLock` appears exactly once in the whole file — that read. It is never initialised
-and never assigned, so it is always `undefined`, `undefined <= 0` is `false`, and the reset never
-runs. Whatever clears a defender's `isAttacking` today, it is not this.
+`attackAnimationLock` appeared exactly once in the whole file — that read, inside `Mortar.update()`.
+It was never initialised and never assigned, so it was always `undefined`, `undefined <= 0` is
+`false`, and the reset never ran. It was a guard that silently never fired, which reads as working
+code.
 
-Add it to the dead-field list in issue 3, but it is worth its own entry because it is not merely
-unused — it is a guard that silently never fires, which reads as working code.
+**Resolved by the playtest fix wave (2026-08-15), which superseded it rather than repairing it.**
+`ATTACK_ANIMATION_LOCK_FRAMES` — the enemy-side pattern this entry recommended copying — is gone
+too. Both sides now derive attack-animation playback from the attack cadence
+(`Animation/AttackPlayback.js`): one full pass over the sheet per attack, taking
+`min(authored sheet duration, cadence)`, and the pass ending is what clears `isAttacking`. A fixed
+frame lock could not serve the owner's requirement that every sheet plays in full — at 20 frames it
+showed about a third of the Skeleton Shooter's 10-frame sheet.
 
-This branch implements the pattern this was evidently meant to be, and it can serve as the reference
-if someone repairs the defender side: `CombatManager` sets `isAttacking` and
-`attackAnimationLock = ATTACK_ANIMATION_LOCK_FRAMES` at the moment of the shot, and **`Enemy.update()`
-runs the lock down via `runDownAttackAnimationLock()`**, clearing `isAttacking` when it expires. Note
-the two details that matter: the countdown lives in the **base class**, because `CombatManager` sets
-the lock from a rule about `isRanged` and anything set by a base-class rule must be released by one;
-and it cannot be cleared in the same frame it is set, because `GameEngine` runs `enemy.update()`
-before `updateEnemyCombat()`, so `determineAnimationState` would never see it and the attack
-animation would never render at all.
+The two details the old entry flagged still hold and are preserved:
+
+- the release lives in the **base class**, because `CombatManager` starts the swing from a rule about
+  `isRanged`, and anything a base-class rule can start a base-class rule must be able to end;
+- it cannot be cleared in the same frame it is set, because `GameEngine` runs `enemy.update()` before
+  `updateEnemyCombat()`, so `determineAnimationState` would never see it. Counting the sheet's own
+  duration down satisfies that automatically.
+
+`Enemy.runDownAttackAnimation()` remains as a backstop for a unit whose sprites never loaded and so
+has no sheet to run out of. Two dead Mortar fields (`isFiring`, `fireAnimationTimer`,
+`fireAnimationDuration`) went with the guard; the Mortar now drives its swing from `isAttacking` like
+every other defender.
 
 ### 16. Stun does not prevent ranged enemy attacks
 

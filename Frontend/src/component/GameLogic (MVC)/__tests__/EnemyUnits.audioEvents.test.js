@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   BasicEnemy, RangeEnemy, MiniEnemy, VampireEnemy, BerserkerEnemy, AssassinEnemy,
   MageEnemy, NecromancerEnemy, SplitterEnemy, SwarmLeader, BossEnemy, HealerEnemy, Enemy,
-  ATTACK_ANIMATION_LOCK_FRAMES,
 } from '../EnemyUnits.js';
+import { GAME_FRAME_MS, attackAnimationDurationMs } from '../Animation/AttackPlayback.js';
 import { BasicDefender } from '../DefenderUnits.js';
 import { CombatManager } from '../GameEngineBreakDown/InGameManagerHandlers/CombatManager.js';
 import { GameEngine } from '../GameEngine.js';
@@ -712,35 +712,37 @@ describe('the attack animation follows the shot, not a countdown of its own', ()
     expect(skeleton.currentAnimation).toBe('attack');
   });
 
-  it('holds the swing for less time than the gap between shots', () => {
-    // Rejects: a lock as long as (or longer than) the firing cadence, which
+  it('sizes the swing to fit inside the gap between shots', () => {
+    // Rejects: a swing as long as (or longer than) the firing cadence, which
     // would re-latch the animation permanently by being renewed before it
-    // expired.
+    // finished. The previous fix bought that margin by cutting the sheet off
+    // after a fixed 20 frames; playback is now compressed to the cadence
+    // instead, which buys the same margin while still showing every frame.
     //
-    // Stated in MILLISECONDS on purpose. The lock is counted in frames while
+    // Stated in MILLISECONDS on purpose. The animation advances in frames while
     // the cooldown canAttack enforces is wall-clock, so a frames-to-frames
-    // comparison (20 < 50) hides the real margin: it shrinks as frame time
-    // grows, and at roughly 24fps or below the lock outlasts the cooldown and
-    // the latch comes back. See ATTACK_ANIMATION_LOCK_FRAMES for that
-    // assumption written down at the constant.
+    // comparison hides the real margin.
     const { skeleton } = createSkeletonAndDefender();
-    const FRAME_MS = 1000 / 60;
-    const lockMs = ATTACK_ANIMATION_LOCK_FRAMES * FRAME_MS;
+    const sheet = { frameCount: 10, fps: 10 }; // the Skeleton Shooter's attack sheet
     const cooldownMs = (skeleton.attackRate * 1000) / 60;
+    const authoredMs = (sheet.frameCount / sheet.fps) * 1000;
 
-    expect(ATTACK_ANIMATION_LOCK_FRAMES).toBeGreaterThan(0);
-    expect(lockMs).toBeLessThan(cooldownMs);
+    expect(authoredMs).toBeGreaterThan(cooldownMs); // the bind: it does not fit as authored
+    expect(attackAnimationDurationMs(sheet, cooldownMs)).toBeLessThanOrEqual(cooldownMs);
+    expect(attackAnimationDurationMs(sheet, cooldownMs)).toBeGreaterThan(0);
   });
 
-  it('releases the lock for any ranged enemy, not only a RangeEnemy', () => {
-    // CombatManager locks on isRanged, but the countdown used to live in
-    // RangeEnemy.updateBehavior alone. MageEnemy also declares isRanged and is
-    // kept out of that branch only by its canAttack() override returning
-    // false; relax that, or add a ranged enemy that does not extend
-    // RangeEnemy, and isAttacking latches on forever - the bug this task
-    // fixed, and the shape of the dead attackAnimationLock in
-    // DefenderUnits.js. The release therefore belongs where the lock can
-    // always reach it: the base class.
+  it('ends the swing for any ranged enemy, not only a RangeEnemy', () => {
+    // CombatManager starts the animation on isRanged, but the countdown used to
+    // live in RangeEnemy.updateBehavior alone. MageEnemy also declares isRanged
+    // and is kept out of that branch only by its canAttack() override returning
+    // false; relax that, or add a ranged enemy that does not extend RangeEnemy,
+    // and isAttacking latches on forever. The release therefore belongs where
+    // anything that can start it can always reach it: the base class.
+    //
+    // This enemy also has no sprite data at all, which is the second thing the
+    // base class has to cover: with no sheet to run out of, the cadence
+    // countdown is the only thing that can end the swing.
     class TurretEnemy extends Enemy {
       constructor(x, y) {
         super(x, y, {
@@ -750,7 +752,7 @@ describe('the attack animation follows the shot, not a countdown of its own', ()
       }
 
       // Holds position and keeps no animation state of its own, so nothing
-      // except the lock can bring isAttacking back down.
+      // except the base-class release can bring isAttacking back down.
       updateBehavior() {}
     }
 
@@ -763,7 +765,8 @@ describe('the attack animation follows the shot, not a countdown of its own', ()
     combat.updateEnemyCombat([defender], [enemy], 1000);
     expect(enemy.isAttacking).toBe(true);
 
-    for (let i = 0; i < ATTACK_ANIMATION_LOCK_FRAMES; i++) enemy.update([defender]);
+    const cadenceTicks = Math.ceil(enemy.attackCadenceMs() / GAME_FRAME_MS);
+    for (let i = 0; i < cadenceTicks + 1; i++) enemy.update([defender]);
 
     expect(enemy.isAttacking).toBe(false);
   });

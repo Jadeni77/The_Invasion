@@ -1,5 +1,4 @@
 import { isConsumableSpell } from '../../DefenderUnits.js';
-import { ATTACK_ANIMATION_LOCK_FRAMES } from '../../EnemyUnits.js';
 
 /**
  * This class represent the combat system of how defender and enemy interact
@@ -41,6 +40,15 @@ export class CombatManager {
                             this.gameEngine.emitFeedback?.('projectile:fired', {
                                 defenderType: defender.constructor.name,
                             });
+                            // The swing belongs to the shot leaving, not to the
+                            // arrow landing. This branch never calls attack() -
+                            // the projectile's onHit does, up to a second later -
+                            // so without this a Shooter played no attack animation
+                            // at all until its arrow arrived. Every other defender
+                            // starts its own swing inside attack(), which for them
+                            // IS the moment of the shot.
+                            defender.isAttacking = true;
+                            defender.beginAttackAnimation?.();
                             defender.lastAttackTime = now;
                         } else {
                             defender.attack(target, now);
@@ -81,13 +89,15 @@ export class CombatManager {
                         enemy.lastAttackTime = now;
                         // The animation is driven from the actual shot, not from a
                         // separate countdown - two independent timers is why the
-                        // skeleton's attack and its projectile never lined up. The
-                        // lock is what ends the swing again; Enemy.update() runs it
-                        // down via runDownAttackAnimationLock(), because a flag
-                        // cleared in this same frame would be gone before the
-                        // enemy's next determineAnimationState.
+                        // skeleton's attack and its projectile never lined up.
+                        // beginAttackAnimation restarts the sheet and sizes one
+                        // full pass to fit inside the firing cadence;
+                        // Enemy.update() runs that down via
+                        // runDownAttackAnimation(), because a flag cleared in this
+                        // same frame would be gone before the enemy's next
+                        // determineAnimationState.
                         enemy.isAttacking = true;
-                        enemy.attackAnimationLock = ATTACK_ANIMATION_LOCK_FRAMES;
+                        enemy.beginAttackAnimation?.();
                         this.gameEngine.emitFeedback?.('enemy:fired', {
                             unitType: enemy.constructor.name,
                         });
