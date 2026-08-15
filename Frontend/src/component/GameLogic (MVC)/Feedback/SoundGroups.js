@@ -93,7 +93,7 @@ const QUIET = 0.4;
  */
 export const MIX_TIERS = {
   // Unit sound keys, returned by soundKeyFor.
-  projectile: QUIET, hit: QUIET, energy: QUIET,
+  projectile: QUIET, hit: QUIET,
   artillery: MID, magic: MID, fire: MID, heal: MID, melee: MID, summon: MID,
   mortar: MID, sniper: MID,
   'death-small': MID, 'death-medium': MID, 'death-defender': MID,

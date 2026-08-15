@@ -101,7 +101,7 @@ describe('mix tiers', () => {
   it('puts constant sounds in the quiet tier', () => {
     expect(mixGainFor('projectile')).toBe(0.4);
     expect(mixGainFor('hit')).toBe(0.4);
-    expect(mixGainFor('energy')).toBe(0.4);
+    expect(mixGainFor('energyCollected')).toBe(0.4);
   });
 
   it('puts big moments in the loud tier', () => {
@@ -146,5 +146,15 @@ describe('playSfx also gets a tier', () => {
     // base damage is one of the loudest moments in the game; if playSfx ignored
     // the tier it would sit at the same level as a projectile.
     expect(mixGainFor('baseDamaged')).toBeGreaterThan(mixGainFor('projectile'));
+  });
+
+  it('every tier key is reachable by something', () => {
+    // A tier only applies if something looks it up by this exact key. Two routes
+    // are legitimate: a key soundKeyFor can return, or an SfxLibrary id played
+    // through playSfx. A key that is neither silently does nothing.
+    const unreachable = Object.keys(MIX_TIERS).filter(
+      (key) => !SOUND_KEYS.includes(key) && !Object.hasOwn(SFX, key),
+    );
+    expect(unreachable, `unreachable tier keys: ${unreachable.join(', ')}`).toEqual([]);
   });
 });
