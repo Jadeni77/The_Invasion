@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { setFrameDeltaMs } from '../Animation/FrameTime.js';
 import { RangeEnemy } from '../EnemyUnits.js';
 import * as DefenderModule from '../DefenderUnits.js';
 import { DefenderUnit, Mortar, GrenadeDefender, HealerDefender } from '../DefenderUnits.js';
@@ -27,8 +28,18 @@ import { AssetManifest } from '../../../assets/AssetManifest.js';
  * so it is measuring the sheets the game actually ships.
  */
 
-/** A nominal 60fps game frame, the step GameEngine's loop advances animation by. */
-const GAME_FRAME_MS = 1000 / 60;
+/**
+ * These tests drive unit.update() by hand, standing in for GameEngine's loop,
+ * and count ticks. Animation advances by whatever real time the engine says the
+ * frame covered (Animation/FrameTime.js), so the loop is pinned to 60Hz here to
+ * give those tick counts a fixed meaning. Playback at other refresh rates is
+ * what AnimationFrameDelta.test.js measures.
+ */
+const FRAME_MS_60HZ = 1000 / 60;
+
+beforeEach(() => {
+  setFrameDeltaMs(FRAME_MS_60HZ);
+});
 
 /** Sprite data in the shape GameEngine hands a unit after loading. */
 function withManifestAnimations(unit, category, manifestName) {
@@ -173,7 +184,7 @@ describe('a sheet shorter than the cadence keeps its authored speed', () => {
     mortar.attack(target, 1000);
     const shown = recordAttackFrames(mortar, () => mortar.update([target], [mortar]), mortar.fireRate + 5);
 
-    const authoredTicks = Math.round(((SHEET.frameCount / SHEET.fps) * 1000) / GAME_FRAME_MS);
+    const authoredTicks = Math.round(((SHEET.frameCount / SHEET.fps) * 1000) / FRAME_MS_60HZ);
     const cadenceTicks = mortar.fireRate;
     expect(authoredTicks).toBeLessThan(cadenceTicks); // premise: it is the shorter one
 
@@ -200,7 +211,7 @@ describe('defender playback is no longer quantised by integer frame counting', (
       grenadier, () => grenadier.update([target], [grenadier]), grenadier.fireRate + 5,
     );
 
-    const authoredTicks = ((sheet.frameCount / sheet.fps) * 1000) / GAME_FRAME_MS;
+    const authoredTicks = ((sheet.frameCount / sheet.fps) * 1000) / FRAME_MS_60HZ;
     const truncatedTicks = Math.floor(60 / sheet.fps) * sheet.frameCount;
     expect(truncatedTicks).toBeLessThan(authoredTicks - 1); // premise: truncation really did shorten it
 

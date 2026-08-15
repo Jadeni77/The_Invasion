@@ -46,6 +46,7 @@ import { DrawEntities } from "./GameEngineBreakDown/Draws/DrawEntities.js";
 import { DrawUIs } from "./GameEngineBreakDown/Draws/DrawUIs.js";
 import { AnimationManager } from "./Animation/AnimationManager.js";
 import { AnimationSources } from "./Animation/AnimationSources.js";
+import { setFrameDeltaMs } from "./Animation/FrameTime.js";
 import { AssetManifest } from "../../assets/AssetManifest.js";
 import { GameLevelConfigs } from "./GameEngineBreakDown/GameLevelConfigs.js";
 import { GameClock } from "./Feedback/GameClock.js";
@@ -765,6 +766,9 @@ export class GameEngine {
     this.lastFrameTime = realNow;
 
     this.gameClock.advance(deltaMs);
+    // Sprite animation reads this instead of assuming a 60fps frame; the loop is
+    // uncapped, so on a 120Hz display "one frame" is half of one.
+    setFrameDeltaMs(deltaMs);
     this.juiceManager?.update(deltaMs);
     // Hit-stop freezes gameplay for a few frames while drawing continues.
     if (this.juiceManager?.isFrozen()) return;

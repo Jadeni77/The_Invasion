@@ -27,9 +27,6 @@
  * through DefenderUnits.js.
  */
 
-/** One nominal 60fps game frame, in milliseconds. */
-export const GAME_FRAME_MS = 1000 / 60;
-
 /** An animation config's own length in ms, or null if it declares no timing. */
 function authoredDurationMs(config) {
   if (!config) return null;

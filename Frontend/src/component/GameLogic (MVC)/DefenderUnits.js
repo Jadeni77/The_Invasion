@@ -3,7 +3,8 @@
 
 import { DrawNegativeEffect } from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
-import { GAME_FRAME_MS, frameDurationMs } from "./Animation/AttackPlayback.js";
+import { frameDurationMs } from "./Animation/AttackPlayback.js";
+import { frameDeltaMs } from "./Animation/FrameTime.js";
 
 export class DefenderUnit {
   constructor(x, y, cardData = {}) {
@@ -51,10 +52,12 @@ export class DefenderUnit {
     // ADD THESE: Animation properties
     this.currentAnimation = "idle";
     this.animationFrame = 0;
-    // Milliseconds accumulated toward the next animation frame. This used to
-    // be a game-frame counter compared against Math.floor(60 / config.fps),
-    // whose truncation quantised every fps that does not divide 60 - a
-    // Grenadier's 11fps sheet ran ~9% fast, a Healer's 18fps sheet ~11%.
+    // Real elapsed milliseconds accumulated toward the next animation frame -
+    // real because a nominal 60fps frame is wrong on any other refresh rate;
+    // see updateAnimation. This used to be a game-frame counter compared
+    // against Math.floor(60 / config.fps), whose truncation quantised every fps
+    // that does not divide 60 - a Grenadier's 11fps sheet ran ~9% fast, a
+    // Healer's 18fps sheet ~11%.
     this.animationTimer = 0;
     this.animationFrames = null;
     this.animationConfig = null;
@@ -93,8 +96,15 @@ export class DefenderUnit {
     }
   }
 
-  // ADD THIS: Animation frame updates
-  updateAnimation() {
+  /**
+   * Advances the current sheet by the real time the frame covered.
+   *
+   * Defaults to the frame delta GameEngine published rather than to a nominal
+   * 60fps frame: the game loop is uncapped requestAnimationFrame, so on a 120Hz
+   * display a nominal frame is twice the time that actually passed and every
+   * sheet played at double speed against a real-time firing cadence.
+   */
+  updateAnimation(deltaMs = frameDeltaMs()) {
     if (!this.animationConfig || !this.animationFrames) {
       // If no animation data, mark death as complete if dead
       if (!this.isAlive && this.currentAnimation === "death") {
@@ -124,7 +134,7 @@ export class DefenderUnit {
       return;
     }
 
-    this.animationTimer += GAME_FRAME_MS;
+    this.animationTimer += deltaMs;
 
     // A loop rather than a single step: a compressed sheet can hold a frame for
     // less than one game frame, and a single step per update would then run it

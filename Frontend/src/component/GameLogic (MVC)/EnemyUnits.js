@@ -16,10 +16,10 @@ import {DrawNegativeEffect} from "./GameEngineBreakDown/Draws/DrawNegativeEffect
 import { getSettings } from "./Feedback/SettingsStore.js";
 import { isConsumableSpell } from "./DefenderUnits.js";
 import {
-  GAME_FRAME_MS,
   attackAnimationDurationMs,
   frameDurationMs,
 } from "./Animation/AttackPlayback.js";
+import { frameDeltaMs } from "./Animation/FrameTime.js";
 
 export class Enemy {
   constructor(x, y, typeData = {}) {
@@ -120,7 +120,15 @@ export class Enemy {
     }
   }
 
-  updateAnimation(deltaTime) {
+  /**
+   * Advances the current sheet by the real time the frame covered.
+   *
+   * Defaults to the frame delta GameEngine published rather than to a nominal
+   * 60fps frame: the game loop is uncapped requestAnimationFrame, so on a 120Hz
+   * display a nominal frame is twice the time that actually passed and every
+   * sheet played at double speed against a real-time firing cadence.
+   */
+  updateAnimation(deltaMs = frameDeltaMs()) {
     if (!this.animationConfig || !this.animationFrames) {
       return;
     }
@@ -142,7 +150,7 @@ export class Enemy {
       return;
     }
 
-    this.animationTimer += deltaTime;
+    this.animationTimer += deltaMs;
 
     // A loop rather than a single step: a compressed sheet can hold a frame for
     // less than one game frame, and a single step per update would then run it
@@ -239,11 +247,11 @@ export class Enemy {
         this.setAnimation('death');
       }
       // Update animation but don't do anything else
-      this.updateAnimation(GAME_FRAME_MS);
+      this.updateAnimation();
       return;
     }
 
-    this.runDownAttackAnimation(GAME_FRAME_MS);
+    this.runDownAttackAnimation();
 
     this.updateBehavior(defenderUnits);
 
@@ -253,7 +261,7 @@ export class Enemy {
     this.determineAnimationState();
 
     // Update animation
-    this.updateAnimation(GAME_FRAME_MS);
+    this.updateAnimation();
 
     // Handle movement
     this.handleMovement();
@@ -282,10 +290,10 @@ export class Enemy {
    * A no-op for melee enemies: nothing starts their countdown, and their swing
    * is driven by the damage tick in updateBehavior instead.
    */
-  runDownAttackAnimation(deltaTime) {
+  runDownAttackAnimation(deltaMs = frameDeltaMs()) {
     if (this.attackAnimationRemainingMs <= 0) return;
 
-    this.attackAnimationRemainingMs -= deltaTime;
+    this.attackAnimationRemainingMs -= deltaMs;
     if (this.attackAnimationRemainingMs <= 0) {
       this.attackAnimationRemainingMs = 0;
       this.isAttacking = false;

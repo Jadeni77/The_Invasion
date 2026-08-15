@@ -1,9 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   BasicEnemy, RangeEnemy, MiniEnemy, VampireEnemy, BerserkerEnemy, AssassinEnemy,
   MageEnemy, NecromancerEnemy, SplitterEnemy, SwarmLeader, BossEnemy, HealerEnemy, Enemy,
 } from '../EnemyUnits.js';
-import { GAME_FRAME_MS, attackAnimationDurationMs } from '../Animation/AttackPlayback.js';
+import { attackAnimationDurationMs } from '../Animation/AttackPlayback.js';
+import { setFrameDeltaMs } from '../Animation/FrameTime.js';
 import { BasicDefender } from '../DefenderUnits.js';
 import { CombatManager } from '../GameEngineBreakDown/InGameManagerHandlers/CombatManager.js';
 import { GameEngine } from '../GameEngine.js';
@@ -24,6 +25,18 @@ import { AudioManager, DEDUPE_WINDOW_SECONDS } from '../Feedback/AudioManager.js
  * Enemy.attack() would announce a melee swing every time an arrow landed.
  */
 const CARD = { level: 1, image: null };
+
+/**
+ * These tests drive unit.update() by hand, standing in for GameEngine's loop,
+ * and count ticks. Animation and the attack countdown advance by whatever real
+ * time the engine says the frame covered (Animation/FrameTime.js), so the loop
+ * is pinned to 60Hz here to give those tick counts a fixed meaning.
+ */
+const FRAME_MS_60HZ = 1000 / 60;
+
+beforeEach(() => {
+  setFrameDeltaMs(FRAME_MS_60HZ);
+});
 
 /** Records every emitFeedback call so a test can count events by name. */
 function createEngine(extra = {}) {
@@ -765,7 +778,7 @@ describe('the attack animation follows the shot, not a countdown of its own', ()
     combat.updateEnemyCombat([defender], [enemy], 1000);
     expect(enemy.isAttacking).toBe(true);
 
-    const cadenceTicks = Math.ceil(enemy.attackCadenceMs() / GAME_FRAME_MS);
+    const cadenceTicks = Math.ceil(enemy.attackCadenceMs() / FRAME_MS_60HZ);
     for (let i = 0; i < cadenceTicks + 1; i++) enemy.update([defender]);
 
     expect(enemy.isAttacking).toBe(false);
