@@ -712,6 +712,21 @@ describe('mix gain', () => {
     expect(made.gains.at(-1).gain.setValueAtTime.mock.calls[0][0]).toBeGreaterThan(0);
   });
 
+  it('applies the same zero-gain floor to a sample', async () => {
+    // playSample has its own Math.max(0.0001, ...) and had no test, while
+    // playRecipe's identical clamp is covered above. Unreachable today - the
+    // lowest MIX_TIERS value is 0.4 - but exponentialRampToValueAtTime throws
+    // on a zero start value, so the day a tier or a variant reaches 0 the two
+    // paths must fail the same way, not one silently.
+    stubFetchOk();
+    const { made, audio } = readyAudio();
+    await audio.loadSamples({ mortar: '/a/mortar.ogg' });
+
+    audio.playSample('mortar', { playbackRate: 1, gainScale: 1, durationScale: 1 }, 'a', 0);
+
+    expect(made.gains.at(-1).gain.setValueAtTime.mock.calls[0][0]).toBeGreaterThan(0);
+  });
+
   // playRecipe's tests above don't exercise playSample, which Step 3 also
   // scales by mixGain. Without this, a playSample that dropped its `*
   // mixGain` factor would pass the whole suite undetected.

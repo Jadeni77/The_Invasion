@@ -105,10 +105,20 @@ Shooter on a real `GameEngine` tick and counting damage applications:
 critical strike comes from its own override. Both re-derived from the constructors. The conclusion is
 unchanged: `BossEnemy` is the only enemy where both paths run.)*
 
-So the doubling is real but currently affects **`BossEnemy` alone** — which, per issue 12, is never
-imported by `GameEngine` and so is never spawned. **Nothing a player can currently meet takes double
-damage or makes the double sound.** That is luck, not design, and it flips the moment someone wires
-the Boss up. The architecture is still the bug: an enemy silently flips into double damage the moment someone raises its `attackRange` past its
+So the doubling is real but currently affects **`BossEnemy` alone**.
+
+> **The bug exists in the code but is unreachable in play.** `GameEngine` never imports or constructs
+> `BossEnemy` — it is absent from both the import list and the `enemyClasses` map, and no level config
+> spawns it (see issue 12, "`BossEnemy` is never imported by `GameEngine`"). No enemy a player can
+> currently meet takes double damage or plays the double melee sound.
+>
+> **Whoever wires the Boss up makes this live and player-visible in the same commit.** At that moment
+> the Boss deals roughly twice its configured `attackDamage` and thumps twice per swing, and the
+> characterisation test `plays TWO melee sounds per attack cycle for a Boss - a known defect`
+> (`EnemyUnits.audioEvents.test.js`) documents the behaviour being inherited. Fix this entry's
+> underlying bug first, or ship a boss that hits twice as hard as its stats say.
+
+The architecture is still the bug: an enemy silently flips into double damage the moment someone raises its `attackRange` past its
 contact distance, or widens a unit, with nothing to catch it. That is what makes it a balance-pass
 blocker (issue 10) — not a blanket 2× on every melee enemy.
 
@@ -328,7 +338,9 @@ Two lessons worth keeping:
   locally-tracked shell rather than pushing to `gameEngine.projectiles`, so the sound plays when it
   commits to firing rather than when the shell appears.
 - **`BossEnemy` is never imported by `GameEngine`.** It is dead code, tree-shaken out of the bundle,
-  so its voice is unreachable. Either wire the class up or delete it.
+  so its voice is unreachable. Either wire the class up or delete it. **If you wire it up, read
+  issue 14 first** — the Boss is the one enemy that runs both melee damage paths, so connecting it
+  also switches on double damage and a double melee thump, neither of which is reachable today.
 - **`EMPEnemy.triggerEMP` and `TitanEnemy.performGroundPound` apply visible effects to defenders with
   no feedback event.** The EMP disables defenders outright and the ground pound damages everything in
   a 350px radius, both in silence. Neither is a criterion 6 gap — they are not ranged fire, melee,
