@@ -1,5 +1,4 @@
 import { resolveVoice } from './UnitVoices.js';
-import { SFX } from './SfxLibrary.js';
 import { SAMPLE_VARIANTS } from './UnitSamples.js';
 import { soundKeyFor } from './SoundGroups.js';
 
@@ -23,7 +22,7 @@ export class FeedbackManager {
    * voice. The decision is per unit, so samples can be adopted one at a time and
    * every unit still makes a sound.
    */
-  playUnitVoice(unitName, variant, fallbackRecipe) {
+  playUnitVoice(unitName, variant) {
     const soundKey = soundKeyFor(unitName, variant);
     const dedupeKey = `${soundKey}:${variant}`;
 
@@ -32,7 +31,7 @@ export class FeedbackManager {
       return;
     }
 
-    this.audio.playRecipe(resolveVoice(soundKey, variant, undefined, fallbackRecipe), dedupeKey);
+    this.audio.playRecipe(resolveVoice(soundKey, variant), dedupeKey);
   }
 
   attach() {
@@ -41,7 +40,7 @@ export class FeedbackManager {
     on('defender:placed', () => this.audio.playSfx('defenderPlaced'));
 
     on('defender:died', ({ unitType }) => {
-      this.playUnitVoice(unitType, 'death', SFX.defenderDied);
+      this.playUnitVoice(unitType, 'death');
       this.juice.addTrauma(0.15);
     });
 

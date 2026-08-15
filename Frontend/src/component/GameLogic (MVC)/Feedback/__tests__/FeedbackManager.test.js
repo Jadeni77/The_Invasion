@@ -218,22 +218,23 @@ describe('per-unit voices', () => {
 });
 
 describe('death fallback selection (defender vs enemy)', () => {
-  // Pre-Task-2, resolveVoice's fallback mapped every unrecognised unit's
-  // death to SFX.enemyDied unconditionally unless overridden, so an
-  // unrecognised DEFENDER incorrectly played the enemy squelch; the fix was
-  // for defender:died to pass SFX.defenderDied as the override.
+  // Pre-Task-2, resolveVoice took a fallbackRecipe override so an
+  // unrecognised DEFENDER's death played SFX.defenderDied rather than the
+  // enemy squelch; defender:died supplied that override.
   //
-  // Task 2 changes what "unrecognised" means here: playUnitVoice now resolves
-  // through soundKeyFor first, which always returns one of the 15 declared
-  // sound keys (see SoundGroups.SOUND_KEYS) - never something absent from
-  // UNIT_VOICES. Both names below are unrecognised BY soundKeyFor (neither is
-  // in its DEFENDERS/SMALL_ENEMIES lists), so both land on the same generic
-  // 'death-medium' bucket, which DOES have a UNIT_VOICES entry. That means
-  // resolveVoice's `!signature` branch - and therefore the fallbackRecipe
-  // override this block used to protect - is no longer reached from this call
-  // site: SFX.defenderDied/SFX.enemyDied are never played here anymore.
-  // resolveVoice's own fallback-override behaviour is still exercised
-  // directly (bypassing soundKeyFor) in UnitVoices.test.js.
+  // Task 2 removed the override parameter entirely (round 2 fix): playUnitVoice
+  // now resolves through soundKeyFor first, which always returns one of the 15
+  // declared sound keys (see SoundGroups.SOUND_KEYS) - never something absent
+  // from UNIT_VOICES. Both names below are unrecognised BY soundKeyFor (neither
+  // is in its DEFENDERS/SMALL_ENEMIES lists), so both land on the same generic
+  // 'death-medium' bucket, which DOES have a UNIT_VOICES entry. The
+  // defender-vs-enemy distinction this block used to protect is now delivered
+  // upstream instead: a RECOGNISED defender resolves to the fully-populated
+  // 'death-defender' key (see 'plays the dying defender its own death voice
+  // and still shakes' above, and SoundGroups.test.js's 'defenders share one
+  // death sound'). SFX.defenderDied/SFX.enemyDied are never played from this
+  // call site anymore, and resolveVoice no longer has a parameter that could
+  // reach them here even if soundKeyFor's mapping ever stopped being total.
   let bus, audio, juice, manager;
 
   beforeEach(() => {

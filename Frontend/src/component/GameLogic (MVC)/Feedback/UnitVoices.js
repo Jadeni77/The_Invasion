@@ -51,28 +51,35 @@ function clamp(value, min, max) {
 }
 
 /**
- * Resolves a unit's voice for one variant.
+ * Resolves a sound key's voice for one variant.
  *
- * Unknown unit names fall back to the generic recipe rather than going silent or
- * throwing - a unit added later is quieter than intended, never broken.
+ * Unknown keys fall back to the generic recipe rather than going silent or
+ * throwing - a unit added later is quieter than intended, never broken. In
+ * production this branch is effectively unreachable: the only caller
+ * (FeedbackManager.playUnitVoice) always passes a key already resolved by
+ * soundKeyFor, which total-maps every unit name - known or not - onto one of
+ * the 15 declared sound keys, all of which have a UNIT_VOICES entry. The
+ * guard stays anyway as cheap insurance if that mapping ever stops being
+ * total, and it is exercised directly by tests below.
  *
- * The optional signature parameter exists for testing derivation against a known
- * input; production callers pass two arguments (or four, to override the
- * fallback).
+ * The optional signature parameter exists for testing derivation against a
+ * known input; production callers pass two arguments.
  *
- * The optional fallbackRecipe parameter lets a caller pick which generic sound
- * plays for an unrecognised unit. Without it, every unknown unit's death plays
- * SFX.enemyDied - which is wrong for a defender: an unrecognised defender
- * should fall back to SFX.defenderDied, not the enemy squelch. Callers that
- * omit it keep today's behaviour (FALLBACK keyed by variant).
+ * There used to be a fourth `fallbackRecipe` parameter letting a caller pick
+ * which generic sound played for an unrecognised unit - it let an
+ * unrecognised defender fall back to SFX.defenderDied instead of the enemy
+ * squelch. It was removed because soundKeyFor now handles that distinction
+ * upstream (a recognised defender resolves to the fully-populated
+ * 'death-defender' key), so the parameter was never reached from
+ * FeedbackManager and had become dead, misleading API surface.
  */
-export function resolveVoice(unitName, variant, signature = UNIT_VOICES[unitName], fallbackRecipe) {
+export function resolveVoice(unitName, variant, signature = UNIT_VOICES[unitName]) {
   const scale = VARIANTS[variant] ?? VARIANTS.fire;
 
   if (!signature) {
-    // Copy rather than hand back the shared SFX/FALLBACK object by reference,
-    // so a careless downstream mutation can't corrupt the shared recipe.
-    return { ...(fallbackRecipe ?? FALLBACK[variant] ?? FALLBACK.fire) };
+    // Copy rather than hand back the shared FALLBACK object by reference, so
+    // a careless downstream mutation can't corrupt the shared recipe.
+    return { ...(FALLBACK[variant] ?? FALLBACK.fire) };
   }
 
   return {

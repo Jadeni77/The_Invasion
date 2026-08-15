@@ -47,16 +47,19 @@ describe('SAMPLE_VARIANTS', () => {
 });
 
 describe('unknownSampleNames', () => {
-  it('accepts names that match unit classes', () => {
-    expect(unknownSampleNames(['Mortar', 'Sniper', 'TitanEnemy'])).toEqual([]);
+  // UNIT_VOICES is keyed by sound key (Task 2), not by unit class name, so a
+  // supplied filename is now checked against sound keys like 'mortar' and
+  // 'titan' rather than 'Mortar'/'TitanEnemy'.
+  it('accepts names that match sound keys', () => {
+    expect(unknownSampleNames(['mortar', 'sniper', 'titan'])).toEqual([]);
   });
 
   it('reports a misnamed file so a typo is visible', () => {
-    expect(unknownSampleNames(['Mortar', 'Zombie'])).toEqual(['Zombie']);
+    expect(unknownSampleNames(['mortar', 'Zombie'])).toEqual(['Zombie']);
   });
 
-  it('is case sensitive, because class names are', () => {
-    expect(unknownSampleNames(['mortar'])).toEqual(['mortar']);
+  it('is case sensitive, because sound keys are', () => {
+    expect(unknownSampleNames(['Mortar'])).toEqual(['Mortar']);
   });
 
   it('returns an empty array for no input', () => {

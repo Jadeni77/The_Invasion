@@ -121,26 +121,32 @@ describe('resolveVoice', () => {
   });
 });
 
-describe('resolveVoice fallback override (unknown-unit sound selection)', () => {
-  it('uses the caller-supplied fallback recipe for an unknown unit, ignoring the variant default', () => {
-    const recipe = resolveVoice('NoSuchDefender', 'death', undefined, SFX.defenderDied);
-    expect(recipe).toEqual(SFX.defenderDied);
-    expect(recipe).not.toEqual(SFX.enemyDied);
-  });
-
-  it('hands back a copy of the supplied fallback, not the shared object', () => {
-    const recipe = resolveVoice('NoSuchDefender', 'death', undefined, SFX.defenderDied);
-    expect(recipe).not.toBe(SFX.defenderDied);
-
-    recipe.gain = 999;
-    expect(SFX.defenderDied.gain).not.toBe(999);
-  });
-
-  it('keeps the enemy fallback (SFX.enemyDied) when no override is supplied', () => {
+describe('resolveVoice has no caller-supplied fallback override', () => {
+  // resolveVoice used to take a fourth `fallbackRecipe` parameter so a caller
+  // could pick which generic sound played for an unrecognised unit - e.g. an
+  // unrecognised defender falling back to SFX.defenderDied instead of the
+  // enemy squelch. That parameter was removed: it was only ever reached when
+  // playUnitVoice passed a raw, unresolved unit name, but playUnitVoice now
+  // always resolves through soundKeyFor first (Task 2), which total-maps
+  // every unit - recognised or not - onto one of the 15 declared sound keys,
+  // all of which have a UNIT_VOICES entry. A recognised defender therefore
+  // reaches its own distinct sound via soundKeyFor mapping it to the
+  // fully-populated 'death-defender' key (see SoundGroups.test.js's
+  // 'defenders share one death sound'), not via an override at this layer.
+  // resolveVoice itself now has exactly one generic fallback per variant,
+  // with no way for a caller to redirect it.
+  it('gives the same generic fallback for both a defender-shaped and an enemy-shaped unknown name', () => {
+    expect(resolveVoice('NoSuchDefender', 'death')).toEqual(SFX.enemyDied);
     expect(resolveVoice('NoSuchEnemy', 'death')).toEqual(SFX.enemyDied);
   });
 
-  it('a known unit ignores the fallback override entirely, since it never needs it', () => {
+  it('ignores a stray extra argument rather than reviving the removed override', () => {
+    expect(resolveVoice('NoSuchDefender', 'death', undefined, SFX.defenderDied)).toEqual(
+      SFX.enemyDied,
+    );
+  });
+
+  it('a known unit is unaffected by a stray extra argument, since it never needs a fallback', () => {
     expect(resolveVoice('sniper', 'death', undefined, SFX.defenderDied)).toEqual(
       resolveVoice('sniper', 'death'),
     );
