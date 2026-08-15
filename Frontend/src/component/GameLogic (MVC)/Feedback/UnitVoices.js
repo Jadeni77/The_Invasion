@@ -51,15 +51,21 @@ export const UNIT_VOICES = {
    * Nothing here is sub-bass; the weight is in the transient and the midrange
    * body, per this file's header. Span is 0.48s, inside MAX_DURATION.
    *
-   * The gains are not comparable between layers: a bandpassed noise layer at
-   * Q=1 passes only a few percent of the noise power, so the two noise layers
-   * need much larger numbers than the sawtooth to land at a similar level.
+   * The three gains ARE directly comparable, and that is new. They were first
+   * authored around the noise path being ~14dB quieter than the tone path,
+   * which forced the two noise layers to carry inflated numbers (0.55 and
+   * 0.70) against the sawtooth's 0.38 just to be heard alongside it. Once
+   * AudioManager.noiseMakeupGain corrected that at the source, those numbers
+   * became a 14dB overshoot: the tail, meant to sit underneath, measured the
+   * LOUDEST layer of the three. Re-authored against corrected levels, the
+   * balance now reads straight off the gains - body loudest, crack an accent
+   * over it, tail underneath both.
    */
   mortar: {
-    wave: 'sawtooth', freqStart: 3200, freqEnd: 900, duration: 0.05, gain: 0.55, noise: true,
+    wave: 'sawtooth', freqStart: 3200, freqEnd: 900, duration: 0.05, gain: 0.28, noise: true,
     layers: [
-      { offset: 0.008, wave: 'sawtooth', freqStart: 600, freqEnd: 250, duration: 0.22, gain: 0.38, noise: false },
-      { offset: 0.030, wave: 'sawtooth', freqStart: 700, freqEnd: 300, duration: 0.45, gain: 0.70, noise: true },
+      { offset: 0.008, wave: 'sawtooth', freqStart: 600, freqEnd: 250, duration: 0.22, gain: 0.60, noise: false },
+      { offset: 0.030, wave: 'sawtooth', freqStart: 700, freqEnd: 300, duration: 0.45, gain: 0.20, noise: true },
     ],
   },
   sniper:           { wave: 'square',   freqStart: 1400, freqEnd: 700,  duration: 0.05, gain: 0.30, noise: false },
@@ -67,7 +73,7 @@ export const UNIT_VOICES = {
   fire:             { wave: 'sawtooth', freqStart: 520,  freqEnd: 240,  duration: 0.40, gain: 0.50, noise: true  },
   heal:             { wave: 'sine',     freqStart: 660,  freqEnd: 990,  duration: 0.18, gain: 0.28, noise: false },
   melee:            { wave: 'triangle', freqStart: 340,  freqEnd: 220,  duration: 0.10, gain: 0.30, noise: true  },
-  summon:           { wave: 'triangle', freqStart: 200,  freqEnd: 130,  duration: 0.30, gain: 0.35, noise: false },
+  summon:           { wave: 'triangle', freqStart: 330,  freqEnd: 220,  duration: 0.30, gain: 0.35, noise: false },
   hit:              { wave: 'triangle', freqStart: 320,  freqEnd: 240,  duration: 0.07, gain: 0.25, noise: false },
   // The death family reads light -> heavy by falling pitch, rising length and
   // rising level together. Every entry is authored so that the death variant's

@@ -496,6 +496,44 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
   const ALL_TABLES = { ...SFX, ...UNIT_VOICES };
   const layeredEntries = Object.entries(ALL_TABLES).filter(([, recipe]) => recipe.layers);
 
+  /**
+   * EVERY authored recipe, layered or not, in both tables.
+   *
+   * This started scoped to layered recipes only, which left seven
+   * single-source sounds sitting at or below the rolloff - defenderPlaced,
+   * defenderDied, enemyDied, bossDied, deployRejected, levelLost and summon.
+   * They were inaudible on a laptop for exactly the reason the death sounds
+   * were, and the owner would have hit them one at a time, each looking like a
+   * fresh bug. The floor is a property of the whole sound set or it is not a
+   * floor.
+   *
+   * Checked against AUTHORED values. The resolved-after-variant-scaling case
+   * is a separate question and is covered by the reachable-pairs check above,
+   * which is careful to test only the (key, variant) combinations the game can
+   * actually produce - the raw cross product would demand that e.g. 'hit'
+   * survive death-variant scaling, which nothing ever asks it to do.
+   */
+  const authoredLayers = Object.entries(ALL_TABLES)
+    .flatMap(([id, recipe]) => recipeLayers(recipe).map((layer, index) => [
+      recipeLayers(recipe).length > 1 ? `${id} layer ${index}` : id, layer,
+    ]));
+
+  it('covers every recipe in both tables, so nothing escapes the floor', () => {
+    // Rejects a filter that silently stops matching, and pins the counts so a
+    // recipe deleted rather than fixed - or a `layers` array quietly dropped -
+    // is visible rather than just shrinking the it.each below.
+    const extraLayers = Object.values(ALL_TABLES).reduce((n, recipe) => n + (recipe.layers?.length ?? 0), 0);
+
+    expect(Object.keys(ALL_TABLES)).toHaveLength(Object.keys(SFX).length + Object.keys(UNIT_VOICES).length);
+    expect(extraLayers, 'waveStarted +1, bossWaveStarted +2, mortar +2').toBe(5);
+    expect(authoredLayers.length).toBe(Object.keys(ALL_TABLES).length + extraLayers);
+  });
+
+  it.each(authoredLayers)('%s is authored above the laptop speaker floor', (where, layer) => {
+    expect(layer.freqStart, `${where} freqStart`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+    expect(layer.freqEnd, `${where} freqEnd`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+  });
+
   it('finds every layered sound in both tables, so the floor check is not vacuous', () => {
     // SFX and UNIT_VOICES share no key (asserted by 'game-event sounds are
     // served by SFX, not the voice table'), so merging them loses nothing.

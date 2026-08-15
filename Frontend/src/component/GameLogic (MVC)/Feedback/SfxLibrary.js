@@ -26,26 +26,33 @@
  * ON PITCH, FOR THE WHOLE FILE. Typical laptop speakers roll off below roughly
  * 200Hz. Weight has to come from the transient and the midrange, not from
  * sub-bass: an earlier pass authored the Mortar and the death family between
- * 25Hz and 90Hz, which was silent in play while every test passed. The floor
- * is enforced per layer by the derived check in UnitVoices.test.js.
+ * 25Hz and 90Hz, which was silent in play while every test passed.
+ *
+ * Six recipes here were still under that floor after the death family was
+ * fixed - defenderPlaced, defenderDied, enemyDied, bossDied, deployRejected
+ * and levelLost - and were lifted together, each keeping the DIRECTION and,
+ * where it survived the lift, the RATIO of its original sweep, so the
+ * character is the one that was authored and only the register moved. The
+ * floor is now enforced for every recipe and every layer in both tables by the
+ * derived check in UnitVoices.test.js; it is not a per-sound judgement call.
  */
 export const SFX = {
-  // Placing a unit: short low thunk.
-  defenderPlaced:   { wave: 'sine',     freqStart: 220, freqEnd: 110, duration: 0.12, gain: 0.5, noise: false },
+  // Placing a unit: short thunk, dropping an octave.
+  defenderPlaced:   { wave: 'sine',     freqStart: 440, freqEnd: 220, duration: 0.12, gain: 0.5, noise: false },
   // Losing a unit: descending crumble.
-  defenderDied:     { wave: 'sawtooth', freqStart: 180, freqEnd: 60,  duration: 0.35, gain: 0.4, noise: true  },
+  defenderDied:     { wave: 'sawtooth', freqStart: 540, freqEnd: 270, duration: 0.35, gain: 0.4, noise: true  },
   // Firing: quick upward blip.
   projectileFired:  { wave: 'square',   freqStart: 640, freqEnd: 880, duration: 0.06, gain: 0.18, noise: false },
   // Enemy taking damage: dull tick.
   enemyHit:         { wave: 'triangle', freqStart: 320, freqEnd: 240, duration: 0.07, gain: 0.25, noise: false },
-  // Enemy death: short noisy squelch.
-  enemyDied:        { wave: 'sawtooth', freqStart: 300, freqEnd: 90,  duration: 0.22, gain: 0.4, noise: true  },
-  // Boss death: long low roar.
-  bossDied:         { wave: 'sawtooth', freqStart: 160, freqEnd: 40,  duration: 0.9,  gain: 0.6, noise: true  },
+  // Enemy death: short noisy squelch, falling a fifth over an octave.
+  enemyDied:        { wave: 'sawtooth', freqStart: 660, freqEnd: 220, duration: 0.22, gain: 0.4, noise: true  },
+  // Boss death: long roar, falling two octaves.
+  bossDied:         { wave: 'sawtooth', freqStart: 880, freqEnd: 220, duration: 0.9,  gain: 0.6, noise: true  },
   // Collecting energy: bright rising ping.
   energyCollected:  { wave: 'sine',     freqStart: 880, freqEnd: 1320, duration: 0.15, gain: 0.35, noise: false },
   // Rejected action: dull buzz.
-  deployRejected:   { wave: 'square',   freqStart: 140, freqEnd: 120, duration: 0.14, gain: 0.25, noise: false },
+  deployRejected:   { wave: 'square',   freqStart: 280, freqEnd: 240, duration: 0.14, gain: 0.25, noise: false },
   // Base hit: urgent alarm.
   baseDamaged:      { wave: 'sawtooth', freqStart: 440, freqEnd: 220, duration: 0.4,  gain: 0.55, noise: false },
   /**
@@ -92,8 +99,8 @@ export const SFX = {
   },
   // Victory: rising fanfare note.
   levelWon:         { wave: 'triangle', freqStart: 523, freqEnd: 1046, duration: 0.8, gain: 0.5, noise: false },
-  // Defeat: descending tone.
-  levelLost:        { wave: 'triangle', freqStart: 440, freqEnd: 110, duration: 1.1,  gain: 0.5, noise: false },
+  // Defeat: descending tone - an octave down, mirroring levelWon's octave up.
+  levelLost:        { wave: 'triangle', freqStart: 440, freqEnd: 220, duration: 1.1,  gain: 0.5, noise: false },
 };
 
 export const SFX_IDS = Object.keys(SFX);

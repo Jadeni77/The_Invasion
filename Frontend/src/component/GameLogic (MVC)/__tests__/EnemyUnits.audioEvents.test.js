@@ -11,6 +11,7 @@ import { GameEngine } from '../GameEngine.js';
 import { FeedbackBus } from '../Feedback/FeedbackBus.js';
 import { FeedbackManager } from '../Feedback/FeedbackManager.js';
 import { AudioManager, DEDUPE_WINDOW_SECONDS } from '../Feedback/AudioManager.js';
+import { UNIT_VOICES } from '../Feedback/UnitVoices.js';
 
 /**
  * Task 4: enemy melee, spells and summons were silent, and the enemy attack
@@ -506,7 +507,13 @@ describe('how many melee sounds a real engine tick actually produces', () => {
         return { buffer: null, playbackRate: { value: 1 }, connect() {}, start() {}, stop() {} };
       },
       createBuffer: () => ({ getChannelData: () => new Float32Array(64) }),
-      createBiquadFilter: () => ({ type: 'lowpass', frequency: param(), connect() {} }),
+      // Q matters: AudioManager sets it on the bandpass and derives the noise
+      // makeup gain from it. This fake was missing Q, so every noise recipe
+      // this suite played - melee is one - threw inside the handler and was
+      // swallowed by FeedbackBus's error isolation, leaving the suite green
+      // while the sounds it claims to count were not being built at all. See
+      // 'a real approach produces no swallowed feedback errors' below.
+      createBiquadFilter: () => ({ type: 'lowpass', frequency: param(), Q: { value: -1 }, connect() {} }),
     };
     const audio = new AudioManager(() => ctx);
     audio.init();
@@ -556,15 +563,28 @@ describe('how many melee sounds a real engine tick actually produces', () => {
       return allowed;
     };
 
-    for (let i = 0; i < frames; i++) {
-      now += FRAME_MS;
-      ctx.currentTime = now / 1000;
-      engine.updateEnemies(now);
+    // FeedbackBus deliberately isolates a throwing handler so one bad
+    // subscriber cannot break the game loop. That is right for production and
+    // dangerous for a test: an exception inside AudioManager becomes a
+    // console.error and nothing else, so this suite can count voices it never
+    // actually built. Captured here and asserted on below.
+    const swallowed = [];
+    const realConsoleError = console.error;
+    console.error = (...args) => { swallowed.push(args.join(' ')); };
+    try {
+      for (let i = 0; i < frames; i++) {
+        now += FRAME_MS;
+        ctx.currentTime = now / 1000;
+        engine.updateEnemies(now);
+      }
+    } finally {
+      console.error = realConsoleError;
     }
 
     const gapsBetween = (times) => times.slice(1).map((t, i) => t - times[i]);
     return {
       enemy,
+      swallowed,
       emits: emitsAt.length,
       voices: voicesAt.length,
       // The tail, once the enemy has stopped and is in steady-state combat.
@@ -574,6 +594,27 @@ describe('how many melee sounds a real engine tick actually produces', () => {
       counts,
     };
   }
+
+  it('a real approach produces no swallowed feedback errors', () => {
+    /**
+     * The guard for a failure this suite demonstrated rather than caught: its
+     * fake AudioContext was missing the bandpass Q, so every melee sound - a
+     * `noise: true` recipe - threw inside AudioManager, FeedbackBus caught and
+     * logged it, and all 38 tests stayed green while counting voices that were
+     * never built. Voice counts are taken at reserveVoiceSlot, which runs
+     * BEFORE the sources are created, so they cannot notice.
+     *
+     * Anything reaching console.error during a real approach means a handler
+     * threw, and that is never acceptable regardless of what the counts say.
+     */
+    const run = runApproach(MiniEnemy);
+
+    expect(run.swallowed, run.swallowed[0] ?? 'none').toEqual([]);
+    // The melee sound really is a noise recipe, so this run genuinely
+    // exercised the path that was broken - the assertion is not vacuous.
+    expect(UNIT_VOICES.melee.noise).toBe(true);
+    expect(run.voices).toBeGreaterThan(0);
+  });
 
   it('plays one melee sound per attack cycle for an ordinary melee enemy', () => {
     // A MiniEnemy is 32 wide and a Shooter 64, so AABB contact happens at a

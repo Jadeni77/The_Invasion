@@ -5,8 +5,9 @@ Date: 2026-08-15
 
 ## Status
 
-DONE_WITH_CONCERNS — all four items complete; the concerns are pre-existing
-findings surfaced by the work, listed at the end.
+DONE_WITH_CONCERNS — two rounds. Round 1 built layering and redesigned the two
+sounds; round 2 fixed the systemic noise-path defect round 1's investigation
+found, and re-authored everything that had been written around it.
 
 ## Summary
 
@@ -15,20 +16,28 @@ findings surfaced by the work, listed at the end.
 2. The Mortar is now three-layer artillery: crack, falling body, decaying tail.
 3. `waveStarted` is now a two-tone rising alert. `bossWaveStarted` got the same
    treatment inverted (falling), and the reasoning for doing so is below.
-4. The enemy death sound is **emitting correctly and being suppressed by
-   nothing**. It is inaudible for a level reason, quantified below.
+4. The enemy death sound was **emitting correctly and suppressed by nothing**.
+   It was inaudible because the `noise: true` render path silently cost ~14 dB
+   that no recipe compensated for.
+5. **(Round 2)** That defect is fixed at its root: authored `gain` now means
+   the same level on both render paths. Every sound written around the old
+   deficit has been re-authored, and the seven sub-200 Hz recipes lifted.
 
 ## Test results
 
 | | Tests | Files |
 |---|---|---|
 | Baseline at `44fe448` | 589 passed | 27 |
-| After this change | **642 passed** | 27 |
+| After round 1 | 642 passed | 27 |
+| **After round 2** | **702 passed** | 27 |
 
-`cd Frontend && npm test` — 642 passed (642), 27 files, output pristine.
+`cd Frontend && npm test` — 702 passed (702), 27 files, output pristine.
 `cd Frontend && npm run lint` — clean, no output.
 
-53 tests added, no test deleted, no existing test modified.
+113 tests added, none deleted. Two existing tests were modified in round 2 and
+both are documented where they changed: the noise-chain wiring assertion (the
+signal path genuinely gained a stage) and one round-1 layering test that
+assumed one gain node per layer.
 
 ## TDD evidence
 
@@ -373,7 +382,7 @@ plays **one** death sound, not six. That is correct and intended, but it means
 a multi-kill currently sounds identical to a single kill — so a "big kill"
 moment has no audio payoff at all today.
 
-### Recommended fix (not applied — investigation only, per the task)
+### Recommended fix (applied in round 2 — see below)
 
 Compensate the noise path rather than raising every noise recipe's `gain` by
 hand: either apply a per-path makeup gain in `createNoiseSource` (roughly
@@ -408,7 +417,21 @@ Two guards keep it honest:
   layered voice that clears the floor as authored could still be dragged under
   it once resolved. Only the resolved recipe is ever played.
 
-## Files changed
+## Files changed (round 2 adds to the round-1 list below)
+
+- `AudioManager.js` — `NOISE_BANDPASS_Q` and `noiseMakeupGain` added and
+  documented; `createNoiseSource` sets Q explicitly and inserts the makeup
+  stage.
+- `SfxLibrary.js` — six recipes lifted above the floor; header records why.
+- `UnitVoices.js` — `summon` lifted; Mortar's three gains re-authored.
+- `__tests__/AudioManager.test.js` — the equal-gain guard with its independent
+  numerical integration; mock gained `Q`; noise-chain wiring assertion updated.
+- `__tests__/UnitVoices.test.js` — floor check extended to every authored
+  recipe and layer.
+- `__tests__/EnemyUnits.audioEvents.test.js` — fake context gained `Q`;
+  swallowed-error guard added.
+
+## Files changed (round 1)
 
 - `Frontend/src/component/GameLogic (MVC)/Feedback/SfxLibrary.js` — `layers`
   documented in the recipe shape; `recipeLayers` and `recipeSpan` added;
@@ -429,37 +452,269 @@ Two guards keep it honest:
   — layer propagation through `resolveVoice`, the Mortar's artillery shape, and
   the derived 200 Hz layer floor.
 
+---
+
+# Round 2 — fixing the noise path at its root
+
+## The defect
+
+`gain: 0.5` meant two different loudnesses depending on `noise`, a boolean
+elsewhere in the same recipe. That is the bug. It explains three symptoms the
+owner reported as unrelated — the inaudible Mortar, the inaudible enemy deaths,
+and the death family sitting ~22 dB under `baseDamaged` — because every one of
+those is a `noise: true` recipe.
+
+## TDD evidence (round 2)
+
+### RED
+
+The equal-gain guard, written before the fix, measuring through the mock graph:
+
+```
+FAIL > authored gain means the same level on both render paths
+  a noise burst at 520->320Hz  : expected 15.493901554505863 to be <= 2
+  a noise burst at 700->300Hz  : expected 15.004290985446804 to be <= 2
+  a noise burst at 900->400Hz  : expected 13.878220566868894 to be <= 2
+  a noise burst at 3200->900Hz : expected  9.709419166071747 to be <= 2
+  a noise burst at 250->220Hz  : expected 17.843825772645930 to be <= 2
+  defenderDied[0]              : expected 21.337959442472364 to be <= 2
+  enemyDied[0]                 : expected 19.367001959565297 to be <= 2
+  bossDied[0]                  : expected 22.466761132697673 to be <= 2
+  artillery[0]                 : expected 15.630002568406230 to be <= 2
+  mortar[0]                    : expected  9.709419166071747 to be <= 2
+  mortar[2]                    : expected 15.004290985446804 to be <= 2
+  death-small[0] / death-medium[0] / death-defender[0] / titan[0] / boss[0] — same
+ Test Files  2 failed | 25 passed (27)
+      Tests  30 failed | 664 passed (694)
+```
+
+Plus the seven sub-200 Hz recipes, each named individually:
+
+```
+ defenderPlaced : expected 110 to be greater than or equal to 200
+ defenderDied   : expected 180 to be greater than or equal to 200
+ enemyDied      : expected  90 to be greater than or equal to 200
+ bossDied       : expected 160 to be greater than or equal to 200
+ deployRejected : expected 140 to be greater than or equal to 200
+ levelLost      : expected 110 to be greater than or equal to 200
+ summon         : expected 130 to be greater than or equal to 200
+```
+
+The first red run of the equal-gain guard failed with `NaN` rather than a
+number, because the model was reading `NOISE_BANDPASS_Q` from production, which
+did not exist yet. That is a test failing for the wrong reason, so the model
+was given its own `ASSUMED_Q` and a separate assertion pinning production to
+it — which is what produced the honest dB figures above.
+
+### GREEN
+
+```
+ Test Files  27 passed (27)
+      Tests  702 passed (702)
+```
+
+## The fix, and how it is derived
+
+`AudioManager.noiseMakeupGain(freqStart, freqEnd, sampleRate, q)` — a constant
+gain stage inserted **inside** `createNoiseSource`, after the bandpass, so
+recipe authors never have to know which path their sound takes.
+
+For a 2nd-order bandpass with unity peak gain, the equivalent noise bandwidth
+is `(π/2)(f₀/Q)` Hz. White noise emerges with its power scaled by that
+bandwidth over the Nyquist span:
+
+```
+powerGain = ((π/2)(f₀/Q)) / (sampleRate/2) = π·f₀ / (Q·sampleRate)
+makeup    = 1 / sqrt(powerGain)
+```
+
+`f₀` is the geometric mean of the sweep endpoints, which is where an
+exponential sweep spends its time. The result restores the burst's RMS to what
+an unfiltered one would have had — so a noise recipe and a sawtooth recipe at
+the same authored gain now reach the same RMS, since uniform noise and a
+sawtooth happen to share an RMS of 1/√3.
+
+`Q` is now **set explicitly** on the filter rather than left to
+`BiquadFilterNode`'s default, because the makeup is derived from it and two
+places depending on one unstated default is how they drift apart silently. A
+test asserts the filter really carries that Q.
+
+### Accuracy, and what would invalidate it
+
+The identity above is the analog one; the digital biquad departs from it as the
+centre approaches a significant fraction of the sample rate. Checked against
+**direct numerical integration of |H(f)|² over the biquad's response** — a
+genuinely different derivation, so agreement is evidence rather than tautology:
+
+| centre | error of closed form |
+|---|---|
+| 200 Hz | 0.06 dB |
+| 520 Hz | 0.16 dB |
+| 1700 Hz | 0.53 dB |
+| 3200 Hz | 1.02 dB |
+| 5000 Hz | 1.60 dB |
+| 8000 Hz | 2.61 dB |
+
+All in-band values are inaudible. It would be invalidated by: changing
+`NOISE_BANDPASS_Q` without changing the formula; giving the filter a Q that
+varies across the sweep; or authoring noise centres above roughly 5 kHz. The
+`Math.min(1, powerGain)` clamp keeps the degenerate case (bandwidth wider than
+the spectrum) from returning a makeup below 1 and quietening sounds instead of
+leaving them alone.
+
+The test suite carries the numerical integration and asserts every authored
+noise recipe lands within **2 dB** of a tone at the same gain, derived from the
+tables so a noise recipe written later is covered the day it is written.
+
+## Corrected Mortar layer table
+
+The old gains were authored *around* the deficit, so the two noise layers
+carried inflated numbers (0.55, 0.70) against the sawtooth's 0.38 just to be
+heard. Once the path was corrected those became a ~14 dB overshoot, and the
+tail — meant to sit underneath — measured the **loudest** layer of the three
+(−22.3 dB against the body's −28.6 dB). Re-authored against corrected levels:
+
+| # | Role | Offset | Wave / path | Frequency sweep | Duration | Gain (was) | Effective range | Isolated level |
+|---|------|--------|-------------|-----------------|----------|------------|-----------------|----------------|
+| 1 | crack | 0 s | bandpassed noise | 3200 → 900 Hz | 0.05 s | **0.28** (0.55) | 900 – 3200 Hz | −29.7 dB |
+| 2 | body | 0.008 s | sawtooth (tone) | 600 → 250 Hz | 0.22 s | **0.60** (0.38) | 250 – 600 Hz + harmonics | −24.9 dB |
+| 3 | tail | 0.030 s | bandpassed noise | 700 → 300 Hz | 0.45 s | **0.20** (0.70) | 300 – 700 Hz | −32.1 dB |
+
+Span 0.48 s, nothing below 250 Hz — character unchanged. The balance now reads
+straight off the gains: body loudest, crack an accent over it, tail underneath
+both, which is what the design intended and what the old numbers inverted.
+
+**Whole sound: −26.9 dB, peak 0.405.** Against the Mortar as it actually
+shipped (−44.1 dB) that is **+17.2 dB**, not the +10.9 dB reported in round 1.
+It moved because the path fix itself contributes most of the difference, and
+because the target level moved: `artillery`, its MID-tier peer, also gained
+~15 dB from the fix, so leaving the Mortar at its round-1 level would have put
+it *below* the lighter gun.
+
+## Where the death family now sits
+
+Gains untouched, per instruction — only the render path changed.
+
+| Sound | Tier | Before | **After** | Change |
+|---|---|---|---|---|
+| `hit` tick (tone, reference) | QUIET | −40.8 dB | −40.8 dB | unchanged |
+| `death-small` | MID | −45.7 dB | **−30.3 dB** | +15.4 dB |
+| `death-medium` | MID | −44.5 dB | **−26.7 dB** | +17.8 dB |
+| `death-defender` | MID | −44.2 dB | **−27.3 dB** | +16.9 dB |
+| `titan` | LOUD | −39.0 dB | **−21.9 dB** | +17.1 dB |
+| `boss` | LOUD | −37.7 dB | **−20.6 dB** | +17.1 dB |
+| `baseDamaged` (tone, reference) | LOUD | −23.0 dB | −23.0 dB | unchanged |
+
+**Is a death still masked by the simultaneous hit tick? No — the relationship
+has inverted.** `death-small` was 4.9 dB *quieter* than the hit tick that fires
+in the same frame on the same enemy; it is now **10.5 dB louder** than it. The
+death is now unambiguously the foreground event of a kill, which is what the
+mix tiers said it should be all along (MID 0.7 over QUIET 0.4).
+
+Against `baseDamaged`: `death-small` sits 7.3 dB below it, `death-medium`
+3.7 dB below, `death-defender` 4.3 dB below — all sensible for MID under LOUD.
+`titan` and `boss` now sit 1.1 dB and 2.4 dB **above** `baseDamaged`. That is
+consistent with the tier table rather than a bug (all three are LOUD, and the
+big deaths carry higher authored gains than base damage), but it does mean a
+boss death is now the loudest single event in the game. Flagged for the owner
+rather than changed, since the instruction was not to redesign the death
+sounds.
+
+## Is `artillery` still 13 dB below `mortar`?
+
+**No. It was the same deficit.** `artillery` is a `noise: true` recipe and
+gained ~15 dB from the path fix with no change to its authored values:
+
+| | Before | After |
+|---|---|---|
+| `mortar` | −41.5 dB (as shipped: −44.1) | **−26.9 dB** |
+| `artillery` | −43.4 dB | **−28.0 dB** |
+| gap | 13 dB (round-1 Mortar vs artillery) | **1.1 dB** |
+
+They now sit within about 1 dB of each other, which is what the mix tiers say
+should happen — both are MID. The distinction between them lives in character,
+not level: a 0.48 s three-layer artillery piece against a 0.14 s single burst.
+If the owner wants the Mortar to dominate its peer, that is a tier decision,
+not a defect.
+
+## The 200 Hz floor, extended (closing round-1 concern 3)
+
+The floor check now walks **every authored recipe and every layer in both
+tables** — 33 layers across 28 recipes — not just the layered ones. Its
+non-vacuity is pinned by asserting the recipe count and the extra-layer count
+(5: waveStarted +1, bossWaveStarted +2, mortar +2) rather than a bare list.
+
+The seven that were under it were lifted, each keeping the **direction** and,
+where it survived, the **ratio** of its original sweep, so the authored
+character is preserved and only the register moved:
+
+| Recipe | Before | After | Note |
+|---|---|---|---|
+| `defenderPlaced` | 220 → 110 | **440 → 220** | 2:1 preserved |
+| `defenderDied` | 180 → 60 | **540 → 270** | 2:1 (was 3:1) |
+| `enemyDied` | 300 → 90 | **660 → 220** | 3:1 preserved |
+| `bossDied` | 160 → 40 | **880 → 220** | 4:1 preserved |
+| `deployRejected` | 140 → 120 | **280 → 240** | ratio preserved exactly |
+| `levelLost` | 440 → 110 | **440 → 220** | keeps the authored 440 start; now mirrors `levelWon`'s octave rise with an octave fall |
+| `summon` | 200 → 130 | **330 → 220** | 1.5:1 (was 1.54:1) |
+
+`defenderDied` and `bossDied` are unreachable dead data — `defender:died` and a
+boss kill both resolve through `soundKeyFor` to unit voices, never to these SFX
+entries. They were lifted anyway for consistency; see concerns.
+
+## A test-hygiene bug found along the way
+
+`EnemyUnits.audioEvents.test.js`'s fake AudioContext was missing the bandpass
+`Q`. Once `createNoiseSource` started setting it, every `noise: true` recipe in
+that suite threw — and **all 38 tests stayed green**, because `FeedbackBus`
+deliberately isolates throwing handlers (right for production: one bad
+subscriber must not break the game loop) and the suite counts voices at
+`reserveVoiceSlot`, which runs *before* the sources are built.
+
+That is the same failure shape as the original bug: a green suite over silent
+audio. Fixed, and guarded — `runApproach` now captures `console.error` during
+the run and a new test asserts nothing was swallowed, with a non-vacuity check
+that the melee voice really is a noise recipe and that voices were produced.
+Mutation-checked: removing `Q` from the mock again fails that test with
+`expected [ …(18) ] to deeply equal []`.
+
 ## Concerns
 
-1. **The noise-path level deficit is real, general, and not fixed here** (item
-   4). Every `noise: true` recipe in the game is ~14 dB quieter than its
-   authored gain implies. I did not change it because the task said to
-   investigate and report, not redesign, and because it is a mix change
-   touching most of the sound set. The Mortar's noise layers are authored
-   around the deficit (gains 0.55 and 0.70) rather than fixing it, so **if the
-   deficit is later corrected globally, the Mortar's two noise layers will need
-   to come down or it will become the loudest thing in the game.** That
-   dependency is noted in the recipe comment.
-2. **The `artillery` voice (GrenadeDefender) now sits 13 dB below the Mortar**
-   (−43.4 vs −30.6 dB). That gap is larger than the design intends — both are
-   MID tier. It is the same noise-path deficit, and I left it alone as
-   out-of-scope, but the two big guns being that far apart is audible.
-3. **Eight pre-existing single-source recipes still sit at or below 200 Hz** —
-   `defenderPlaced` (220→110), `defenderDied` (180→60), `enemyDied` (300→90),
-   `bossDied` (160→40), `deployRejected` (140→120), `levelLost` (440→110), and
-   `UNIT_VOICES.summon` (200→130). The new derived floor check covers layered
-   recipes only, deliberately: extending it to every recipe would have required
-   retuning eight sounds this task was not asked to touch. Three of those are
-   `noise: true` (`defenderDied`, `enemyDied`, `bossDied`) and are therefore in
-   the worst case — bandpassed with nothing above the rolloff to be heard by.
-   Worth a follow-up.
-4. **All of my level figures are simulated, not heard.** They come from an
+Round-1 concerns 1 and 3 are closed by round 2. Concern 2 is answered above
+(the gap was the same deficit; it is now 1.1 dB). What remains:
+
+1. **`titan` and `boss` can clip at extreme volume settings.** With the path
+   corrected they peak at 1.26 and 1.27 before the bus gains. At the shipped
+   defaults (master 80, sfx 70 → combined 0.31) that is 0.39 — no problem. They
+   exceed full scale only when `soundEffects` is 100 **and** `masterVolume` is
+   above ~89. The cause is crest factor, not the compensation being wrong:
+   bandpassed noise restored to a tone's RMS is Gaussian and peaks at ~2× its
+   RMS, where a sawtooth peaks at 1.73× and a square at 1×. So noise recipes
+   need roughly 6 dB more headroom than tones at equal loudness. I did not trim
+   their gains because the instruction was explicitly not to redesign the death
+   sounds before the owner hears them. Options if it bites: trim `titan`/`boss`
+   gains, or add a limiter on the sfx bus.
+2. **`defenderDied` and `bossDied` are unreachable dead data.** Nothing plays
+   them — `defender:died` and boss kills both resolve through `soundKeyFor` to
+   unit voices. They are still required by `SfxLibrary.test.js`'s
+   `REQUIRED_IDS` and are still maintained (lifted above the floor this round),
+   which is wasted effort and a trap for the next person tuning "the boss death
+   sound". Deleting them is a small, separate change.
+3. **All of my level figures are simulated, not heard.** They come from an
    offline render implementing the Web Audio spec's bandpass biquad, the same
    exponential envelope `playRecipe` applies, and a 1-pole 200 Hz highpass as a
-   stand-in for laptop rolloff. The relative comparisons should be sound; the
-   absolute "will the owner like it" judgement is not something I can make
-   without ears on it. The layer tables above are given so the owner can
+   stand-in for laptop rolloff. The relative comparisons should be sound — and
+   round 2's equal-gain invariant is additionally verified in the suite by a
+   second, independent derivation — but the absolute "will the owner like it"
+   judgement needs ears. The layer tables above are given so the owner can
    sanity-check the design before listening.
-5. **A multi-kill sounds identical to a single kill** because dedupe is keyed by
+4. **A multi-kill sounds identical to a single kill** because dedupe is keyed by
    sound key. Correct as designed, but it means there is no audio payoff for a
-   big splash. Flagging it as a design question, not a bug.
+   big splash. Now more noticeable, since deaths are ~17 dB louder than they
+   were. Flagging it as a design question, not a bug.
+5. **The whole sound set got louder this round.** Nine recipes gained 15-22 dB
+   with no change to their authored values. The mix was balanced by ear (or by
+   nobody) against the broken path, so relationships that looked right before
+   may not now — `titan`/`boss` overtaking `baseDamaged` is one example that
+   showed up in measurement. This wants a playtest pass over the whole set, not
+   just the sounds named in this task.
