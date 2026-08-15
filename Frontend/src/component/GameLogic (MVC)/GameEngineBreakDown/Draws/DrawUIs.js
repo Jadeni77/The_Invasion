@@ -1,3 +1,5 @@
+import { frameScale } from "../../Animation/FrameTime.js";
+
 export class DrawUIs {
     constructor(gameEngine) {
         this.gameEngine = gameEngine;
@@ -228,13 +230,13 @@ export class DrawUIs {
         ctx.save();
 
         // Update animation
-        this.announcementTimer--;
+        this.announcementTimer -= frameScale();
         if (this.announcementTimer > 120) {
             // Fade in
-            this.announcementAlpha = Math.min(1, this.announcementAlpha + 0.05);
+            this.announcementAlpha = Math.min(1, this.announcementAlpha + 0.05 * frameScale());
         } else if (this.announcementTimer < 60) {
             // Fade out
-            this.announcementAlpha = Math.max(0, this.announcementAlpha - 0.02);
+            this.announcementAlpha = Math.max(0, this.announcementAlpha - 0.02 * frameScale());
         }
 
         ctx.globalAlpha = this.announcementAlpha;
@@ -301,7 +303,7 @@ export class DrawUIs {
         }
 
         if (this.milestoneAnimation.timer > 0) {
-            this.milestoneAnimation.timer--;
+            this.milestoneAnimation.timer -= frameScale();
             this.milestoneAnimation.pulse = Math.sin(this.milestoneAnimation.timer * 0.1) * 0.3 + 0.7;
 
             ctx.save();
@@ -359,11 +361,11 @@ export class DrawUIs {
     update() {
         // Any per-frame UI updates can go here
         if (this.announcementTimer > 0) {
-            this.announcementTimer--;
+            this.announcementTimer -= frameScale();
         }
 
         if (this.milestoneAnimation) {
-            this.milestoneAnimation.timer--;
+            this.milestoneAnimation.timer -= frameScale();
         }
     }
 

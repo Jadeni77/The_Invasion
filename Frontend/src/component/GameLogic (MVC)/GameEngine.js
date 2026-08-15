@@ -46,7 +46,7 @@ import { DrawEntities } from "./GameEngineBreakDown/Draws/DrawEntities.js";
 import { DrawUIs } from "./GameEngineBreakDown/Draws/DrawUIs.js";
 import { AnimationManager } from "./Animation/AnimationManager.js";
 import { AnimationSources } from "./Animation/AnimationSources.js";
-import { setFrameDeltaMs } from "./Animation/FrameTime.js";
+import { setFrameDeltaMs, frameScale, crossedPeriod } from "./Animation/FrameTime.js";
 import { AssetManifest } from "../../assets/AssetManifest.js";
 import { GameLevelConfigs } from "./GameEngineBreakDown/GameLevelConfigs.js";
 import { GameClock } from "./Feedback/GameClock.js";
@@ -903,14 +903,19 @@ export class GameEngine {
       if (!defender.isAlive) continue;
 
       if (defender.disabled && defender.disabledDuration) {
-        defender.disabledDuration--;
+        defender.disabledDuration -= frameScale();
         if (defender.disabledDuration <= 0) {
           defender.disabled = false;
         }
       }
       if (defender.burning && defender.burningDuration) {
-        defender.burningDuration--;
-        if (defender.burningDuration % 30 === 0) {
+        // The burn ticks every 30 authored frames. Now that the countdown steps
+        // by a fraction it lands on an exact multiple of 30 essentially never,
+        // so ask whether the step crossed one instead of whether it landed on
+        // one; crossedPeriod reproduces the old test exactly at 60fps.
+        const burningWas = defender.burningDuration;
+        defender.burningDuration -= frameScale();
+        if (crossedPeriod(burningWas, defender.burningDuration, 30)) {
           defender.takeDamage(defender.burningDamage);
         }
         if (defender.burningDuration <= 0) {
@@ -954,7 +959,7 @@ export class GameEngine {
 
       //Handle Enemy negative effects
       if (enemy.slowed && enemy.slowDuration) {
-        enemy.slowDuration--;
+        enemy.slowDuration -= frameScale();
         if (enemy.slowDuration <= 0) {
           enemy.slowed = false;
           if (enemy.initialSpeed) {
@@ -963,7 +968,7 @@ export class GameEngine {
         }
       }
       if (enemy.frozen && enemy.frozenDuration) {
-        enemy.frozenDuration--;
+        enemy.frozenDuration -= frameScale();
         if (enemy.frozenDuration <= 0) {
           enemy.frozen = false;
           if (enemy.initialSpeed) {
@@ -972,13 +977,13 @@ export class GameEngine {
         }
       }
       if (enemy.stunned && enemy.stunnedDuration) {
-        enemy.stunnedDuration--;
+        enemy.stunnedDuration -= frameScale();
         if (enemy.stunnedDuration <= 0) {
           enemy.stunned = false;
         }
       }
       if (enemy.burning && enemy.burningDuration) {
-        enemy.burningDuration--;
+        enemy.burningDuration -= frameScale();
         if (enemy.burningDuration <= 0) {
           enemy.burning = false;
         }
@@ -1092,7 +1097,13 @@ export class GameEngine {
         projectile.target.y + projectile.target.height / 2 - projectile.startY;
       const distance = Math.hypot(dx, dy);
 
-      if (distance <= projectile.speed) {
+      const step = projectile.speed * frameScale();
+
+      // Arrival is tested against the step this frame actually takes, not
+      // against the authored speed: at 30fps a frame covers two authored
+      // speeds, so a projectile that only counted as arrived within one would
+      // step straight past its target and then orbit it forever.
+      if (distance <= step) {
         if (projectile.onHit) {
           projectile.onHit();
         } else {
@@ -1127,8 +1138,8 @@ export class GameEngine {
       } else {
         // Move projectile
         const angle = Math.atan2(dy, dx);
-        projectile.startX += Math.cos(angle) * projectile.speed;
-        projectile.startY += Math.sin(angle) * projectile.speed;
+        projectile.startX += Math.cos(angle) * step;
+        projectile.startY += Math.sin(angle) * step;
       }
     }
   }
@@ -1152,7 +1163,11 @@ export class GameEngine {
         projectile.target.y + projectile.target.height / 2 - projectile.startY;
       const distance = Math.hypot(dx, dy);
 
-      if (distance <= projectile.speed) {
+      const step = projectile.speed * frameScale();
+
+      // Arrival is tested against this frame's step, not the authored speed;
+      // see updateProjectiles.
+      if (distance <= step) {
         if (projectile.onHit) {
           projectile.onHit();
         } else {
@@ -1163,8 +1178,8 @@ export class GameEngine {
       } else {
         //move projectile
         const angle = Math.atan2(dy, dx);
-        projectile.startX += Math.cos(angle) * projectile.speed;
-        projectile.startY += Math.sin(angle) * projectile.speed;
+        projectile.startX += Math.cos(angle) * step;
+        projectile.startY += Math.sin(angle) * step;
       }
     }
   }
@@ -1180,7 +1195,7 @@ export class GameEngine {
 
       //clean up old trial points
       spell.trail = spell.trail.filter((point) => {
-        point.timer--;
+        point.timer -= frameScale();
         return point.timer > 0; //timer reach zero, the effect be gone in its draw method
       });
 
@@ -1189,15 +1204,19 @@ export class GameEngine {
       const dy = spell.targetY - spell.currentY;
       const distance = Math.hypot(dx, dy);
 
-      if (distance <= spell.speed) {
+      const step = spell.speed * frameScale();
+
+      // Arrival is tested against this frame's step, not the authored speed;
+      // see updateProjectiles.
+      if (distance <= step) {
         //spell has reach target
         this.handleSpellImpact(spell);
         this.spellProjectiles.splice(i, 1);
       } else {
         //move toward target
         const angle = Math.atan2(dy, dx);
-        spell.currentX += Math.cos(angle) * spell.speed;
-        spell.currentY += Math.sin(angle) * spell.speed;
+        spell.currentX += Math.cos(angle) * step;
+        spell.currentY += Math.sin(angle) * step;
       }
     }
   }
@@ -1277,7 +1296,7 @@ export class GameEngine {
   /** Updates and removes expired explosion effects. */
   updateExplosions() {
     for (let i = this.explosions.length - 1; i >= 0; i--) {
-      this.explosions[i].timer--; // Decrement timer
+      this.explosions[i].timer -= frameScale(); // Decrement timer
 
       if (this.explosions[i].timer <= 0) {
         this.explosions.splice(i, 1); // Remove expired explosion

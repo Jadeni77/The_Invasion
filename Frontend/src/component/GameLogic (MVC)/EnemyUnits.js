@@ -19,7 +19,7 @@ import {
   attackAnimationDurationMs,
   frameDurationMs,
 } from "./Animation/AttackPlayback.js";
-import { frameDeltaMs } from "./Animation/FrameTime.js";
+import { frameDeltaMs, frameScale } from "./Animation/FrameTime.js";
 
 export class Enemy {
   constructor(x, y, typeData = {}) {
@@ -319,7 +319,7 @@ export class Enemy {
       if (targetDefender && !this.frozen && !this.stunned) {
         this.speed = 0;
         this.isAttacking = true;
-        this.attackCountdown--;
+        this.attackCountdown -= frameScale();
 
         if (this.attackCountdown <= 0) {
           targetDefender.takeDamage(this.attackDamage);
@@ -396,7 +396,7 @@ export class Enemy {
 
   handleMovement() {
     if (!this.isAttacking && !this.frozen && !this.stunned) {
-      this.x += this.speed;
+      this.x += this.speed * frameScale();
     }
   }
 
@@ -730,7 +730,7 @@ export class RangeEnemy extends Enemy {
 
   handleMovement() {
     if (this.isMoving && !this.frozen && !this.stunned) {
-      this.x += this.speed;
+      this.x += this.speed * frameScale();
     }
   }
 }
@@ -819,7 +819,7 @@ export class HealerEnemy extends Enemy {
     if (!this.isAlive) return;
 
     //healing logic
-    this.currentHealCooldown--;
+    this.currentHealCooldown -= frameScale();
     if (this.currentHealCooldown <= 0) {
       this.healNearbyEnemy();
       this.currentHealCooldown = this.healCooldown;
@@ -1044,7 +1044,7 @@ export class SwarmLeader extends Enemy {
 
     // Only spawn if not frozen/stunned
     if (!this.frozen && !this.stunned) {
-      this.currentSpawnCooldown--;
+      this.currentSpawnCooldown -= frameScale();
       if (this.currentSpawnCooldown <= 0) {
         this.spawnEnemy();
         this.currentSpawnCooldown = this.spawnCooldown;
@@ -1055,7 +1055,7 @@ export class SwarmLeader extends Enemy {
 
   handleMovement() {
     if (this.isMoving && !this.frozen && !this.stunned) {
-      this.x += this.speed;
+      this.x += this.speed * frameScale();
     }
   }
 
@@ -1299,7 +1299,7 @@ export class VampireEnemy extends Enemy {
 
   handleMovement() {
     if (this.isMoving && !this.frozen && !this.stunned) {
-      this.x += this.speed;
+      this.x += this.speed * frameScale();
     }
   }
 
@@ -1368,7 +1368,7 @@ export class GhostEnemy extends Enemy {
     if (!this.isAlive) return;
 
     //phase shift logic
-    this.currentPhaseShiftCooldown--;
+    this.currentPhaseShiftCooldown -= frameScale();
     if (this.currentPhaseShiftCooldown <= 0 && !this.isPhased) {
       //check if there is a defender to phase through
       const nearByDefender = defenderUnits.find(defender => {
@@ -1387,7 +1387,7 @@ export class GhostEnemy extends Enemy {
     }
     //handle phase duration
     if (this.isPhased) {
-      this.currentPhaseDuration--;
+      this.currentPhaseDuration -= frameScale();
       if (this.currentPhaseDuration <= 0) {
         this.isPhased = false;
       }
@@ -1477,7 +1477,7 @@ export class BerserkerEnemy extends Enemy {
       this.isMoving = true;
     }
     if (this.isMoving) {
-      this.x += this.speed;
+      this.x += this.speed * frameScale();
     }
   }
 
@@ -1585,7 +1585,7 @@ export class NecromancerEnemy extends Enemy {
 
     // Only revive if not frozen/stunned
     if (!this.frozen && !this.stunned) {
-      this.currentReviveCooldown--;
+      this.currentReviveCooldown -= frameScale();
       if (this.currentReviveCooldown <= 0) {
         this.reviveSkeletons();
         this.currentReviveCooldown = this.reviveCooldown;
@@ -1595,7 +1595,7 @@ export class NecromancerEnemy extends Enemy {
 
   handleMovement() {
     if (this.isMoving && !this.frozen && !this.stunned) {
-      this.x += this.speed;
+      this.x += this.speed * frameScale();
     }
   }
 
@@ -1705,7 +1705,7 @@ export class AssassinEnemy extends Enemy {
 
     //stealth countdown
     if (this.isStealthed) {
-      this.currentStealthDuration--;
+      this.currentStealthDuration -= frameScale();
       if (this.currentStealthDuration <= 0 ) {
         this.isStealthed = false;
       }
@@ -1759,7 +1759,7 @@ export class AssassinEnemy extends Enemy {
 
   handleMovement() {
     if (!this.isAttacking && !this.frozen && !this.stunned) {
-      this.x += this.isStealthed ? this.dashSpeed : this.speed;
+      this.x += (this.isStealthed ? this.dashSpeed : this.speed) * frameScale();
     }
   }
 
@@ -1832,7 +1832,7 @@ export class MageEnemy extends Enemy {
   updateBehavior(defenderUnits) {
     // Update cooldowns
     if (this.attackCooldown > 0) {
-      this.attackCooldown--;
+      this.attackCooldown -= frameScale();
     }
 
     // Cancel casting if frozen/stunned
@@ -1845,7 +1845,7 @@ export class MageEnemy extends Enemy {
 
     // Handle casting
     if (this.isCasting && !this.frozen && !this.stunned) {
-      this.castingTimer--;
+      this.castingTimer -= frameScale();
       if (this.castingTimer <= 0) {
         this.performSpellAttack();
         this.isCasting = false;
@@ -1884,7 +1884,7 @@ export class MageEnemy extends Enemy {
 
   handleMovement() {
     if (this.isMoving && !this.frozen && !this.stunned && !this.isCasting) {
-      this.x += this.speed;
+      this.x += this.speed * frameScale();
     }
   }
 
@@ -2247,7 +2247,7 @@ export class TitanEnemy extends Enemy {
 
     if (!this.isAlive || !this.gameEngine) return;
 
-    this.currentGroundPoundCooldown--;
+    this.currentGroundPoundCooldown -= frameScale();
     if (this.currentGroundPoundCooldown <= 0 && !this.isGroundPounding) {
       const nearbyDefender = defenderUnits.find(defender => {
         if (!defender.isAlive) return;

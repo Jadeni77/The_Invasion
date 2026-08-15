@@ -4,7 +4,7 @@
 import { DrawNegativeEffect } from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
 import { frameDurationMs } from "./Animation/AttackPlayback.js";
-import { frameDeltaMs } from "./Animation/FrameTime.js";
+import { frameDeltaMs, frameScale } from "./Animation/FrameTime.js";
 
 export class DefenderUnit {
   constructor(x, y, cardData = {}) {
@@ -548,14 +548,14 @@ export class HealerDefender extends DefenderUnit {
     }
 
     if (this.healAnimationTimer > 0) {
-      this.healAnimationTimer--;
+      this.healAnimationTimer -= frameScale();
       if (this.healAnimationTimer <= 0) {
         this.isHealing = false;
       }
     }
 
     // Healing Logic
-    this.healingCountdown--;
+    this.healingCountdown -= frameScale();
     if (this.healingCountdown <= 0) {
       let didHeal = false;
       const unitsToHeal = defenderUnits.filter(
@@ -1012,7 +1012,12 @@ export class BarricadeDefender extends DefenderUnit {
     }
 
     if (this.hitAnimationTimer > 0) {
-      this.hitAnimationTimer -= 16;
+      // The 16 is this file's own hand-rounded 60fps frame, and it is scaled
+      // rather than replaced by the real delta on purpose: 16 against a 500ms
+      // duration is 31.25 frames, so the hit flash has always lasted ~521ms and
+      // not 500ms. Swapping in the true delta would quietly shorten it by 4% -
+      // a rebalance. This change only makes 120Hz behave like 60Hz.
+      this.hitAnimationTimer -= 16 * frameScale();
       if (this.hitAnimationTimer <= 0) {
         this.hitAnimationTimer = 0;
       }
@@ -1063,7 +1068,7 @@ export class BarricadeDefender extends DefenderUnit {
       if (!this.electricFieldCooldown) {
         this.electricFieldCooldown = 300;
       }
-      this.electricFieldCooldown--;
+      this.electricFieldCooldown -= frameScale();
       if (this.electricFieldCooldown <= 0) {
         const stunRadius = 100;
         for (const enemy of enemies) {
@@ -1218,7 +1223,7 @@ export class EnergyGenerator extends DefenderUnit {
     }
 
     if (this.generateAnimationTimer > 0) {
-      this.generateAnimationTimer--;
+      this.generateAnimationTimer -= frameScale();
       this.isGenerating = true;
       if (this.generateAnimationTimer <= 0) {
         this.isGenerating = false;
@@ -1229,7 +1234,7 @@ export class EnergyGenerator extends DefenderUnit {
       if (!this.energyBurstCooldown) {
         this.energyBurstCooldown = 600;
       }
-      this.energyBurstCooldown--;
+      this.energyBurstCooldown -= frameScale();
       if (this.energyBurstCooldown <= 0 && this.gameEngine) {
         this.startGenerationAnimation();
         //generate 3x energy in a burst
@@ -1268,7 +1273,7 @@ export class EnergyGenerator extends DefenderUnit {
       }
     }
     // Energy drop logic
-    this.energyDropCountDown--;
+    this.energyDropCountDown -= frameScale();
     if (this.energyDropCountDown <= 0) {
       if (this.gameEngine) {
         this.startGenerationAnimation();
@@ -1814,12 +1819,12 @@ export class Mortar extends DefenderUnit {
 
     // Update barrel recoil animation
     if (this.barrelRecoil > 0) {
-      this.barrelRecoil -= 0.5;
+      this.barrelRecoil -= 0.5 * frameScale();
     }
 
     // Update target lock visual
     if (this.targetLockTime > 0) {
-      this.targetLockTime--;
+      this.targetLockTime -= frameScale();
     }
 
     // Process pending shells
@@ -1829,7 +1834,7 @@ export class Mortar extends DefenderUnit {
         shell.currentY = -100;
       }
       if (shell.fired) {
-        shell.timeRemaining--;
+        shell.timeRemaining -= frameScale();
 
         if (shell.target && shell.target.isAlive) {
           shell.targetX = shell.target.x + shell.target.width / 2;
@@ -2470,7 +2475,7 @@ export class FireBlast extends DefenderUnit {
 
     // Countdown to activation
     if (!this.hasActivated) {
-      this.currentActivationTimer--;
+      this.currentActivationTimer -= frameScale();
 
       // Pulsing effect while charging
       if (this.currentActivationTimer <= 0) {
@@ -2710,7 +2715,7 @@ export class IceBomb extends DefenderUnit {
     }
 
     if (!this.hasActivated) {
-      this.currentActivationTimer--;
+      this.currentActivationTimer -= frameScale();
 
       if (this.currentActivationTimer <= 0) {
         this.activate();

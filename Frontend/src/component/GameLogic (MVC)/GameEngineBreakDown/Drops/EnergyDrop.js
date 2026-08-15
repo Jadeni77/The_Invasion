@@ -1,3 +1,5 @@
+import { frameScale } from "../../Animation/FrameTime.js";
+
 export class EnergyDrop {
     constructor(x, y, amount) {
         this.x = x;
@@ -27,12 +29,22 @@ export class EnergyDrop {
             }
 
             // Move towards target
+            //
+            // Deliberately NOT scaled by frameScale(), unlike the lifetime
+            // countdown below. These are geometric decays, not linear steps: the
+            // rate-correct form is `1 - Math.pow(1 - 0.1, frameScale())`, and
+            // that is 0.09999999999999998 at 60fps rather than 0.1, so it would
+            // fail the identity property the rest of this change is built on.
+            // Nothing turns on the difference - the orb's energy is credited
+            // when the animation starts, so this is the flight of an already
+            // collected pickup toward the HUD. It runs about twice as fast on a
+            // 120Hz display and always has.
             this.x += dx * 0.1;
             this.y += dy * 0.1;
             this.opacity *= 0.95;
             return true;
         }
-        this.lifetime--;
+        this.lifetime -= frameScale();
         //floating animation
         this.floatOffset = Math.sin(Date.now() * this.floatSpeed) * 3;
 

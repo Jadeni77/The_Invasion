@@ -1,3 +1,5 @@
+import { frameScale } from "../../Animation/FrameTime.js";
+
 /**
  * This class represent the card pieces that will drop during the
  * game when a zombie died. The card pieces are useful for upgrading
@@ -32,13 +34,16 @@ export class CardPieceDrop {
             }
 
             //move toward target
+            //
+            // Deliberately NOT scaled by frameScale(); see the same decision,
+            // with its reasoning, in EnergyDrop.update().
             this.x += dx * 0.15;
             this.y += dy * 0.15;
             this.opacity *= 0.92;
             return true;
         }
 
-        this.lifetime--;
+        this.lifetime -= frameScale();
         //floating animation
         this.floatOffset = Math.sin(Date.now() * this.floatSpeed) * 4;
 
