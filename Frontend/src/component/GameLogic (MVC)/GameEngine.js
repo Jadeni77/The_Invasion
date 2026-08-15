@@ -312,10 +312,12 @@ export class GameEngine {
     const defenderAnimations =
       await this.animationSources.getDefenderAnimations(defenderTypes);
 
-    // Load into AnimationManager
+    // Load into AnimationManager. Category is passed so that an enemy and a
+    // defender sharing a unit-type name (e.g. "Healer") don't overwrite each
+    // other's cached frames.
     for (const [enemyType, animations] of Object.entries(enemyAnimations)) {
       if (animations) {
-        await this.animationManager.loadUnitAnimation(enemyType, animations);
+        await this.animationManager.loadUnitAnimation(enemyType, animations, "enemies");
       }
     }
 
@@ -323,7 +325,7 @@ export class GameEngine {
       defenderAnimations,
     )) {
       if (animations) {
-        await this.animationManager.loadUnitAnimation(defenderType, animations);
+        await this.animationManager.loadUnitAnimation(defenderType, animations, "defenders");
       }
     }
   }
@@ -354,13 +356,13 @@ export class GameEngine {
 
     if (
       this.animationManager &&
-      this.animationManager.hasAnimation(enemyType)
+      this.animationManager.hasAnimation(enemyType, "enemies")
     ) {
       const frames = {
-        idle: this.animationManager.getFrames(enemyType, "idle"),
-        move: this.animationManager.getFrames(enemyType, "move"),
-        attack: this.animationManager.getFrames(enemyType, "attack"),
-        death: this.animationManager.getFrames(enemyType, "death"),
+        idle: this.animationManager.getFrames(enemyType, "idle", "enemies"),
+        move: this.animationManager.getFrames(enemyType, "move", "enemies"),
+        attack: this.animationManager.getFrames(enemyType, "attack", "enemies"),
+        death: this.animationManager.getFrames(enemyType, "death", "enemies"),
       };
 
       enemy.animationFrames = frames;
@@ -377,13 +379,13 @@ export class GameEngine {
   attachAnimationsToEnemy(enemy, enemyType) {
     if (
       this.animationManager &&
-      this.animationManager.hasAnimation(enemyType)
+      this.animationManager.hasAnimation(enemyType, "enemies")
     ) {
       const frames = {
-        idle: this.animationManager.getFrames(enemyType, "idle"),
-        move: this.animationManager.getFrames(enemyType, "move"),
-        attack: this.animationManager.getFrames(enemyType, "attack"),
-        death: this.animationManager.getFrames(enemyType, "death"),
+        idle: this.animationManager.getFrames(enemyType, "idle", "enemies"),
+        move: this.animationManager.getFrames(enemyType, "move", "enemies"),
+        attack: this.animationManager.getFrames(enemyType, "attack", "enemies"),
+        death: this.animationManager.getFrames(enemyType, "death", "enemies"),
       };
 
       enemy.animationFrames = frames;
@@ -516,12 +518,12 @@ export class GameEngine {
     // ADD THIS: Attach animation frames if available
     if (
       this.animationManager &&
-      this.animationManager.hasAnimation(cardData.name)
+      this.animationManager.hasAnimation(cardData.name, "defenders")
     ) {
       const frames = {
-        idle: this.animationManager.getFrames(cardData.name, "idle"),
-        attack: this.animationManager.getFrames(cardData.name, "attack"),
-        death: this.animationManager.getFrames(cardData.name, "death"),
+        idle: this.animationManager.getFrames(cardData.name, "idle", "defenders"),
+        attack: this.animationManager.getFrames(cardData.name, "attack", "defenders"),
+        death: this.animationManager.getFrames(cardData.name, "death", "defenders"),
       };
 
       newUnit.animationFrames = frames;

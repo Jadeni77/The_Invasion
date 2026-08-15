@@ -8,9 +8,17 @@ export class AnimationManager {
     }
 
     /**
-     * Load multiple sprite sheets for one unit type
+     * Load multiple sprite sheets for one unit type.
+     *
+     * `category` ('enemies' or 'defenders') disambiguates unit types that
+     * share a name across the two sides (e.g. the enemy "Healer" and the
+     * defender "Healer" are unrelated units with different sprite sheets).
+     * Without it, loading both into the same Map would let the second one
+     * loaded silently overwrite the first. This mirrors the
+     * `${category}_${unitType}` cache-key pattern AnimationSources already
+     * uses for the same reason.
      */
-    async loadUnitAnimation(unitType, animationFiles) {
+    async loadUnitAnimation(unitType, animationFiles, category) {
         const loadedAnimations = {};
 
         //load each animation file
@@ -24,7 +32,7 @@ export class AnimationManager {
                      resolve(true);
                 }
                 img.onerror = (error) => {
-                    console.error(`❌ Failed to load ${animName} for ${unitType}: ${fileData.path}`);
+                    console.error(`❌ Failed to load ${animName} for ${category}/${unitType}: ${fileData.path}`);
                     console.error(`   Error:`, error);
                     resolve(false);
                 };
@@ -34,7 +42,7 @@ export class AnimationManager {
             if (imageLoaded && img.complete && img.naturalWidth > 0) {
                 //extract frame from this sprite sheet
                 const frames = this.extractFrames(img, fileData);
-                const cacheKey = `${unitType}_${animName}`;
+                const cacheKey = `${category}_${unitType}_${animName}`;
                 this.frameCache.set(cacheKey, frames);
 
                 loadedAnimations[animName] = {
@@ -42,9 +50,9 @@ export class AnimationManager {
                     frameCount: fileData.frameCount
                 };
             } else {
-                console.warn(`⚠️ Skipping ${animName} for ${unitType} - image failed to load`);
+                console.warn(`⚠️ Skipping ${animName} for ${category}/${unitType} - image failed to load`);
                 // Set empty frames for failed animations
-                const cacheKey = `${unitType}_${animName}`;
+                const cacheKey = `${category}_${unitType}_${animName}`;
                 this.frameCache.set(cacheKey, []);
                 loadedAnimations[animName] = {
                     frames: [],
@@ -53,7 +61,7 @@ export class AnimationManager {
             }
         }
 
-        this.animations.set(unitType, loadedAnimations);
+        this.animations.set(`${category}_${unitType}`, loadedAnimations);
       //  this.debugAnimations();
     }
 
@@ -104,8 +112,8 @@ export class AnimationManager {
         return frames;
     }
 
-    getFrames(unitType, animationName) {
-        const cacheKey = `${unitType}_${animationName}`;
+    getFrames(unitType, animationName, category) {
+        const cacheKey = `${category}_${unitType}_${animationName}`;
         const frames = this.frameCache.get(cacheKey);
 
         if (!frames) {
@@ -116,8 +124,8 @@ export class AnimationManager {
         return frames || [];
     }
 
-    hasAnimation(unitType) {
-        return this.animations.has(unitType);
+    hasAnimation(unitType, category) {
+        return this.animations.has(`${category}_${unitType}`);
     }
 
     // Debug method to check what's loaded
