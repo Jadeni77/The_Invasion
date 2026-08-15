@@ -7,8 +7,27 @@
  * freqEnd   - Hz at note end (a slide from freqStart)
  * duration  - seconds
  * gain      - peak gain, 0..1, before bus volumes are applied
- * noise     - when true, plays a plain white-noise burst instead of a tone
- *             (unfiltered - every sample is independent random amplitude)
+ * noise     - when true, plays white noise through a bandpass whose centre
+ *             sweeps freqStart -> freqEnd, instead of a tone
+ * layers    - OPTIONAL. Further recipes played as part of the same sound, each
+ *             with an `offset` in seconds from the trigger (default 0).
+ *
+ * ON LAYERS. AudioManager renders exactly one source per recipe: `noise: true`
+ * plays the bandpassed noise burst INSTEAD of the oscillator, never both. That
+ * is enough for a blip or a tick, and not enough for anything with a shape -
+ * artillery is a sharp crack AND a midrange body AND a decaying tail, sounding
+ * together, and no single source is all three. A layered recipe is still ONE
+ * sound to everything downstream: one voice against MAX_VOICES and one dedupe
+ * slot, not one per layer.
+ *
+ * A recipe without `layers` is a one-layer sound and behaves exactly as it
+ * always has, which is why nothing below had to change to add the mechanism.
+ *
+ * ON PITCH, FOR THE WHOLE FILE. Typical laptop speakers roll off below roughly
+ * 200Hz. Weight has to come from the transient and the midrange, not from
+ * sub-bass: an earlier pass authored the Mortar and the death family between
+ * 25Hz and 90Hz, which was silent in play while every test passed. The floor
+ * is enforced per layer by the derived check in UnitVoices.test.js.
  */
 export const SFX = {
   // Placing a unit: short low thunk.
@@ -29,10 +48,48 @@ export const SFX = {
   deployRejected:   { wave: 'square',   freqStart: 140, freqEnd: 120, duration: 0.14, gain: 0.25, noise: false },
   // Base hit: urgent alarm.
   baseDamaged:      { wave: 'sawtooth', freqStart: 440, freqEnd: 220, duration: 0.4,  gain: 0.55, noise: false },
-  // Wave incoming: horn.
-  waveStarted:      { wave: 'sawtooth', freqStart: 180, freqEnd: 240, duration: 0.7,  gain: 0.45, noise: false },
-  // Boss wave: lower, longer sting.
-  bossWaveStarted:  { wave: 'sawtooth', freqStart: 110, freqEnd: 90,  duration: 1.2,  gain: 0.6, noise: false },
+  /**
+   * Wave incoming: a two-tone rising alert, E5 then B5 a fifth above.
+   *
+   * Replaces a 180->240Hz sawtooth that swept slowly across 0.7s with no
+   * transient. The owner's verdict on that was "like somebody farting... it
+   * doesnt seem to make things critical", which is an accurate reading of what
+   * it was: a low buzzy drone rising gradually is close to a literal recipe
+   * for the sound he named, and it sat right at the edge of what a laptop
+   * reproduces besides.
+   *
+   * An alert is not a drone. What carries the meaning is stepped notes rather
+   * than a slide, a clear rise, and pitches high enough to cut through a busy
+   * wave - the same reasons real warning signals are two-tone. Squares because
+   * their harmonic density is what survives a small speaker.
+   */
+  waveStarted: {
+    wave: 'square', freqStart: 660, freqEnd: 660, duration: 0.16, gain: 0.36, noise: false,
+    layers: [
+      { offset: 0.18, wave: 'square', freqStart: 990, freqEnd: 990, duration: 0.34, gain: 0.45, noise: false },
+    ],
+  },
+  /**
+   * Boss wave: the same alert vocabulary inverted - A4 then D4 below it, over
+   * a sustained A3 that gives the sting its weight.
+   *
+   * The old sting was a 110->90Hz sawtooth, whose fundamental sits under the
+   * laptop rolloff throughout. That one was not silent the way a bandpassed
+   * noise burst would be - a sawtooth still speaks through its harmonics - but
+   * it arrived as a thin buzz with its body missing, and it shared the slow
+   * low falling-sawtooth character the owner rejected in waveStarted. Redone
+   * for the same reasons, in the same language, so a player learns one shape:
+   * rising means a wave, falling means the thing to be afraid of. The weight
+   * comes from the low note being sustained and stacked, not from pitching the
+   * sting into the floor - A3 at 220Hz is the lowest note here.
+   */
+  bossWaveStarted: {
+    wave: 'sawtooth', freqStart: 440, freqEnd: 440, duration: 0.30, gain: 0.42, noise: false,
+    layers: [
+      { offset: 0.32, wave: 'sawtooth', freqStart: 330, freqEnd: 330, duration: 0.38, gain: 0.40, noise: false },
+      { offset: 0.32, wave: 'sawtooth', freqStart: 220, freqEnd: 220, duration: 0.85, gain: 0.38, noise: false },
+    ],
+  },
   // Victory: rising fanfare note.
   levelWon:         { wave: 'triangle', freqStart: 523, freqEnd: 1046, duration: 0.8, gain: 0.5, noise: false },
   // Defeat: descending tone.
@@ -40,3 +97,36 @@ export const SFX = {
 };
 
 export const SFX_IDS = Object.keys(SFX);
+
+/**
+ * Expands a recipe into the layers that will actually be rendered, base layer
+ * first, each carrying an explicit `offset`.
+ *
+ * Exported rather than kept inside AudioManager because the audibility checks
+ * have to inspect the SAME layers playback uses. A second, test-local
+ * expansion would be free to disagree with the renderer, and that is the exact
+ * shape of the bug this file's header describes: assertions that passed
+ * against something other than what the player heard.
+ *
+ * A recipe with no `layers` expands to itself at offset 0, so every existing
+ * single-source recipe flows through unchanged.
+ */
+export function recipeLayers(recipe) {
+  if (!recipe) return [];
+  const { layers, ...base } = recipe;
+  return [
+    { ...base, offset: 0 },
+    ...(layers ?? []).map((layer) => ({ offset: 0, ...layer })),
+  ];
+}
+
+/**
+ * How long the whole sound occupies a voice slot: the end of the last layer to
+ * finish, which is not necessarily the last one declared and is never just the
+ * base duration.
+ */
+export function recipeSpan(recipe) {
+  const layers = recipeLayers(recipe);
+  if (layers.length === 0) return 0;
+  return Math.max(...layers.map((layer) => layer.offset + layer.duration));
+}

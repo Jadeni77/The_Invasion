@@ -204,6 +204,205 @@ describe('noise timbre (bandpass filtering)', () => {
   });
 });
 
+describe('layered recipes', () => {
+  /**
+   * A recipe may carry `layers`: further recipes, each with an `offset` in
+   * seconds from the trigger. AudioManager renders the base recipe and every
+   * layer, but the result is ONE sound - one voice against MAX_VOICES and one
+   * dedupe slot. Without that accounting a three-layer sound would triple the
+   * voice pressure and its layers would each burn a slot, so twelve of them
+   * would silence everything else in the game.
+   *
+   * The mechanism exists because a single source cannot be artillery:
+   * playRecipe renders either an oscillator or a bandpassed noise burst, never
+   * both, and a cannon needs a crack, a body and a tail sounding together.
+   */
+  const LAYERED = {
+    wave: 'square', freqStart: 800, freqEnd: 400, duration: 0.05, gain: 0.5, noise: false,
+    layers: [
+      { offset: 0.02, wave: 'sawtooth', freqStart: 600, freqEnd: 300, duration: 0.20, gain: 0.4, noise: false },
+      { offset: 0.05, wave: 'sawtooth', freqStart: 700, freqEnd: 350, duration: 0.30, gain: 0.3, noise: true },
+    ],
+  };
+  const SINGLE = { wave: 'sine', freqStart: 440, freqEnd: 220, duration: 0.2, gain: 0.5, noise: false };
+
+  function readyAudio() {
+    const { ctx, made } = createMockContext();
+    const audio = new AudioManager(() => ctx);
+    audio.init();
+    audio.resume();
+    return { ctx, made, audio };
+  }
+
+  it('starts one source per layer, the base recipe included', () => {
+    const { ctx, audio } = readyAudio();
+
+    audio.playRecipe(LAYERED, 'Mortar:fire');
+
+    // Two tone layers (base + first layer) and one noise layer.
+    expect(ctx.createOscillator).toHaveBeenCalledTimes(2);
+    expect(ctx.createBufferSource).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts each layer at its own offset from the trigger', () => {
+    const { ctx, made, audio } = readyAudio();
+    ctx.currentTime = 5;
+
+    audio.playRecipe(LAYERED, 'Mortar:fire');
+
+    expect(made.oscillators[0].start).toHaveBeenCalledWith(5);
+    expect(made.oscillators[1].start).toHaveBeenCalledWith(5 + 0.02);
+    expect(made.buffers[0].start).toHaveBeenCalledWith(5 + 0.05);
+  });
+
+  it('stops each layer after its own duration, not the base layer’s', () => {
+    const { ctx, made, audio } = readyAudio();
+    ctx.currentTime = 5;
+
+    audio.playRecipe(LAYERED, 'Mortar:fire');
+
+    expect(made.oscillators[0].stop).toHaveBeenCalledWith(5 + 0.05);
+    expect(made.oscillators[1].stop).toHaveBeenCalledWith(5 + 0.02 + 0.20);
+    expect(made.buffers[0].stop).toHaveBeenCalledWith(5 + 0.05 + 0.30);
+  });
+
+  it('gives every layer its own envelope at its own gain, all on the sfx bus', () => {
+    const { made, audio } = readyAudio();
+
+    audio.playRecipe(LAYERED, 'Mortar:fire', 0.7);
+
+    // gains[0..2] are master/sfx/music; one envelope per layer follows.
+    const envelopes = made.gains.slice(3);
+    expect(envelopes).toHaveLength(3);
+    const peaks = envelopes.map((g) => g.gain.setValueAtTime.mock.calls[0][0]);
+    expect(peaks).toEqual([0.5 * 0.7, 0.4 * 0.7, 0.3 * 0.7].map((v) => expect.closeTo(v, 10)));
+    for (const envelope of envelopes) {
+      expect(envelope.connect).toHaveBeenCalledWith(made.gains[1]);
+    }
+  });
+
+  it('drives a noise layer’s bandpass from that layer’s own frequencies', () => {
+    const { ctx, made, audio } = readyAudio();
+    ctx.currentTime = 5;
+
+    audio.playRecipe(LAYERED, 'Mortar:fire');
+
+    // Rejects an implementation that renders layers but hands each one the
+    // BASE recipe's sweep, which would collapse a three-band sound to one band.
+    expect(made.filters).toHaveLength(1);
+    expect(made.filters[0].frequency.setValueAtTime).toHaveBeenCalledWith(700, 5 + 0.05);
+    expect(made.filters[0].frequency.exponentialRampToValueAtTime)
+      .toHaveBeenCalledWith(350, 5 + 0.05 + 0.30);
+  });
+
+  it('treats a layer with no offset as landing on the trigger', () => {
+    const { ctx, made, audio } = readyAudio();
+    ctx.currentTime = 5;
+
+    audio.playRecipe({ ...SINGLE, layers: [{ ...SINGLE, wave: 'square' }] }, 'k');
+
+    expect(made.oscillators[1].start).toHaveBeenCalledWith(5);
+  });
+
+  it('counts the whole layered sound as ONE voice against the cap', () => {
+    const { made, audio } = readyAudio();
+
+    // Three sources each; if layers counted individually the cap would be
+    // reached after four sounds and eviction would start there.
+    for (let i = 0; i < MAX_VOICES; i++) audio.playRecipe(LAYERED, `unit${i}:fire`);
+
+    expect(made.oscillators.every((osc) => osc.stop.mock.calls.length === 1)).toBe(true);
+    expect(made.buffers.every((src) => src.stop.mock.calls.length === 1)).toBe(true);
+  });
+
+  it('stops every layer of the voice the cap evicts, not just its first source', () => {
+    const { made, audio } = readyAudio();
+
+    for (let i = 0; i < MAX_VOICES; i++) audio.playRecipe(LAYERED, `unit${i}:fire`);
+    audio.playRecipe(SINGLE, 'overflow:fire');
+
+    // The first sound's three sources are the oldest voice; all three must be
+    // stopped early, or an evicted layer keeps sounding past its eviction.
+    expect(made.oscillators[0].stop.mock.calls.length).toBe(2);
+    expect(made.oscillators[1].stop.mock.calls.length).toBe(2);
+    expect(made.buffers[0].stop.mock.calls.length).toBe(2);
+    // The second sound is still untouched.
+    expect(made.oscillators[2].stop.mock.calls.length).toBe(1);
+  });
+
+  it('takes ONE dedupe slot for the whole sound, not one per layer', () => {
+    const { ctx, audio } = readyAudio();
+
+    audio.playRecipe(LAYERED, 'Mortar:fire');
+    audio.playRecipe(LAYERED, 'Mortar:fire');
+
+    // The repeat is suppressed entirely: still three sources, not six. A
+    // per-layer dedupe would instead let the repeat's later layers through,
+    // because each layer would carry its own key.
+    expect(ctx.createOscillator).toHaveBeenCalledTimes(2);
+    expect(ctx.createBufferSource).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let its own layers dedupe each other away', () => {
+    const { ctx, audio } = readyAudio();
+
+    // Three layers that are byte-identical apart from their offsets. Keyed per
+    // layer they would collapse to one; keyed per sound all three must sound.
+    audio.playRecipe({
+      ...SINGLE,
+      layers: [{ ...SINGLE, offset: 0.01 }, { ...SINGLE, offset: 0.02 }],
+    }, 'k');
+
+    expect(ctx.createOscillator).toHaveBeenCalledTimes(3);
+  });
+
+  it('holds the voice slot until the last layer’s tail, not the base layer’s', () => {
+    const { ctx, made, audio } = readyAudio();
+
+    for (let i = 0; i < MAX_VOICES; i++) audio.playRecipe(LAYERED, `unit${i}:fire`);
+    // Past the 0.05s base layer but well inside the 0.35s tail. The voices are
+    // still sounding, so the cap must still evict rather than find free room.
+    ctx.currentTime = 0.1;
+    audio.playRecipe(SINGLE, 'overflow:fire');
+
+    expect(made.oscillators[0].stop.mock.calls.length).toBe(2);
+  });
+
+  it('releases the voice slot once even the last layer has finished', () => {
+    const { ctx, made, audio } = readyAudio();
+
+    for (let i = 0; i < MAX_VOICES; i++) audio.playRecipe(LAYERED, `unit${i}:fire`);
+    ctx.currentTime = 0.4; // past 0.05 + 0.30
+    audio.playRecipe(SINGLE, 'later:fire');
+
+    expect(made.oscillators[0].stop.mock.calls.length).toBe(1);
+  });
+
+  it('leaves a recipe with no layers rendering exactly as before', () => {
+    const { ctx, made, audio } = readyAudio();
+    ctx.currentTime = 5;
+
+    audio.playRecipe(SINGLE, 'Sniper:fire');
+
+    expect(ctx.createOscillator).toHaveBeenCalledOnce();
+    expect(ctx.createBufferSource).not.toHaveBeenCalled();
+    expect(made.gains).toHaveLength(4); // master, sfx, music, one envelope
+    expect(made.oscillators[0].start).toHaveBeenCalledWith(5);
+    expect(made.oscillators[0].stop).toHaveBeenCalledWith(5 + SINGLE.duration);
+    expect(made.gains[3].gain.setValueAtTime).toHaveBeenCalledWith(SINGLE.gain, 5);
+    expect(made.gains[3].connect).toHaveBeenCalledWith(made.gains[1]);
+  });
+
+  it('treats an empty layers array as a plain one-source recipe', () => {
+    const { ctx, made, audio } = readyAudio();
+
+    audio.playRecipe({ ...SINGLE, layers: [] }, 'k');
+
+    expect(ctx.createOscillator).toHaveBeenCalledOnce();
+    expect(made.gains).toHaveLength(4);
+  });
+});
+
 describe('AudioManager when the AudioContext cannot be constructed', () => {
   // Simulates Tor Browser, dom.webaudio.enabled=false, fingerprint-blocking
   // extensions, or any other environment where `new AudioContext()` throws.

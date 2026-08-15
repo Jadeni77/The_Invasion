@@ -1,4 +1,4 @@
-import { SFX } from './SfxLibrary.js';
+import { SFX, recipeLayers } from './SfxLibrary.js';
 import { MAX_DURATION } from './UnitVoices.js';
 
 /** Converts a 0..100 slider value to gain using a perceptual (squared) curve. */
@@ -34,7 +34,9 @@ export class AudioManager {
     // re-logging) a doomed AudioContext on every subsequent init() call.
     this._unavailable = false;
     this.lastPlayedAt = new Map(); // dedupe key -> AudioContext time
-    this.activeVoices = [];        // { source, endTime }, oldest first
+    // One entry per SOUND, oldest first - a layered recipe contributes a
+    // single entry holding all of its sources, not one entry per layer.
+    this.activeVoices = [];        // { sources, endTime }
     this.samples = new Map(); // unit name -> AudioBuffer
   }
 
@@ -116,10 +118,14 @@ export class AudioManager {
     this.activeVoices = this.activeVoices.filter((voice) => voice.endTime > now);
     if (this.activeVoices.length >= MAX_VOICES) {
       const oldest = this.activeVoices.shift();
-      try {
-        oldest.source.stop(now);
-      } catch {
-        // Already stopped; nothing to do.
+      // Every source of the evicted sound, or a layered voice would keep
+      // sounding through the layers eviction forgot about.
+      for (const source of oldest.sources) {
+        try {
+          source.stop(now);
+        } catch {
+          // Already stopped; nothing to do.
+        }
       }
     }
 
@@ -133,6 +139,14 @@ export class AudioManager {
    * plays once - six splash kills would otherwise start six identical sounds whose
    * amplitudes sum to six times the intended level, which clips. And no more than
    * MAX_VOICES sound at once; beyond that the oldest is stopped early.
+   *
+   * A layered recipe (see SfxLibrary's header) renders one source per layer but
+   * is ONE sound to both limits: reserveVoiceSlot is called once, before any
+   * layer is built, and all the layers land in a single activeVoices entry.
+   * Charging per layer instead would triple a three-layer sound's voice
+   * pressure, and would break dedupe outright, since each layer would carry its
+   * own key and so could never collapse against the repeat it is meant to
+   * suppress.
    */
   playRecipe(recipe, dedupeKey, mixGain = 1) {
     if (!recipe || !this.ctx) return;
@@ -140,23 +154,40 @@ export class AudioManager {
     const now = this.ctx.currentTime;
     if (!this.reserveVoiceSlot(dedupeKey, now)) return;
 
-    const end = now + recipe.duration;
+    const layers = recipeLayers(recipe);
+    const sources = layers.map((layer) => this.startLayer(layer, now, mixGain));
+    // The slot is held until the last layer to FINISH, which is not
+    // necessarily the last one declared.
+    const endTime = Math.max(...layers.map((layer) => now + layer.offset + layer.duration));
+
+    this.activeVoices.push({ sources, endTime });
+  }
+
+  /**
+   * Builds and schedules one layer, returning the node to stop if the voice is
+   * evicted. Each layer gets its own envelope, so layers can decay at their
+   * own rates - the point of the crack/body/tail split - and its own start
+   * time, so `offset` actually places it in the sound.
+   */
+  startLayer(layer, triggerTime, mixGain) {
+    const start = triggerTime + layer.offset;
+    const end = start + layer.duration;
 
     const envelope = this.ctx.createGain();
     envelope.connect(this.sfxGain);
-    envelope.gain.setValueAtTime(Math.max(0.0001, recipe.gain * mixGain), now);
+    envelope.gain.setValueAtTime(Math.max(0.0001, layer.gain * mixGain), start);
     // Exponential fade to near-silence; exponentialRamp cannot reach exactly 0.
     envelope.gain.exponentialRampToValueAtTime(0.0001, end);
 
-    const { source, output } = recipe.noise
-      ? this.createNoiseSource(recipe, now, end)
-      : this.createToneSource(recipe, now, end);
+    const { source, output } = layer.noise
+      ? this.createNoiseSource(layer, start, end)
+      : this.createToneSource(layer, start, end);
 
     output.connect(envelope);
-    source.start(now);
+    source.start(start);
     source.stop(end);
 
-    this.activeVoices.push({ source, endTime: end });
+    return source;
   }
 
   /**
@@ -235,7 +266,7 @@ export class AudioManager {
     source.start(now);
     source.stop(end);
 
-    this.activeVoices.push({ source, endTime: end });
+    this.activeVoices.push({ sources: [source], endTime: end });
   }
 
   /**
