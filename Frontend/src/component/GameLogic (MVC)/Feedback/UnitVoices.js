@@ -73,7 +73,7 @@ function clamp(value, min, max) {
  * 'death-defender' key), so the parameter was never reached from
  * FeedbackManager and had become dead, misleading API surface.
  */
-export function resolveVoice(unitName, variant, signature = UNIT_VOICES[unitName]) {
+export function resolveVoice(soundKey, variant, signature = UNIT_VOICES[soundKey]) {
   const scale = VARIANTS[variant] ?? VARIANTS.fire;
 
   if (!signature) {

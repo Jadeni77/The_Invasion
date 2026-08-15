@@ -1,6 +1,32 @@
 import { describe, it, expect } from 'vitest';
 import { soundKeyFor, SOUND_KEYS, mixGainFor, MIX_TIERS } from '../SoundGroups.js';
 import { SFX } from '../SfxLibrary.js';
+import * as DefenderUnits from '../../DefenderUnits.js';
+import * as EnemyUnits from '../../EnemyUnits.js';
+
+/** Base classes are abstract - they never reach a feedback event on their own. */
+const BASE_CLASSES = ['DefenderUnit', 'Enemy'];
+
+/** True only for `class` declarations, not plain exported functions. */
+function isClass(value) {
+  return typeof value === 'function' && /^class\s/.test(Function.prototype.toString.call(value));
+}
+
+/**
+ * Every concrete class name exported by one unit module.
+ *
+ * The isClass filter matters: DefenderUnits.js also exports the plain function
+ * isConsumableSpell, which a bare `typeof === 'function'` check would count as
+ * a unit and then demand a sound key for.
+ */
+function classNamesFrom(unitModule) {
+  return Object.keys(unitModule)
+    .filter((name) => isClass(unitModule[name]))
+    .filter((name) => !BASE_CLASSES.includes(name));
+}
+
+const DEFENDER_CLASS_NAMES = classNamesFrom(DefenderUnits);
+const ALL_UNIT_CLASS_NAMES = [...DEFENDER_CLASS_NAMES, ...classNamesFrom(EnemyUnits)];
 
 describe('archetype grouping', () => {
   it('gives a Shooter and a Skeleton the same firing sound', () => {
@@ -94,6 +120,41 @@ describe('resolution safety', () => {
   it('every hit resolves to the shared hit sound', () => {
     expect(soundKeyFor('TankEnemy', 'hit')).toBe('hit');
     expect(soundKeyFor('TitanEnemy', 'hit')).toBe('hit');
+  });
+});
+
+describe('soundKeyFor covers every real unit class', () => {
+  // 'resolution safety' above only checks a hand-picked sample of names, and
+  // 'every resolved key is a declared key' would stay green even if a whole
+  // new class were added and never wired into FIRE_GROUPS/DEFENDERS/etc,
+  // because soundKeyFor's default branches always return SOME valid key.
+  // These two tests instead derive the roster from the real class exports, so
+  // adding a unit class and forgetting to register it here is caught by the
+  // suite rather than by a player hearing the wrong sound.
+
+  it('resolves every concrete unit class to a declared sound key for all three variants', () => {
+    // Rejects: soundKeyFor returning undefined/null, or returning a typo'd
+    // string absent from SOUND_KEYS, for any real class - not just the
+    // hand-picked sample above. It would NOT catch a defender class missing
+    // from DEFENDERS: the default death branch still returns 'death-medium',
+    // which IS a declared key, so this assertion alone is satisfied either
+    // way. That gap is exactly what the next test closes.
+    for (const name of ALL_UNIT_CLASS_NAMES) {
+      for (const variant of ['fire', 'hit', 'death']) {
+        expect(SOUND_KEYS, `${name}/${variant}`).toContain(soundKeyFor(name, variant));
+      }
+    }
+  });
+
+  it('resolves every DefenderUnits class to the shared death-defender sound on death', () => {
+    // Rejects: a new defender class (e.g. a hypothetical LaserDefender) added
+    // to DefenderUnits.js without a matching entry in SoundGroups.DEFENDERS.
+    // Without that registration, soundKeyFor's default branch treats the name
+    // as an unrecognised enemy and returns 'death-medium' instead of
+    // 'death-defender' - a valid key, so the previous test would not notice,
+    // but this assertion checks the SPECIFIC expected key and would fail.
+    const wrong = DEFENDER_CLASS_NAMES.filter((name) => soundKeyFor(name, 'death') !== 'death-defender');
+    expect(wrong, `defenders not resolving to death-defender: ${wrong.join(', ')}`).toEqual([]);
   });
 });
 

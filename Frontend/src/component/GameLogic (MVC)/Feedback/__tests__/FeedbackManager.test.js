@@ -3,7 +3,6 @@ import { FeedbackBus } from '../FeedbackBus.js';
 import { FeedbackManager } from '../FeedbackManager.js';
 import { DEFAULT_SETTINGS } from '../SettingsStore.js';
 import { resolveVoice, UNIT_VOICES } from '../UnitVoices.js';
-import { SFX } from '../SfxLibrary.js';
 import { SAMPLE_VARIANTS } from '../UnitSamples.js';
 
 describe('FeedbackManager', () => {
@@ -356,6 +355,7 @@ describe('sample-or-synth routing', () => {
     bus.emit('projectile:fired', { defenderType: 'RangeEnemy' });
 
     const keys = audio.playRecipe.mock.calls.map((call) => call[1]);
+    expect(keys[0]).toBe('projectile:fire');
     expect(new Set(keys).size).toBe(1);
   });
 

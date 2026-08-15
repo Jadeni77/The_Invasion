@@ -2,27 +2,24 @@ import { describe, it, expect } from 'vitest';
 import { Mortar } from '../../DefenderUnits.js';
 import { UNIT_VOICES, resolveVoice } from '../UnitVoices.js';
 import { SFX } from '../SfxLibrary.js';
-import { soundKeyFor } from '../SoundGroups.js';
-
-/**
- * Every sound key soundKeyFor can resolve a unit to (SoundGroups.SOUND_KEYS
- * minus the game-event keys served by SFX rather than the voice table).
- */
-const UNIT_SOUND_KEYS = [
-  'projectile', 'artillery', 'mortar', 'sniper', 'magic', 'fire', 'heal',
-  'melee', 'summon', 'hit', 'death-small', 'death-medium', 'death-defender',
-  'titan', 'boss',
-];
+import { soundKeyFor, SOUND_KEYS } from '../SoundGroups.js';
 
 describe('voice coverage', () => {
-  it('every unit sound key has a voice', () => {
-    const missing = UNIT_SOUND_KEYS.filter((key) => !UNIT_VOICES[key]);
-    expect(missing, `keys without a voice: ${missing.join(', ')}`).toEqual([]);
+  it('has exactly one voice per declared sound key, no more and no less', () => {
+    // Two-directional check against the real SOUND_KEYS export, not a
+    // hand-copied literal: a SOUND_KEYS entry missing from UNIT_VOICES would
+    // silently play the generic synth fallback in game (e.g. a Task-3 key
+    // added to SOUND_KEYS without a matching voice); a UNIT_VOICES entry
+    // absent from SOUND_KEYS - e.g. a typo'd key like 'death-mediumm' - would
+    // sit there dead, reachable by nothing. A hand-copied duplicate list
+    // (this test's previous form) could drift from SOUND_KEYS in either
+    // direction without the suite noticing either problem.
+    expect(Object.keys(UNIT_VOICES).sort()).toEqual([...SOUND_KEYS].sort());
   });
 
   it('game-event sounds are served by SFX, not the voice table', () => {
-    for (const key of ['energy', 'base-damaged', 'won', 'lost']) {
-      expect(UNIT_VOICES).not.toHaveProperty(key);
+    for (const id of Object.keys(SFX)) {
+      expect(UNIT_VOICES).not.toHaveProperty(id);
     }
   });
 });
@@ -135,20 +132,22 @@ describe('resolveVoice has no caller-supplied fallback override', () => {
   // 'defenders share one death sound'), not via an override at this layer.
   // resolveVoice itself now has exactly one generic fallback per variant,
   // with no way for a caller to redirect it.
-  it('gives the same generic fallback for both a defender-shaped and an enemy-shaped unknown name', () => {
-    expect(resolveVoice('NoSuchDefender', 'death')).toEqual(SFX.enemyDied);
-    expect(resolveVoice('NoSuchEnemy', 'death')).toEqual(SFX.enemyDied);
-  });
-
+  //
+  // Two tests that used to sit here were removed on review: one asserted the
+  // same generic-fallback fact already covered by 'falls back to a generic
+  // recipe for an unknown unit' above (line 100-104); the other compared
+  // resolveVoice('sniper', 'death', undefined, X) to resolveVoice('sniper',
+  // 'death') using identical first three arguments on both sides, so it could
+  // not fail under any implementation, including one that fully restored
+  // fallbackRecipe. Only a test that can fail earns its place.
   it('ignores a stray extra argument rather than reviving the removed override', () => {
+    // Rejects: an implementation that reads a 4th parameter back in (e.g. if
+    // someone reintroduces `fallbackRecipe` to fix a future bug without
+    // re-checking whether it is still needed). If resolveVoice honoured a 4th
+    // argument again, this would return SFX.defenderDied instead of the
+    // generic SFX.enemyDied and the test would fail.
     expect(resolveVoice('NoSuchDefender', 'death', undefined, SFX.defenderDied)).toEqual(
       SFX.enemyDied,
-    );
-  });
-
-  it('a known unit is unaffected by a stray extra argument, since it never needs a fallback', () => {
-    expect(resolveVoice('sniper', 'death', undefined, SFX.defenderDied)).toEqual(
-      resolveVoice('sniper', 'death'),
     );
   });
 });
