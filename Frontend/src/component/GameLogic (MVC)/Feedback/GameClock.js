@@ -5,7 +5,14 @@
  * during hit-stop, so wall-clock time would keep running and produce a burst
  * of waves on resume.
  */
-const MAX_DELTA_MS = 1000;
+/**
+ * The longest a single frame is allowed to count for.
+ *
+ * Exported because animation has to clamp identically - see
+ * Animation/FrameTime.js. Two clamping policies would mean a tab restored after
+ * a minute away resumes its sprites and its cooldowns at different points.
+ */
+export const MAX_DELTA_MS = 1000;
 
 export class GameClock {
   constructor() {

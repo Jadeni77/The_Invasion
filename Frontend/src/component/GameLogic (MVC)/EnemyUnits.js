@@ -15,33 +15,11 @@ TODO:
 import {DrawNegativeEffect} from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
 import { isConsumableSpell } from "./DefenderUnits.js";
-
-/**
- * Frames a ranged enemy holds its attack animation after firing.
- *
- * The animation is started by the shot itself (CombatManager) and released by
- * this countdown, because neither end can be done in one place: the flag has
- * to survive past the frame it was set on - GameEngine runs enemy.update()
- * BEFORE updateEnemyCombat, so clearing it in the same frame it was set means
- * determineAnimationState never sees it and the swing never renders - and it
- * has to expire on its own, or it latches on until the target leaves range and
- * the animation runs continuously again, which is the bug this replaces.
- *
- * Must stay comfortably below the enemy's firing cadence or the lock is
- * renewed before it expires and the latch comes back. 20 frames is ~333ms at
- * 60fps, against a Skeleton Shooter's 833ms cadence (attackRate 50), which
- * shows the front of its 10-frame/10fps attack sheet and still leaves ~30
- * frames of the cooldown visibly not attacking, so each shot reads as a
- * separate swing.
- *
- * ASSUMES 60fps. This is counted in frames while the cooldown canAttack
- * enforces is wall-clock (attackRate * 1000 / 60 ms), so the margin between
- * the two shrinks as frame time grows: at roughly 24fps or below, 20 frames
- * outlasts the 833ms cooldown and the animation latches on again. If the game
- * ever has to hold up at low frame rates, this wants to become a duration in
- * milliseconds rather than a frame count.
- */
-export const ATTACK_ANIMATION_LOCK_FRAMES = 20;
+import {
+  attackAnimationDurationMs,
+  frameDurationMs,
+} from "./Animation/AttackPlayback.js";
+import { frameDeltaMs } from "./Animation/FrameTime.js";
 
 export class Enemy {
   constructor(x, y, typeData = {}) {
@@ -67,10 +45,10 @@ export class Enemy {
     this.attackRate = typeData.attackRate || 60; // frames per attack
     this.attackCountdown = this.attackRate;
     this.isAttacking = false; // if entity is engage in attack
-    // Frames left to hold the attack animation after a shot; see
-    // ATTACK_ANIMATION_LOCK_FRAMES. Only ranged enemies use it - a melee
-    // enemy's swing is driven by its own damage tick in updateBehavior.
-    this.attackAnimationLock = 0;
+    // Milliseconds left of the attack animation a shot started; see
+    // beginAttackAnimation. Only ranged enemies use it - a melee enemy's swing
+    // is driven by its own damage tick in updateBehavior.
+    this.attackAnimationRemainingMs = 0;
 
     this.isRanged = typeData.isRanged || false; //same as useProjectile check
     this.lastAttackTime = 0;
@@ -142,7 +120,15 @@ export class Enemy {
     }
   }
 
-  updateAnimation(deltaTime) {
+  /**
+   * Advances the current sheet by the real time the frame covered.
+   *
+   * Defaults to the frame delta GameEngine published rather than to a nominal
+   * 60fps frame: the game loop is uncapped requestAnimationFrame, so on a 120Hz
+   * display a nominal frame is twice the time that actually passed and every
+   * sheet played at double speed against a real-time firing cadence.
+   */
+  updateAnimation(deltaMs = frameDeltaMs()) {
     if (!this.animationConfig || !this.animationFrames) {
       return;
     }
@@ -157,27 +143,84 @@ export class Enemy {
       console.log(`Starting death animation: ${config.frameCount} frames at ${config.fps} fps = ${config.frameCount/config.fps} seconds`);
     }
 
-    this.animationTimer += deltaTime;
-    const frameDuration = 1000 / config.fps;
+    // The attack sheet is timed against the firing cadence rather than its own
+    // fps, so it always completes one pass per attack; see AttackPlayback.js.
+    const frameDuration = frameDurationMs(this.currentAnimation, config, this.attackCadenceMs());
+    if (!(frameDuration > 0)) {
+      return;
+    }
 
-    if (this.animationTimer >= frameDuration) {
-      this.animationTimer -= frameDuration; // Use subtraction instead of reset to maintain timing
+    this.animationTimer += deltaMs;
+
+    // A loop rather than a single step: a compressed sheet can hold a frame for
+    // less than one game frame, and a single step per update would then run it
+    // at the frame rate instead of at the speed asked for.
+    while (this.animationTimer >= frameDuration) {
+      this.animationTimer -= frameDuration; // Subtract rather than reset, to keep timing
       this.animationFrame++;
 
-      if (this.animationFrame >= config.frameCount) {
-        if (config.loop !== false) {
-          this.animationFrame = 0;
-        } else {
-          this.animationFrame = config.frameCount - 1;
+      if (this.animationFrame < config.frameCount) continue;
 
-          // Mark death animation as complete
-          if (this.currentAnimation === 'death') {
-            console.log(`${this.name} death animation complete at frame ${this.animationFrame}`);
-            this.deathAnimationComplete = true;
-          }
+      if (this.currentAnimation === 'attack' && this.attackAnimationRemainingMs > 0) {
+        // A swing a shot started: one full pass, ended here rather than by the
+        // countdown, so it finishes on the frame it runs out of frames. Holding
+        // the last frame keeps determineAnimationState free to pick the walk on
+        // the next tick without the swing flashing back to its first frame.
+        // runDownAttackAnimation stays as the backstop for an enemy whose
+        // sprites never loaded and so has no sheet to run out of.
+        this.animationFrame = config.frameCount - 1;
+        this.animationTimer = 0;
+        this.attackAnimationRemainingMs = 0;
+        this.isAttacking = false;
+        break;
+      }
+
+      if (config.loop !== false) {
+        // Melee enemies loop: their swing is restarted by the damage tick in
+        // updateBehavior for as long as they stay in contact.
+        this.animationFrame = 0;
+      } else {
+        this.animationFrame = config.frameCount - 1;
+
+        // Mark death animation as complete
+        if (this.currentAnimation === 'death') {
+          console.log(`${this.name} death animation complete at frame ${this.animationFrame}`);
+          this.deathAnimationComplete = true;
         }
+        this.animationTimer = 0;
+        break;
       }
     }
+  }
+
+  /**
+   * The gap between two attacks, in milliseconds.
+   *
+   * Mirrors canAttack's cooldown deliberately: the attack animation is timed
+   * against this, and if the two ever disagree the animation drifts away from
+   * the shot it is supposed to depict.
+   */
+  attackCadenceMs() {
+    return (this.attackRate * 1000) / 60;
+  }
+
+  /**
+   * Restarts the attack sheet for a shot that is leaving now, timed to fit
+   * inside the firing cadence.
+   *
+   * Called by CombatManager at the moment the projectile is created, so the
+   * swing and the shot share one clock. It does NOT set isAttacking: the caller
+   * owns that flag, and keeping the two separate is what lets a melee enemy -
+   * which holds isAttacking for as long as it is in contact - stay out of this
+   * countdown entirely.
+   */
+  beginAttackAnimation() {
+    this.animationFrame = 0;
+    this.animationTimer = 0;
+    this.attackAnimationRemainingMs = attackAnimationDurationMs(
+      this.animationConfig?.attack,
+      this.attackCadenceMs(),
+    ) ?? 0;
   }
 
   canAttack(currentTime) {
@@ -204,11 +247,11 @@ export class Enemy {
         this.setAnimation('death');
       }
       // Update animation but don't do anything else
-      this.updateAnimation(16);
+      this.updateAnimation();
       return;
     }
 
-    this.runDownAttackAnimationLock();
+    this.runDownAttackAnimation();
 
     this.updateBehavior(defenderUnits);
 
@@ -218,31 +261,41 @@ export class Enemy {
     this.determineAnimationState();
 
     // Update animation
-    this.updateAnimation(16);
+    this.updateAnimation();
 
     // Handle movement
     this.handleMovement();
   }
 
   /**
-   * Runs down the attack-animation lock a shot started, and drops out of the
-   * attack animation when it expires.
+   * Runs down the attack animation a shot started, and drops out of the attack
+   * state when the sheet has finished its one pass.
    *
-   * Lives here rather than in RangeEnemy because CombatManager sets the lock
-   * on ANY enemy taking its ranged branch - it keys on isRanged, and MageEnemy
-   * is kept out of that branch only by its canAttack() override. A lock that
-   * can be set by a base-class rule has to be released by one too, or the
-   * next ranged enemy that does not extend RangeEnemy latches its attack
-   * animation on forever.
+   * The swing has to end on its own, or it latches on until the target leaves
+   * range and the animation runs continuously - and it has to survive past the
+   * frame it was started on, because GameEngine runs enemy.update() BEFORE
+   * updateEnemyCombat, so anything cleared in the same frame it was set would
+   * never be seen by determineAnimationState and the swing would never render.
+   * Counting the sheet's own duration down satisfies both, and unlike the fixed
+   * frame lock it replaces, it lasts exactly as long as there are frames to
+   * show.
    *
-   * A no-op for melee enemies: nothing sets their lock, and their swing is
-   * driven by the damage tick in updateBehavior instead.
+   * Lives here rather than in RangeEnemy because CombatManager starts the
+   * animation on ANY enemy taking its ranged branch - it keys on isRanged, and
+   * MageEnemy is kept out of that branch only by its canAttack() override.
+   * Anything a base-class rule can start, a base-class rule has to be able to
+   * end, or the next ranged enemy that does not extend RangeEnemy latches its
+   * attack animation on forever.
+   *
+   * A no-op for melee enemies: nothing starts their countdown, and their swing
+   * is driven by the damage tick in updateBehavior instead.
    */
-  runDownAttackAnimationLock() {
-    if (this.attackAnimationLock <= 0) return;
+  runDownAttackAnimation(deltaMs = frameDeltaMs()) {
+    if (this.attackAnimationRemainingMs <= 0) return;
 
-    this.attackAnimationLock--;
-    if (this.attackAnimationLock === 0) {
+    this.attackAnimationRemainingMs -= deltaMs;
+    if (this.attackAnimationRemainingMs <= 0) {
+      this.attackAnimationRemainingMs = 0;
       this.isAttacking = false;
     }
   }
@@ -666,12 +719,12 @@ export class RangeEnemy extends Enemy {
       // Stop to shoot, but let CombatManager decide when a shot actually happens -
       // it owns the real cooldown. Setting isAttacking here made the animation play
       // continuously while a defender was in range; the swing is started by the
-      // shot and ended by the lock Enemy.runDownAttackAnimationLock counts down.
+      // shot and ended by Enemy.runDownAttackAnimation counting the sheet down.
       this.isMoving = false;
     } else {
       this.isMoving = true;
       this.isAttacking = false;
-      this.attackAnimationLock = 0;
+      this.attackAnimationRemainingMs = 0;
     }
   }
 

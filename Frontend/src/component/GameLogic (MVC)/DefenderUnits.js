@@ -3,6 +3,8 @@
 
 import { DrawNegativeEffect } from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
+import { frameDurationMs } from "./Animation/AttackPlayback.js";
+import { frameDeltaMs } from "./Animation/FrameTime.js";
 
 export class DefenderUnit {
   constructor(x, y, cardData = {}) {
@@ -50,7 +52,13 @@ export class DefenderUnit {
     // ADD THESE: Animation properties
     this.currentAnimation = "idle";
     this.animationFrame = 0;
-    this.frameCounter = 0;
+    // Real elapsed milliseconds accumulated toward the next animation frame -
+    // real because a nominal 60fps frame is wrong on any other refresh rate;
+    // see updateAnimation. This used to be a game-frame counter compared
+    // against Math.floor(60 / config.fps), whose truncation quantised every fps
+    // that does not divide 60 - a Grenadier's 11fps sheet ran ~9% fast, a
+    // Healer's 18fps sheet ~11%.
+    this.animationTimer = 0;
     this.animationFrames = null;
     this.animationConfig = null;
 
@@ -71,7 +79,7 @@ export class DefenderUnit {
     if (this.currentAnimation !== animationName) {
       this.currentAnimation = animationName;
       this.animationFrame = 0;
-      this.frameCounter = 0;
+      this.animationTimer = 0;
 
       if (animationName === "death") {
         this.isPlayingDeathAnimation = true;
@@ -88,8 +96,15 @@ export class DefenderUnit {
     }
   }
 
-  // ADD THIS: Animation frame updates
-  updateAnimation() {
+  /**
+   * Advances the current sheet by the real time the frame covered.
+   *
+   * Defaults to the frame delta GameEngine published rather than to a nominal
+   * 60fps frame: the game loop is uncapped requestAnimationFrame, so on a 120Hz
+   * display a nominal frame is twice the time that actually passed and every
+   * sheet played at double speed against a real-time firing cadence.
+   */
+  updateAnimation(deltaMs = frameDeltaMs()) {
     if (!this.animationConfig || !this.animationFrames) {
       // If no animation data, mark death as complete if dead
       if (!this.isAlive && this.currentAnimation === "death") {
@@ -107,29 +122,78 @@ export class DefenderUnit {
       return;
     }
 
-    this.frameCounter++;
-    const gameFramesPerAnimFrame = Math.floor(60 / config.fps);
+    // The attack sheet is timed against the firing cadence rather than its own
+    // fps, so it always completes exactly one pass per shot; see
+    // AttackPlayback.js.
+    const frameDuration = frameDurationMs(
+      this.currentAnimation,
+      config,
+      this.attackCadenceMs(),
+    );
+    if (!(frameDuration > 0)) {
+      return;
+    }
 
-    if (this.frameCounter >= gameFramesPerAnimFrame) {
-      this.frameCounter = 0;
+    this.animationTimer += deltaMs;
+
+    // A loop rather than a single step: a compressed sheet can hold a frame for
+    // less than one game frame, and a single step per update would then run it
+    // at the frame rate instead of at the speed asked for.
+    while (this.animationTimer >= frameDuration) {
+      this.animationTimer -= frameDuration;
       this.animationFrame++;
 
-      if (this.animationFrame >= config.frameCount) {
-        if (config.loop !== false) {
-          this.animationFrame = 0;
-          // Reset attack state after attack animation completes
-          if (this.currentAnimation === "attack") {
-            this.isAttacking = false;
-          }
-        } else {
-          this.animationFrame = config.frameCount - 1;
+      if (this.animationFrame < config.frameCount) continue;
 
-          if (this.currentAnimation === "death") {
-            this.deathAnimationComplete = true;
-          }
-        }
+      if (this.currentAnimation === "attack") {
+        // One full pass per attack, then hand back to idle. Looping here is
+        // what let a unit whose own timer outlasts its sheet - the Mortar's
+        // firing timer, the Healer's heal timer - replay the swing several
+        // times for a single shot. The last frame is HELD rather than reset to
+        // zero, because update() sets the idle animation on the next tick and
+        // resetting here would flash the first frame of the swing again just
+        // as it ended.
+        this.animationFrame = config.frameCount - 1;
+        this.animationTimer = 0;
+        this.isAttacking = false;
+        break;
       }
+
+      if (config.loop !== false) {
+        this.animationFrame = 0;
+        continue;
+      }
+
+      this.animationFrame = config.frameCount - 1;
+      if (this.currentAnimation === "death") {
+        this.deathAnimationComplete = true;
+      }
+      this.animationTimer = 0;
+      break;
     }
+  }
+
+  /**
+   * The gap between two attacks, in milliseconds.
+   *
+   * Mirrors canAttack's cooldown deliberately: the attack animation is timed
+   * against this, and if the two ever disagree the animation drifts away from
+   * the shot it depicts. Units that act on a clock of their own - the Healer
+   * heals on healingRate, not fireRate - override this.
+   */
+  attackCadenceMs() {
+    return (this.fireRate * 1000) / 60;
+  }
+
+  /**
+   * Restarts the attack sheet for an attack happening now.
+   *
+   * Called at the moment the unit acts, so the swing and the shot share one
+   * clock. It does not set isAttacking; the caller owns that flag.
+   */
+  beginAttackAnimation() {
+    this.animationFrame = 0;
+    this.animationTimer = 0;
   }
 
   applyLevelUpgrades() {
@@ -212,7 +276,8 @@ export class DefenderUnit {
   attack(target, currentTime) {
     if (!this.isAlive || !target || !target.isAlive) return;
 
-    this.isAttacking = true; // ADD THIS
+    this.isAttacking = true;
+    this.beginAttackAnimation();
     target.takeDamage(this.attackDamage);
     this.lastAttackTime = currentTime;
   }
@@ -365,7 +430,12 @@ export class BasicDefender extends DefenderUnit {
       return;
     }
 
-    this.isAttacking = true; // ADD THIS
+    // Deliberately does NOT start the attack animation. For a unit with
+    // useProjectile this method is the projectile's onHit callback - it runs
+    // when the arrow LANDS, up to a second after the shot - so animating here
+    // played the swing at the wrong moment and, once the sheet was allowed to
+    // finish, replayed it a second time for a single shot. CombatManager
+    // starts the swing where the shot actually leaves.
     target.takeDamage(this.attackDamage, this.hasArmorPiercing);
     // const died = target.takeDamage(this.attackDamage, this.hasArmorPiercing);
     //
@@ -413,10 +483,18 @@ export class HealerDefender extends DefenderUnit {
     this.healingRange = 100;
     this.healingCountdown = this.healingRate;
 
-    // Animation control
-    this.healAnimationDuration = 180; // How long to play attack animation
+    // How long the healing aura (see draw) glows after a heal. It used to pin
+    // isAttacking as well, holding the attack animation for 180 frames against
+    // a 120-frame heal cadence, so the 500ms heal sheet looped instead of
+    // playing once. The sheet now ends itself; this is only the visual effect.
+    this.healAnimationDuration = 180;
     this.healAnimationTimer = 0;
     this.isHealing = false;
+  }
+
+  /** A Healer acts on its healing clock, not on fireRate (which it never uses). */
+  attackCadenceMs() {
+    return (this.healingRate * 1000) / 60;
   }
 
   applyLevelUpgrades() {
@@ -471,9 +549,7 @@ export class HealerDefender extends DefenderUnit {
 
     if (this.healAnimationTimer > 0) {
       this.healAnimationTimer--;
-      this.isAttacking = true; // Keep attack animation playing
       if (this.healAnimationTimer <= 0) {
-        this.isAttacking = false;
         this.isHealing = false;
       }
     }
@@ -586,6 +662,7 @@ export class HealerDefender extends DefenderUnit {
         this.isHealing = true;
         this.healAnimationTimer = this.healAnimationDuration;
         this.isAttacking = true;
+        this.beginAttackAnimation();
         this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
         console.log(
           `Healer performing heal - animation timer set to ${this.healAnimationDuration}`,
@@ -748,7 +825,8 @@ export class GrenadeDefender extends DefenderUnit {
   attack(target, currentTime) {
     if (!this.isAlive || !target || !target.isAlive) return;
 
-    this.isAttacking = true; // ADD THIS
+    this.isAttacking = true;
+    this.beginAttackAnimation();
 
     console.log(`Grenadier has ClusterBomb : ${this.hasClusterBomb} `);
     console.log(`Grenadier has Napalm : ${this.hasNapalm} `);
@@ -1346,7 +1424,8 @@ export class Sniper extends DefenderUnit {
   attack(target, currentTime) {
     if (!this.isAlive || !target || !target.isAlive || !this.gameEngine) return;
 
-    this.isAttacking = true; // ADD THIS
+    this.isAttacking = true;
+    this.beginAttackAnimation();
     this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
 
     console.log(
@@ -1613,10 +1692,6 @@ export class Mortar extends DefenderUnit {
     this.nextTarget = null;
     this.targetLockTime = 0;
 
-    this.isFiring = false;
-    this.fireAnimationDuration = 120; // 0.5 seconds for firing animation
-    this.fireAnimationTimer = 0;
-
     // Prevent multiple shells
     this.hasShellInFlight = false;
   }
@@ -1737,14 +1812,6 @@ export class Mortar extends DefenderUnit {
       return;
     }
 
-    if (this.fireAnimationTimer > 0) {
-      this.fireAnimationTimer--;
-      this.isFiring = true;
-      if (this.fireAnimationTimer <= 0) {
-        this.isFiring = false;
-      }
-    }
-
     // Update barrel recoil animation
     if (this.barrelRecoil > 0) {
       this.barrelRecoil -= 0.5;
@@ -1796,23 +1863,19 @@ export class Mortar extends DefenderUnit {
       this.currentTarget = null;
     }
 
-    // Animation state management - FIX: Keep attack animation playing during lock
+    // Animation state management. Gated on isAttacking like every other
+    // defender: the sheet is 3 frames at 6fps (500ms) against a six-second
+    // reload, so it plays once at its authored speed and updateAnimation hands
+    // it back to idle. It used to run off a 120-frame firing timer of its own,
+    // which replayed the 500ms sheet four times for a single shell.
+    //
+    // The dead `if (this.isAttacking && this.attackAnimationLock <= 0)` guard
+    // that used to sit below this - known issue 15, a field that was read here
+    // and assigned nowhere, so it was always undefined and the reset never ran
+    // - is gone: updateAnimation ends the swing now.
     if (this.animationFrames) {
-      if (this.isFiring) {
-        this.setAnimation("attack");
-      } else if (this.disabled) {
-        this.setAnimation("idle");
-      } else if (this.targetLockTime > 0) {
-        this.setAnimation("idle");
-      } else {
-        this.setAnimation("idle");
-      }
+      this.setAnimation(this.isAttacking && !this.disabled ? "attack" : "idle");
       this.updateAnimation();
-    }
-
-    // Reset attack animation after firing
-    if (this.isAttacking && this.attackAnimationLock <= 0) {
-      this.isAttacking = false;
     }
   }
 
@@ -1844,8 +1907,8 @@ export class Mortar extends DefenderUnit {
     );
 
     // Start firing animation
-    this.isFiring = true;
-    this.fireAnimationTimer = this.fireAnimationDuration;
+    this.isAttacking = true;
+    this.beginAttackAnimation();
 
     // Add barrel recoil effect
     this.barrelRecoil = 15;
@@ -2217,6 +2280,7 @@ export class FrostArcher extends DefenderUnit {
     if (!this.isAlive || !target || !target.isAlive || !this.gameEngine) return;
 
     this.isAttacking = true;
+    this.beginAttackAnimation();
 
     //frost projectile
     const projectile = {

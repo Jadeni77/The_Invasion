@@ -46,6 +46,7 @@ import { DrawEntities } from "./GameEngineBreakDown/Draws/DrawEntities.js";
 import { DrawUIs } from "./GameEngineBreakDown/Draws/DrawUIs.js";
 import { AnimationManager } from "./Animation/AnimationManager.js";
 import { AnimationSources } from "./Animation/AnimationSources.js";
+import { setFrameDeltaMs } from "./Animation/FrameTime.js";
 import { AssetManifest } from "../../assets/AssetManifest.js";
 import { GameLevelConfigs } from "./GameEngineBreakDown/GameLevelConfigs.js";
 import { GameClock } from "./Feedback/GameClock.js";
@@ -312,10 +313,12 @@ export class GameEngine {
     const defenderAnimations =
       await this.animationSources.getDefenderAnimations(defenderTypes);
 
-    // Load into AnimationManager
+    // Load into AnimationManager. Category is passed so that an enemy and a
+    // defender sharing a unit-type name (e.g. "Healer") don't overwrite each
+    // other's cached frames.
     for (const [enemyType, animations] of Object.entries(enemyAnimations)) {
       if (animations) {
-        await this.animationManager.loadUnitAnimation(enemyType, animations);
+        await this.animationManager.loadUnitAnimation(enemyType, animations, "enemies");
       }
     }
 
@@ -323,7 +326,7 @@ export class GameEngine {
       defenderAnimations,
     )) {
       if (animations) {
-        await this.animationManager.loadUnitAnimation(defenderType, animations);
+        await this.animationManager.loadUnitAnimation(defenderType, animations, "defenders");
       }
     }
   }
@@ -354,13 +357,13 @@ export class GameEngine {
 
     if (
       this.animationManager &&
-      this.animationManager.hasAnimation(enemyType)
+      this.animationManager.hasAnimation(enemyType, "enemies")
     ) {
       const frames = {
-        idle: this.animationManager.getFrames(enemyType, "idle"),
-        move: this.animationManager.getFrames(enemyType, "move"),
-        attack: this.animationManager.getFrames(enemyType, "attack"),
-        death: this.animationManager.getFrames(enemyType, "death"),
+        idle: this.animationManager.getFrames(enemyType, "idle", "enemies"),
+        move: this.animationManager.getFrames(enemyType, "move", "enemies"),
+        attack: this.animationManager.getFrames(enemyType, "attack", "enemies"),
+        death: this.animationManager.getFrames(enemyType, "death", "enemies"),
       };
 
       enemy.animationFrames = frames;
@@ -377,13 +380,13 @@ export class GameEngine {
   attachAnimationsToEnemy(enemy, enemyType) {
     if (
       this.animationManager &&
-      this.animationManager.hasAnimation(enemyType)
+      this.animationManager.hasAnimation(enemyType, "enemies")
     ) {
       const frames = {
-        idle: this.animationManager.getFrames(enemyType, "idle"),
-        move: this.animationManager.getFrames(enemyType, "move"),
-        attack: this.animationManager.getFrames(enemyType, "attack"),
-        death: this.animationManager.getFrames(enemyType, "death"),
+        idle: this.animationManager.getFrames(enemyType, "idle", "enemies"),
+        move: this.animationManager.getFrames(enemyType, "move", "enemies"),
+        attack: this.animationManager.getFrames(enemyType, "attack", "enemies"),
+        death: this.animationManager.getFrames(enemyType, "death", "enemies"),
       };
 
       enemy.animationFrames = frames;
@@ -516,12 +519,12 @@ export class GameEngine {
     // ADD THIS: Attach animation frames if available
     if (
       this.animationManager &&
-      this.animationManager.hasAnimation(cardData.name)
+      this.animationManager.hasAnimation(cardData.name, "defenders")
     ) {
       const frames = {
-        idle: this.animationManager.getFrames(cardData.name, "idle"),
-        attack: this.animationManager.getFrames(cardData.name, "attack"),
-        death: this.animationManager.getFrames(cardData.name, "death"),
+        idle: this.animationManager.getFrames(cardData.name, "idle", "defenders"),
+        attack: this.animationManager.getFrames(cardData.name, "attack", "defenders"),
+        death: this.animationManager.getFrames(cardData.name, "death", "defenders"),
       };
 
       newUnit.animationFrames = frames;
@@ -763,6 +766,9 @@ export class GameEngine {
     this.lastFrameTime = realNow;
 
     this.gameClock.advance(deltaMs);
+    // Sprite animation reads this instead of assuming a 60fps frame; the loop is
+    // uncapped, so on a 120Hz display "one frame" is half of one.
+    setFrameDeltaMs(deltaMs);
     this.juiceManager?.update(deltaMs);
     // Hit-stop freezes gameplay for a few frames while drawing continues.
     if (this.juiceManager?.isFrozen()) return;

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Sniper, Mortar, GrenadeDefender, HealerDefender, FrostArcher } from '../DefenderUnits.js';
+import { Sniper, Mortar, GrenadeDefender, HealerDefender, FrostArcher, DefenderUnit } from '../DefenderUnits.js';
+import * as DefenderModule from '../DefenderUnits.js';
+import { CombatManager } from '../GameEngineBreakDown/InGameManagerHandlers/CombatManager.js';
 
 /**
  * Task 3 (per-unit audio, fix wave): before this change, only BasicDefender
@@ -208,4 +210,92 @@ describe('enemy:hit carries the real damage dealt, not the base stat', () => {
       expect.objectContaining({ damage: expectedDamage }),
     );
   });
+});
+
+/**
+ * Playtest fix, bug 1: the class list is DERIVED, not written out.
+ *
+ * The suite above names five defenders by hand. A hand-written list is exactly
+ * how a silent unit survives: add an eleventh defender, forget to add it here,
+ * and the gap is invisible. This block enumerates the module's own exports
+ * instead, so any future ranged defender is covered the moment it is exported.
+ *
+ * It also drives the real CombatManager rather than calling attack() directly,
+ * because "does the unit emit" and "does the path the game actually takes
+ * reach the emit" are different questions - CombatManager's
+ * `isRanged && useProjectile` branch is what made them different in the first
+ * place, and only BasicDefender sets useProjectile.
+ */
+describe('every ranged defender the module exports emits when it fires', () => {
+  /** Every concrete DefenderUnit subclass exported by DefenderUnits.js. */
+  const exportedDefenderClasses = Object.entries(DefenderModule).filter(
+    ([, exported]) =>
+      typeof exported === 'function' && exported.prototype instanceof DefenderUnit,
+  );
+
+  const rangedDefenderClasses = exportedDefenderClasses.filter(
+    ([, DefenderClass]) => new DefenderClass(0, 0, CARD).isRanged,
+  );
+
+  it('derives a non-trivial class list from the exports', () => {
+    // Guards the derivation itself: a filter that silently matched nothing
+    // would make every it.each below vacuous, which is the failure mode a
+    // derived list is supposed to remove.
+    const names = rangedDefenderClasses.map(([name]) => name);
+    expect(names).toEqual(
+      expect.arrayContaining(['BasicDefender', 'Sniper', 'Mortar', 'GrenadeDefender', 'FrostArcher']),
+    );
+  });
+
+  function createEngine() {
+    return {
+      emitFeedback: vi.fn(),
+      addDefenderExplosion: vi.fn(),
+      projectiles: [],
+      enemyProjectiles: [],
+      explosions: [],
+      enemies: [],
+      canvasWidth: 800,
+      gameOver: false,
+    };
+  }
+
+  /**
+   * Places a target at a distance every unit accepts: halfway between its
+   * minimum range (Mortar refuses anything closer than minimumRange) and its
+   * maximum. Derived from the unit's own stats so it stays correct if a unit
+   * is rebalanced.
+   */
+  function targetInRangeOf(defender) {
+    const distance = ((defender.minimumRange || 0) + defender.range) / 2;
+    const centerX = defender.x + defender.width / 2 + distance;
+    return {
+      x: centerX - 20, y: defender.y + defender.height / 2 - 20,
+      width: 40, height: 40, id: 'target',
+      isAlive: true, isSpawned: false, frozen: false, slowed: false,
+      health: 100, maxHealth: 100, attackDamage: 0,
+      takeDamage: vi.fn(() => false),
+    };
+  }
+
+  it.each(rangedDefenderClasses)(
+    '%s emits exactly one projectile:fired for one attack',
+    (name, DefenderClass) => {
+      const engine = createEngine();
+      const defender = new DefenderClass(0, 0, CARD);
+      defender.gameEngine = engine;
+      const target = targetInRangeOf(defender);
+      engine.enemies = [target];
+
+      const combat = new CombatManager(engine);
+      // Far past any cooldown: lastAttackTime starts at 0.
+      combat.updateDefenderCombat([defender], [target], 100000);
+
+      const fired = engine.emitFeedback.mock.calls.filter(
+        (call) => call[0] === 'projectile:fired',
+      );
+      expect(fired).toHaveLength(1);
+      expect(fired[0][1]).toEqual({ defenderType: name });
+    },
+  );
 });
