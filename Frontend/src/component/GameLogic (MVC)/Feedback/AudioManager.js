@@ -1,10 +1,20 @@
 import { SFX } from './SfxLibrary.js';
+import { MAX_DURATION } from './UnitVoices.js';
 
 /** Converts a 0..100 slider value to gain using a perceptual (squared) curve. */
 export function volumeToGain(value) {
   const clamped = Math.min(100, Math.max(0, Number(value) || 0));
   return (clamped / 100) ** 2;
 }
+
+/** The same sound key repeated inside this window plays once. */
+export const DEDUPE_WINDOW_SECONDS = 0.04;
+
+/** Maximum simultaneously sounding voices. */
+export const MAX_VOICES = 12;
+
+/** Base gain applied to every sample before its variant gainScale. */
+export const SAMPLE_BASE_GAIN = 0.7;
 
 /**
  * Owns the AudioContext and its gain graph, and renders SfxLibrary recipes.
@@ -23,6 +33,9 @@ export class AudioManager {
     // Set once construction has failed, so we don't keep retrying (and
     // re-logging) a doomed AudioContext on every subsequent init() call.
     this._unavailable = false;
+    this.lastPlayedAt = new Map(); // dedupe key -> AudioContext time
+    this.activeVoices = [];        // { source, endTime }, oldest first
+    this.samples = new Map(); // unit name -> AudioBuffer
   }
 
   /**
@@ -81,37 +94,170 @@ export class AudioManager {
     this.musicGain.gain.value = volumeToGain(musicVolume);
   }
 
-  playSfx(id) {
-    const recipe = SFX[id];
+  playSfx(id, mixGain = 1) {
+    this.playRecipe(SFX[id], id, mixGain);
+  }
+
+  /**
+   * Enforces the dedupe window and the voice cap shared by playRecipe and
+   * playSample. Returns whether the caller may proceed; when it may, the
+   * dedupe key has been recorded and room has been made in activeVoices
+   * (evicting the oldest voice early if the cap was full).
+   *
+   * Kept as one method so the two call sites can't drift: the cap and dedupe
+   * logic used to be copied verbatim in both places.
+   */
+  reserveVoiceSlot(dedupeKey, now) {
+    const lastPlayed = this.lastPlayedAt.get(dedupeKey);
+    if (lastPlayed !== undefined && now - lastPlayed < DEDUPE_WINDOW_SECONDS) return false;
+    this.lastPlayedAt.set(dedupeKey, now);
+
+    // Drop voices that have already finished before judging the cap.
+    this.activeVoices = this.activeVoices.filter((voice) => voice.endTime > now);
+    if (this.activeVoices.length >= MAX_VOICES) {
+      const oldest = this.activeVoices.shift();
+      try {
+        oldest.source.stop(now);
+      } catch {
+        // Already stopped; nothing to do.
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Plays any recipe, keyed for deduplication.
+   *
+   * Two limits keep a busy wave readable. The same key inside DEDUPE_WINDOW_SECONDS
+   * plays once - six splash kills would otherwise start six identical sounds whose
+   * amplitudes sum to six times the intended level, which clips. And no more than
+   * MAX_VOICES sound at once; beyond that the oldest is stopped early.
+   */
+  playRecipe(recipe, dedupeKey, mixGain = 1) {
     if (!recipe || !this.ctx) return;
 
     const now = this.ctx.currentTime;
+    if (!this.reserveVoiceSlot(dedupeKey, now)) return;
+
     const end = now + recipe.duration;
 
     const envelope = this.ctx.createGain();
     envelope.connect(this.sfxGain);
-    envelope.gain.setValueAtTime(recipe.gain, now);
+    envelope.gain.setValueAtTime(Math.max(0.0001, recipe.gain * mixGain), now);
     // Exponential fade to near-silence; exponentialRamp cannot reach exactly 0.
     envelope.gain.exponentialRampToValueAtTime(0.0001, end);
 
-    const source = recipe.noise
-      ? this.createNoiseSource(recipe)
+    const { source, output } = recipe.noise
+      ? this.createNoiseSource(recipe, now, end)
       : this.createToneSource(recipe, now, end);
 
+    output.connect(envelope);
+    source.start(now);
+    source.stop(end);
+
+    this.activeVoices.push({ source, endTime: end });
+  }
+
+  /**
+   * Fetches and decodes every supplied sample.
+   *
+   * Failures are isolated per file: one bad download or corrupt file leaves that
+   * unit on its synthesized voice while every other sample still loads.
+   */
+  async loadSamples(urlMap) {
+    if (!this.ctx) return;
+
+    await Promise.all(Object.entries(urlMap).map(async ([name, url]) => {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const encoded = await response.arrayBuffer();
+        this.samples.set(name, await this.ctx.decodeAudioData(encoded));
+      } catch (err) {
+        console.error(`Could not load audio sample "${name}" from ${url}:`, err);
+      }
+    }));
+  }
+
+  hasSample(name) {
+    return this.samples.has(name);
+  }
+
+  /**
+   * Plays a loaded sample, applying a variant transform.
+   *
+   * Shares the dedupe window and voice cap with playRecipe via reserveVoiceSlot
+   * - only the source node and envelope shape differ. Effective duration divides
+   * by playbackRate, because pitching a sample down lengthens it; using the raw
+   * buffer duration would cut every death sound off early. That duration is then
+   * clamped to MAX_DURATION, the same cap resolveVoice applies to synthesized
+   * recipes, so one long file can't occupy a shared voice slot for seconds.
+   *
+   * The envelope shape depends on whether this variant truncates the buffer
+   * (transform.durationScale < 1, i.e. hit): a real sample isn't tuned around
+   * the synth envelope's exponential decay from the first sample, so ramping
+   * across the whole duration would fade audible content to near-silence a
+   * quarter of the way through. Every variant except hit therefore holds the
+   * gain flat and ramps only across a short release tail at the end. hit keeps
+   * the full-length ramp because it truncates the buffer at 35% - the long fade
+   * is what masks that truncation's click.
+   */
+  playSample(name, transform, dedupeKey, mixGain = 1) {
+    const buffer = this.samples.get(name);
+    if (!buffer || !this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    if (!this.reserveVoiceSlot(dedupeKey, now)) return;
+
+    const rawDuration = (buffer.duration / transform.playbackRate) * transform.durationScale;
+    const duration = Math.min(rawDuration, MAX_DURATION);
+    const end = now + duration;
+
+    const envelope = this.ctx.createGain();
+    envelope.connect(this.sfxGain);
+    const peakGain = Math.max(0.0001, SAMPLE_BASE_GAIN * transform.gainScale * mixGain);
+    envelope.gain.setValueAtTime(peakGain, now);
+    if (transform.durationScale < 1) {
+      // Truncated (hit): exponentialRamp cannot reach exactly 0.
+      envelope.gain.exponentialRampToValueAtTime(0.0001, end);
+    } else {
+      // Full-length sample: hold the level, then release only over the tail.
+      const release = Math.min(0.03, duration * 0.2);
+      envelope.gain.setValueAtTime(peakGain, end - release);
+      envelope.gain.exponentialRampToValueAtTime(0.0001, end);
+    }
+
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    source.playbackRate.value = transform.playbackRate;
     source.connect(envelope);
     source.start(now);
     source.stop(end);
+
+    this.activeVoices.push({ source, endTime: end });
   }
 
+  /**
+   * Builds an oscillator. For a tone, the node that is started/stopped and
+   * the node that is connected onward are the same object.
+   */
   createToneSource(recipe, now, end) {
     const osc = this.ctx.createOscillator();
     osc.type = recipe.wave;
     osc.frequency.setValueAtTime(recipe.freqStart, now);
     osc.frequency.exponentialRampToValueAtTime(recipe.freqEnd, end);
-    return osc;
+    return { source: osc, output: osc };
   }
 
-  createNoiseSource(recipe) {
+  /**
+   * Builds a white-noise burst filtered through a bandpass whose center
+   * frequency sweeps recipe.freqStart -> recipe.freqEnd, so a noise unit's
+   * authored frequency curve actually shapes its timbre instead of being
+   * dead data. The buffer source is the node to start/stop; the filter is
+   * the node to connect onward, since the source's raw output is unfiltered.
+   */
+  createNoiseSource(recipe, now, end) {
     const frames = Math.floor(this.ctx.sampleRate * recipe.duration);
     const buffer = this.ctx.createBuffer(1, Math.max(1, frames), this.ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -119,6 +265,14 @@ export class AudioManager {
 
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
-    return source;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(recipe.freqStart, now);
+    filter.frequency.exponentialRampToValueAtTime(recipe.freqEnd, end);
+
+    source.connect(filter);
+
+    return { source, output: filter };
   }
 }

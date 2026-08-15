@@ -1,3 +1,7 @@
+import { resolveVoice } from './UnitVoices.js';
+import { SAMPLE_VARIANTS } from './UnitSamples.js';
+import { soundKeyFor, mixGainFor } from './SoundGroups.js';
+
 /**
  * Translates gameplay events into sound and juice.
  *
@@ -13,50 +17,77 @@ export class FeedbackManager {
     this.unsubscribers = [];
   }
 
+  /**
+   * Plays a unit's own sound, preferring a supplied sample over the synthesized
+   * voice. The decision is per unit, so samples can be adopted one at a time and
+   * every unit still makes a sound.
+   */
+  playUnitVoice(unitName, variant) {
+    const soundKey = soundKeyFor(unitName, variant);
+    const dedupeKey = `${soundKey}:${variant}`;
+    const mixGain = mixGainFor(soundKey);
+
+    if (this.audio.hasSample?.(soundKey)) {
+      this.audio.playSample(soundKey, SAMPLE_VARIANTS[variant] ?? SAMPLE_VARIANTS.fire, dedupeKey, mixGain);
+      return;
+    }
+
+    this.audio.playRecipe(resolveVoice(soundKey, variant), dedupeKey, mixGain);
+  }
+
   attach() {
     const on = (event, handler) => this.unsubscribers.push(this.bus.on(event, handler));
 
-    on('defender:placed', () => this.audio.playSfx('defenderPlaced'));
+    on('defender:placed', () => this.audio.playSfx('defenderPlaced', mixGainFor('defenderPlaced')));
 
-    on('defender:died', () => {
-      this.audio.playSfx('defenderDied');
+    on('defender:died', ({ unitType }) => {
+      this.playUnitVoice(unitType, 'death');
       this.juice.addTrauma(0.15);
     });
 
-    on('projectile:fired', () => this.audio.playSfx('projectileFired'));
+    on('projectile:fired', ({ defenderType }) => this.playUnitVoice(defenderType, 'fire'));
 
-    on('enemy:hit', ({ damage, x, y }) => {
-      this.audio.playSfx('enemyHit');
+    // The four things a player watches an enemy do. Melee uses its own variant
+    // so a strike resolves to the shared melee sound whichever enemy swung;
+    // the rest are acting sounds, which is what the fire variant means here.
+    on('enemy:fired', ({ unitType }) => this.playUnitVoice(unitType, 'fire'));
+    on('enemy:melee', ({ unitType }) => this.playUnitVoice(unitType, 'melee'));
+    on('enemy:spell', ({ unitType }) => this.playUnitVoice(unitType, 'fire'));
+    on('enemy:summon', ({ unitType }) => this.playUnitVoice(unitType, 'fire'));
+    on('enemy:heal', ({ unitType }) => this.playUnitVoice(unitType, 'fire'));
+
+    on('enemy:hit', ({ unitType, damage, x, y }) => {
+      this.playUnitVoice(unitType, 'hit');
       this.juice.addDamageNumber(x, y, damage);
     });
 
-    on('enemy:died', ({ isBoss }) => {
+    on('enemy:died', ({ unitType, isBoss }) => {
+      this.playUnitVoice(unitType, 'death');
       if (isBoss) {
-        this.audio.playSfx('bossDied');
         this.juice.addTrauma(0.6);
         this.juice.triggerHitStop(80);
       } else {
-        this.audio.playSfx('enemyDied');
         this.juice.addTrauma(0.08);
       }
     });
 
-    on('energy:collected', () => this.audio.playSfx('energyCollected'));
+    on('energy:collected', () => this.audio.playSfx('energyCollected', mixGainFor('energyCollected')));
 
-    on('deploy:rejected', () => this.audio.playSfx('deployRejected'));
+    on('deploy:rejected', () => this.audio.playSfx('deployRejected', mixGainFor('deployRejected')));
 
     on('base:damaged', () => {
-      this.audio.playSfx('baseDamaged');
+      this.audio.playSfx('baseDamaged', mixGainFor('baseDamaged'));
       this.juice.addTrauma(0.5);
       this.juice.triggerFlash('#ff0000', 250);
     });
 
     on('wave:started', ({ isBoss }) => {
-      this.audio.playSfx(isBoss ? 'bossWaveStarted' : 'waveStarted');
+      const id = isBoss ? 'bossWaveStarted' : 'waveStarted';
+      this.audio.playSfx(id, mixGainFor(id));
     });
 
-    on('level:won', () => this.audio.playSfx('levelWon'));
-    on('level:lost', () => this.audio.playSfx('levelLost'));
+    on('level:won', () => this.audio.playSfx('levelWon', mixGainFor('levelWon')));
+    on('level:lost', () => this.audio.playSfx('levelLost', mixGainFor('levelLost')));
 
     return () => this.detach();
   }

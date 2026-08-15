@@ -17,6 +17,8 @@ import { JuiceManager } from "./Feedback/JuiceManager.js";
 import { MusicPlayer } from "./Feedback/MusicPlayer.js";
 import { FeedbackManager } from "./Feedback/FeedbackManager.js";
 import { loadSettings, subscribe } from "./Feedback/SettingsStore.js";
+import { SAMPLE_URLS, unknownSampleNames } from "./Feedback/UnitSamples.js";
+import { SOUND_KEYS } from "./Feedback/SoundGroups.js";
 
 export const GameContext = createContext();
 
@@ -53,6 +55,15 @@ export const GameProvider = ({ children }) => {
         .then(() => {
           if (cancelled) return;
           feedbackRef.current.audio.setVolumes(loadSettings().audio);
+          const misnamed = unknownSampleNames(Object.keys(SAMPLE_URLS));
+          if (misnamed.length > 0) {
+            console.warn(
+              `Audio sample files match no sound key and will never play: ${misnamed.join(", ")}. ` +
+              `Name each file after a sound key, not after a unit class - the keys are ` +
+              `${SOUND_KEYS.join(", ")}. See src/assets/audio/units/README.md for the checklist.`,
+            );
+          }
+          feedbackRef.current.audio.loadSamples(SAMPLE_URLS);
           feedbackRef.current.music.start();
           // Only remove the listener once resume actually succeeds, so a
           // rejected resume() (e.g. blocked by browser policy) can retry on

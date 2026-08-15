@@ -586,6 +586,7 @@ export class HealerDefender extends DefenderUnit {
         this.isHealing = true;
         this.healAnimationTimer = this.healAnimationDuration;
         this.isAttacking = true;
+        this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
         console.log(
           `Healer performing heal - animation timer set to ${this.healAnimationDuration}`,
         );
@@ -753,6 +754,7 @@ export class GrenadeDefender extends DefenderUnit {
     console.log(`Grenadier has Napalm : ${this.hasNapalm} `);
 
     if (this.gameEngine) {
+      this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
       this.gameEngine.addDefenderExplosion(
         target.x + target.width / 2,
         target.y + target.height / 2,
@@ -1345,6 +1347,7 @@ export class Sniper extends DefenderUnit {
     if (!this.isAlive || !target || !target.isAlive || !this.gameEngine) return;
 
     this.isAttacking = true; // ADD THIS
+    this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
 
     console.log(
       `Sniper attack - Level: ${this.level}, Piercing: ${this.hasPiercingShot}, Headshot: ${this.hasHeadshot}`,
@@ -1371,6 +1374,12 @@ export class Sniper extends DefenderUnit {
     this.piercingTargets.add(target.id);
 
     const targetDied = target.takeDamage(damage, true); //always have armor piercing
+    this.gameEngine?.emitFeedback?.('enemy:hit', {
+      unitType: target.constructor.name,
+      damage,
+      x: target.x + target.width / 2,
+      y: target.y,
+    });
     if (
       targetDied &&
       !target.isSpawned &&
@@ -1826,6 +1835,7 @@ export class Mortar extends DefenderUnit {
     // Lock onto target
     this.currentTarget = actualTarget;
     this.targetLockTime = 60;
+    this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
 
     // Calculate angle for visual effect
     this.lastFireAngle = Math.atan2(
@@ -2231,6 +2241,12 @@ export class FrostArcher extends DefenderUnit {
     const extraDamage =
       this.hasPermaFrost && enemy.slowed ? this.attackDamage * 0.5 : 0;
     const died = enemy.takeDamage(this.attackDamage + extraDamage, false);
+    this.gameEngine?.emitFeedback?.('enemy:hit', {
+      unitType: enemy.constructor.name,
+      damage: this.attackDamage + extraDamage,
+      x: enemy.x + enemy.width / 2,
+      y: enemy.y,
+    });
 
     //apply slow effect
     if (!enemy.frozen) {
@@ -2503,6 +2519,7 @@ export class FireBlast extends DefenderUnit {
         }, i * 500); // Apply every 0.5 seconds
       }
     }
+    this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
     // Remove this unit after activation
     this.isAlive = false;
     this.health = 0;
@@ -2722,6 +2739,7 @@ export class IceBomb extends DefenderUnit {
         }
       }
     }
+    this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
     this.isAlive = false;
     this.health = 0;
   }

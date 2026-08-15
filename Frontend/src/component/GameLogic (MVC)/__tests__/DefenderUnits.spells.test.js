@@ -156,3 +156,45 @@ describe('healer resurrection targeting', () => {
     expect(spell.health).toBe(0);
   });
 });
+
+describe('spell detonation is audible', () => {
+  function createSpellWithEngine(SpellClass) {
+    const spell = new SpellClass(0, 0, CARD);
+    const emitted = [];
+    spell.gameEngine = {
+      emitFeedback: (event, payload) => emitted.push({ event, payload }),
+      enemies: [],
+      defenders: [],
+      explosions: [],
+      inGameScore: 0,
+      enemiesKilled: 0,
+      dropManager: { handleEnemyDeath: () => {} },
+      waveManager: { totalEnemiesKilled: 0 },
+    };
+    return { spell, emitted };
+  }
+
+  it('Fire Blast emits projectile:fired when it detonates', () => {
+    const { spell, emitted } = createSpellWithEngine(FireBlast);
+
+    spell.activate();
+
+    expect(emitted.some((e) => e.event === 'projectile:fired'
+      && e.payload.defenderType === 'FireBlast')).toBe(true);
+  });
+
+  it('Ice Bomb emits projectile:fired when it detonates', () => {
+    const { spell, emitted } = createSpellWithEngine(IceBomb);
+
+    spell.activate();
+
+    expect(emitted.some((e) => e.event === 'projectile:fired'
+      && e.payload.defenderType === 'IceBomb')).toBe(true);
+  });
+
+  it('a spell without an engine reference does not throw when activated', () => {
+    const spell = new FireBlast(0, 0, CARD);
+    spell.gameEngine = null;
+    expect(() => spell.activate()).not.toThrow();
+  });
+});

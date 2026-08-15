@@ -1,4 +1,5 @@
 import { isConsumableSpell } from '../../DefenderUnits.js';
+import { ATTACK_ANIMATION_LOCK_FRAMES } from '../../EnemyUnits.js';
 
 /**
  * This class represent the combat system of how defender and enemy interact
@@ -78,8 +79,42 @@ export class CombatManager {
                                                                       enemy.attack(target, now);
                                                                   }});
                         enemy.lastAttackTime = now;
+                        // The animation is driven from the actual shot, not from a
+                        // separate countdown - two independent timers is why the
+                        // skeleton's attack and its projectile never lined up. The
+                        // lock is what ends the swing again; Enemy.update() runs it
+                        // down via runDownAttackAnimationLock(), because a flag
+                        // cleared in this same frame would be gone before the
+                        // enemy's next determineAnimationState.
+                        enemy.isAttacking = true;
+                        enemy.attackAnimationLock = ATTACK_ANIMATION_LOCK_FRAMES;
+                        this.gameEngine.emitFeedback?.('enemy:fired', {
+                            unitType: enemy.constructor.name,
+                        });
                     } else {
                         enemy.attack(target, now);
+                        // The one call site that is unambiguously a melee strike -
+                        // the ranged branch above never reaches it, and the onHit
+                        // callback that also calls attack() is a landing arrow.
+                        // Some enemies (Necromancer, Swarm Witch) apply melee
+                        // damage through here and nowhere else, so without this
+                        // their strikes are silent.
+                        //
+                        // BossEnemy also deals damage on the base updateBehavior
+                        // countdown and so emits twice per attack cycle, far too
+                        // far apart to dedupe; see known-issue 14, which is the
+                        // authoritative account and is fixed by having one damage
+                        // path, not by anything at this site.
+                        //
+                        // stunned is checked because attack() bails out on it
+                        // before dealing damage, while this loop only filters
+                        // frozen: without the guard a stunned enemy would announce
+                        // a swing that never happened.
+                        if (!enemy.stunned) {
+                            this.gameEngine.emitFeedback?.('enemy:melee', {
+                                unitType: enemy.constructor.name,
+                            });
+                        }
                     }
                 }
             }

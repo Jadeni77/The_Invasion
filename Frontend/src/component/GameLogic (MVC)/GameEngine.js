@@ -444,6 +444,23 @@ export class GameEngine {
   }
 
   /**
+   * Sizes a unit to exactly one grid cell.
+   *
+   * Sprites declare a fixed 64px while the cell is computed from window size and
+   * ranges 40-80. At any cell under 64 a placed unit overhangs its neighbours,
+   * and isValidDeploymentPosition then refuses to place anything in an adjacent
+   * cell - so on an ordinary laptop window later levels could not be filled.
+   */
+  sizeUnitToGrid(unit) {
+    const cellSize = this.gridManager?.gridSize;
+    if (!cellSize) return unit;
+
+    unit.width = cellSize;
+    unit.height = cellSize;
+    return unit;
+  }
+
+  /**
    * Deploys a defender unit onto the game board.
    * @param {object} cardData - The data of the card being deployed.
    * @param {number} x - X coordinate for deployment.
@@ -466,7 +483,7 @@ export class GameEngine {
       return false;
     }
 
-    const tempUnit = new UnitClass(0, 0, cardData);
+    const tempUnit = this.sizeUnitToGrid(new UnitClass(0, 0, cardData));
 
     if (this.inGameEnergy < cardData.cost) {
       console.log(`Not enough energy: ${this.inGameEnergy}/${cardData.cost}`);
@@ -494,7 +511,7 @@ export class GameEngine {
       return false;
     }
 
-    const newUnit = new UnitClass(deployX, deployY, cardData);
+    const newUnit = this.sizeUnitToGrid(new UnitClass(deployX, deployY, cardData));
 
     // ADD THIS: Attach animation frames if available
     if (
@@ -660,12 +677,19 @@ export class GameEngine {
       ); // Distance from enemy center to explosion center
       if (distance <= radius) {
         const died = enemy.takeDamage(damage, false); //explosion does not ignore armor
+        this.emitFeedback('enemy:hit', {
+          unitType: enemy.constructor.name,
+          damage,
+          x: enemy.x + enemy.width / 2,
+          y: enemy.y,
+        });
         if (died && !this.gameOver) {
+          this.emitEnemyDeathFeedback(enemy);
+
           if (!enemy.isSpawned) {
             //only change game score when game still playing
             this.inGameScore += enemy.bounty;
             this.enemiesKilled++;
-            this.emitEnemyDeathFeedback(enemy);
             this.updateScoreCb(this.inGameScore);
           }
           this.dropManager.handleEnemyDeath(enemy);
@@ -721,6 +745,7 @@ export class GameEngine {
     if (!enemy || enemy.deathFeedbackEmitted) return;
     enemy.deathFeedbackEmitted = true;
     this.emitFeedback('enemy:died', {
+      unitType: enemy.constructor.name,
       isBoss: Boolean(enemy.isBoss), x: enemy.x, y: enemy.y,
     });
   }
@@ -810,7 +835,11 @@ export class GameEngine {
     if (isConsumableSpell(defender)) return;
 
     this.defendersLost++;
-    this.emitFeedback('defender:died', { x: defender.x, y: defender.y });
+    this.emitFeedback('defender:died', {
+      unitType: defender.constructor.name,
+      x: defender.x,
+      y: defender.y,
+    });
   }
 
   updateDefenders(now) {
@@ -1003,10 +1032,13 @@ export class GameEngine {
 
   handleEnemyDeath(enemy) {
     if (!this.gameOver) {
+      // Feedback is not score: a spawned mini or a self-destructing bomber
+      // awards nothing, but it is still a death the player should hear.
+      this.emitEnemyDeathFeedback(enemy);
+
       if (!enemy.isSpawned && !enemy.shouldExplode) {
         this.inGameScore += enemy.bounty;
         this.enemiesKilled++;
-        this.emitEnemyDeathFeedback(enemy);
         this.updateScoreCb(this.inGameScore);
         this.dropManager.handleEnemyDeath(enemy);
         this.waveManager.totalEnemiesKilled++;
@@ -1063,15 +1095,17 @@ export class GameEngine {
             projectile.ignoreArmor,
           );
           this.emitFeedback('enemy:hit', {
+            unitType: projectile.target.constructor.name,
             damage: projectile.damage,
             x: projectile.target.x + projectile.target.width / 2,
             y: projectile.target.y,
           });
           if (died && !this.gameOver) {
+            this.emitEnemyDeathFeedback(projectile.target);
+
             if (!projectile.target.isSpawned) {
               this.inGameScore += projectile.target.bounty;
               this.enemiesKilled++;
-              this.emitEnemyDeathFeedback(projectile.target);
               this.updateScoreCb(this.inGameScore);
             }
             this.dropManager.handleEnemyDeath(projectile.target);
