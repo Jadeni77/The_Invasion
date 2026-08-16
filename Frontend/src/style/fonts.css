@@ -1,0 +1,12 @@
+/*
+ * Self-hosted so the game works offline and does not depend on a third party.
+ * A test asserts every family named in tokens.js has a rule here and a file
+ * behind it - the previous "Pixel" family had neither and silently did nothing.
+ */
+@font-face {
+  font-family: 'Black Ops One';
+  src: url('../assets/fonts/black-ops-one-v20-latin-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
