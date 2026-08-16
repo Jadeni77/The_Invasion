@@ -262,3 +262,51 @@ describe('playSfx also gets a tier', () => {
     expect(unreachable, `unreachable tier keys: ${unreachable.join(', ')}`).toEqual([]);
   });
 });
+
+describe('the Titan ability variants', () => {
+  /**
+   * The Titan's ground pound and phase transition were silent in play. They
+   * resolve by VARIANT rather than by unit, the way hit and melee do, because
+   * what the player needs to recognise is the ABILITY - a heavy wind-up, that
+   * thing landing, a boss escalating - not which unit produced it.
+   */
+  it.each([
+    ['charge', 'quake-charge'],
+    ['impact', 'quake-impact'],
+    ['phase', 'phase-change'],
+  ])('resolves the %s variant to the %s sound', (variant, expected) => {
+    // Rejects: a missing branch in soundKeyFor. Without one the variant falls
+    // through to the firing branch and a board-wide earthquake plays the
+    // generic arrow - audible, wrong, and easy to miss in a busy wave.
+    expect(soundKeyFor('TitanEnemy', variant)).toBe(expected);
+    expect(soundKeyFor('TitanEnemy', variant)).not.toBe('projectile');
+  });
+
+  it('gives the three abilities three different sounds', () => {
+    const keys = new Set(['charge', 'impact', 'phase'].map((v) => soundKeyFor('TitanEnemy', v)));
+    expect(keys.size).toBe(3);
+  });
+
+  it('leaves the Titan\'s firing, melee, hit and death sounds alone', () => {
+    // A branch placed above the death branch would swallow deaths as well.
+    expect(soundKeyFor('TitanEnemy', 'death')).toBe('titan');
+    expect(soundKeyFor('TitanEnemy', 'hit')).toBe('hit');
+    expect(soundKeyFor('TitanEnemy', 'melee')).toBe('melee');
+  });
+
+  it('puts all three in the loud tier, with the big moments', () => {
+    // These are the two most consequential things that happen to a player's
+    // board - 135 damage inside 350px, and a five-second disable inside
+    // 1500px - so they belong at baseDamaged's level, not at an attack's.
+    for (const variant of ['charge', 'impact', 'phase']) {
+      expect(mixGainFor(soundKeyFor('TitanEnemy', variant)), variant).toBe(mixGainFor('baseDamaged'));
+    }
+  });
+
+  it('does not throw on a null or undefined unit name', () => {
+    for (const variant of ['charge', 'impact', 'phase']) {
+      expect(() => soundKeyFor(null, variant)).not.toThrow();
+      expect(() => soundKeyFor(undefined, variant)).not.toThrow();
+    }
+  });
+});

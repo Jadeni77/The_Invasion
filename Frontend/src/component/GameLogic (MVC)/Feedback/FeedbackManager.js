@@ -56,6 +56,31 @@ export class FeedbackManager {
     on('enemy:summon', ({ unitType }) => this.playUnitVoice(unitType, 'fire'));
     on('enemy:heal', ({ unitType }) => this.playUnitVoice(unitType, 'fire'));
 
+    /**
+     * The Titan's two AoE abilities, which were the loudest things in the game
+     * and made no sound at all.
+     *
+     * The charge is a SEPARATE event from the impact, not a decoration on it,
+     * because the 500ms between them is the whole point: it is the window in
+     * which a player can still move a defender out. A single event at the
+     * moment of damage would explain the death rather than prevent it.
+     *
+     * The shake is deliberately below base:damaged's 0.5 for the pound and
+     * level with it for the phase change, and both are gated by the screen
+     * shake setting like every other trauma call here.
+     */
+    on('enemy:groundPoundCharge', ({ unitType }) => this.playUnitVoice(unitType, 'charge'));
+
+    on('enemy:groundPoundImpact', ({ unitType }) => {
+      this.playUnitVoice(unitType, 'impact');
+      this.juice.addTrauma(0.35);
+    });
+
+    on('enemy:phaseChange', ({ unitType }) => {
+      this.playUnitVoice(unitType, 'phase');
+      this.juice.addTrauma(0.45);
+    });
+
     on('enemy:hit', ({ unitType, damage, x, y }) => {
       this.playUnitVoice(unitType, 'hit');
       this.juice.addDamageNumber(x, y, damage);

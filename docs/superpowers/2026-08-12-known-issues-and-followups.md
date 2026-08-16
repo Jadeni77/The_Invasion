@@ -202,6 +202,32 @@ branch must not make one. It belongs with issue 14 as a blocker for the balance 
 the asymmetry to resolve at the same time: the melee branch's `stunned` check is deliberate, so
 whoever fixes this should decide whether the guard belongs at the top of the loop instead.
 
+### 17. The Titan's two AoE abilities kill most of the board, and the loop fix makes them land more often
+
+Found 2026-08-15 on `feat/titan-feedback`, while giving both abilities sound and a telegraph. Full
+arithmetic in `2026-08-15-titan-feedback-report.md`; **nothing was tuned**, because this is a balance
+decision and it is the owner's.
+
+- **Ground pound.** Three waves of 45 = **135** inside 116.7px (the waves are 116.7 / 233.3 / 350px,
+  centre to centre, not one 350px ring). At level 1 that kills **7 of the 10 defender types** —
+  everything except the Barricade and the two consumable spells, and the spells only survive because
+  `isConsumableSpell` makes them invulnerable. At level 5 it still kills E-Gen, Sniper and Grenadier.
+  A single wave of 45 kills nothing; the lethality is entirely in the stacking.
+- **Phase transition.** 40 damage kills nothing on its own, but the 1500px radius is larger than the
+  canvas, so it reaches every defender the player owns, and 300 frames of `disabled` is 5 seconds ×
+  2 transitions. Both transitions total exactly 80, which is exactly lethal to the level-1 E-Gen and
+  Sniper (both 80 health).
+- **Phase 3 sets `attackDamage = 300`**, against the highest defender health in the game outside the
+  Barricade (192, a level-5 Shooter). It one-shots everything else at every level.
+
+**The `continue` fix on this branch makes the pound stronger in practice.** It previously bailed out
+of its own damage loop at the first dead defender in `gameEngine.defenders`, sparing everything
+behind it — and defenders die constantly against a Titan. The ability always *meant* to do 135 to
+everything in the inner ring; now it does. Judge the balance against the fixed behaviour, not against
+what has been played until now.
+
+Belongs with issues 14 and 16 in the balance pass (issue 10).
+
 ## Deferred from the branch
 
 ### 4. `SettingsStore.merge()` returns a shallow copy
@@ -356,6 +382,10 @@ Two lessons worth keeping:
   spells or summons, and the audio spec assigned them no sound — so they were deliberately skipped
   during the enemy-audio pass rather than missed. They are the obvious candidates for the next audio
   pass, and adding them is a design choice (which sound, which tier) rather than a bug fix.
+  **HALF DONE 2026-08-15:** the Titan's ground pound (`quake-charge` + `quake-impact`) and its phase
+  transition (`phase-change`) now emit and sound, on `feat/titan-feedback`; see
+  `2026-08-15-titan-feedback-report.md`. `EMPEnemy.triggerEMP` is still silent, and now has three
+  layered recipes to borrow a shape from.
 - **A suspended `AudioContext` freezes `ctx.currentTime`**, so `AudioManager`'s active-voice list never
   prunes and the concurrency cap would steal on every call past 12. Edge case, low priority.
 

@@ -1372,7 +1372,10 @@ export class GhostEnemy extends Enemy {
     if (this.currentPhaseShiftCooldown <= 0 && !this.isPhased) {
       //check if there is a defender to phase through
       const nearByDefender = defenderUnits.find(defender => {
-        if (!defender.isAlive) return;
+        // A find() predicate: falsy means "not this one, keep looking". Spelled
+        // out as `false` because the same line inside a for...of loop - which
+        // is what TitanEnemy.performGroundPound had - is a real bug.
+        if (!defender.isAlive) return false;
         const distance = Math.hypot(
             this.x + this.width / 2 - (defender.x + defender.width / 2),
             this.y + this.height / 2 - (defender.y + defender.height / 2)
@@ -2226,6 +2229,17 @@ export class TitanEnemy extends Enemy {
                                       type: "effect",
                                       source: "titan"
                                     });
+
+    // ONE event for the transition, emitted here rather than inside the loop
+    // below: that loop reaches every defender within 1500px, which in practice
+    // is the whole board, so an emit per defender would stack one copy of a
+    // LOUD sound per unit the player owns. Same rule as the Mage's lightning
+    // chain - the transition is one moment, however many things it touches.
+    this.gameEngine?.emitFeedback?.('enemy:phaseChange', {
+      unitType: this.constructor.name,
+      phase: this.phase,
+    });
+
     //stun nearby defender
     for (const defender of this.gameEngine.defenders) {
       const distance = Math.hypot(
@@ -2243,14 +2257,24 @@ export class TitanEnemy extends Enemy {
 
   updateBehavior(defenderUnits) {
     super.updateBehavior(defenderUnits);
-    console.log(`Titan move at ${this.speed} speed`);
 
     if (!this.isAlive || !this.gameEngine) return;
+
+    // A ground pound is not melee contact, and super.updateBehavior above
+    // clears isAttacking on every frame with nothing overlapping - so without
+    // this the telegraph performGroundPound starts survives exactly one frame
+    // and the Titan walks through its own earthquake. Re-asserted rather than
+    // set once because the base rule runs again every frame.
+    if (this.isGroundPounding) this.isAttacking = true;
 
     this.currentGroundPoundCooldown -= frameScale();
     if (this.currentGroundPoundCooldown <= 0 && !this.isGroundPounding) {
       const nearbyDefender = defenderUnits.find(defender => {
-        if (!defender.isAlive) return;
+        // A find() PREDICATE, not a loop body: returning falsy here means "not
+        // this one, keep looking", which is what a corpse should do. Spelled
+        // out because the identical-looking line in performGroundPound's
+        // for...of below WAS a bug.
+        if (!defender.isAlive) return false;
         const distance = Math.hypot(
             this.x + this.width / 2 - (defender.x + defender.width / 2),
             this.y + this.height / 2 - (defender.y + defender.height / 2)
@@ -2270,9 +2294,41 @@ export class TitanEnemy extends Enemy {
     const originalSpeed = this.speed;
     this.speed = 0;
 
+    /**
+     * The visible telegraph. AssetManifest.enemies.Titan declares an 11-frame
+     * attack sheet at 5.5fps - 2000ms, matching the attackRate 120 cadence -
+     * and until now nothing played it except melee contact, so the player's
+     * report was literally true: the defender died without the Titan attacking.
+     *
+     * Started through the cadence-derived playback from 01801f4 rather than
+     * through a timer of its own, so there is one attack-animation clock in
+     * this codebase and not two.
+     *
+     * isAttacking does two jobs here. determineAnimationState reads it to pick
+     * the sheet, and handleMovement reads it to stop - which is the standing
+     * still that `this.speed = 0` above cannot deliver on its own, because
+     * updateMovementSpeed recomputes speed from initialSpeed every frame and
+     * overwrites it before handleMovement ever sees the zero. updateBehavior
+     * re-asserts the flag for as long as the pound is running.
+     */
+    this.isAttacking = true;
+    this.beginAttackAnimation();
+
+    // Emitted at the START of the wind-up, 500ms before any damage. A sound
+    // that arrives with the damage explains a death; this one can prevent it.
+    this.gameEngine?.emitFeedback?.('enemy:groundPoundCharge', { unitType: this.constructor.name });
+
     //charge up animation
     setTimeout(() => {
       if (!this.isAlive || !this.gameEngine) return;
+
+      // ONE impact for all three waves. They land 200ms apart - five times
+      // AudioManager's 40ms dedupe window - so three emits would be three
+      // full-volume copies of a LOUD sound inside 400ms rather than one sound
+      // with a rhythm. The rhythm is authored into the recipe's layers, at
+      // these same offsets; see UNIT_VOICES['quake-impact'].
+      this.gameEngine?.emitFeedback?.('enemy:groundPoundImpact', { unitType: this.constructor.name });
+
       //earthequake effect
       for (let i = 0; i < 3; i++) {
         setTimeout(() => {
@@ -2295,7 +2351,12 @@ export class TitanEnemy extends Enemy {
 
           //damage all defender in radius
           for (const defender of this.gameEngine.defenders) {
-            if (!defender.isAlive) return;
+            // `continue`, not `return`. This is a for...of body, so `return`
+            // left the whole callback on the first corpse in the array and
+            // every defender BEHIND it survived a wave it was standing in -
+            // which meant who lived depended on array order. The identical loop
+            // in EMPEnemy.triggerEMP already had this right.
+            if (!defender.isAlive) continue;
 
             const distance = Math.hypot(
                 this.x + this.width / 2 - (defender.x + defender.width / 2),

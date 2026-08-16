@@ -516,3 +516,59 @@ describe('sample-or-synth routing', () => {
     expect(new Set(keys).size).toBe(2);
   });
 });
+
+describe('the Titan abilities reach the audio layer', () => {
+  let bus, audio, juice;
+
+  beforeEach(() => {
+    bus = new FeedbackBus();
+    audio = { playSfx: vi.fn(), playRecipe: vi.fn(), setVolumes: vi.fn() };
+    juice = {
+      addTrauma: vi.fn(), triggerHitStop: vi.fn(),
+      addDamageNumber: vi.fn(), triggerFlash: vi.fn(), setEnabled: vi.fn(),
+    };
+    new FeedbackManager(bus, audio, juice).attach();
+  });
+
+  it.each([
+    ['enemy:groundPoundCharge', 'quake-charge', 'charge'],
+    ['enemy:groundPoundImpact', 'quake-impact', 'impact'],
+    ['enemy:phaseChange', 'phase-change', 'phase'],
+  ])('routes %s to the %s voice', (event, soundKey, variant) => {
+    bus.emit(event, { unitType: 'TitanEnemy', phase: 2 });
+
+    expect(audio.playRecipe).toHaveBeenCalledWith(
+      resolveVoice(soundKey, variant),
+      `${soundKey}:${variant}`,
+      mixGainFor(soundKey),
+    );
+  });
+
+  it('gives the wind-up and the impact different sounds', () => {
+    // Rejects routing both events to one voice, which would put the warning
+    // and the thing it warns about on the same sound and make the wind-up
+    // indistinguishable from the damage.
+    bus.emit('enemy:groundPoundCharge', { unitType: 'TitanEnemy' });
+    bus.emit('enemy:groundPoundImpact', { unitType: 'TitanEnemy' });
+
+    const [chargeCall, impactCall] = audio.playRecipe.mock.calls;
+    expect(chargeCall[0]).not.toEqual(impactCall[0]);
+    expect(chargeCall[1]).not.toBe(impactCall[1]);
+  });
+
+  it('shakes the screen for the impact and the phase change, but not the wind-up', () => {
+    // The wind-up is a cue to act, and shaking the board while the player is
+    // trying to move a defender out of it is the wrong help.
+    bus.emit('enemy:groundPoundCharge', { unitType: 'TitanEnemy' });
+    expect(juice.addTrauma).not.toHaveBeenCalled();
+
+    bus.emit('enemy:groundPoundImpact', { unitType: 'TitanEnemy' });
+    bus.emit('enemy:phaseChange', { unitType: 'TitanEnemy', phase: 2 });
+    expect(juice.addTrauma).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not throw when an ability event carries no unit type', () => {
+    expect(() => bus.emit('enemy:groundPoundImpact', {})).not.toThrow();
+    expect(() => bus.emit('enemy:phaseChange', {})).not.toThrow();
+  });
+});
