@@ -416,10 +416,14 @@ Two lessons worth keeping:
 - **Mortar's firing sound is not frame-synced with its shell's visual launch.** It queues a
   locally-tracked shell rather than pushing to `gameEngine.projectiles`, so the sound plays when it
   commits to firing rather than when the shell appears.
-- **`BossEnemy` is never imported by `GameEngine`.** It is dead code, tree-shaken out of the bundle,
-  so its voice is unreachable. Either wire the class up or delete it. **If you wire it up, read
-  issue 14 first** — the Boss is the one enemy that runs both melee damage paths, so connecting it
-  also switches on double damage and a double melee thump, neither of which is reachable today.
+- **`BossEnemy` is never imported by `GameEngine`.** It is tree-shaken out of the bundle, so its
+  voice is unreachable. **Do not delete it** — the owner confirmed on 2026-08-15 that the Boss is
+  simply not designed yet, and the class is a work in progress rather than an abandoned one. Boss
+  waves currently spawn an ordinary enemy type (`bossType` is only ever `Vampire`, `Titan`, `Mage` or
+  `Necromancer`) flagged `isBoss: true`, which is why a boss plays like a renamed regular unit.
+  **When it is designed and wired up, read issue 14 first** — the Boss is the one enemy that runs
+  both melee damage paths, so connecting it also switches on double damage and a double melee thump,
+  neither of which is reachable today.
 - **`EMPEnemy.triggerEMP` and `TitanEnemy.performGroundPound` apply visible effects to defenders with
   no feedback event.** The EMP disables defenders outright and the ground pound damages everything in
   a 350px radius, both in silence. Neither is a criterion 6 gap — they are not ranged fire, melee,
