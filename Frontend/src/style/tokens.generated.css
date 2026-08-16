@@ -1,0 +1,49 @@
+/*
+ * GENERATED FILE - DO NOT EDIT.
+ * Source: src/style/tokens.js. Regenerate with `npm run tokens`.
+ */
+
+:root {
+  /* colors */
+  --colors-surface-base: #2f2a1d;
+  --colors-surface-panel: #4a4231;
+  --colors-surface-raised: #6b5c40;
+  --colors-surface-sunken: #241f16;
+  --colors-edge-outline: #1a160f;
+  --colors-edge-highlight: #a8906a;
+  --colors-text-primary: #f5ecd8;
+  --colors-text-muted: #b8a888;
+  --colors-accent-energy: #ffd700;
+  --colors-accent-danger: #d94f3d;
+  --colors-accent-success: #5fa855;
+  --colors-accent-info: #4a9cc4;
+  /* space */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 20px;
+  --space-xl: 32px;
+  /* radii */
+  --radii-sm: 4px;
+  --radii-md: 8px;
+  --radii-lg: 14px;
+  --radii-pill: 999px;
+  /* borders */
+  --borders-thin: 2px;
+  --borders-outline: 3px;
+  --borders-heavy: 5px;
+  /* shadows */
+  --shadows-drop: 0 4px 0 rgba(26, 22, 15, 0.55);
+  --shadows-panel: 0 6px 18px rgba(26, 22, 15, 0.45);
+  --shadows-pressed: inset 0 3px 0 rgba(26, 22, 15, 0.45);
+  /* type */
+  --type-display: 'Black Ops One', system-ui, sans-serif;
+  --type-body: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --type-size-sm: 12px;
+  --type-size-md: 16px;
+  --type-size-lg: 22px;
+  --type-size-xl: 34px;
+  --type-weight-regular: 400;
+  --type-line-tight: 1.1;
+  --type-line-body: 1.5;
+}
