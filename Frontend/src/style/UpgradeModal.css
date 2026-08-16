@@ -30,8 +30,15 @@
   top: 15px;
   right: 15px;
   background: var(--colors-accent-danger);
-  border: var(--borders-outline) solid var(--colors-surface-raised);
-  box-shadow: var(--shadows-drop);
+  border: var(--borders-thin) solid var(--colors-surface-raised);
+  /* Ring drawn with box-shadow, not a wider border: this is a fixed 40x40px
+     circle, and content-box sizing (no box-sizing: border-box is set
+     anywhere in this project) means the 3px outline border rendered it at
+     46x46px. A 0-blur, 3px-spread shadow draws the same thick ring without
+     touching the box - the same treatment .settings-button (GameBoard.css)
+     and .zoom-controls button (Lobby.css), the other fixed-size circular
+     buttons, already use. */
+  box-shadow: var(--shadows-drop), 0 0 0 var(--borders-outline) var(--colors-edge-outline);
   color: var(--colors-text-primary);
   width: 40px;
   height: 40px;

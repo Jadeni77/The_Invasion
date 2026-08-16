@@ -145,6 +145,39 @@ const KNOWN_PAIRS = [
   ['GameBoard.css', '.energy-container', '.energy-value'],
 ];
 
+/**
+ * Every rule allowed to sit below its WCAG floor today, pinned by name.
+ *
+ * A `/* contrast-ok *‍/` comment is an escape hatch, and an unaudited escape
+ * hatch is worse than none: it looks supervised. So the set is pinned here -
+ * a rule that starts opting out without being added to this list fails the
+ * test, and a rule that stops needing its opt-out fails it too (delete the
+ * entry). Adding to this list is the deliberate act; the comment alone is
+ * not enough.
+ *
+ * All 14 below are one systemic pattern: `text-primary` on a saturated
+ * accent background - white text on a coloured button, an app-wide
+ * convention that predates the token conversion. See task-3-report.md,
+ * "The systemic finding the test surfaced", for the measured ratios and the
+ * token-only fix that would clear all of them at once.
+ */
+const EXPECTED_OPT_OUTS = [
+  'CardSelectionModal.css .selection-indicator',
+  'CardSelectionModal.css .confirm-button',
+  'CollectionPage.css .collection-tab.active',
+  'CollectionPage.css .unit-sprite',
+  'CollectionPage.css .collection-unit-status',
+  'CollectionPage.css .back-button',
+  'GameBoard.css .quit-confirm-button',
+  'GameBoard.css .quit-cancel-button',
+  'Lobby.css .boss-indicator',
+  'Lobby.css .zoom-controls button',
+  'SettingModal.css .quality-button.active',
+  'SettingModal.css .toggle-button.active',
+  'SettingModal.css .cancel-button',
+  'SettingModal.css .apply-button',
+];
+
 function rulesOf(css) {
   return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({
     selector: m[1].trim(),
@@ -157,21 +190,66 @@ function selectorNames(selector) {
   return selector.split(',').map((s) => s.trim());
 }
 
+/**
+ * The winning declaration of `prop` for `selector`, resolved the way the
+ * cascade resolves it.
+ *
+ * Every rule involved here is a single class selector, so all of them carry
+ * the same specificity - a grouped rule (`.a, .b, .c { }`) and a
+ * single-selector rule (`.b { }`) are equally specific, contrary to the
+ * intuition that the more specific-looking one wins. With specificity tied,
+ * the last declaration in file order wins, so this walks the whole file and
+ * keeps the last rule that names `selector` *and* declares `prop`.
+ *
+ * Resolved per declaration rather than per rule, because a rule may set
+ * `color` while a later rule naming the same selector sets only `background`:
+ * the winner for each property has to be found separately, or one of them
+ * gets read off a rule the cascade already overrode.
+ *
+ * (Rules nested in an `@media` block are included, since `rulesOf` flattens
+ * them. In this stylesheet those only ever restate `padding`/`font-size` for
+ * these selectors, never a colour, so flattening cannot change a colour
+ * answer here; a future media-query colour override would need a
+ * viewport-aware model this test does not have.)
+ */
+function cascadingDeclaration(rules, selector, prop) {
+  let winner = null;
+  for (const rule of rules) {
+    if (!selectorNames(rule.selector).includes(selector)) continue;
+    const value = declaredValue(rule.body, prop);
+    if (value !== null) winner = { value, body: rule.body };
+  }
+  return winner;
+}
+
 function check(label, bgBody, fgBody, results, optOuts) {
   const bgValue = declaredValue(bgBody, 'background(?:-color)?');
   const fgValue = declaredValue(fgBody, 'color');
   if (!bgValue || !fgValue) return;
+  checkDeclarations(
+    label,
+    { value: bgValue, body: bgBody },
+    { value: fgValue, body: fgBody },
+    results,
+    optOuts,
+  );
+}
 
-  const reason = optOutReason(fgBody) || optOutReason(bgBody);
-  const bg = resolveColour(bgValue);
-  const fg = resolveColour(fgValue);
+function checkDeclarations(label, bgDecl, fgDecl, results, optOuts) {
+  const reason = optOutReason(fgDecl.body) || optOutReason(bgDecl.body);
+  const bg = resolveColour(bgDecl.value);
+  const fg = resolveColour(fgDecl.value);
   if (!bg || !fg) return; // not one of this codebase's known colour shapes - not this test's job
 
   const ratio = contrastRatio(bg.hex, fg.hex);
-  const threshold = isLargeText(fgBody) ? 3.0 : 4.5;
+  const threshold = isLargeText(fgDecl.body) ? 3.0 : 4.5;
 
   if (reason) {
-    optOuts.push(`${label} (${ratio.toFixed(2)}:1, needs ${threshold}:1) - ${reason}`);
+    optOuts.push({
+      label,
+      detail: `${label} (${ratio.toFixed(2)}:1, needs ${threshold}:1) - ${reason}`,
+      reason,
+    });
     return;
   }
   results.push({ label, ratio, threshold, pass: ratio >= threshold });
@@ -207,12 +285,18 @@ describe('WCAG contrast ratio for token-derived colour pairs', () => {
     }
 
     // Explicit container/label pairs that selector text alone can't reveal.
+    // Each side is resolved through the cascade (last equally-specific
+    // declaration wins), not by taking the first rule that mentions the
+    // selector: all three of these containers are named first in a shared
+    // `.energy-container, .score-container, .base-health-container` rule and
+    // again in their own later rule, and it is the later one that decides
+    // the background actually rendered.
     for (const [pairFile, containerSel, labelSel] of KNOWN_PAIRS) {
       if (pairFile !== file) continue;
-      const containerRule = rules.find((r) => selectorNames(r.selector).includes(containerSel));
-      const labelRule = rules.find((r) => r.selector === labelSel);
-      if (!containerRule || !labelRule) continue;
-      check(`${file} ${labelSel} (bg from ${containerSel})`, containerRule.body, labelRule.body, results, optOuts);
+      const bgDecl = cascadingDeclaration(rules, containerSel, 'background(?:-color)?');
+      const fgDecl = cascadingDeclaration(rules, labelSel, 'color');
+      if (!bgDecl || !fgDecl) continue;
+      checkDeclarations(`${file} ${labelSel} (bg from ${containerSel})`, bgDecl, fgDecl, results, optOuts);
     }
   }
 
@@ -220,14 +304,38 @@ describe('WCAG contrast ratio for token-derived colour pairs', () => {
     expect(results.length).toBeGreaterThan(10);
   });
 
-  it('reports every contrast-ok opt-out in use', () => {
-    // This assertion always "passes" - it exists to print the opt-out list
-    // in test output whenever there is one, per the instruction to report
-    // every use. An empty array here means no rule currently opts out.
-    expect(optOuts).toEqual(optOuts);
+  it('opts out of exactly the rules on the expected list', () => {
+    const inUse = optOuts.map((o) => o.label).sort();
+    const expected = [...EXPECTED_OPT_OUTS].sort();
+    const added = inUse.filter((l) => !expected.includes(l));
+    const removed = expected.filter((l) => !inUse.includes(l));
+    expect(
+      inUse,
+      `contrast-ok opt-outs drifted from EXPECTED_OPT_OUTS.\n` +
+        `  new (add deliberately, with a measured ratio and a reason): ${added.join(', ') || 'none'}\n` +
+        `  gone (good news - delete from the list): ${removed.join(', ') || 'none'}`,
+    ).toEqual(expected);
+  });
+
+  it('opts out of exactly the expected number of rules', () => {
+    expect(
+      optOuts.length,
+      `${optOuts.length} contrast-ok opt-outs in use, EXPECTED_OPT_OUTS lists ${EXPECTED_OPT_OUTS.length}`,
+    ).toBe(EXPECTED_OPT_OUTS.length);
+  });
+
+  it('reports every contrast-ok opt-out in use, each with a measured ratio', () => {
     if (optOuts.length > 0) {
-      console.log('contrast-ok opt-outs in use:\n' + optOuts.map((o) => `  - ${o}`).join('\n'));
+      console.log('contrast-ok opt-outs in use:\n' + optOuts.map((o) => `  - ${o.detail}`).join('\n'));
     }
+    // A `contrast-ok` comment copy-pasted onto a new rule without its own
+    // measurement is the failure mode this catches: the opt-out has to state
+    // the ratio it is accepting, not merely claim the exemption.
+    const unmeasured = optOuts.filter((o) => !/\d+(\.\d+)?\s*:\s*1/.test(o.reason)).map((o) => o.label);
+    expect(
+      unmeasured,
+      `contrast-ok comments with no measured ratio in their reason: ${unmeasured.join(', ')}`,
+    ).toEqual([]);
   });
 
   it.each(results.map((r) => [r.label, r]))('%s meets its WCAG threshold', (_label, r) => {
