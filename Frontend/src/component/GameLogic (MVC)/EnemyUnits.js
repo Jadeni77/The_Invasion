@@ -20,6 +20,7 @@ import {
   frameDurationMs,
 } from "./Animation/AttackPlayback.js";
 import { frameDeltaMs, frameScale } from "./Animation/FrameTime.js";
+import { colors, decorative, withAlpha } from '../../style/tokens.js';
 
 export class Enemy {
   constructor(x, y, typeData = {}) {
@@ -31,7 +32,7 @@ export class Enemy {
     this.height = typeData.height || 30;
     this.health = typeData.health || 100;
     this.maxHealth = typeData.health || 100;
-    this.color = typeData.color || "darkgreen";
+    this.color = typeData.color || colors.surfaceRaised;
     this.name = typeData.name || "Basic Zombie";
     this.isAlive = true;
     this.id = Math.random();
@@ -443,7 +444,7 @@ export class Enemy {
 
     if (this.isAlive) {
       // Unit name text
-      ctx.fillStyle = "black";
+      ctx.fillStyle = colors.edgeOutline;
       ctx.font = "12px Arial";
       ctx.fillText(
           this.name.substring(0, this.name.length),
@@ -453,9 +454,9 @@ export class Enemy {
 
       // Health bar and value
       if (this.health < this.maxHealth && getSettings().display.showHealthBars) {
-        ctx.fillStyle = "red";
+        ctx.fillStyle = colors.accentDanger;
         ctx.fillRect(this.x, this.y - 10, this.width, 5);
-        ctx.fillStyle = "lime";
+        ctx.fillStyle = colors.accentSuccess;
         const healthWidth = (this.health / this.maxHealth) * this.width;
         ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
         ctx.fillText(this.health.toFixed(0), this.x + this.width / 2, this.y - 15);
@@ -469,7 +470,7 @@ export class Enemy {
     ctx.fillRect(this.x, this.y, this.width, this.height);
 
     // Draw unit type initial
-    ctx.fillStyle = "black";
+    ctx.fillStyle = colors.edgeOutline;
     ctx.font = "12px Arial";
     ctx.fillText(this.name.charAt(0), this.x + 5, this.y + 15);
   }
@@ -521,7 +522,7 @@ export class BasicEnemy extends Enemy {
       name: "Basic Zombie",
       speed: 0.8,
       health: 100,
-      color: "darkgreen",
+      color: colors.accentSuccess,
       width: 80,
       height: 64,
       image: image,
@@ -539,7 +540,7 @@ export class FastEnemy extends Enemy {
       name: "Fast Zombie",
       speed: 1.5, // Faster
       health: 80, // Less health
-      color: "darkorange",
+      color: decorative.orange,
       width: 64,
       height: 64,
       image: image,
@@ -558,7 +559,7 @@ export class TankEnemy extends Enemy {
       health: 1200,
       width: 90,
       height: 64,
-      color: "darkred",
+      color: colors.accentDanger,
       image: image,
       bounty: 30,
       isAttacker: true, // This one attacks
@@ -586,7 +587,7 @@ export class TankEnemy extends Enemy {
       this.attackDamage *= this.rageDamageMultiplier; // Re-enabled as Enemy now has attackDamage
       this.raged = true;
       console.log(`${this.name} is enraged! Speed: ${this.speed.toFixed(1)}`);
-      this.color = "orange"; // Simple visual change
+      this.color = decorative.orange; // Simple visual change
     }
     return died;
   }
@@ -600,7 +601,7 @@ export class BombEnemy extends Enemy {
       health: 120,
       width: 64,
       height: 64,
-      color: "purple",
+      color: decorative.violet,
       image: image,
       bounty: 20,
       isAttacker: false, // Primary interaction is explosion, not regular attack
@@ -625,8 +626,8 @@ export class BombEnemy extends Enemy {
                                         radius: this.explosionRadius / 2,
                                         timer: 40,
                                         color: this.color,
-                                        innerColor: "magenta",
-                                        particleColor: "rgba(148, 0, 211, 0.9)",
+                                        innerColor: decorative.violet,
+                                        particleColor: withAlpha(decorative.violet, 0.9),
                                         style: "shockwave",
                                         type: "enemy",
                                         source: "exploder",
@@ -660,8 +661,8 @@ export class BombEnemy extends Enemy {
                                         radius: this.explosionRadius,
                                         timer: 40,
                                         color: this.color,
-                                        innerColor: "magenta",
-                                        particleColor: "rgba(148, 0, 211, 0.9)",
+                                        innerColor: decorative.violet,
+                                        particleColor: withAlpha(decorative.violet, 0.9),
                                         style: "shockwave",
                                         type: "enemy",
                                         source: "exploder",
@@ -682,7 +683,7 @@ export class BombEnemy extends Enemy {
           0,
           Math.PI * 2
       );
-      ctx.strokeStyle = "rgba(255, 255, 0, 0.8)"; // Yellow pulsating border
+      ctx.strokeStyle = withAlpha(colors.accentEnergy, 0.8); // Yellow pulsating border
       ctx.lineWidth = 2;
       ctx.stroke();
     }
@@ -697,7 +698,7 @@ export class RangeEnemy extends Enemy {
       health: 150,
       width: 96,
       height: 64,
-      color: "White",
+      color: colors.textPrimary,
       image: image,
       bounty: 15,
       isAttacker: true,
@@ -744,7 +745,7 @@ export class ShieldEnemy extends Enemy {
       health: 200,
       width: 90,
       height: 64,
-      color: 'darkgray',
+      color: colors.textMuted,
       image: image,
       bounty: 25,
       isAttacker: true,
@@ -777,14 +778,14 @@ export class ShieldEnemy extends Enemy {
 
     // Draw shield if active
     if (this.shieldActive) {
-      ctx.strokeStyle = "silver";
+      ctx.strokeStyle = colors.edgeHighlight;
       ctx.lineWidth = 3;
       ctx.strokeRect(this.x - 5, this.y, 5, this.height);
 
       // Shield health bar
-      ctx.fillStyle = "blue";
+      ctx.fillStyle = colors.surfaceSunken;
       ctx.fillRect(this.x - 8, this.y - 15, 3, this.height);
-      ctx.fillStyle = "lightblue";
+      ctx.fillStyle = colors.accentInfo;
       const shieldHealthHeight = (this.shieldHealth / this.maxShieldHealth) * this.height;
       ctx.fillRect(this.x - 8, this.y - 15 + (this.height - shieldHealthHeight), 3, shieldHealthHeight);
     }
@@ -799,7 +800,7 @@ export class HealerEnemy extends Enemy {
       health: 80,
       width: 64,
       height: 64,
-      color: 'lightgreen',
+      color: colors.accentSuccess,
       image: image,
       bounty: 25,
       isAttacker: false,
@@ -869,7 +870,7 @@ export class HealerEnemy extends Enemy {
           0,
           Math.PI * 2
       );
-      ctx.strokeStyle = `rgba(0, 255, 0, ${(this.healCooldown - this.currentHealCooldown) / 20})`;
+      ctx.strokeStyle = withAlpha(colors.accentSuccess, (this.healCooldown - this.currentHealCooldown) / 20);
       ctx.lineWidth = 2;
       ctx.stroke();
     }
@@ -884,7 +885,7 @@ export class SplitterEnemy extends Enemy {
       health: 120,
       width: 64,
       height: 64,
-      color: 'purple',
+      color: decorative.violet,
       image: image,
       bounty: 15,
       isAttacker: true,
@@ -950,7 +951,7 @@ export class MiniEnemy extends Enemy {
       health: 40,
       width: 32,
       height: 32,
-      color: 'mediumpurple',
+      color: decorative.violet,
       image: image,
       bounty: 5,
       isAttacker: true,
@@ -970,7 +971,7 @@ export class SwarmLeader extends Enemy {
       health: 180,
       width: 90,
       height: 64,
-      color: 'darkred',
+      color: colors.accentDanger,
       image: image,
       bounty: 40,
       isAttacker: true,
@@ -1176,7 +1177,7 @@ export class SwarmLeader extends Enemy {
             this.buffRange,
             0,
             Math.PI * 2);
-    ctx.strokeStyle = "rgba(255, 0, 0, 0.2)";
+    ctx.strokeStyle = withAlpha(colors.accentDanger, 0.2);
     ctx.lineWidth = 2;
     ctx.stroke();
   }
@@ -1190,7 +1191,7 @@ export class EMPEnemy extends Enemy {
       health: 180,
       width: 90,
       height: 64,
-      color: 'cyan',
+      color: colors.accentInfo,
       image: image,
       bounty: 20,
       isAttacker: true,
@@ -1221,9 +1222,9 @@ export class EMPEnemy extends Enemy {
                                       damage: 0,
                                       radius: this.empRadius,
                                       timer: 30,
-                                      color: "cyan",
-                                      innerColor: "white",
-                                      particleColor: "rgba(0, 255, 255, 0.9)",
+                                      color: colors.accentInfo,
+                                      innerColor: colors.textPrimary,
+                                      particleColor: withAlpha(colors.accentInfo, 0.9),
                                       style: "electric",
                                       type: "enemy",
                                       source: "emp",
@@ -1250,7 +1251,7 @@ export class EMPEnemy extends Enemy {
 
     // Electricity effect
     if (Math.random() < 0.3) {
-      ctx.strokeStyle = "cyan";
+      ctx.strokeStyle = colors.accentInfo;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(this.x, this.y + this.height / 2);
@@ -1272,7 +1273,7 @@ export class VampireEnemy extends Enemy {
       health: 90,
       width: 64,
       height: 64,
-      color: 'darkred',
+      color: colors.accentDanger,
       image: image,
       bounty: 30,
       isAttacker: true,
@@ -1332,7 +1333,7 @@ export class VampireEnemy extends Enemy {
           0,
           Math.PI * 2
       );
-      ctx.strokeStyle = "rgba(139, 0, 0, 0.5)";
+      ctx.strokeStyle = withAlpha(colors.accentDanger, 0.5);
       ctx.lineWidth = 3;
       ctx.stroke();
     }
@@ -1347,7 +1348,7 @@ export class GhostEnemy extends Enemy {
       health: 80,
       width: 100,
       height: 64,
-      color: 'rgba(200, 200, 255, 0.6)',
+      color: withAlpha(decorative.violet, 0.6),
       image: image,
       bounty: 25,
       isAttacker: false,
@@ -1421,7 +1422,7 @@ export class GhostEnemy extends Enemy {
     // Phase shift aura
     if (this.isPhased) {
       ctx.save();
-      ctx.strokeStyle = "rgba(200, 200, 255, 0.6)";
+      ctx.strokeStyle = withAlpha(decorative.violet, 0.6);
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 5]);
       ctx.beginPath();
@@ -1446,7 +1447,7 @@ export class BerserkerEnemy extends Enemy {
       health: 200,
       width: 100,
       height: 64,
-      color: 'darkred',
+      color: colors.accentDanger,
       image: image,
       bounty: 35,
       isAttacker: true,
@@ -1512,9 +1513,9 @@ export class BerserkerEnemy extends Enemy {
                                           damage: 0,
                                           radius: 40,
                                           timer: 50,
-                                          color: "darkred",
-                                          innerColor: "red",
-                                          particleColor: "rgba(139, 0, 0, 0.8)",
+                                          color: colors.accentDanger,
+                                          innerColor: colors.accentDanger,
+                                          particleColor: withAlpha(colors.accentDanger, 0.8),
                                           style: "rage",
                                           type: "effect",
                                           source: "berserker"})
@@ -1528,13 +1529,13 @@ export class BerserkerEnemy extends Enemy {
     //draw rage stack
     if (this.killCount > 0) {
       ctx.save();
-      ctx.fillStyle = "red";
+      ctx.fillStyle = colors.accentDanger;
       ctx.font = "bold 12px Arial";
       ctx.textAlign = "center";
       ctx.fillText(`x${this.killCount}`, this.x + this.width / 2, this.y - 20);
 
       // Rage aura
-      ctx.strokeStyle = `rgba(255, 0, 0, ${0.3 + this.killCount * 0.1})`;
+      ctx.strokeStyle = withAlpha(colors.accentDanger, 0.3 + this.killCount * 0.1);
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(
@@ -1558,7 +1559,7 @@ export class NecromancerEnemy extends Enemy {
       health: 100,
       width: 90,
       height: 64,
-      color: 'darkviolet',
+      color: decorative.violet,
       image: image,
       bounty: 35,
       isAttacker: true,
@@ -1614,7 +1615,7 @@ export class NecromancerEnemy extends Enemy {
     skeleton.attackDamage /= 2;
     skeleton.attackRange = 100;
     skeleton.maxHealth = 50;
-    skeleton.color = "lightgray";
+    skeleton.color = colors.textMuted;
     skeleton.isSpawned = true;
     skeleton.spawnBy = this.id;
 
@@ -1637,9 +1638,9 @@ export class NecromancerEnemy extends Enemy {
                                       damage: 0,
                                       radius: 50,
                                       timer: 30,
-                                      color: "darkviolet",
-                                      innerColor: "purple",
-                                      particleColor: "rgba(148, 0, 211, 0.8)",
+                                      color: decorative.violet,
+                                      innerColor: decorative.violet,
+                                      particleColor: withAlpha(decorative.violet, 0.8),
                                       style: "necromancy",
                                       type: "effect",
                                       source: "necromancer"
@@ -1653,7 +1654,7 @@ export class NecromancerEnemy extends Enemy {
     if (this.currentReviveCooldown < 60) {
       ctx.save();
       ctx.globalAlpha = 0.3;
-      ctx.fillStyle = "darkviolet";
+      ctx.fillStyle = decorative.violet;
       ctx.beginPath();
       ctx.arc(
           this.x + this.width / 2,
@@ -1667,7 +1668,7 @@ export class NecromancerEnemy extends Enemy {
     }
 
     // Show revive count
-    ctx.fillStyle = "purple";
+    ctx.fillStyle = decorative.violet;
     ctx.font = "10px Arial";
     ctx.fillText(`Revives: ${this.reviveCount}`, this.x, this.y - 20);
   }
@@ -1682,7 +1683,7 @@ export class AssassinEnemy extends Enemy {
       health: 70,
       width: 50,
       height: 32,
-      color: 'black',
+      color: colors.edgeOutline,
       image: image,
       bounty: 15,
       isAttacker: true,
@@ -1747,9 +1748,9 @@ export class AssassinEnemy extends Enemy {
                                             damage: 0,
                                             radius: 50,
                                             timer: 20,
-                                            color: "darkred",
-                                            innerColor: "black",
-                                            particleColor: "rgba(139, 0, 0, 0.9)",
+                                            color: colors.accentDanger,
+                                            innerColor: colors.edgeOutline,
+                                            particleColor: withAlpha(colors.accentDanger, 0.9),
                                             style: "slash",
                                             type: "effect",
                                             source: "assassin"});
@@ -1811,7 +1812,7 @@ export class MageEnemy extends Enemy {
       health: 90,
       width: 90,
       height: 64,
-      color: 'blue',
+      color: colors.accentInfo,
       image: image,
       bounty: 15,
       isAttacker: true,
@@ -2004,9 +2005,9 @@ export class MageEnemy extends Enemy {
                                       damage: 0,
                                       radius: 60,
                                       timer: 30,
-                                      color: "purple",
-                                      innerColor: "white",
-                                      particleColor: "rgba(138, 43, 226, 0.9)",
+                                      color: decorative.violet,
+                                      innerColor: colors.textPrimary,
+                                      particleColor: withAlpha(decorative.violet, 0.9),
                                       style: "lightning_strike",
                                       type: "effect",
                                       source: "mage"
@@ -2035,9 +2036,9 @@ export class MageEnemy extends Enemy {
                                                 damage: 0,
                                                 radius: 40,
                                                 timer: 20,
-                                                color: "purple",
-                                                innerColor: "white",
-                                                particleColor: "rgba(138, 43, 226, 0.7)",
+                                                color: decorative.violet,
+                                                innerColor: colors.textPrimary,
+                                                particleColor: withAlpha(decorative.violet, 0.7),
                                                 style: "lightning_strike",
                                                 type: "effect",
                                                 source: "mage"
@@ -2054,10 +2055,10 @@ export class MageEnemy extends Enemy {
 
   getSpellColor() {
     switch (this.spellType) {
-      case "fireball": return "orange";
-      case "icebolt": return "lightblue";
-      case "lightning": return "purple";
-      default: return "purple";
+      case "fireball": return decorative.orange;
+      case "icebolt": return colors.accentInfo;
+      case "lightning": return decorative.violet;
+      default: return decorative.violet;
     }
   }
 
@@ -2160,7 +2161,7 @@ export class TitanEnemy extends Enemy {
       health: 5000,
       width: 180,
       height: 128,
-      color: 'darkslategray',
+      color: colors.surfaceSunken,
       image: image,
       bounty: 100,
       isAttacker: true,
@@ -2222,9 +2223,9 @@ export class TitanEnemy extends Enemy {
                                       damage: 0,
                                       radius: 1500,
                                       timer: 40,
-                                      color: "darkslategray",
-                                      innerColor: "gray",
-                                      particleColor: "rgba(105, 105, 105, 0.8)",
+                                      color: colors.surfaceSunken,
+                                      innerColor: colors.textMuted,
+                                      particleColor: withAlpha(colors.textMuted, 0.8),
                                       style: "shockwave",
                                       type: "effect",
                                       source: "titan"
@@ -2340,9 +2341,9 @@ export class TitanEnemy extends Enemy {
                                             damage: 0,
                                             radius: radius,
                                             timer: 20,
-                                            color: "brown",
-                                            innerColor: "darkgoldenrod",
-                                            particleColor: "rgba(139, 69, 19, 0.8)",
+                                            color: colors.surfaceRaised,
+                                            innerColor: colors.edgeHighlight,
+                                            particleColor: withAlpha(colors.surfaceRaised, 0.8),
                                             style: "earthquake",
                                             type: "effect",
                                             source: "titan",
@@ -2383,14 +2384,14 @@ export class TitanEnemy extends Enemy {
 
     // Phase indicator
     ctx.save();
-    ctx.strokeStyle = this.phase === 3 ? "red" : this.phase === 2 ? "orange" : "gray";
+    ctx.strokeStyle = this.phase === 3 ? colors.accentDanger : this.phase === 2 ? decorative.orange : colors.textMuted;
     ctx.lineWidth = 3;
     ctx.strokeRect(this.x - 2, this.y - 2, this.width + 4, this.height + 4);
 
     // Ground pound charge indicator
     if (this.isGroundPounding) {
       ctx.globalAlpha = 0.5;
-      ctx.fillStyle = "brown";
+      ctx.fillStyle = colors.surfaceRaised;
       const chargeRadius = this.earthquakeRadius * Math.sin(Date.now() / 100);
       ctx.beginPath();
       ctx.arc(
@@ -2407,11 +2408,11 @@ export class TitanEnemy extends Enemy {
 
     // Armor indicator
     if (this.hasArmor) {
-      ctx.fillStyle = "silver";
+      ctx.fillStyle = colors.edgeHighlight;
       ctx.fillRect(this.x + this.width - 10, this.y, 8, 8);
     }
     // Phase indicator text
-    ctx.fillStyle = this.phase === 3 ? "red" : this.phase === 2 ? "orange" : "white";
+    ctx.fillStyle = this.phase === 3 ? colors.accentDanger : this.phase === 2 ? decorative.orange : colors.textPrimary;
     ctx.font = "bold 12px Arial";
     ctx.textAlign = "center";
     ctx.fillText(`P${this.phase}`, this.x + this.width / 2, this.y - 15);

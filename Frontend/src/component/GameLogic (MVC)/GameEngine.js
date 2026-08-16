@@ -51,6 +51,7 @@ import { AssetManifest } from "../../assets/AssetManifest.js";
 import { GameLevelConfigs } from "./GameEngineBreakDown/GameLevelConfigs.js";
 import { GameClock } from "./Feedback/GameClock.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
+import { colors, decorative, withAlpha } from '../../style/tokens.js';
 
 export class GameEngine {
   constructor(
@@ -1233,9 +1234,9 @@ export class GameEngine {
           damage: 0,
           radius: 180,
           timer: 30,
-          color: "orange",
-          innerColor: "yellow",
-          particleColor: "rgba(255, 165, 0, 0.9)",
+          color: decorative.orange,
+          innerColor: colors.accentEnergy,
+          particleColor: withAlpha(decorative.orange, 0.9),
           style: "fireball",
           type: "effect",
           source: "mage",
@@ -1266,9 +1267,9 @@ export class GameEngine {
           damage: 0,
           radius: 150,
           timer: 30,
-          color: "lightblue",
-          innerColor: "white",
-          particleColor: "rgba(173, 216, 230, 0.9)",
+          color: colors.accentInfo,
+          innerColor: colors.textPrimary,
+          particleColor: withAlpha(colors.accentInfo, 0.9),
           style: "ice",
           type: "effect",
           source: "mage",

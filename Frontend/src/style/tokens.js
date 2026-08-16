@@ -78,4 +78,39 @@ export function cssVariableName(groupName, key) {
   return `--${groupName}-${kebab}`;
 }
 
+/**
+ * Compose a token colour with an alpha channel for canvas contexts that need
+ * translucency. Tokens are stored as opaque hex, but ctx.fillStyle,
+ * ctx.strokeStyle and ctx.shadowColor sometimes need a fading trail, a pulse,
+ * or a gradient stop with less than full opacity - CSS variables cannot do
+ * that, so drawing code composes an rgba() string from the same token
+ * instead of hand-writing one.
+ */
+export function withAlpha(hex, alpha) {
+  const clean = hex.replace('#', '');
+  const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean;
+  const value = parseInt(full, 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * A few fire/ember particle effects jitter their green channel every frame for
+ * a hand-drawn flicker, rather than painting a flat colour. That jitter is
+ * anchored to a token's own channels - not a hardcoded hue - so the flicker
+ * is still recognisably "the token" with noise added, and cannot drift from
+ * it the way a hand-picked literal could.
+ */
+export function withFlicker(hex, alpha, jitter) {
+  const clean = hex.replace('#', '');
+  const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean;
+  const value = parseInt(full, 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return `rgba(${r}, ${g + Math.random() * jitter}, ${b}, ${alpha})`;
+}
+
 export { GROUPS };

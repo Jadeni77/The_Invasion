@@ -1,3 +1,5 @@
+import { colors, decorative, withAlpha, withFlicker } from '../../../../style/tokens.js';
+
 export class DrawNegativeEffect {
     constructor(unit) {
         this.unit = unit;
@@ -35,9 +37,9 @@ export class DrawNegativeEffect {
             this.unit.y + this.unit.height / 2,
             glowRadius
         );
-        glowGradient.addColorStop(0, "rgba(255, 100, 0, 0.4)");
-        glowGradient.addColorStop(0.5, "rgba(255, 69, 0, 0.3)");
-        glowGradient.addColorStop(1, "rgba(255, 0, 0, 0)");
+        glowGradient.addColorStop(0, withAlpha(decorative.orange, 0.4));
+        glowGradient.addColorStop(0.5, withAlpha(decorative.orange, 0.3));
+        glowGradient.addColorStop(1, withAlpha(colors.accentDanger, 0));
 
         ctx.fillStyle = glowGradient;
         ctx.beginPath();
@@ -69,10 +71,10 @@ export class DrawNegativeEffect {
                 flameX,
                 flameBaseY - flameHeight
             );
-            flameGradient.addColorStop(0, "rgba(255, 200, 0, 0.8)");
-            flameGradient.addColorStop(0.3, "rgba(255, 100, 0, 0.8)");
-            flameGradient.addColorStop(0.6, "rgba(255, 0, 0, 0.6)");
-            flameGradient.addColorStop(1, "rgba(255, 0, 0, 0)");
+            flameGradient.addColorStop(0, withAlpha(colors.accentEnergy, 0.8));
+            flameGradient.addColorStop(0.3, withAlpha(decorative.orange, 0.8));
+            flameGradient.addColorStop(0.6, withAlpha(colors.accentDanger, 0.6));
+            flameGradient.addColorStop(1, withAlpha(colors.accentDanger, 0));
 
             ctx.fillStyle = flameGradient;
             ctx.beginPath();
@@ -107,13 +109,13 @@ export class DrawNegativeEffect {
                 const emberAlpha = 1 - emberProgress;
 
                 // Ember glow
-                ctx.fillStyle = `rgba(255, ${100 + Math.random() * 100}, 0, ${emberAlpha})`;
+                ctx.fillStyle = withFlicker(decorative.orange, emberAlpha, 100);
                 ctx.beginPath();
                 ctx.arc(emberX, emberY, emberSize, 0, Math.PI * 2);
                 ctx.fill();
 
                 // Bright center
-                ctx.fillStyle = `rgba(255, 255, 200, ${emberAlpha})`;
+                ctx.fillStyle = withAlpha(colors.accentEnergy, emberAlpha);
                 ctx.beginPath();
                 ctx.arc(emberX, emberY, emberSize * 0.5, 0, Math.PI * 2);
                 ctx.fill();
@@ -124,7 +126,7 @@ export class DrawNegativeEffect {
         //  Unit overlay effect - makes the unit appear slightly reddish
         ctx.save();
         ctx.globalCompositeOperation = "multiply";
-        ctx.fillStyle = "rgba(255, 100, 50, 0.3)";
+        ctx.fillStyle = withAlpha(colors.accentDanger, 0.3);
         ctx.fillRect(this.unit.x, this.unit.y, this.unit.width, this.unit.height);
 
         ctx.restore();
@@ -139,7 +141,7 @@ export class DrawNegativeEffect {
         for (let x = this.unit.x; x < this.unit.x + this.unit.width; x += staticSize * 2) {
             for (let y = this.unit.y; y < this.unit.y + this.unit.height; y += staticSize * 2) {
                 if (Math.random() > 0.5) {
-                    ctx.fillStyle = `rgba(150, 150, 150, ${Math.random() * 0.4 + 0.2})`;
+                    ctx.fillStyle = withAlpha(colors.textMuted, Math.random() * 0.4 + 0.2);
                     ctx.fillRect(x, y, staticSize, staticSize);
                 }
             }
@@ -147,7 +149,7 @@ export class DrawNegativeEffect {
 
         // 2. Electric shock waves (for EMP effect)
         const shockTime = Date.now() / 100;
-        ctx.strokeStyle = "rgba(0, 200, 255, 0.6)";
+        ctx.strokeStyle = withAlpha(colors.accentInfo, 0.6);
         ctx.lineWidth = 2;
 
         // Draw electric arcs
@@ -171,19 +173,19 @@ export class DrawNegativeEffect {
         ctx.globalAlpha = 0.6;
 
         // Red channel offset
-        ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+        ctx.fillStyle = withAlpha(colors.accentDanger, 0.3);
         ctx.fillRect(this.unit.x - 2, this.unit.y - 1, this.unit.width, this.unit.height);
 
         // Blue channel offset
-        ctx.fillStyle = "rgba(0, 0, 255, 0.3)";
+        ctx.fillStyle = withAlpha(colors.accentInfo, 0.3);
         ctx.fillRect(this.unit.x + 2, this.unit.y + 1, this.unit.width, this.unit.height);
 
         ctx.globalCompositeOperation = "source-over";
 
         // 4. Warning symbol
         ctx.globalAlpha = 0.8;
-        ctx.fillStyle = "yellow";
-        ctx.strokeStyle = "black";
+        ctx.fillStyle = colors.accentEnergy;
+        ctx.strokeStyle = colors.edgeOutline;
         ctx.lineWidth = 2;
 
         // Draw warning triangle
@@ -200,7 +202,7 @@ export class DrawNegativeEffect {
         ctx.stroke();
 
         // Exclamation mark
-        ctx.fillStyle = "black";
+        ctx.fillStyle = colors.edgeOutline;
         ctx.font = `bold ${size}px Arial`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -208,7 +210,7 @@ export class DrawNegativeEffect {
 
         // 5. Pulsing border
         const pulseAlpha = (Math.sin(shockTime) + 1) / 2 * 0.6 + 0.2;
-        ctx.strokeStyle = `rgba(255, 0, 0, ${pulseAlpha})`;
+        ctx.strokeStyle = withAlpha(colors.accentDanger, pulseAlpha);
         ctx.lineWidth = 3;
         ctx.setLineDash([5, 5]);
         ctx.lineDashOffset = shockTime * 2;
@@ -216,7 +218,7 @@ export class DrawNegativeEffect {
 
         // 6. "DISABLED" text (optional - only for larger units)
         if (this.unit.width > 40) {
-            ctx.fillStyle = `rgba(255, 255, 255, ${pulseAlpha})`;
+            ctx.fillStyle = withAlpha(colors.textPrimary, pulseAlpha);
             ctx.font = "bold 10px Arial";
             ctx.textAlign = "center";
             ctx.textBaseline = "bottom";
@@ -230,8 +232,8 @@ export class DrawNegativeEffect {
         ctx.save();
         // Pulsing purple diamond above the enemy's head — no bounding rectangle
         const pulse = 0.6 + Math.sin(Date.now() / 200) * 0.2;
-        ctx.fillStyle = `rgba(200, 60, 255, ${pulse})`;
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.fillStyle = withAlpha(decorative.violet, pulse);
+        ctx.strokeStyle = withAlpha(colors.textPrimary, 0.8);
         ctx.lineWidth = 1;
         ctx.font = "bold 14px Arial";
         ctx.textAlign = "center";
@@ -242,13 +244,13 @@ export class DrawNegativeEffect {
 
     drawFrozenEffect(ctx) {
         ctx.save();
-        ctx.strokeStyle = "lightblue";
+        ctx.strokeStyle = colors.accentInfo;
         ctx.lineWidth = 3;
         ctx.globalAlpha = 0.6;
         ctx.strokeRect(this.unit.x - 2, this.unit.y - 2, this.unit.width + 4, this.unit.height + 4);
 
         // Ice crystals
-        ctx.fillStyle = "rgba(173, 216, 230, 0.8)";
+        ctx.fillStyle = withAlpha(colors.accentInfo, 0.8);
         for (let i = 0; i < 3; i++) {
             const x = this.unit.x + Math.random() * this.unit.width;
             const y = this.unit.y + Math.random() * this.unit.height;
@@ -259,11 +261,11 @@ export class DrawNegativeEffect {
 
     drawSlowedEffect(ctx) {
         ctx.save();
-        ctx.fillStyle = "rgba(173, 216, 230, 0.3)";
+        ctx.fillStyle = withAlpha(colors.accentInfo, 0.3);
         ctx.fillRect(this.unit.x, this.unit.y, this.unit.width, this.unit.height);
 
         // Snowflake icon above
-        ctx.fillStyle = "lightblue";
+        ctx.fillStyle = colors.accentInfo;
         ctx.font = "16px Arial";
         ctx.textAlign = "center";
         ctx.fillText("❄", this.unit.x + this.unit.width / 2, this.unit.y - 5);

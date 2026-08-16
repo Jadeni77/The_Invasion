@@ -1,4 +1,5 @@
 import { frameScale } from "../../Animation/FrameTime.js";
+import { colors, withAlpha } from '../../../../style/tokens.js';
 
 export class DrawUIs {
     constructor(gameEngine) {
@@ -19,11 +20,11 @@ export class DrawUIs {
 
     drawBackground(ctx) {
         // Draw sky
-        ctx.fillStyle = "#1a3a5a";
+        ctx.fillStyle = colors.surfaceBase;
         ctx.fillRect(0, 0, this.gameEngine.canvasWidth, this.gameEngine.canvasHeight);
 
         // Draw grass (top and bottom)
-        ctx.fillStyle = "#2a5a3a";
+        ctx.fillStyle = colors.surfacePanel;
         ctx.fillRect(0, 0, this.gameEngine.canvasWidth, this.gameEngine.canvasHeight * 0.4); // Top grass
         ctx.fillRect(
             0,
@@ -33,7 +34,7 @@ export class DrawUIs {
         ); // Bottom grass
 
         // Draw road
-        ctx.fillStyle = "#5a5a5a";
+        ctx.fillStyle = colors.surfaceRaised;
         ctx.fillRect(
             0,
             this.gameEngine.canvasHeight * 0.4,
@@ -42,8 +43,8 @@ export class DrawUIs {
         );
 
         // Draw road markings
-        ctx.fillStyle = "#ffffff";
-        ctx.strokeStyle = "#ffffff";
+        ctx.fillStyle = colors.textPrimary;
+        ctx.strokeStyle = colors.textPrimary;
         ctx.lineWidth = 2;
         for (let i = 20; i < this.gameEngine.canvasWidth; i += 40) {
             ctx.beginPath();
@@ -53,7 +54,7 @@ export class DrawUIs {
         }
 
         // Draw defense line (right edge)
-        ctx.strokeStyle = "#ff3300";
+        ctx.strokeStyle = colors.accentDanger;
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(this.gameEngine.defenseLineX - 1, 0);
@@ -61,7 +62,7 @@ export class DrawUIs {
         ctx.stroke();
 
         // Draw base building
-        ctx.fillStyle = "#8b6f4b";
+        ctx.fillStyle = colors.surfacePanel;
         ctx.fillRect(
             this.gameEngine.defenseLineX - 30,
             this.gameEngine.canvasHeight * 0.3,
@@ -70,7 +71,7 @@ export class DrawUIs {
         );
 
         // Draw windows
-        ctx.fillStyle = "#ffcc00";
+        ctx.fillStyle = colors.accentEnergy;
         for (let i = 0; i < 3; i++) {
             ctx.fillRect(
                 this.gameEngine.defenseLineX - 25,
@@ -93,7 +94,7 @@ export class DrawUIs {
         }
 
         // Draw defense line indicator
-        ctx.strokeStyle = "#FF0000";
+        ctx.strokeStyle = colors.accentDanger;
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(this.gameEngine.defenseLineX, 0);
@@ -122,12 +123,12 @@ export class DrawUIs {
             const y = 50;
 
             // Background box
-            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            ctx.fillStyle = withAlpha(colors.edgeOutline, 0.7);
             ctx.fillRect(x - 60, y - 20, 120, 40);
 
             // Timer text
             ctx.font = "16px Arial";
-            ctx.fillStyle = secondsUntilNext <= 5 ? "#FF6B6B" : "#FFF";
+            ctx.fillStyle = secondsUntilNext <= 5 ? colors.accentDanger : colors.textPrimary;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText(`Next Wave: ${secondsUntilNext}s`, x, y);
@@ -138,11 +139,11 @@ export class DrawUIs {
             const barX = x - barWidth / 2;
             const barY = y + 12;
 
-            ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+            ctx.fillStyle = withAlpha(colors.textPrimary, 0.2);
             ctx.fillRect(barX, barY, barWidth, barHeight);
 
             const progress = secondsUntilNext / 30; // Assuming 30 second intervals
-            ctx.fillStyle = secondsUntilNext <= 5 ? "#FF6B6B" : "#4CAF50";
+            ctx.fillStyle = secondsUntilNext <= 5 ? colors.accentDanger : colors.accentSuccess;
             ctx.fillRect(barX, barY, barWidth * progress, barHeight);
 
             ctx.restore();
@@ -153,7 +154,7 @@ export class DrawUIs {
     drawNormalWaveInfo(ctx) {
         ctx.save();
 
-        ctx.fillStyle = "#FFF";
+        ctx.fillStyle = colors.textPrimary;
         ctx.font = "16px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -174,12 +175,12 @@ export class DrawUIs {
             const progressX = (this.gameEngine.canvasWidth - progressWidth) / 2;
             const progressY = 35;
 
-            ctx.fillStyle = "#333";
+            ctx.fillStyle = colors.surfaceSunken;
             ctx.fillRect(progressX, progressY, progressWidth, 8);
 
             const progress = waveManager.waveEnemiesSpawned /
                              (this.gameEngine.currentLevelConfig.totalEnemiesToSpawn / totalWaves);
-            ctx.fillStyle = "#4CAF50";
+            ctx.fillStyle = colors.accentSuccess;
             ctx.fillRect(progressX, progressY, progressWidth * Math.min(1, progress), 8);
         }
 
@@ -196,8 +197,8 @@ export class DrawUIs {
         ctx.font = "bold 24px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillStyle = "#FFD700"; // Gold color for endless
-        ctx.strokeStyle = "#000";
+        ctx.fillStyle = colors.accentEnergy; // Gold color for endless
+        ctx.strokeStyle = colors.edgeOutline;
         ctx.lineWidth = 3;
 
         const waveText = `ENDLESS WAVE ${waveManager.currentWave}`;
@@ -206,7 +207,7 @@ export class DrawUIs {
 
         // Sub-info
         ctx.font = "14px Arial";
-        ctx.fillStyle = "#FFF";
+        ctx.fillStyle = colors.textPrimary;
         const enemiesActive = this.gameEngine.enemies.length;
         const killCount = waveManager.totalEnemiesKilled;
         ctx.fillText(
@@ -250,23 +251,23 @@ export class DrawUIs {
         // Draw background with gradient
         const gradient = ctx.createLinearGradient(boxX, boxY, boxX, boxY + boxHeight);
         if (this.waveAnnouncement.isBoss) {
-            gradient.addColorStop(0, "rgba(139, 0, 0, 0.9)");
-            gradient.addColorStop(1, "rgba(255, 0, 0, 0.9)");
+            gradient.addColorStop(0, withAlpha(colors.accentDanger, 0.9));
+            gradient.addColorStop(1, withAlpha(colors.accentDanger, 0.9));
         } else {
-            gradient.addColorStop(0, "rgba(0, 0, 0, 0.8)");
-            gradient.addColorStop(1, "rgba(50, 50, 50, 0.8)");
+            gradient.addColorStop(0, withAlpha(colors.edgeOutline, 0.8));
+            gradient.addColorStop(1, withAlpha(colors.surfaceSunken, 0.8));
         }
 
         ctx.fillStyle = gradient;
         ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
 
         // Border
-        ctx.strokeStyle = this.waveAnnouncement.isBoss ? "#FFD700" : "#FFF";
+        ctx.strokeStyle = this.waveAnnouncement.isBoss ? colors.accentEnergy : colors.textPrimary;
         ctx.lineWidth = 3;
         ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
 
         // Text
-        ctx.fillStyle = this.waveAnnouncement.isBoss ? "#FFD700" : "#FFF";
+        ctx.fillStyle = this.waveAnnouncement.isBoss ? colors.accentEnergy : colors.textPrimary;
         ctx.font = this.waveAnnouncement.isBoss ? "bold 32px Arial" : "bold 28px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -279,7 +280,7 @@ export class DrawUIs {
 
         if (this.waveAnnouncement.subtitle) {
             ctx.font = "18px Arial";
-            ctx.fillStyle = "#CCC";
+            ctx.fillStyle = colors.textMuted;
             ctx.fillText(
                 this.waveAnnouncement.subtitle,
                 this.gameEngine.canvasWidth / 2,
@@ -310,8 +311,8 @@ export class DrawUIs {
             ctx.globalAlpha = this.milestoneAnimation.pulse;
             ctx.font = "bold 36px Arial";
             ctx.textAlign = "center";
-            ctx.fillStyle = "#FFD700";
-            ctx.strokeStyle = "#000";
+            ctx.fillStyle = colors.accentEnergy;
+            ctx.strokeStyle = colors.edgeOutline;
             ctx.lineWidth = 3;
 
             const text = `MILESTONE WAVE ${wave}!`;
@@ -377,8 +378,8 @@ export class DrawUIs {
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         for (const number of numbers) {
-            ctx.fillStyle = `rgba(255, 80, 80, ${number.alpha})`;
-            ctx.strokeStyle = `rgba(0, 0, 0, ${number.alpha})`;
+            ctx.fillStyle = withAlpha(colors.accentDanger, number.alpha);
+            ctx.strokeStyle = withAlpha(colors.edgeOutline, number.alpha);
             ctx.lineWidth = 3;
             ctx.strokeText(String(number.damage), number.x, number.y);
             ctx.fillText(String(number.damage), number.x, number.y);

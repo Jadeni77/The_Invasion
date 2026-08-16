@@ -1,4 +1,5 @@
 import { getSettings } from '../../Feedback/SettingsStore.js';
+import { colors, decorative, withAlpha, withFlicker } from '../../../../style/tokens.js';
 
 export class DrawExplosionEffect {
     constructor(engine) {
@@ -80,10 +81,10 @@ export class DrawExplosionEffect {
             explosion.x, explosion.y, 0,
             explosion.x, explosion.y, radius
         );
-        gradient.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+        gradient.addColorStop(0, withAlpha(colors.textPrimary, alpha));
         gradient.addColorStop(0.3, explosion.particleColor.replace('0.8', alpha * 0.8));
         gradient.addColorStop(0.7, explosion.color.replace(')', `, ${alpha * 0.5})`).replace('rgb', 'rgba'));
-        gradient.addColorStop(1, `rgba(255, 100, 0, 0)`);
+        gradient.addColorStop(1, withAlpha(decorative.orange, 0));
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -98,7 +99,7 @@ export class DrawExplosionEffect {
             const px = explosion.x + Math.cos(angle) * particleDistance;
             const py = explosion.y + Math.sin(angle) * particleDistance;
 
-            ctx.fillStyle = `rgba(255, 200, 0, ${alpha})`;
+            ctx.fillStyle = withAlpha(colors.accentEnergy, alpha);
             ctx.beginPath();
             ctx.arc(px, py, 3 * alpha, 0, Math.PI * 2);
             ctx.fill();
@@ -107,7 +108,7 @@ export class DrawExplosionEffect {
 
     drawPiercingExplosion(ctx, explosion, radius, alpha) {
         // Central bright core
-        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.fillStyle = withAlpha(colors.textPrimary, alpha);
         ctx.beginPath();
         ctx.arc(explosion.x, explosion.y, radius * 0.3, 0, Math.PI * 2);
         ctx.fill();
@@ -124,8 +125,8 @@ export class DrawExplosionEffect {
             explosion.x, explosion.y, radius * 0.3,
             explosion.x, explosion.y, radius
         );
-        gradient.addColorStop(0, `rgba(220, 20, 60, ${alpha * 0.6})`);
-        gradient.addColorStop(1, `rgba(220, 20, 60, 0)`);
+        gradient.addColorStop(0, withAlpha(colors.accentDanger, alpha * 0.6));
+        gradient.addColorStop(1, withAlpha(colors.accentDanger, 0));
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -151,9 +152,9 @@ export class DrawExplosionEffect {
             explosion.x, explosion.y, 0,
             explosion.x, explosion.y, radius * 0.5
         );
-        gradient.addColorStop(0, `rgba(255, 0, 255, ${alpha})`);
-        gradient.addColorStop(0.5, `rgba(148, 0, 211, ${alpha * 0.5})`);
-        gradient.addColorStop(1, `rgba(148, 0, 211, 0)`);
+        gradient.addColorStop(0, withAlpha(decorative.violet, alpha));
+        gradient.addColorStop(0.5, withAlpha(decorative.violet, alpha * 0.5));
+        gradient.addColorStop(1, withAlpha(decorative.violet, 0));
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -163,7 +164,7 @@ export class DrawExplosionEffect {
 
     drawElectricExplosion(ctx, explosion, radius, alpha) {
         // Electric core
-        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.fillStyle = withAlpha(colors.textPrimary, alpha);
         ctx.beginPath();
         ctx.arc(explosion.x, explosion.y, radius * 0.2, 0, Math.PI * 2);
         ctx.fill();
@@ -197,9 +198,9 @@ export class DrawExplosionEffect {
             explosion.x, explosion.y, 0,
             explosion.x, explosion.y, radius
         );
-        gradient.addColorStop(0, `rgba(0, 255, 255, ${alpha * 0.4})`);
-        gradient.addColorStop(0.5, `rgba(0, 200, 255, ${alpha * 0.2})`);
-        gradient.addColorStop(1, `rgba(0, 255, 255, 0)`);
+        gradient.addColorStop(0, withAlpha(colors.accentInfo, alpha * 0.4));
+        gradient.addColorStop(0.5, withAlpha(colors.accentInfo, alpha * 0.2));
+        gradient.addColorStop(1, withAlpha(colors.accentInfo, 0));
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -219,7 +220,7 @@ export class DrawExplosionEffect {
             gradient.addColorStop(0.4, explosion.color.replace(')', `, ${alpha * 0.8})`).replace('rgb', 'rgba'));
             gradient.addColorStop(1, explosion.color.replace(')', `, 0)`).replace('rgb', 'rgba'));
         } else {
-            gradient.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+            gradient.addColorStop(0, withAlpha(colors.textPrimary, alpha));
             gradient.addColorStop(0.5, explosion.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba'));
             gradient.addColorStop(1, explosion.color.replace(')', `, 0)`).replace('rgb', 'rgba'));
         }
@@ -230,7 +231,7 @@ export class DrawExplosionEffect {
         ctx.fill();
 
         // Add a bright ring
-        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
+        ctx.strokeStyle = withAlpha(colors.textPrimary, alpha * 0.5);
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(explosion.x, explosion.y, radius * 0.8, 0, Math.PI * 2);
@@ -246,9 +247,9 @@ export class DrawExplosionEffect {
             explosion.x, explosion.y, 0,
             explosion.x, explosion.y, pulseRadius
         );
-        gradient.addColorStop(0, `rgba(139, 0, 0, ${alpha})`);
-        gradient.addColorStop(0.5, `rgba(255, 0, 0, ${alpha * 0.6})`);
-        gradient.addColorStop(1, `rgba(139, 0, 0, 0)`);
+        gradient.addColorStop(0, withAlpha(colors.accentDanger, alpha));
+        gradient.addColorStop(0.5, withAlpha(colors.accentDanger, alpha * 0.6));
+        gradient.addColorStop(1, withAlpha(colors.accentDanger, 0));
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -261,7 +262,7 @@ export class DrawExplosionEffect {
             const angle = (Math.PI * 2 * i) / spikeCount + explosion.timer * 0.1;
             const spikeLength = radius * (0.8 + Math.sin(explosion.timer * 0.3) * 0.2);
 
-            ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
+            ctx.strokeStyle = withAlpha(colors.accentDanger, alpha);
             ctx.lineWidth = 3 * alpha;
             ctx.beginPath();
             ctx.moveTo(explosion.x, explosion.y);
@@ -275,7 +276,7 @@ export class DrawExplosionEffect {
 
     drawNecromancyExplosion(ctx, explosion, radius, alpha) {
         // Dark portal effect
-        ctx.fillStyle = `rgba(0, 0, 0, ${alpha * 0.5})`;
+        ctx.fillStyle = withAlpha(colors.edgeOutline, alpha * 0.5);
         ctx.beginPath();
         ctx.arc(explosion.x, explosion.y, radius, 0, Math.PI * 2);
         ctx.fill();
@@ -292,9 +293,9 @@ export class DrawExplosionEffect {
                 explosion.x + Math.cos(endAngle) * radius,
                 explosion.y + Math.sin(endAngle) * radius
             );
-            gradient.addColorStop(0, `rgba(148, 0, 211, 0)`);
-            gradient.addColorStop(0.5, `rgba(148, 0, 211, ${alpha})`);
-            gradient.addColorStop(1, `rgba(148, 0, 211, 0)`);
+            gradient.addColorStop(0, withAlpha(decorative.violet, 0));
+            gradient.addColorStop(0.5, withAlpha(decorative.violet, alpha));
+            gradient.addColorStop(1, withAlpha(decorative.violet, 0));
 
             ctx.strokeStyle = gradient;
             ctx.lineWidth = 4 * alpha;
@@ -304,7 +305,7 @@ export class DrawExplosionEffect {
         }
 
         // Skull symbol in center
-        ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.6})`;
+        ctx.fillStyle = withAlpha(colors.textPrimary, alpha * 0.6);
         ctx.font = `${20 * alpha}px Arial`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -323,11 +324,11 @@ export class DrawExplosionEffect {
 
             // Slash gradient
             const gradient = ctx.createLinearGradient(startX, startY, endX, endY);
-            gradient.addColorStop(0, `rgba(139, 0, 0, 0)`);
-            gradient.addColorStop(0.3, `rgba(255, 0, 0, ${alpha})`);
-            gradient.addColorStop(0.5, `rgba(255, 255, 255, ${alpha})`);
-            gradient.addColorStop(0.7, `rgba(255, 0, 0, ${alpha})`);
-            gradient.addColorStop(1, `rgba(139, 0, 0, 0)`);
+            gradient.addColorStop(0, withAlpha(colors.accentDanger, 0));
+            gradient.addColorStop(0.3, withAlpha(colors.accentDanger, alpha));
+            gradient.addColorStop(0.5, withAlpha(colors.textPrimary, alpha));
+            gradient.addColorStop(0.7, withAlpha(colors.accentDanger, alpha));
+            gradient.addColorStop(1, withAlpha(colors.accentDanger, 0));
 
             ctx.strokeStyle = gradient;
             ctx.lineWidth = 4 * alpha;
@@ -339,7 +340,7 @@ export class DrawExplosionEffect {
         }
 
         // Blood splatter effect
-        ctx.fillStyle = `rgba(139, 0, 0, ${alpha * 0.6})`;
+        ctx.fillStyle = withAlpha(colors.accentDanger, alpha * 0.6);
         for (let i = 0; i < 5; i++) {
             const splatterX = explosion.x + (Math.random() - 0.5) * radius;
             const splatterY = explosion.y + (Math.random() - 0.5) * radius;
@@ -361,9 +362,9 @@ export class DrawExplosionEffect {
                 explosion.x, explosion.y, ringRadius * 0.8,
                 explosion.x, explosion.y, ringRadius
             );
-            gradient.addColorStop(0, `rgba(255, 255, 0, ${ringAlpha})`);
-            gradient.addColorStop(0.5, `rgba(255, 140, 0, ${ringAlpha * 0.8})`);
-            gradient.addColorStop(1, `rgba(255, 0, 0, ${ringAlpha * 0.3})`);
+            gradient.addColorStop(0, withAlpha(colors.accentEnergy, ringAlpha));
+            gradient.addColorStop(0.5, withAlpha(decorative.orange, ringAlpha * 0.8));
+            gradient.addColorStop(1, withAlpha(colors.accentDanger, ringAlpha * 0.3));
 
             ctx.fillStyle = gradient;
             ctx.beginPath();
@@ -379,7 +380,7 @@ export class DrawExplosionEffect {
             const px = explosion.x + Math.cos(angle) * distance;
             const py = explosion.y + Math.sin(angle) * distance - explosion.timer;
 
-            ctx.fillStyle = `rgba(255, ${100 + Math.random() * 100}, 0, ${alpha})`;
+            ctx.fillStyle = withFlicker(decorative.orange, alpha, 100);
             ctx.beginPath();
             ctx.arc(px, py, 5 * alpha, 0, Math.PI * 2);
             ctx.fill();
@@ -396,10 +397,10 @@ export class DrawExplosionEffect {
         ctx.save();
 
         // Bright core
-        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.strokeStyle = withAlpha(colors.textPrimary, alpha);
         ctx.lineWidth = 4;
         ctx.shadowBlur = 20;
-        ctx.shadowColor = "rgba(138, 43, 226, 0.8)";
+        ctx.shadowColor = withAlpha(decorative.violet, 0.8);
 
         ctx.beginPath();
         ctx.moveTo(targetX, targetY - strikeHeight);
@@ -418,12 +419,12 @@ export class DrawExplosionEffect {
         ctx.stroke();
 
         // Purple-blue glow
-        ctx.strokeStyle = `rgba(138, 43, 226, ${alpha * 0.8})`;
+        ctx.strokeStyle = withAlpha(decorative.violet, alpha * 0.8);
         ctx.lineWidth = 8;
         ctx.stroke();
 
         // Outer glow
-        ctx.strokeStyle = `rgba(147, 112, 219, ${alpha * 0.4})`;
+        ctx.strokeStyle = withAlpha(decorative.violet, alpha * 0.4);
         ctx.lineWidth = 16;
         ctx.stroke();
 
@@ -432,10 +433,10 @@ export class DrawExplosionEffect {
             targetX, targetY, 0,
             targetX, targetY, radius
         );
-        impactGradient.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-        impactGradient.addColorStop(0.3, `rgba(138, 43, 226, ${alpha * 0.8})`);
-        impactGradient.addColorStop(0.6, `rgba(147, 112, 219, ${alpha * 0.5})`);
-        impactGradient.addColorStop(1, `rgba(138, 43, 226, 0)`);
+        impactGradient.addColorStop(0, withAlpha(colors.textPrimary, alpha));
+        impactGradient.addColorStop(0.3, withAlpha(decorative.violet, alpha * 0.8));
+        impactGradient.addColorStop(0.6, withAlpha(decorative.violet, alpha * 0.5));
+        impactGradient.addColorStop(1, withAlpha(decorative.violet, 0));
 
         ctx.fillStyle = impactGradient;
         ctx.beginPath();
@@ -448,7 +449,7 @@ export class DrawExplosionEffect {
             const angle = (Math.PI * 2 * i) / sparkCount + explosion.timer * 0.2;
             const sparkLength = radius * 0.8;
 
-            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
+            ctx.strokeStyle = withAlpha(colors.textPrimary, alpha * 0.8);
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(targetX, targetY);
@@ -513,7 +514,7 @@ export class DrawExplosionEffect {
 
         // Draw cracks
         for (const crack of explosion.groundCracks) {
-            ctx.strokeStyle = `rgba(60, 30, 0, ${alpha * (1 - healProgress)})`;
+            ctx.strokeStyle = withAlpha(colors.surfaceSunken, alpha * (1 - healProgress));
             ctx.lineWidth = (4 + Math.random() * 2) * alpha * (1 - healProgress);
             ctx.beginPath();
             ctx.moveTo(explosion.x, explosion.y);
@@ -533,7 +534,7 @@ export class DrawExplosionEffect {
             ctx.stroke();
 
             // Dark inner crack
-            ctx.strokeStyle = `rgba(20, 10, 0, ${alpha * 0.8 * (1 - healProgress)})`;
+            ctx.strokeStyle = withAlpha(colors.edgeOutline, alpha * 0.8 * (1 - healProgress));
             ctx.lineWidth = 2 * alpha * (1 - healProgress);
             ctx.stroke();
         }
@@ -544,7 +545,7 @@ export class DrawExplosionEffect {
             const rippleRadius = radius * (0.3 + i * 0.3) * crackProgress;
             const rippleAlpha = alpha * 0.3 * (1 - i / rippleCount) * (1 - healProgress);
 
-            ctx.strokeStyle = `rgba(139, 69, 19, ${rippleAlpha})`;
+            ctx.strokeStyle = withAlpha(colors.surfaceRaised, rippleAlpha);
             ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.arc(explosion.x, explosion.y, rippleRadius, 0, Math.PI * 2);
@@ -560,7 +561,7 @@ export class DrawExplosionEffect {
             const debrisY = explosion.y + Math.sin(angle) * distance - (30 - explosion.timer) * 2;
             const size = (3 + Math.random() * 4) * alpha;
 
-            ctx.fillStyle = `rgba(139, 69, 19, ${alpha * 0.8})`;
+            ctx.fillStyle = withAlpha(colors.surfaceRaised, alpha * 0.8);
             ctx.beginPath();
             ctx.arc(debrisX, debrisY, size, 0, Math.PI * 2);
             ctx.fill();
@@ -571,9 +572,9 @@ export class DrawExplosionEffect {
             explosion.x, explosion.y, radius * 0.2,
             explosion.x, explosion.y, radius
         );
-        dustGradient.addColorStop(0, `rgba(160, 82, 45, ${alpha * 0.4})`);
-        dustGradient.addColorStop(0.5, `rgba(139, 69, 19, ${alpha * 0.2})`);
-        dustGradient.addColorStop(1, `rgba(160, 82, 45, 0)`);
+        dustGradient.addColorStop(0, withAlpha(colors.edgeHighlight, alpha * 0.4));
+        dustGradient.addColorStop(0.5, withAlpha(colors.surfaceRaised, alpha * 0.2));
+        dustGradient.addColorStop(1, withAlpha(colors.edgeHighlight, 0));
 
         ctx.fillStyle = dustGradient;
         ctx.beginPath();

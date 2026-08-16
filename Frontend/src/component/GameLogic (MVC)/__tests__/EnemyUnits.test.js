@@ -3,6 +3,7 @@ import { Enemy, RangeEnemy, AssassinEnemy, BombEnemy } from '../EnemyUnits.js';
 import { FireBlast, BasicDefender } from '../DefenderUnits.js';
 import { DEFAULT_SETTINGS, saveSettings } from '../Feedback/SettingsStore.js';
 import { setFrameDeltaMs } from '../Animation/FrameTime.js';
+import { colors } from '../../../style/tokens.js';
 
 /**
  * These tests drive unit.update() by hand, standing in for GameEngine's loop,
@@ -23,7 +24,7 @@ const CARD = { level: 1, image: null };
  * A minimal fake 2D context, in the style of the fake used in
  * GameEngineBreakDown/__tests__/canvasState.test.js, extended to record the
  * fillStyle in effect at each fillRect call so we can tell the health-bar
- * rects (red/lime) apart from the unit's own fallback-body rect.
+ * rects (accentDanger/accentSuccess) apart from the unit's own fallback-body rect.
  */
 function createRecordingContext() {
   const calls = [];
@@ -79,7 +80,7 @@ describe('Enemy.draw health bar respects showHealthBars', () => {
 
     enemy.draw(ctx);
 
-    const healthBarCalls = calls.filter((c) => c.fillStyle === 'red' || c.fillStyle === 'lime');
+    const healthBarCalls = calls.filter((c) => c.fillStyle === colors.accentDanger || c.fillStyle === colors.accentSuccess);
     expect(healthBarCalls.length).toBe(2);
   });
 
@@ -90,7 +91,7 @@ describe('Enemy.draw health bar respects showHealthBars', () => {
 
     enemy.draw(ctx);
 
-    const healthBarCalls = calls.filter((c) => c.fillStyle === 'red' || c.fillStyle === 'lime');
+    const healthBarCalls = calls.filter((c) => c.fillStyle === colors.accentDanger || c.fillStyle === colors.accentSuccess);
     expect(healthBarCalls.length).toBe(0);
   });
 });
