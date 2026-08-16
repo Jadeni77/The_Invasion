@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Mortar } from '../../DefenderUnits.js';
 import * as EnemyModule from '../../EnemyUnits.js';
 import * as DefenderModule from '../../DefenderUnits.js';
-import { UNIT_VOICES, VARIANTS, resolveVoice } from '../UnitVoices.js';
+import { UNIT_VOICES, VARIANTS, MAX_DURATION, resolveVoice } from '../UnitVoices.js';
 import { SFX, recipeLayers, recipeSpan } from '../SfxLibrary.js';
 import { soundKeyFor, SOUND_KEYS } from '../SoundGroups.js';
 
@@ -525,7 +525,10 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
     const extraLayers = Object.values(ALL_TABLES).reduce((n, recipe) => n + (recipe.layers?.length ?? 0), 0);
 
     expect(Object.keys(ALL_TABLES)).toHaveLength(Object.keys(SFX).length + Object.keys(UNIT_VOICES).length);
-    expect(extraLayers, 'waveStarted +1, bossWaveStarted +2, mortar +2').toBe(5);
+    expect(
+      extraLayers,
+      'waveStarted +1, bossWaveStarted +2, mortar +2, quake-charge +1, quake-impact +3, phase-change +2',
+    ).toBe(11);
     expect(authoredLayers.length).toBe(Object.keys(ALL_TABLES).length + extraLayers);
   });
 
@@ -538,7 +541,7 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
     // SFX and UNIT_VOICES share no key (asserted by 'game-event sounds are
     // served by SFX, not the voice table'), so merging them loses nothing.
     expect(layeredEntries.map(([id]) => id).sort())
-      .toEqual(['bossWaveStarted', 'mortar', 'waveStarted']);
+      .toEqual(['bossWaveStarted', 'mortar', 'phase-change', 'quake-charge', 'quake-impact', 'waveStarted']);
   });
 
   it.each(layeredEntries)('%s keeps every one of its layers above the floor', (id, recipe) => {
@@ -592,5 +595,130 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
       expect(heaviest.gain, key).toBeGreaterThan(defender.gain);
       expect(heaviest.freqStart, key).toBeLessThan(defender.freqStart);
     }
+  });
+});
+
+/**
+ * The Titan's two AoE abilities, which the owner playtested as "no audio for
+ * the earthquake attack, no audio for the phase change".
+ *
+ * These assert the SHAPE the recipes are supposed to have - a wind-up that
+ * fits in the wind-up window and is quieter than what follows, an impact whose
+ * three layers land where the three waves land, and two abilities a player can
+ * tell apart without looking - rather than the exact numbers, so retuning a
+ * gain does not have to fight the suite while flattening the design does.
+ */
+describe('the Titan abilities the owner could not hear', () => {
+  /** performGroundPound's own schedule, which the impact recipe mirrors. */
+  const CHARGE_SECONDS = 0.5;
+  const WAVE_GAP_SECONDS = 0.2;
+
+  const charge = () => resolveVoice(soundKeyFor('TitanEnemy', 'charge'), 'charge');
+  const impact = () => resolveVoice(soundKeyFor('TitanEnemy', 'impact'), 'impact');
+  const phase = () => resolveVoice(soundKeyFor('TitanEnemy', 'phase'), 'phase');
+
+  it('gives the charge, the impact and the phase change three different sounds', () => {
+    // Rejects a missing soundKeyFor branch, which would resolve any of them to
+    // the generic 'projectile' and make a board-wide earthquake a bow twang.
+    const keys = [
+      soundKeyFor('TitanEnemy', 'charge'),
+      soundKeyFor('TitanEnemy', 'impact'),
+      soundKeyFor('TitanEnemy', 'phase'),
+    ];
+
+    expect(new Set(keys).size).toBe(3);
+    expect(keys).not.toContain('projectile');
+    for (const key of keys) expect(SOUND_KEYS).toContain(key);
+  });
+
+  it('finishes the charge inside the 500ms wind-up, before the first wave', () => {
+    // A wind-up still sounding when the damage lands is not a wind-up.
+    expect(recipeSpan(charge())).toBeLessThanOrEqual(CHARGE_SECONDS);
+  });
+
+  it('keeps the charge quieter than the impact it warns about', () => {
+    const loudest = (recipe) => Math.max(...recipeLayers(recipe).map((layer) => layer.gain));
+    expect(loudest(charge())).toBeLessThan(loudest(impact()));
+  });
+
+  it('rises through the charge, because the tension is the point', () => {
+    for (const layer of recipeLayers(charge())) {
+      expect(layer.freqEnd, 'every charge layer should sweep upward').toBeGreaterThan(layer.freqStart);
+    }
+  });
+
+  it('carries one layer per earthquake wave, at the offsets the waves land on', () => {
+    // Rejects: collapsing the impact to a single burst, which would lose the
+    // three-wave rhythm that is the clearest thing about the attack, and
+    // rejects offsets drifting away from performGroundPound's 200ms spacing.
+    const offsets = recipeLayers(impact()).map((layer) => layer.offset);
+
+    expect(offsets).toContain(WAVE_GAP_SECONDS);
+    expect(offsets).toContain(WAVE_GAP_SECONDS * 2);
+  });
+
+  it('lets each wave recede rather than repeating at full level', () => {
+    // The rings expand AWAY from the player's defenders; three copies at one
+    // level is what emitting per wave would have sounded like.
+    const waves = recipeLayers(impact()).filter((layer) => layer.offset >= WAVE_GAP_SECONDS);
+    expect(waves).toHaveLength(2);
+
+    const first = recipeLayers(impact())[1]; // the body of the first slam
+    expect(first.gain).toBeGreaterThan(waves[0].gain);
+    expect(waves[0].gain).toBeGreaterThan(waves[1].gain);
+  });
+
+  it('gives the impact a pitched body, so it is a slam and not a hiss', () => {
+    // The lesson the Mortar cost: a bandpassed noise burst alone has no note,
+    // and the weight has to come from a harmonic stack that survives the
+    // laptop rolloff.
+    const body = recipeLayers(impact()).find((layer) => !layer.noise);
+
+    expect(body, 'the ground pound needs a pitched layer').toBeDefined();
+    expect(body.freqEnd).toBeLessThan(body.freqStart);
+  });
+
+  it('makes the phase change rise where the ground pound falls', () => {
+    // The two loudest things a Titan does. If both fell, a player would have to
+    // look at the screen to tell an escalation from an earthquake.
+    const body = recipeLayers(phase()).find((layer) => !layer.noise);
+    const slam = recipeLayers(impact()).find((layer) => !layer.noise);
+
+    expect(body.freqEnd).toBeGreaterThan(body.freqStart);
+    expect(slam.freqEnd).toBeLessThan(slam.freqStart);
+  });
+
+  it('keeps all three inside one voice slot', () => {
+    for (const recipe of [charge(), impact(), phase()]) {
+      expect(recipeSpan(recipe)).toBeLessThanOrEqual(MAX_DURATION);
+    }
+  });
+
+  it('keeps every layer above the laptop speaker floor as actually resolved', () => {
+    /**
+     * The derived reachable-pairs check earlier in this file cannot see these:
+     * it walks Object.keys(VARIANTS), and charge/impact/phase are deliberately
+     * NOT declared there - they play at their authored level, which is what
+     * resolveVoice's fallback to VARIANTS.fire already does. So the resolved
+     * form of exactly these three sounds needs its own check, and the floor is
+     * a literal here for the same reason it is everywhere else in this file.
+     */
+    const LAPTOP_SPEAKER_FLOOR_HZ = 200;
+
+    for (const [key, variant] of [['quake-charge', 'charge'], ['quake-impact', 'impact'], ['phase-change', 'phase']]) {
+      for (const [index, layer] of recipeLayers(resolveVoice(key, variant)).entries()) {
+        expect(layer.freqStart, `${key} layer ${index} freqStart`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+        expect(layer.freqEnd, `${key} layer ${index} freqEnd`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+      }
+    }
+  });
+
+  it('plays at its authored level, because these variants scale nothing', () => {
+    // Both render paths must agree on that: the synthesized path falls back to
+    // VARIANTS.fire and the sample path to SAMPLE_VARIANTS.fire, and both of
+    // those are identity. If a future variant entry scales one and not the
+    // other, a supplied sample would not match its synthesized stand-in.
+    expect(resolveVoice('quake-impact', 'impact')).toEqual(UNIT_VOICES['quake-impact']);
+    expect(resolveVoice('phase-change', 'phase')).toEqual(UNIT_VOICES['phase-change']);
   });
 });

@@ -58,6 +58,7 @@ const DEFENDERS = new Set([
 export const SOUND_KEYS = [
   'projectile', 'artillery', 'magic', 'fire', 'heal', 'melee', 'summon', 'hit',
   'mortar', 'sniper',
+  'quake-charge', 'quake-impact', 'phase-change',
   'death-small', 'death-medium', 'death-defender', 'titan', 'boss',
 ];
 
@@ -74,6 +75,17 @@ export function soundKeyFor(unitName, variant) {
   // player needs, and a Vampire's claw would otherwise fall through to the
   // firing branch and play a generic arrow.
   if (variant === 'melee') return 'melee';
+
+  // Big-ability sounds, keyed by the variant like hit and melee rather than by
+  // the unit. Only the Titan reaches them today, but they are named for what
+  // the player has to recognise - something heavy winding up, that same thing
+  // landing, a boss escalating - not for who is doing it, which is the same
+  // rule the rest of this file follows. Without these branches the abilities
+  // would fall through to the firing branch and a board-wide earthquake would
+  // play a bow twang.
+  if (variant === 'charge') return 'quake-charge';
+  if (variant === 'impact') return 'quake-impact';
+  if (variant === 'phase') return 'phase-change';
 
   if (variant === 'death') {
     if (DEATH_SIGNATURES[unitName]) return DEATH_SIGNATURES[unitName];
@@ -104,6 +116,24 @@ export const MIX_TIERS = {
   mortar: MID, sniper: MID,
   'death-small': MID, 'death-medium': MID, 'death-defender': MID,
   titan: LOUD, boss: LOUD,
+  /**
+   * The Titan's two AoE abilities, both LOUD.
+   *
+   * They belong beside baseDamaged and the boss death rather than in the mid
+   * tier with the ordinary attacks, and the argument is the same one: a tier is
+   * about how much the moment MATTERS, and these two moments cost the player
+   * most of the board. A ground pound is 135 damage inside 350px and a phase
+   * transition disables everything within 1500px for five seconds. Nothing else
+   * in the game does that.
+   *
+   * quake-charge is loud for a second reason: it is not a decoration on the
+   * impact, it is the only warning a player gets, and a warning that loses to
+   * the projectile chatter is not a warning. Its LOWER level relative to the
+   * impact is authored into the recipe's gains, which is the right lever -
+   * the tier says how important the category is, the gain says how loud this
+   * sound is inside it.
+   */
+  'quake-charge': LOUD, 'quake-impact': LOUD, 'phase-change': LOUD,
 
   // Game-event sounds, keyed by their SfxLibrary id because they play through
   // playSfx rather than through unit resolution. The ids must match exactly or

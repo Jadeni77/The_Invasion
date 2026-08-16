@@ -75,6 +75,103 @@ export const UNIT_VOICES = {
   melee:            { wave: 'triangle', freqStart: 340,  freqEnd: 220,  duration: 0.10, gain: 0.30, noise: true  },
   summon:           { wave: 'triangle', freqStart: 330,  freqEnd: 220,  duration: 0.30, gain: 0.35, noise: false },
   hit:              { wave: 'triangle', freqStart: 320,  freqEnd: 240,  duration: 0.07, gain: 0.25, noise: false },
+  /**
+   * The Titan's ground pound, in two halves, because it happens in two halves.
+   *
+   * performGroundPound charges for 500ms and THEN lands three waves 200ms
+   * apart. That gap is the only warning the player gets, so it gets a sound of
+   * its own rather than being folded into the impact - a single sound at the
+   * moment of damage tells a player what killed their defender, which is a
+   * post-mortem, not a warning.
+   *
+   *   quake-charge   0.42s  sawtooth  260 -> 400Hz   the strain, RISING. A
+   *                                                  pitched layer, so the
+   *                                                  harmonic stack still
+   *                                                  speaks after the laptop
+   *                                                  rolloff eats 260Hz
+   *                  0.40s  bandpass  380 -> 1500Hz  grit and debris, rising
+   *                  (+60ms)                         with it and ending bright,
+   *                                                  which is what points at
+   *                                                  the impact still to come
+   *
+   * The whole charge spans 0.46s and so finishes just as the first wave lands
+   * at 500ms. It is authored QUIETER than the impact (peak 0.30 against 0.58)
+   * even though both sit in the LOUD mix tier: the wind-up should read as the
+   * thing before the thing.
+   */
+  'quake-charge': {
+    wave: 'sawtooth', freqStart: 260, freqEnd: 400, duration: 0.42, gain: 0.30, noise: false,
+    layers: [
+      { offset: 0.060, wave: 'sawtooth', freqStart: 380, freqEnd: 1500, duration: 0.40, gain: 0.20, noise: true },
+    ],
+  },
+  /**
+   * The impact: ONE sound for all three waves, with the three waves authored
+   * into it as layers at the offsets the waves actually land on.
+   *
+   * Emitting per wave was the alternative and it is worse in both directions.
+   * The waves are 200ms apart, five times AudioManager's 40ms dedupe window, so
+   * nothing would collapse them: the player would get three identical
+   * full-volume copies of a LOUD sound in 400ms, which is how a mix turns to
+   * mud. Suppressing two of the three instead would lose the rhythm that is the
+   * clearest thing about the attack. Layers cost one voice and one dedupe slot
+   * (see SfxLibrary's header) and let the three hits be authored as what they
+   * are - the same hit receding.
+   *
+   *   crack  0.08s  bandpass 1400 -> 420Hz   the transient, highest and
+   *                                          shortest, wide open at the top
+   *                                          where a laptop speaker is most
+   *                                          efficient
+   *   body   0.36s  sawtooth  400 -> 260Hz   the weight, PITCHED. A noise-only
+   *          (+10ms)                         slam is a hiss - the lesson the
+   *                                          Mortar above cost
+   *   wave 2 0.26s  bandpass  900 -> 330Hz   the second ring, quieter and
+   *          (+200ms)                        duller
+   *   wave 3 0.22s  bandpass  700 -> 280Hz   the third, quieter and duller
+   *          (+400ms)                        again
+   *
+   * Falling gains (0.58 -> 0.32 -> 0.20) because the rings are expanding AWAY:
+   * receding level is what that looks like, and it also keeps the tail of a
+   * LOUD sound from fighting whatever plays next. Span 0.62s.
+   */
+  'quake-impact': {
+    wave: 'sawtooth', freqStart: 1400, freqEnd: 420, duration: 0.08, gain: 0.45, noise: true,
+    layers: [
+      { offset: 0.010, wave: 'sawtooth', freqStart: 400, freqEnd: 260, duration: 0.36, gain: 0.58, noise: false },
+      { offset: 0.200, wave: 'sawtooth', freqStart: 900, freqEnd: 330, duration: 0.26, gain: 0.32, noise: true },
+      { offset: 0.400, wave: 'sawtooth', freqStart: 700, freqEnd: 280, duration: 0.22, gain: 0.20, noise: true },
+    ],
+  },
+  /**
+   * The phase transition at 66% and 33% health: the Titan getting stronger,
+   * and everything within 1500px stunned for five seconds.
+   *
+   * Deliberately the mirror of quake-impact. The pound FALLS - a heavy thing
+   * hitting the ground - and this RISES, because it is an escalation, and
+   * because the player has to be able to tell two loud Titan noises apart
+   * without looking. It is the same vocabulary the wave alerts use in
+   * SfxLibrary: rising means something is starting.
+   *
+   *   swell  0.28s  bandpass  320 -> 2400Hz  the shockwave leaving the Titan,
+   *                                          sweeping up and out, matching the
+   *                                          1500px ring that is drawn
+   *   roar   0.60s  sawtooth  330 -> 660Hz   the Titan itself, up a full
+   *          (+50ms)                         octave. The only pitched layer and
+   *                                          the loudest, so the sound has a
+   *                                          note rather than only weather
+   *   settle 0.50s  bandpass  800 -> 300Hz   debris coming back down, under
+   *          (+280ms)                        both, ending lowest at 300Hz and
+   *                                          never below it
+   *
+   * Span 0.78s, inside MAX_DURATION.
+   */
+  'phase-change': {
+    wave: 'sawtooth', freqStart: 320, freqEnd: 2400, duration: 0.28, gain: 0.32, noise: true,
+    layers: [
+      { offset: 0.050, wave: 'sawtooth', freqStart: 330, freqEnd: 660, duration: 0.60, gain: 0.52, noise: false },
+      { offset: 0.280, wave: 'sawtooth', freqStart: 800, freqEnd: 300, duration: 0.50, gain: 0.22, noise: true },
+    ],
+  },
   // The death family reads light -> heavy by falling pitch, rising length and
   // rising level together. Every entry is authored so that the death variant's
   // 0.8 scale still leaves it clear of the speaker rolloff.
@@ -137,7 +234,7 @@ function clamp(value, min, max) {
  * production this branch is effectively unreachable: the only caller
  * (FeedbackManager.playUnitVoice) always passes a key already resolved by
  * soundKeyFor, which total-maps every unit name - known or not - onto one of
- * the 15 declared sound keys, all of which have a UNIT_VOICES entry. The
+ * the declared sound keys, all of which have a UNIT_VOICES entry. The
  * guard stays anyway as cheap insurance if that mapping ever stops being
  * total, and it is exercised directly by tests below.
  *
