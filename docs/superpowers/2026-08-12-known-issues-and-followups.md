@@ -226,6 +226,50 @@ behind it — and defenders die constantly against a Titan. The ability always *
 everything in the inner ring; now it does. Judge the balance against the fixed behaviour, not against
 what has been played until now.
 
+**Corrected 2026-08-15 after play-testing: the 135 figure above is real but nearly unreachable, and
+leading with it misrepresents the fight.** The Titan is 180px wide and a defender 64px, so a defender
+that has stopped it sits at **122px** centre to centre — the Titan halts the frame their bounding
+boxes touch. Wave 1's radius is 116.7px, which is *smaller than that*. So the first and
+heaviest-looking slam can never hit the defender standing in front of it.
+
+| Band | Waves landing | Damage | Deaths at level 1 |
+|---|---|---|---|
+| < 116.7px | 1, 2, 3 | 135 | 7 of 10 — only defenders in adjacent rows the Titan walks past |
+| 116.7-233.3px | 2, 3 | **90** | 3 of 10 — E-Gen (80), Sniper (80), Frost Archer (90, exact) |
+| 233.3-350px | 3 | **45** | none |
+| > 350px | — | 0 | none |
+
+The unit blocking the Titan takes 90 and usually survives on 10-30 health; its neighbours in
+neighbouring rows take the full 135 and mostly die. So the ability punishes the formation's flanks
+rather than the defender deliberately placed in its path — a strange shape for a boss attack, and
+most likely a consequence of tuning the radii without accounting for the Titan being 180px wide.
+
+**The owner has seen this and chosen to leave it** (2026-08-15). Do not "fix" the radii as a tidy-up.
+If it is ever revisited, the two candidate changes are growing `earthquakeRadius / 3` past the 122px
+contact distance, or measuring the waves from the Titan's edge rather than its centre.
+
+### 18. The Titan never takes full damage, and the phase-3 comment says otherwise
+
+`TitanEnemy.takeDamage` reduces every incoming hit:
+
+```js
+const actualDamage = (this.hasArmor && !ignoreArmor)
+  ? amount * this.armorDamageReduction   // 0.2 - 80% reduction
+  : amount * 0.5;                        // still 50% reduction
+```
+
+Phase 3 sets `hasArmor = false` under the comment `//lose armor reduction`, but the `else` branch
+still halves the damage — so the armour never actually comes off, and the Titan takes at most 50% at
+any point in the fight. A defender hitting for 5 deals 1, which is what the owner observed in play.
+
+The two comments disagree: `//either take 20% or 50% damage` reads as though the 50% floor is
+deliberate, while `//lose armor reduction` reads as though phase 3 should remove it. Whichever is
+intended, the other comment is wrong.
+
+**The owner has chosen to leave this** (2026-08-15). Belongs with the balance pass; if phase 3 is
+meant to be the reward for surviving that far, the `else` branch should be plain `amount`, which
+makes the Titan roughly twice as killable in its final phase.
+
 Belongs with issues 14 and 16 in the balance pass (issue 10).
 
 ## Deferred from the branch
