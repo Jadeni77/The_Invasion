@@ -27,9 +27,22 @@ function rawColoursIn(css) {
   for (const m of withoutComments.matchAll(/#[0-9a-fA-F]{3,8}\b/g)) found.push(m[0]);
   for (const m of withoutComments.matchAll(/\brgba?\([^)]*\)/g)) found.push(m[0]);
   for (const m of withoutComments.matchAll(/\bhsla?\([^)]*\)/g)) found.push(m[0]);
-  for (const m of withoutComments.matchAll(/:\s*([a-z]+)\s*[;!]/g)) {
-    const word = m[1].toLowerCase();
-    if (!NAMED_ALLOWED.has(word) && CSS_NAMED_COLOURS.has(word)) found.push(word);
+  // Scan the whole declaration value (colon to the closing `;`/`!important`),
+  // not just a value that is nothing but the colour name - `border: 1px
+  // solid white`, `box-shadow: 0 2px 4px black` and `outline: 2px dashed red`
+  // must all be caught, not only a bare `color: white`. `[^;{}]` keeps a
+  // match from crossing a rule boundary, so this can't mistake a selector's
+  // pseudo-class colon (`:hover`, `:not(...)`) for a declaration - those are
+  // never followed by `;`/`!` before the next `{`/`}`.
+  for (const m of withoutComments.matchAll(/:([^;{}]+)[;!]/g)) {
+    // A custom-property name can legitimately contain a colour word, e.g.
+    // `var(--decorative-orange)` - strip var(...) references before
+    // scanning, or the token layer's own names would fail this test.
+    const value = m[1].replace(/var\([^)]*\)/g, '');
+    for (const wordMatch of value.matchAll(/[a-z]+/gi)) {
+      const word = wordMatch[0].toLowerCase();
+      if (!NAMED_ALLOWED.has(word) && CSS_NAMED_COLOURS.has(word)) found.push(word);
+    }
   }
   return found;
 }
