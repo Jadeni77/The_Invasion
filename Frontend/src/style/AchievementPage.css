@@ -58,11 +58,12 @@
     gap: 8px;
     padding: 10px 20px;
     background-color: var(--colors-surface-panel);
-    border: 2px solid var(--colors-surface-base);
+    border: var(--borders-outline) solid var(--colors-edge-outline);
     border-radius: 25px;
     color: var(--colors-text-primary);
     cursor: pointer;
     transition: all 0.3s;
+    box-shadow: var(--shadows-drop);
     font-size: 1rem;
 }
 
@@ -238,13 +239,14 @@
 .claim-button {
     padding: 6px 14px;
     background-color: var(--colors-accent-energy);
-    border: none;
+    border: var(--borders-outline) solid var(--colors-edge-outline);
     border-radius: 12px;
     color: var(--colors-surface-base);
     font-size: 0.85rem;
     font-weight: bold;
     cursor: pointer;
     transition: background-color 0.2s, transform 0.1s;
+    box-shadow: var(--shadows-drop);
 }
 
 .claim-button:hover:not(:disabled) {

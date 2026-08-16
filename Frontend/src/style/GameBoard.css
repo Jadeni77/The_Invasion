@@ -49,6 +49,10 @@
   font-feature-settings: "tnum";
   text-align: right;
   flex: 0 0 auto;
+  /* Display face on the numeric readouts, same as headings - added here,
+     not on the individual .energy-value/.score-value/.health-value rules
+     below, so it can't disturb their width/ch declarations. */
+  font-family: var(--type-display);
 }
 
 .energy-container {
@@ -69,17 +73,23 @@
 }
 
 .score-container {
-  background: color-mix(in srgb, var(--decorative-violet) 70%, transparent);
+  /* The original wash was rgba(40, 20, 60, 0.7) - a near-black purple, much
+     closer to a dark neutral than to decorative-violet's actual hue
+     (#9370db is a light, bright purple). Mixing from decorative-violet
+     measured 2.46:1 against the label below; mixing from surface-sunken
+     (dark, as the original wash was) keeps the wash dark and gives the
+     label 6.98:1. Border stays decorative-violet: #6a3a9a, the original
+     border colour, genuinely is that hue, just a darker shade of it. */
+  background: color-mix(in srgb, var(--colors-surface-sunken) 70%, transparent);
   border-color: var(--decorative-violet);
 }
 
 .score-label {
   font-size: 16px;
-  /* Lightened toward text-primary, not the bare token: .score-container's
-     background is the same decorative-violet at 70% strength, and a solid
-     match would leave this label sitting on a barely-darker version of
-     itself. The original design used two different purples for exactly
-     this reason (a dark wash behind a pale lavender label). */
+  /* Lightened toward text-primary, not the bare token: even against the
+     dark wash above, a solid decorative-violet label measures only 4.20:1
+     here. The original design used two different purples for exactly this
+     reason (a dark wash behind a pale lavender label); this reaches 6.98:1. */
   color: color-mix(in srgb, var(--decorative-violet) 60%, var(--colors-text-primary) 40%);
   margin-right: 8px;
   text-transform: uppercase;
@@ -93,7 +103,13 @@
 }
 
 .base-health-container {
-  background: color-mix(in srgb, var(--colors-accent-danger) 70%, transparent);
+  /* Same fix as .score-container above: the original wash was
+     rgba(60, 20, 20, 0.7), a near-black maroon, not accent-danger's actual
+     bright red. Mixing from accent-danger turned the pill bright red
+     (still legible against it - .health-value is text-primary at 5.11:1 -
+     but visually inconsistent with the other two containers in this row).
+     surface-sunken keeps it dark, matching the original and its siblings. */
+  background: color-mix(in srgb, var(--colors-surface-sunken) 70%, transparent);
   border-color: var(--colors-accent-danger);
 }
 
@@ -525,18 +541,19 @@
   border: none;
   text-transform: uppercase;
   min-width: 200px;
+  box-shadow: var(--shadows-drop);
 }
 
 .lobby-button {
   background: linear-gradient(to bottom, var(--colors-surface-raised), var(--colors-surface-base));
   color: var(--colors-text-primary);
-  border: 2px solid var(--colors-edge-highlight);
+  border: var(--borders-outline) solid var(--colors-edge-highlight);
 }
 
 .replay-button {
   background: var(--colors-accent-energy);
   color: var(--colors-surface-sunken);
-  border: 2px solid var(--colors-accent-energy);
+  border: var(--borders-outline) solid var(--colors-accent-energy);
 }
 
 .lobby-button:hover {
@@ -558,6 +575,12 @@
   background: color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
   border: 1px solid var(--colors-text-primary);
   border-radius: 50%;
+  /* Ring drawn with box-shadow, not a wider border: this is a fixed
+     30x30px circle, and content-box sizing (no box-sizing: border-box is
+     set anywhere in this project) means a 3px border would grow it to
+     36x36px - a 20% size change on a small fixed icon button. A 0-blur,
+     3px-spread shadow draws the same thick ring without touching the box. */
+  box-shadow: var(--shadows-drop), 0 0 0 var(--borders-outline) var(--colors-edge-outline);
   font-size: 20px;
   color: var(--colors-text-primary);
   cursor: pointer;
@@ -629,12 +652,15 @@
   border: none;
   text-transform: uppercase;
   min-width: 140px;
+  box-shadow: var(--shadows-drop);
 }
 
 .quit-confirm-button {
   background: var(--colors-accent-danger);
+  /* contrast-ok: 3.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+     contrast opt-outs". */
   color: var(--colors-text-primary);
-  border: 2px solid var(--colors-accent-danger);
+  border: var(--borders-outline) solid var(--colors-accent-danger);
 }
 
 .quit-confirm-button:hover {
@@ -645,8 +671,10 @@
 
 .quit-cancel-button {
   background: var(--colors-accent-success);
+  /* contrast-ok: 2.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+     contrast opt-outs". */
   color: var(--colors-text-primary);
-  border: 2px solid var(--colors-accent-success);
+  border: var(--borders-outline) solid var(--colors-accent-success);
 }
 
 .quit-cancel-button:hover {

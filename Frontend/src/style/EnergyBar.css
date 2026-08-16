@@ -34,6 +34,7 @@
 }
 
 .energy-count {
+  font-family: var(--type-display);
   font-size: 24px;
   font-weight: bold;
   color: var(--colors-text-primary);

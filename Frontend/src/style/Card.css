@@ -85,6 +85,7 @@
 }
 
 .cost-value {
+  font-family: var(--type-display);
   color: var(--colors-accent-energy);
   margin-right: 4px;
   font-size: 14px;
@@ -117,6 +118,7 @@
 }
 
 .stat-value {
+  font-family: var(--type-display);
   font-size: 14px;
   color: var(--colors-text-primary);
   font-weight: bold;

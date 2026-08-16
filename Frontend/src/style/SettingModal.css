@@ -171,6 +171,7 @@
 }
 
 .volume-value {
+    font-family: var(--type-display);
     color: var(--colors-accent-info);
     font-weight: bold;
     min-width: 45px;
@@ -185,8 +186,9 @@
 .quality-button {
     padding: 8px 20px;
     background-color: var(--colors-surface-base);
-    border: 2px solid var(--colors-surface-base);
+    border: var(--borders-outline) solid var(--colors-edge-outline);
     border-radius: 20px;
+    box-shadow: var(--shadows-drop);
     color: var(--colors-text-primary);
     cursor: pointer;
     transition: all 0.3s;
@@ -201,6 +203,8 @@
 .quality-button.active {
     background-color: var(--colors-accent-info);
     border-color: var(--colors-accent-info);
+    /* contrast-ok: 2.61:1, below 4.5:1 - see task-3-report.md, "Systemic
+       contrast opt-outs". */
     color: var(--colors-text-primary);
     box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-accent-info) 30%, transparent);
 }
@@ -208,8 +212,9 @@
 .toggle-button {
     padding: 8px 20px;
     background-color: var(--colors-surface-base);
-    border: 2px solid var(--colors-surface-base);
+    border: var(--borders-outline) solid var(--colors-edge-outline);
     border-radius: 20px;
+    box-shadow: var(--shadows-drop);
     color: var(--colors-text-muted);
     cursor: pointer;
     transition: all 0.3s;
@@ -225,6 +230,8 @@
 .toggle-button.active {
     background-color: var(--colors-accent-success);
     border-color: var(--colors-accent-success);
+    /* contrast-ok: 2.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+       contrast opt-outs". */
     color: var(--colors-text-primary);
     box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-accent-success) 30%, transparent);
 }
@@ -246,8 +253,9 @@
 .reset-button {
     padding: 10px 20px;
     background-color: var(--colors-surface-raised);
-    border: none;
+    border: var(--borders-outline) solid var(--colors-edge-outline);
     border-radius: 20px;
+    box-shadow: var(--shadows-drop);
     color: var(--colors-text-primary);
     cursor: pointer;
     transition: all 0.3s;
@@ -267,8 +275,11 @@
 .cancel-button {
     padding: 10px 30px;
     background-color: var(--colors-accent-danger);
-    border: none;
+    border: var(--borders-outline) solid var(--colors-edge-outline);
     border-radius: 20px;
+    box-shadow: var(--shadows-drop);
+    /* contrast-ok: 3.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+       contrast opt-outs". */
     color: var(--colors-text-primary);
     cursor: pointer;
     transition: all 0.3s;
@@ -284,8 +295,11 @@
 .apply-button {
     padding: 10px 30px;
     background-color: var(--colors-accent-info);
-    border: none;
+    border: var(--borders-outline) solid var(--colors-edge-outline);
     border-radius: 20px;
+    box-shadow: var(--shadows-drop);
+    /* contrast-ok: 2.61:1, below 4.5:1 - see task-3-report.md, "Systemic
+       contrast opt-outs". */
     color: var(--colors-text-primary);
     cursor: pointer;
     transition: all 0.3s;

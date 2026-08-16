@@ -52,6 +52,7 @@
 }
 
 .value {
+  font-family: var(--type-display);
   font-size: 18px;
   font-weight: bold;
   color: var(--colors-accent-energy);
@@ -204,8 +205,9 @@
   align-items: center;
   padding: 10px 15px;
   background: var(--colors-surface-panel);
-  border: 2px solid var(--colors-surface-raised);
+  border: var(--borders-outline) solid var(--colors-surface-raised);
   border-radius: 8px;
+  box-shadow: var(--shadows-drop);
   color: var(--colors-text-primary);
   cursor: pointer;
   transition: all 0.2s;
@@ -252,6 +254,7 @@
 }
 
 .resource-value {
+  font-family: var(--type-display);
   font-size: 18px;
   font-weight: bold;
 }
@@ -373,6 +376,7 @@
 }
 
 .level-number {
+  font-family: var(--type-display);
   font-size: 24px;
   font-weight: bold;
   color: var(--colors-accent-energy);
@@ -629,6 +633,8 @@
   top: -10px;
   right: -10px;
   background: var(--colors-accent-danger);
+  /* contrast-ok: 3.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+     contrast opt-outs". */
   color: var(--colors-text-primary);
   font-size: 10px;
   padding: 2px 5px;
@@ -648,6 +654,7 @@
 
 /* Level interior */
 .level-number {
+  font-family: var(--type-display);
   font-size: 20px;
   font-weight: bold;
   color: var(--colors-text-primary);
@@ -792,6 +799,7 @@
 }
 
 .highest-wave {
+  font-family: var(--type-display);
   color: var(--colors-accent-energy);
   font-size: 10px;
   margin-top: 2px;
@@ -922,6 +930,12 @@
   border-radius: 50%;
   border: none;
   background: var(--colors-accent-success);
+  /* Ring via box-shadow, not a border: fixed 30x30px circle, no
+     box-sizing: border-box in this project, so a 3px border would grow it
+     to 36x36px. */
+  box-shadow: var(--shadows-drop), 0 0 0 var(--borders-outline) var(--colors-edge-outline);
+  /* contrast-ok: 2.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+     contrast opt-outs". */
   color: var(--colors-text-primary);
   font-size: 18px;
   cursor: pointer;
@@ -993,12 +1007,22 @@
 
 .difficulty-option p {
   margin: 0 0 8px 0;
-  color: var(--colors-text-muted);
+  /* This modal's background is text-primary (a light cream) - inherited
+     from the rest of the dark theme's palette, not a light theme of its
+     own. text-muted is a light tan built for muted text on a dark surface;
+     against this light background it measured 1.99:1. surface-sunken (dark)
+     matches the h2/h3 in this same modal and gives 13.93:1. */
+  color: var(--colors-surface-sunken);
   font-size: 14px;
 }
 
 .difficulty-option .multiplier {
-  color: var(--colors-accent-success);
+  /* surface-sunken, not accent-success: this sits in the same light
+     (text-primary-background) modal as .difficulty-option p and h3, both
+     already switched to a dark token for the same reason - accent-success
+     measured 2.48:1 against this light background. Matches the modal's
+     established dark-text pattern; 13.93:1. */
+  color: var(--colors-surface-sunken);
   font-weight: bold;
   font-size: 16px;
 }

@@ -30,7 +30,8 @@
   top: 15px;
   right: 15px;
   background: var(--colors-accent-danger);
-  border: 2px solid var(--colors-surface-raised);
+  border: var(--borders-outline) solid var(--colors-surface-raised);
+  box-shadow: var(--shadows-drop);
   color: var(--colors-text-primary);
   width: 40px;
   height: 40px;
@@ -189,8 +190,14 @@
   width: 100%;
   padding: 12px;
   background: linear-gradient(to bottom, var(--colors-surface-sunken), var(--colors-surface-panel));
+  /* Border left at 2px, not bumped to borders-outline: this is width:100%
+     with no box-sizing: border-box in the project, so its rendered width
+     already exceeds its container by 2x the border width - a pre-existing
+     condition bumping the border further would only worsen. The ring
+     shadow adds the thick-outline identity without touching the box. */
   border: 2px solid var(--colors-surface-raised);
   border-radius: 8px;
+  box-shadow: var(--shadows-drop), 0 0 0 var(--borders-outline) var(--colors-surface-raised);
   color: var(--colors-accent-energy);
   font-weight: bold;
   cursor: pointer;

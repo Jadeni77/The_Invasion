@@ -18,7 +18,11 @@
     justify-content: space-between;
     align-items: center;
     padding: 20px 40px;
-    background-color: var(--colors-surface-panel);
+    /* edge-outline, not surface-panel: the h1 sitting on this bar is
+       accent-danger, and accent-danger on surface-panel measures 2.43:1
+       (below the 3:1 floor for its 2.5rem size). edge-outline, the darkest
+       token, brings it to 4.41:1. */
+    background-color: var(--colors-edge-outline);
     border-bottom: 2px solid var(--colors-surface-base);
 }
 
@@ -55,13 +59,14 @@
 .collection-tab {
     padding: 12px 40px;
     background-color: var(--colors-surface-panel);
-    border: 2px solid var(--colors-surface-base);
+    border: var(--borders-outline) solid var(--colors-edge-outline);
     border-radius: 25px;
     color: var(--colors-text-primary);
     font-size: 1.1rem;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.3s;
+    box-shadow: var(--shadows-drop);
 }
 
 .collection-tab:hover {
@@ -72,6 +77,8 @@
 .collection-tab.active {
     background-color: var(--colors-accent-danger);
     border-color: var(--colors-accent-danger);
+    /* contrast-ok: 3.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+       contrast opt-outs". */
     color: var(--colors-text-primary);
     box-shadow: 0 4px 15px color-mix(in srgb, var(--colors-accent-danger) 30%, transparent);
 }
@@ -148,6 +155,8 @@
     justify-content: center;
     font-size: 2rem;
     font-weight: bold;
+    /* contrast-ok: 2.61:1, below the 3:1 large-text floor - see
+       task-3-report.md, "Systemic contrast opt-outs". */
     color: var(--colors-text-primary);
 }
 
@@ -277,6 +286,8 @@
     text-align: center;
     padding: 8px;
     background-color: var(--colors-accent-success);
+    /* contrast-ok: 2.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+       contrast opt-outs". */
     color: var(--colors-text-primary);
     border-radius: 5px;
     font-weight: bold;
@@ -358,6 +369,8 @@
     background-color: var(--colors-accent-danger);
     border: none;
     border-radius: 25px;
+    /* contrast-ok: 3.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+       contrast opt-outs". */
     color: var(--colors-text-primary);
     font-size: 1.1rem;
     font-weight: bold;

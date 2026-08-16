@@ -85,6 +85,7 @@
 }
 
 .selected-count {
+  font-family: var(--type-display);
   color: var(--colors-accent-success);
   font-weight: bold;
   font-size: 1.1em;
@@ -126,6 +127,8 @@
   top: -10px;
   right: -10px;
   background: var(--colors-accent-success);
+  /* contrast-ok: 2.48:1, below 4.5:1 - pre-existing white-on-accent button
+     convention (task-3-report.md, "Systemic contrast opt-outs"). */
   color: var(--colors-text-primary);
   width: 30px;
   height: 30px;
@@ -161,12 +164,13 @@
 .confirm-button {
   padding: 12px 30px;
   font-size: 1.1em;
-  border: none;
+  border: var(--borders-outline) solid var(--colors-edge-outline);
   border-radius: 5px;
   cursor: pointer;
   font-weight: bold;
   transition: all 0.3s ease;
   text-transform: uppercase;
+  box-shadow: var(--shadows-drop);
 }
 
 .cancel-button {
@@ -181,6 +185,7 @@
 
 .confirm-button {
   background: var(--colors-accent-success);
+  /* contrast-ok: 2.48:1, below 4.5:1 - see .selection-indicator above. */
   color: var(--colors-text-primary);
 }
 
