@@ -5,7 +5,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--colors-edge-outline);
+  background: color-mix(in srgb, var(--colors-edge-outline) 80%, transparent);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -29,7 +29,7 @@
   max-width: 900px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 10px 40px var(--colors-edge-outline);
+  box-shadow: 0 10px 40px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
   border: 2px solid var(--colors-edge-outline);
   animation: slideIn 0.3s ease;
 }
@@ -66,7 +66,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: var(--colors-text-primary);
+  background: color-mix(in srgb, var(--colors-text-primary) 10%, transparent);
   padding: 15px 20px;
   border-radius: 10px;
   margin-bottom: 20px;
@@ -96,7 +96,7 @@
   gap: 15px;
   margin-bottom: 30px;
   padding: 20px;
-  background: var(--colors-edge-outline);
+  background: color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   border-radius: 10px;
   max-height: 400px;
   overflow-y: auto;
@@ -118,7 +118,7 @@
 
 .card-wrapper.selected .card-container {
   border: 3px solid var(--colors-accent-success);
-  box-shadow: 0 0 20px var(--colors-accent-success);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--colors-accent-success) 50%, transparent);
 }
 
 .selection-indicator {
@@ -133,7 +133,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px var(--colors-edge-outline);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   animation: popIn 0.3s ease;
 }
 
@@ -202,15 +202,15 @@
 }
 
 .cards-grid::-webkit-scrollbar-track {
-  background: var(--colors-text-muted);
+  background: color-mix(in srgb, var(--colors-text-primary) 10%, transparent);
   border-radius: 4px;
 }
 
 .cards-grid::-webkit-scrollbar-thumb {
-  background: var(--colors-text-primary);
+  background: color-mix(in srgb, var(--colors-text-primary) 30%, transparent);
   border-radius: 4px;
 }
 
 .cards-grid::-webkit-scrollbar-thumb:hover {
-  background: var(--colors-text-primary);
+  background: color-mix(in srgb, var(--colors-text-primary) 50%, transparent);
 }

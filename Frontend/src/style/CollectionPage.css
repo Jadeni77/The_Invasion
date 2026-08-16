@@ -27,7 +27,7 @@
     font-family: var(--type-display);
     font-size: 2.5rem;
     color: var(--colors-accent-danger);
-    text-shadow: 2px 2px 4px var(--colors-edge-outline);
+    text-shadow: 2px 2px 4px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
 .close-button {
@@ -49,7 +49,7 @@
     gap: 20px;
     padding: 20px;
     background-color: var(--colors-surface-base);
-    box-shadow: 0 2px 10px var(--colors-edge-outline);
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
 }
 
 .collection-tab {
@@ -73,7 +73,7 @@
     background-color: var(--colors-accent-danger);
     border-color: var(--colors-accent-danger);
     color: var(--colors-text-primary);
-    box-shadow: 0 4px 15px var(--colors-accent-danger);
+    box-shadow: 0 4px 15px color-mix(in srgb, var(--colors-accent-danger) 30%, transparent);
 }
 
 .collection-container {
@@ -114,12 +114,12 @@
 .collection-unit-card:hover {
     transform: translateY(-5px);
     border-color: var(--colors-accent-info);
-    box-shadow: 0 10px 30px var(--colors-accent-info);
+    box-shadow: 0 10px 30px color-mix(in srgb, var(--colors-accent-info) 30%, transparent);
 }
 
 .collection-unit-card.enemy-card:hover {
     border-color: var(--colors-accent-danger);
-    box-shadow: 0 10px 30px var(--colors-accent-danger);
+    box-shadow: 0 10px 30px color-mix(in srgb, var(--colors-accent-danger) 30%, transparent);
 }
 
 .collection-unit-card.locked {
@@ -202,7 +202,7 @@
 
 .boss-card {
     border-color: var(--colors-accent-energy) !important;
-    box-shadow: 0 0 12px var(--colors-accent-energy);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--colors-accent-energy) 35%, transparent);
 }
 
 .collection-unit-stats {
@@ -314,7 +314,7 @@
     justify-content: center;
     gap: 8px;
     border-radius: 10px;
-    background: var(--colors-edge-outline);
+    background: color-mix(in srgb, var(--colors-edge-outline) 45%, transparent);
     pointer-events: none;
 }
 
@@ -363,13 +363,13 @@
     font-weight: bold;
     cursor: pointer;
     transition: all 0.3s;
-    box-shadow: 0 4px 15px var(--colors-accent-danger);
+    box-shadow: 0 4px 15px color-mix(in srgb, var(--colors-accent-danger) 30%, transparent);
 }
 
 .back-button:hover {
     background-color: var(--colors-accent-danger);
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px var(--colors-accent-danger);
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--colors-accent-danger) 40%, transparent);
 }
 
 /* Scrollbar styling */

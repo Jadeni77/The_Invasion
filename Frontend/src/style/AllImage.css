@@ -4,7 +4,7 @@
   align-items: center;
   gap: 8px; /* Space between icon and info */
   padding: 8px 15px;
-  background: var(--colors-surface-panel); /* Background from Lobby.css resource-icon */
+  background: color-mix(in srgb, var(--colors-surface-panel) 80%, transparent); /* Background from Lobby.css resource-icon */
   border-radius: 20px;
   border: 1px solid var(--colors-surface-raised); /* Border from Lobby.css resource-icon */
 }

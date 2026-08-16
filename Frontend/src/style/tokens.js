@@ -24,6 +24,22 @@ export const colors = {
   accentInfo:     '#4a9cc4',
 };
 
+/**
+ * Hues that carry no meaning - they exist to tell decorative elements apart
+ * (a rainbow connector, a spinning portal, a purple reward marker), not to
+ * signal state the way `colors` does. Kept separate so nobody reaches for
+ * "decorative.violet" expecting it to mean "danger" or "success" the way an
+ * accent token would. Each value is a hue that was already in use in the
+ * pre-token stylesheets (not invented), reused here so a handful of
+ * decorative effects that need more than the four semantic accents can stay
+ * multi-hued instead of collapsing onto a semantic token they don't mean.
+ */
+export const decorative = {
+  violet: '#9370db',
+  indigo: '#4b0082',
+  orange: '#ff7f00',
+};
+
 export const space = {
   xs: '4px', sm: '8px', md: '12px', lg: '20px', xl: '32px',
 };
@@ -54,7 +70,7 @@ export const type = {
   lineBody:      '1.5',
 };
 
-const GROUPS = { colors, space, radii, borders, shadows, type };
+const GROUPS = { colors, decorative, space, radii, borders, shadows, type };
 
 /** camelCase key in a group -> the kebab-case custom property name. */
 export function cssVariableName(groupName, key) {

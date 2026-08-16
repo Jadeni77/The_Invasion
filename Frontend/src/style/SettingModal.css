@@ -5,7 +5,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: var(--colors-edge-outline);
+    background-color: color-mix(in srgb, var(--colors-edge-outline) 70%, transparent);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -32,7 +32,7 @@
     display: flex;
     flex-direction: column;
     animation: slideIn 0.3s ease;
-    box-shadow: 0 10px 40px var(--colors-edge-outline);
+    box-shadow: 0 10px 40px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
 @keyframes slideIn {
@@ -60,7 +60,7 @@
     font-family: var(--type-display);
     color: var(--colors-accent-info);
     font-size: 1.8rem;
-    text-shadow: 2px 2px 4px var(--colors-edge-outline);
+    text-shadow: 2px 2px 4px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
 }
 
 .close-button {
@@ -202,7 +202,7 @@
     background-color: var(--colors-accent-info);
     border-color: var(--colors-accent-info);
     color: var(--colors-text-primary);
-    box-shadow: 0 4px 10px var(--colors-accent-info);
+    box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-accent-info) 30%, transparent);
 }
 
 .toggle-button {
@@ -226,7 +226,7 @@
     background-color: var(--colors-accent-success);
     border-color: var(--colors-accent-success);
     color: var(--colors-text-primary);
-    box-shadow: 0 4px 10px var(--colors-accent-success);
+    box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-accent-success) 30%, transparent);
 }
 
 .toggle-button.disabled {
@@ -278,7 +278,7 @@
 .cancel-button:hover {
     background-color: var(--colors-accent-danger);
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px var(--colors-accent-danger);
+    box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-accent-danger) 30%, transparent);
 }
 
 .apply-button {
@@ -295,7 +295,7 @@
 .apply-button:hover {
     background-color: var(--colors-accent-info);
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px var(--colors-accent-info);
+    box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-accent-info) 30%, transparent);
 }
 
 /* Scrollbar styling */

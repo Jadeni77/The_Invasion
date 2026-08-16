@@ -1,11 +1,11 @@
 /* Energy Bar Styles */
 .energy-bar {
-  background: var(--colors-edge-outline);
+  background: color-mix(in srgb, var(--colors-edge-outline) 60%, transparent);
   border-radius: 12px;
   padding: 15px;
   margin: 15px 0;
   border: 2px solid var(--colors-surface-panel);
-  box-shadow: 0 4px 10px var(--colors-edge-outline);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
 }
 
 .energy-header {
@@ -42,14 +42,14 @@
 .energy-timer {
   font-size: 18px;
   color: var(--colors-text-muted);
-  background: var(--colors-edge-outline);
+  background: color-mix(in srgb, var(--colors-edge-outline) 40%, transparent);
   padding: 5px 10px;
   border-radius: 8px;
 }
 
 .energy-progress-bar {
   height: 20px;
-  background: var(--colors-edge-outline);
+  background: color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   border-radius: 10px;
   overflow: hidden;
   position: relative;
@@ -69,7 +69,7 @@
   top: 0;
   left: 0;
   height: 100%;
-  background: var(--colors-accent-energy);
+  background: color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
   z-index: 1;
   transition: width 1s linear;
 }

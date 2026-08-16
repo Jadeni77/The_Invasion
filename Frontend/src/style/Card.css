@@ -9,7 +9,7 @@
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s;
-  box-shadow: 0 4px 8px var(--colors-edge-outline);
+  box-shadow: 0 4px 8px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   flex-shrink: 0; /* Prevent cards from shrinking */
   position: relative;
 }
@@ -17,7 +17,7 @@
 .card-container.selected {
   border-color: var(--colors-accent-energy);
   transform: translateY(-10px);
-  box-shadow: 0 8px 15px var(--colors-accent-energy);
+  box-shadow: 0 8px 15px color-mix(in srgb, var(--colors-accent-energy) 40%, transparent);
 }
 
 .card-container.disabled {
@@ -28,7 +28,7 @@
 
 .card-header {
   display: block;
-  background: var(--colors-edge-outline);
+  background: color-mix(in srgb, var(--colors-edge-outline) 40%, transparent);
   padding: 5px 6px;
   min-height: 32px;
 }
@@ -62,7 +62,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background: var(--colors-edge-outline);
+  background: color-mix(in srgb, var(--colors-edge-outline) 20%, transparent);
 }
 
 .pixel-art-placeholder {
@@ -78,7 +78,7 @@
   justify-content: center;
   align-items: center;
   padding: 3px 5px;
-  background: var(--colors-edge-outline);
+  background: color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   border-top: 1px solid var(--colors-surface-panel);
   font-weight: bold;
   flex-shrink: 0;
@@ -101,7 +101,7 @@
   display: flex;
   justify-content: space-around;
   padding: 3px 5px;
-  background: var(--colors-edge-outline);
+  background: color-mix(in srgb, var(--colors-edge-outline) 40%, transparent);
   border-top: 1px solid var(--colors-surface-panel);
   flex-shrink: 0;
 }
@@ -129,7 +129,7 @@
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
   object-fit: contain;
-  filter: drop-shadow(0 2px 4px var(--colors-edge-outline));
+  filter: drop-shadow(0 2px 4px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent));
 }
 
 /* Optional: Add a subtle animation on hover */
