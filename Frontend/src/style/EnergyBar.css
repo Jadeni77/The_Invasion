@@ -1,11 +1,11 @@
 /* Energy Bar Styles */
 .energy-bar {
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--colors-edge-outline);
   border-radius: 12px;
   padding: 15px;
   margin: 15px 0;
-  border: 2px solid #5a3921;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  border: 2px solid var(--colors-surface-panel);
+  box-shadow: 0 4px 10px var(--colors-edge-outline);
 }
 
 .energy-header {
@@ -17,14 +17,14 @@
 
 .energy-icon {
   font-size: 28px;
-  color: #ffd700;
+  color: var(--colors-accent-energy);
 }
 
 .energy-text {
   font-size: 20px;
   font-weight: bold;
-  color: #ffd700;
-  text-shadow: 1px 1px 0 #000;
+  color: var(--colors-accent-energy);
+  text-shadow: 1px 1px 0 var(--colors-edge-outline);
 }
 
 .energy-info {
@@ -36,20 +36,20 @@
 .energy-count {
   font-size: 24px;
   font-weight: bold;
-  color: white;
+  color: var(--colors-text-primary);
 }
 
 .energy-timer {
   font-size: 18px;
-  color: #a9a9a9;
-  background: rgba(0, 0, 0, 0.4);
+  color: var(--colors-text-muted);
+  background: var(--colors-edge-outline);
   padding: 5px 10px;
   border-radius: 8px;
 }
 
 .energy-progress-bar {
   height: 20px;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--colors-edge-outline);
   border-radius: 10px;
   overflow: hidden;
   position: relative;
@@ -58,7 +58,7 @@
 
 .energy-progress-fill {
   height: 100%;
-  background: linear-gradient(to right, #8b6f4b, #ffd700);
+  background: linear-gradient(to right, var(--colors-surface-panel), var(--colors-accent-energy));
   transition: width 0.5s;
   position: relative;
   z-index: 2;
@@ -69,14 +69,14 @@
   top: 0;
   left: 0;
   height: 100%;
-  background: rgba(255, 215, 0, 0.3);
+  background: var(--colors-accent-energy);
   z-index: 1;
   transition: width 1s linear;
 }
 
 .energy-rate {
   font-size: 14px;
-  color: #d4c0a1;
+  color: var(--colors-text-muted);
   text-align: center;
 }
 

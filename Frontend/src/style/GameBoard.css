@@ -3,9 +3,9 @@
   position: relative;
   width: 100%;
   height: 100vh;
-  background: #0a1a2a;
+  background: var(--colors-surface-base);
   overflow: hidden;
-  font-family: "Arial", sans-serif;
+  font-family: var(--type-body);
   display: flex;
   flex-direction: column;
 }
@@ -16,10 +16,10 @@
   justify-content: space-between;
   align-items: center;
   padding: 10px 20px;
-  background: rgba(0, 20, 40, 0.8);
-  border-bottom: 2px solid #2a4a6a;
+  background: var(--colors-surface-base);
+  border-bottom: 2px solid var(--colors-surface-panel);
   height: 60px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 3px 10px var(--colors-edge-outline);
   z-index: 10;
   position: relative;
   flex-shrink: 0;
@@ -30,8 +30,8 @@
 .base-health-container {
   display: flex;
   align-items: center;
-  background: rgba(0, 30, 60, 0.7);
-  border: 1px solid #3a6a9a;
+  background: var(--colors-surface-base);
+  border: 1px solid var(--colors-surface-raised);
   border-radius: 20px;
   padding: 5px 15px;
   min-width: fit-content; /* Ensures minimum width for content */
@@ -57,7 +57,7 @@
 
 .energy-icon {
   font-size: 24px;
-  color: #ffcc00;
+  color: var(--colors-accent-energy);
   margin-right: 8px;
 }
 
@@ -65,17 +65,17 @@
   width: 4.5ch;
   font-size: 20px;
   font-weight: bold;
-  color: white;
+  color: var(--colors-text-primary);
 }
 
 .score-container {
-  background: rgba(40, 20, 60, 0.7);
-  border-color: #6a3a9a;
+  background: var(--colors-surface-base);
+  border-color: var(--colors-accent-info);
 }
 
 .score-label {
   font-size: 16px;
-  color: #cc99ff;
+  color: var(--colors-accent-info);
   margin-right: 8px;
   text-transform: uppercase;
 }
@@ -84,12 +84,12 @@
   width: 6.5ch;
   font-size: 20px;
   font-weight: bold;
-  color: white;
+  color: var(--colors-text-primary);
 }
 
 .base-health-container {
-  background: rgba(60, 20, 20, 0.7);
-  border-color: #9a3a3a;
+  background: var(--colors-surface-base);
+  border-color: var(--colors-accent-danger);
 }
 
 .base-icon {
@@ -100,7 +100,7 @@
 .health-bar {
   width: 100px;
   height: 12px;
-  background: #333;
+  background: var(--colors-surface-sunken);
   border-radius: 6px;
   overflow: hidden;
   margin-right: 10px;
@@ -108,13 +108,13 @@
 
 .health-fill {
   height: 100%;
-  background: linear-gradient(to right, #ff3300, #ff9900);
+  background: linear-gradient(to right, var(--colors-accent-danger), var(--colors-accent-energy));
   transition: width 0.3s;
 }
 
 .health-value {
   font-size: 16px;
-  color: white;
+  color: var(--colors-text-primary);
   width: 5.5ch;
 }
 
@@ -122,7 +122,7 @@
 .game-canvas {
   width: 100%;
   flex: 1;
-  background: #1a3a5a;
+  background: var(--colors-surface-base);
   display: block;
 }
 
@@ -130,15 +130,15 @@
 .game-bottom-bar {
   height: 180px; /* Adjusted for proper card display */
   padding: 15px 20px;
-  background: rgba(0, 20, 40, 0.8);
-  border-top: 2px solid #2a4a6a;
+  background: var(--colors-surface-base);
+  border-top: 2px solid var(--colors-surface-panel);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   z-index: 10;
   flex-shrink: 0;
-  box-shadow: 0 -3px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 -3px 10px var(--colors-edge-outline);
 }
 
 /* Card Slots Container */
@@ -146,10 +146,10 @@
   display: flex;
   gap: 8px;
   padding: 10px;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--colors-edge-outline);
   border-radius: 10px;
-  border: 2px solid #333;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  border: 2px solid var(--colors-surface-sunken);
+  box-shadow: 0 4px 20px var(--colors-edge-outline);
   max-width: 90%;
   overflow-x: auto;
   height: auto;
@@ -174,12 +174,12 @@
   width: 60px;
   height: 80px;
   font-size: 30px;
-  background: linear-gradient(135deg, #6b6b6b 0%, #4a4a4a 100%);
-  border: 2px solid #333;
+  background: var(--colors-surface-raised);
+  border: 2px solid var(--colors-surface-sunken);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 5px var(--colors-edge-outline);
   /* Prevent layout shifts */
   position: relative;
   top: 0;
@@ -187,14 +187,14 @@
 
 /* Only apply transform on hover when NOT active */
 .shovel-button:hover:not(.active) {
-  background: linear-gradient(135deg, #7a7a7a 0%, #5a5a5a 100%);
+  background: var(--colors-surface-raised);
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 8px var(--colors-edge-outline);
 }
 
 .shovel-button.active {
-  background: linear-gradient(135deg, #ff6b6b 0%, #ff4444 100%);
-  border-color: #ff4444;
+  background: var(--colors-accent-danger);
+  border-color: var(--colors-accent-danger);
   animation: pulse 1s infinite;
   /* Explicitly set transform to none to prevent inheritance */
   transform: none !important;
@@ -209,13 +209,13 @@
 
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+    box-shadow: 0 0 10px var(--colors-accent-danger);
   }
   50% {
-    box-shadow: 0 0 20px rgba(255, 68, 68, 0.8);
+    box-shadow: 0 0 20px var(--colors-accent-danger);
   }
   100% {
-    box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+    box-shadow: 0 0 10px var(--colors-accent-danger);
   }
 }
 
@@ -269,7 +269,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--colors-edge-outline);
   transition: height 0.1s linear;
   border-radius: 0 0 8px 8px;
 }
@@ -279,10 +279,10 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: white;
+  color: var(--colors-text-primary);
   font-size: 24px;
   font-weight: bold;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  text-shadow: 2px 2px 4px var(--colors-edge-outline);
   z-index: 10;
 }
 
@@ -294,21 +294,21 @@
 
 /* Selected card highlight */
 .card-slot-wrapper .card-container.selected {
-  box-shadow: 0 0 20px #4CAF50, 0 0 40px #4CAF50;
+  box-shadow: 0 0 20px var(--colors-accent-success), 0 0 40px var(--colors-accent-success);
   transform: translateY(-5px);
-  border: 3px solid #4CAF50;
+  border: 3px solid var(--colors-accent-success);
 }
 
 /* Hover effect for available cards */
 .card-slot-wrapper .card-container:not(.disabled):hover {
   transform: translateY(-3px);
-  box-shadow: 0 5px 15px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 5px 15px var(--colors-text-primary);
   cursor: pointer;
 }
 
 /* Energy cost indicator when not enough energy */
 .card-slot-wrapper .card-container.disabled .card-cost {
-  color: #ff5252;
+  color: var(--colors-accent-danger);
   font-weight: bold;
 }
 
@@ -318,11 +318,11 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--colors-edge-outline);
   padding: 12px 25px;
   border-radius: 30px;
-  border: 2px solid #ffcc00;
-  color: white;
+  border: 2px solid var(--colors-accent-energy);
+  color: var(--colors-text-primary);
   font-size: 18px;
   font-weight: bold;
   display: flex;
@@ -330,7 +330,7 @@
   gap: 10px;
   pointer-events: none;
   z-index: 5;
-  box-shadow: 0 0 15px rgba(255, 204, 0, 0.5);
+  box-shadow: 0 0 15px var(--colors-accent-energy);
   animation: pulse 1.5s infinite;
 }
 
@@ -351,7 +351,7 @@
 
 .indicator-icon {
   font-size: 24px;
-  color: #ffcc00;
+  color: var(--colors-accent-energy);
 }
 
 /* Game Over Screen */
@@ -361,7 +361,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 10, 30, 0.9);
+  background: var(--colors-surface-base);
   display: flex;
   flex-direction: column;
   /* A good run collects enough card pieces to make this taller than the
@@ -375,7 +375,7 @@
   align-items: center;
   overflow-y: auto;
   z-index: 20;
-  color: white;
+  color: var(--colors-text-primary);
   text-align: center;
   padding: 20px;
 }
@@ -387,20 +387,21 @@
 }
 
 .game-over-screen h2 {
+  font-family: var(--type-display);
   font-size: 42px;
-  color: #ffcc00;
+  color: var(--colors-accent-energy);
   margin-bottom: 30px;
   text-transform: uppercase;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  text-shadow: 2px 2px 4px var(--colors-edge-outline);
 }
 
 .result-details {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--colors-text-primary);
   border-radius: 10px;
   padding: 30px;
   margin-bottom: 30px;
   min-width: 400px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid var(--colors-text-primary);
 }
 
 .result-details p {
@@ -410,7 +411,7 @@
 
 .score-value,
 .gold-value {
-  color: #ffcc00;
+  color: var(--colors-accent-energy);
   font-weight: bold;
   font-size: 26px;
 }
@@ -426,7 +427,7 @@
 }
 
 .score-value, .level-value {
-  color: #4CAF50;
+  color: var(--colors-accent-success);
   font-weight: bold;
   font-size: 1.2em;
 }
@@ -435,7 +436,7 @@
   text-align: center;
   margin-bottom: 15px;
   font-size: 1.3em;
-  color: #fff;
+  color: var(--colors-text-primary);
 }
 
 .resource-line {
@@ -447,7 +448,7 @@
 }
 
 .resource-line.loss {
-  color: #ff5252;
+  color: var(--colors-accent-danger);
 }
 
 .resource-icon {
@@ -463,19 +464,19 @@
 .card-pieces-section {
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-top: 1px solid var(--colors-text-primary);
 }
 
 .card-pieces-section h4 {
   text-align: center;
-  color: #9370DB;
+  color: var(--colors-accent-success);
   margin-bottom: 10px;
   font-size: 1.1em;
 }
 
 .pieces-icon {
   font-size: 1.5em;
-  color: #9370DB;
+  color: var(--colors-accent-success);
   margin-right: 10px;
 }
 
@@ -484,7 +485,7 @@
   align-items: center;
   justify-content: center;
   margin-top: 20px;
-  color: #ff9800;
+  color: var(--colors-accent-energy);
   font-size: 1.1em;
 }
 
@@ -497,7 +498,7 @@
   text-align: center;
   margin-top: 20px;
   font-style: italic;
-  color: #ccc;
+  color: var(--colors-text-muted);
 }
 
 .action-buttons {
@@ -522,38 +523,38 @@
 }
 
 .lobby-button {
-  background: linear-gradient(to bottom, #3a6a9a, #1a3a5a);
-  color: white;
-  border: 2px solid #5a8aba;
+  background: linear-gradient(to bottom, var(--colors-surface-raised), var(--colors-surface-base));
+  color: var(--colors-text-primary);
+  border: 2px solid var(--colors-edge-highlight);
 }
 
 .replay-button {
-  background: linear-gradient(to bottom, #ffcc00, #ff9900);
-  color: #1a1a1a;
-  border: 2px solid #ffdd55;
+  background: var(--colors-accent-energy);
+  color: var(--colors-surface-sunken);
+  border: 2px solid var(--colors-accent-energy);
 }
 
 .lobby-button:hover {
-  background: linear-gradient(to bottom, #4a7aaa, #2a4a6a);
+  background: linear-gradient(to bottom, var(--colors-surface-raised), var(--colors-surface-panel));
   transform: translateY(-3px);
-  box-shadow: 0 5px 15px rgba(58, 106, 154, 0.5);
+  box-shadow: 0 5px 15px var(--colors-surface-raised);
 }
 
 .replay-button:hover {
-  background: linear-gradient(to bottom, #ffdd22, #ffaa22);
+  background: var(--colors-accent-energy);
   transform: translateY(-3px);
-  box-shadow: 0 5px 15px rgba(255, 204, 0, 0.5);
+  box-shadow: 0 5px 15px var(--colors-accent-energy);
 }
 
 .settings-button {
   position: absolute;
   top: 10px;
   right: 10px;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--colors-edge-outline);
   border: 1px solid white;
   border-radius: 50%;
   font-size: 20px;
-  color: white;
+  color: var(--colors-text-primary);
   cursor: pointer;
   width: 30px;
   height: 30px;
@@ -564,7 +565,7 @@
 }
 
 .settings-button:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--colors-text-primary);
   transform: scale(1.1);
 }
 
@@ -575,7 +576,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--colors-edge-outline);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -583,23 +584,24 @@
 }
 
 .quit-dialog {
-  background: #2a4a6a;
-  border: 3px solid #ffcc00;
-  border-radius: 15px;
+  background: var(--colors-surface-panel);
+  border: 3px solid var(--colors-accent-energy);
+  border-radius: var(--radii-lg);
   padding: 30px;
   max-width: 400px;
   text-align: center;
-  box-shadow: 0 0 20px rgba(255, 204, 0, 0.5);
+  box-shadow: 0 0 20px var(--colors-accent-energy);
 }
 .quit-dialog h3 {
-  color: #ffcc00;
+  font-family: var(--type-display);
+  color: var(--colors-accent-energy);
   font-size: 28px;
   margin-bottom: 20px;
   text-transform: uppercase;
 }
 
 .quit-dialog p {
-  color: white;
+  color: var(--colors-text-primary);
   font-size: 16px;
   line-height: 1.5;
   margin-bottom: 30px;
@@ -625,27 +627,27 @@
 }
 
 .quit-confirm-button {
-  background: linear-gradient(to bottom, #ff4444, #cc0000);
-  color: white;
-  border: 2px solid #ff6666;
+  background: var(--colors-accent-danger);
+  color: var(--colors-text-primary);
+  border: 2px solid var(--colors-accent-danger);
 }
 
 .quit-confirm-button:hover {
-  background: linear-gradient(to bottom, #ff6666, #ff0000);
+  background: var(--colors-accent-danger);
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(255, 0, 0, 0.4);
+  box-shadow: 0 5px 15px var(--colors-accent-danger);
 }
 
 .quit-cancel-button {
-  background: linear-gradient(to bottom, #4caf50, #45a049);
-  color: white;
-  border: 2px solid #66bb6a;
+  background: var(--colors-accent-success);
+  color: var(--colors-text-primary);
+  border: 2px solid var(--colors-accent-success);
 }
 
 .quit-cancel-button:hover {
-  background: linear-gradient(to bottom, #66bb6a, #4caf50);
+  background: var(--colors-accent-success);
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+  box-shadow: 0 5px 15px var(--colors-accent-success);
 }
 
 /* Mobile Responsive - Portrait Mode */

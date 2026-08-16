@@ -3,21 +3,21 @@
   height: 130px;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(to bottom, #5a3a20, #3a1a00);
-  border: 2px solid #8b6f4b;
+  background: var(--colors-surface-sunken);
+  border: 2px solid var(--colors-surface-panel);
   border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 8px var(--colors-edge-outline);
   flex-shrink: 0; /* Prevent cards from shrinking */
   position: relative;
 }
 
 .card-container.selected {
-  border-color: #ffcc00;
+  border-color: var(--colors-accent-energy);
   transform: translateY(-10px);
-  box-shadow: 0 8px 15px rgba(255, 204, 0, 0.4);
+  box-shadow: 0 8px 15px var(--colors-accent-energy);
 }
 
 .card-container.disabled {
@@ -28,7 +28,7 @@
 
 .card-header {
   display: block;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--colors-edge-outline);
   padding: 5px 6px;
   min-height: 32px;
 }
@@ -36,7 +36,7 @@
 .card-name {
   font-size: 10px;
   font-weight: bold;
-  color: white;
+  color: var(--colors-text-primary);
   line-height: 1.2;
   word-break: normal;
   overflow-wrap: break-word;
@@ -48,8 +48,8 @@
   float: right;
   margin-left: 4px;
   font-size: 10px;
-  background: #ffcc00;
-  color: #1a1a1a;
+  background: var(--colors-accent-energy);
+  color: var(--colors-surface-sunken);
   padding: 0 5px;
   border-radius: 10px;
   font-weight: bold;
@@ -62,14 +62,14 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--colors-edge-outline);
 }
 
 .pixel-art-placeholder {
   width: 60px;
   height: 60px;
-  background: #8b6f4b;
-  border: 2px solid #d4c0a1;
+  background: var(--colors-surface-panel);
+  border: 2px solid var(--colors-surface-raised);
   border-radius: 5px;
 }
 
@@ -78,14 +78,14 @@
   justify-content: center;
   align-items: center;
   padding: 3px 5px;
-  background: rgba(0, 0, 0, 0.3);
-  border-top: 1px solid #8b6f4b;
+  background: var(--colors-edge-outline);
+  border-top: 1px solid var(--colors-surface-panel);
   font-weight: bold;
   flex-shrink: 0;
 }
 
 .cost-value {
-  color: #ffcc00;
+  color: var(--colors-accent-energy);
   margin-right: 4px;
   font-size: 14px;
   line-height: 1;
@@ -93,7 +93,7 @@
 
 .energy-icon {
   font-size: 14px;
-  color: #ffcc00;
+  color: var(--colors-accent-energy);
   line-height: 1;
 }
 
@@ -101,8 +101,8 @@
   display: flex;
   justify-content: space-around;
   padding: 3px 5px;
-  background: rgba(0, 0, 0, 0.4);
-  border-top: 1px solid #8b6f4b;
+  background: var(--colors-edge-outline);
+  border-top: 1px solid var(--colors-surface-panel);
   flex-shrink: 0;
 }
 
@@ -118,7 +118,7 @@
 
 .stat-value {
   font-size: 14px;
-  color: white;
+  color: var(--colors-text-primary);
   font-weight: bold;
 }
 
@@ -129,7 +129,7 @@
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
   object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 2px 4px var(--colors-edge-outline));
 }
 
 /* Optional: Add a subtle animation on hover */

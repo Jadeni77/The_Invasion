@@ -5,7 +5,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--colors-edge-outline);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -17,21 +17,21 @@
   max-width: 1200px;
   max-height: 90vh;
   overflow-y: auto;
-  background: #2c1e13;
-  border: 3px solid #8b6f4b;
-  border-radius: 15px;
+  background: var(--colors-surface-panel);
+  border: 3px solid var(--colors-surface-panel);
+  border-radius: var(--radii-lg);
   padding: 30px;
   position: relative;
-  box-shadow: 0 0 30px rgba(139, 111, 75, 0.5);
+  box-shadow: 0 0 30px var(--colors-surface-panel);
 }
 
 .close-button {
   position: absolute;
   top: 15px;
   right: 15px;
-  background: #8b0000;
-  border: 2px solid #d4c0a1;
-  color: white;
+  background: var(--colors-accent-danger);
+  border: 2px solid var(--colors-surface-raised);
+  color: var(--colors-text-primary);
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -50,8 +50,8 @@
 }
 
 .upgrade-card {
-  background: rgba(65, 45, 25, 0.8);
-  border: 2px solid #8b6f4b;
+  background: var(--colors-surface-sunken);
+  border: 2px solid var(--colors-surface-panel);
   border-radius: 12px;
   padding: 20px;
   transition: all 0.3s;
@@ -62,14 +62,14 @@
 }
 
 .upgrade-card.selected {
-  border-color: #ffd700;
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+  border-color: var(--colors-accent-energy);
+  box-shadow: 0 0 15px var(--colors-accent-energy);
   transform: translateY(-5px);
 }
 
 .upgrade-card.upgrading {
-  border-color: #4fc3f7;
-  box-shadow: 0 0 15px rgba(79, 195, 247, 0.5);
+  border-color: var(--colors-accent-info);
+  box-shadow: 0 0 15px var(--colors-accent-info);
 }
 
 .upgrade-card.locked {
@@ -80,7 +80,7 @@
 .upgrade-requirements {
   margin-top: 15px;
   padding-top: 15px;
-  border-top: 1px solid #8b6f4b;
+  border-top: 1px solid var(--colors-surface-panel);
 }
 
 .upgrade-card .card-container {
@@ -94,21 +94,22 @@
 }
 
 .upgrade-info h4 {
-  color: #ffd700;
+  font-family: var(--type-display);
+  color: var(--colors-accent-energy);
   text-align: center;
   margin-bottom: 15px;
   font-size: 18px;
 }
 
 .stat-improvements {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--colors-edge-outline);
   border-radius: 8px;
   padding: 10px;
   margin-bottom: 15px;
 }
 
 .stat-change {
-  color: #d4c0a1;
+  color: var(--colors-text-muted);
   font-size: 14px;
   margin: 5px 0;
   display: flex;
@@ -121,22 +122,22 @@
 }
 
 .new-abilities {
-  background: rgba(255, 215, 0, 0.1);
-  border: 1px solid #ffd700;
+  background: var(--colors-edge-outline);
+  border: 1px solid var(--colors-accent-energy);
   border-radius: 8px;
   padding: 10px;
   margin-bottom: 15px;
 }
 
 .new-abilities > span {
-  color: #ffd700;
+  color: var(--colors-accent-energy);
   font-weight: bold;
   display: block;
   margin-bottom: 5px;
 }
 
 .ability-preview {
-  color: #d4c0a1;
+  color: var(--colors-text-muted);
   font-size: 13px;
   padding-left: 15px;
   margin: 3px 0;
@@ -156,23 +157,23 @@
 }
 
 .sufficient {
-  color: #7fff00;
+  color: var(--colors-accent-success);
 }
 
 .insufficient {
-  color: #ff6347;
+  color: var(--colors-accent-danger);
 }
 
 .upgrade-progress {
   margin-top: 15px;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--colors-edge-outline);
   border-radius: 10px;
   overflow: hidden;
 }
 
 .progress-bar {
   height: 20px;
-  background: linear-gradient(to right, #8b6f4b, #ffd700);
+  background: linear-gradient(to right, var(--colors-surface-panel), var(--colors-accent-energy));
   transition: width 0.5s;
 }
 
@@ -180,24 +181,24 @@
   text-align: center;
   padding: 5px;
   font-weight: bold;
-  color: #ffd700;
+  color: var(--colors-accent-energy);
 }
 
 .upgrade-action-button {
   margin-top: 15px;
   width: 100%;
   padding: 12px;
-  background: linear-gradient(to bottom, #5a3a20, #8b6f4b);
-  border: 2px solid #d4c0a1;
+  background: linear-gradient(to bottom, var(--colors-surface-sunken), var(--colors-surface-panel));
+  border: 2px solid var(--colors-surface-raised);
   border-radius: 8px;
-  color: #ffd700;
+  color: var(--colors-accent-energy);
   font-weight: bold;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .upgrade-action-button:hover:not(:disabled) {
-  background: linear-gradient(to bottom, #6b4b2e, #9c8065);
+  background: var(--colors-surface-raised);
   transform: translateY(-2px);
 }
 
@@ -208,22 +209,22 @@
 
 .upgrade-card {
   position: relative;
-  border: 2px solid #8b6f4b;
+  border: 2px solid var(--colors-surface-panel);
   border-radius: 10px;
   overflow: hidden;
   transition: all 0.3s;
-  background: rgba(65, 45, 25, 0.8);
+  background: var(--colors-surface-sunken);
 }
 
 .upgrade-card.selected {
-  border-color: #ffd700;
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+  border-color: var(--colors-accent-energy);
+  box-shadow: 0 0 15px var(--colors-accent-energy);
   transform: translateY(-5px);
 }
 
 .upgrade-card.upgrading {
-  border-color: #4fc3f7;
-  box-shadow: 0 0 15px rgba(79, 195, 247, 0.5);
+  border-color: var(--colors-accent-info);
+  box-shadow: 0 0 15px var(--colors-accent-info);
 }
 
 .upgrade-info {
@@ -243,15 +244,15 @@
   gap: 8px;
   padding: 8px;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--colors-edge-outline);
 }
 
 .resource-requirement.met {
-  border-left: 3px solid #7fff00;
+  border-left: 3px solid var(--colors-accent-success);
 }
 
 .resource-requirement.unmet {
-  border-left: 3px solid #ff6347;
+  border-left: 3px solid var(--colors-accent-danger);
   opacity: 0.7;
 }
 
@@ -268,7 +269,7 @@
 }
 
 .resource-requirement span {
-  color: #d4c0a1;
+  color: var(--colors-text-muted);
   font-weight: bold;
 }
 
@@ -279,7 +280,7 @@
   justify-content: center;
   gap: 8px;
   padding: 8px;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--colors-edge-outline);
   border-radius: 6px;
   margin-bottom: 10px;
   font-size: 14px;
@@ -287,18 +288,18 @@
 
 .pieces-icon {
   font-size: 20px;
-  color: #9370DB;
+  color: var(--colors-accent-success);
 }
 
 .pieces-text.met {
-  color: #7fff00;
-  border-left: 3px solid #7fff00;
+  color: var(--colors-accent-success);
+  border-left: 3px solid var(--colors-accent-success);
   padding-left: 8px;
 }
 
 .pieces-text.unmet {
-  color: #ff6347;
-  border-left: 3px solid #ff6347;
+  color: var(--colors-accent-danger);
+  border-left: 3px solid var(--colors-accent-danger);
   padding-left: 8px;
 }
 
@@ -308,12 +309,12 @@
   justify-content: center;
   gap: 8px;
   padding: 8px;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--colors-edge-outline);
   border-radius: 6px;
   margin-bottom: 15px;
-  border-left: 3px solid #4fc3f7;
+  border-left: 3px solid var(--colors-accent-info);
   font-size: 14px;
-  color: #d4c0a1;
+  color: var(--colors-text-muted);
 }
 
 .worker-icon {
@@ -321,39 +322,39 @@
 }
 
 .upgrade-button:hover:not(.disabled) {
-  background: linear-gradient(to bottom, #6b4b2e, #9c8065);
+  background: var(--colors-surface-raised);
   transform: translateY(-2px);
 }
 
 .upgrade-button.disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  background: linear-gradient(to bottom, #3a2a10, #5a4b3e);
+  background: var(--colors-surface-sunken);
 }
 
 .upgrade-in-progress {
   padding: 15px;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--colors-edge-outline);
 }
 
 .progress-text {
   text-align: center;
   margin-bottom: 10px;
-  color: #4fc3f7;
+  color: var(--colors-accent-info);
   font-weight: bold;
   font-size: 16px;
 }
 
 .progress-bar {
   height: 10px;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--colors-edge-outline);
   border-radius: 5px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(to right, #8b6f4b, #4fc3f7);
+  background: linear-gradient(to right, var(--colors-surface-panel), var(--colors-accent-info));
   transition: width 0.5s;
 }
 
@@ -364,17 +365,17 @@
 }
 
 .modal-content::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--colors-edge-outline);
   border-radius: 5px;
 }
 
 .modal-content::-webkit-scrollbar-thumb {
-  background: #8b6f4b;
+  background: var(--colors-surface-panel);
   border-radius: 5px;
 }
 
 .modal-content::-webkit-scrollbar-thumb:hover {
-  background: #a88b6b;
+  background: var(--colors-surface-raised);
 }
 
 /* Responsive adjustments */
