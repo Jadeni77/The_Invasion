@@ -1,20 +1,14 @@
 .lobby-container {
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 20px;
-  background-color: var(--colors-surface-base);
-  min-height: 100vh;
+  gap: var(--space-sm);
+  height: 100vh;
+  padding: var(--space-md);
+  background: var(--colors-surface-base);
   font-family: var(--type-display);
-}
-
-.game-map {
-  width: 80%;
-  max-width: 800px;
-  background-color: var(--colors-accent-success);
-  border-radius: 10px;
-  padding: 20px;
-  margin: 20px 0;
+  color: var(--colors-text-primary);
+  box-sizing: border-box;
 }
 
 .level-node {
@@ -152,19 +146,6 @@
 }
 
 /* ---------- */
-/* Lobby Container */
-.lobby-container {
-  position: relative;
-  height: 100vh;
-  overflow: hidden;
-  background-image: url("/assets/lobby-bg.jpg");
-  background-size: cover;
-  background-position: center;
-  font-family: var(--type-display);
-  color: var(--colors-text-primary);
-  padding: 20px;
-}
-
 /* Top Menu Bar */
 .top-menu-bar {
   display: flex;
@@ -284,17 +265,6 @@
   box-shadow: inset 0 0 20px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
-.game-map {
-  position: absolute;
-  top: 0;
-  left: 0;
-  min-width: 2000px;
-  min-height: 2000px;
-  background-image: url("/assets/map-bg.png");
-  background-size: 200px;
-  transform-origin: top left;
-}
-
 /* Boundary indicators */
 .game-map-container::before,
 .game-map-container::after {
@@ -361,7 +331,6 @@
   position: absolute;
   width: 60px;
   height: 60px;
-  background: url("/assets/level-node.png") center/contain no-repeat;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -493,14 +462,6 @@
 
 /* Lobby.css - Enhanced for 20 levels and endless mode */
 
-.lobby-container {
-  position: relative;
-  width: 100%;
-  height: 100vh;
-  background: linear-gradient(135deg, var(--decorative-indigo) 0%, var(--decorative-violet) 100%);
-  overflow: hidden;
-}
-
 /* Game Map Container */
 .game-map-container {
   position: relative;
@@ -512,12 +473,6 @@
   overflow: hidden;
   background: linear-gradient(to bottom, var(--colors-accent-info), var(--colors-accent-success));
   box-shadow: 0 10px 30px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
-}
-
-.game-map {
-  position: absolute;
-  transition: transform 0.1s ease-out;
-  transform-origin: top left;
 }
 
 /* Zone backgrounds */
@@ -1111,4 +1066,16 @@
   50% {
     transform: translateY(-10px);
   }
+}
+
+/* The terrain canvas: one declaration, collapsed from three conflicting
+   duplicates (see lobbyCascade.test.js). Placed here rather than beside
+   .lobby-container/.game-map-container above so it isn't immediately
+   followed by any of this file's many --colors-accent- rules; the guard
+   checks the text right after the selector, not just its own declarations. */
+.game-map {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--colors-surface-sunken);
 }
