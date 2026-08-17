@@ -550,7 +550,6 @@ describe('the Titan abilities reach the audio layer', () => {
   });
 
   it.each([
-    ['enemy:groundPoundCharge', 'quake-charge', 'charge'],
     ['enemy:groundPoundImpact', 'quake-impact', 'impact'],
     ['enemy:phaseChange', 'phase-change', 'phase'],
   ])('routes %s to the %s voice', (event, soundKey, variant) => {
@@ -563,24 +562,18 @@ describe('the Titan abilities reach the audio layer', () => {
     );
   });
 
-  it('gives the wind-up and the impact different sounds', () => {
-    // Rejects routing both events to one voice, which would put the warning
-    // and the thing it warns about on the same sound and make the wind-up
-    // indistinguishable from the damage.
-    bus.emit('enemy:groundPoundCharge', { unitType: 'TitanEnemy' });
+  it('gives the impact and the phase change different sounds', () => {
+    // Rejects routing both events to one voice, which would make the ground
+    // pound indistinguishable from the phase transition by ear.
     bus.emit('enemy:groundPoundImpact', { unitType: 'TitanEnemy' });
+    bus.emit('enemy:phaseChange', { unitType: 'TitanEnemy', phase: 2 });
 
-    const [chargeCall, impactCall] = audio.playRecipe.mock.calls;
-    expect(chargeCall[0]).not.toEqual(impactCall[0]);
-    expect(chargeCall[1]).not.toBe(impactCall[1]);
+    const [impactCall, phaseCall] = audio.playRecipe.mock.calls;
+    expect(impactCall[0]).not.toEqual(phaseCall[0]);
+    expect(impactCall[1]).not.toBe(phaseCall[1]);
   });
 
-  it('shakes the screen for the impact and the phase change, but not the wind-up', () => {
-    // The wind-up is a cue to act, and shaking the board while the player is
-    // trying to move a defender out of it is the wrong help.
-    bus.emit('enemy:groundPoundCharge', { unitType: 'TitanEnemy' });
-    expect(juice.addTrauma).not.toHaveBeenCalled();
-
+  it('shakes the screen for the impact and the phase change', () => {
     bus.emit('enemy:groundPoundImpact', { unitType: 'TitanEnemy' });
     bus.emit('enemy:phaseChange', { unitType: 'TitanEnemy', phase: 2 });
     expect(juice.addTrauma).toHaveBeenCalledTimes(2);
@@ -590,14 +583,27 @@ describe('the Titan abilities reach the audio layer', () => {
     expect(() => bus.emit('enemy:groundPoundImpact', {})).not.toThrow();
     expect(() => bus.emit('enemy:phaseChange', {})).not.toThrow();
   });
+
+  it('no longer routes a charge/wind-up event - the owner asked to drop it', () => {
+    // Before this task, the wind-up (500ms before the impact) played its own
+    // rising synth tone, 'enemy:groundPoundCharge' -> the 'charge' voice.
+    // Dropped per the owner's ask ("can we only keep the earthquake sound
+    // without the initial beep?"): the event is no longer emitted
+    // (EnemyUnits.performGroundPound) or routed (here), so re-emitting it by
+    // hand - as if some other caller still fired it - reaches no handler.
+    bus.emit('enemy:groundPoundCharge', { unitType: 'TitanEnemy' });
+
+    expect(audio.playRecipe).not.toHaveBeenCalled();
+    expect(juice.addTrauma).not.toHaveBeenCalled();
+  });
 });
 
 describe('the Titan abilities prefer a supplied sample, like every other voice', () => {
-  // Before this task, SAMPLE_VARIANTS had no charge/impact/phase entries, so
-  // even with hasSample() true this call would have handed AudioManager
+  // Before this task, SAMPLE_VARIANTS had no impact/phase entries, so even
+  // with hasSample() true this call would have handed AudioManager
   // SAMPLE_VARIANTS.fire (the `?? SAMPLE_VARIANTS.fire` fallback) instead of
-  // SAMPLE_VARIANTS.charge/impact/phase - a full-gain, full-length Earthquake
-  // Spell sample playing for 3.91s at whatever the LOUD tier allows.
+  // SAMPLE_VARIANTS.impact/phase - a full-gain, full-length Earthquake Spell
+  // sample playing for 3.91s at whatever the LOUD tier allows.
   let bus, juice;
 
   beforeEach(() => {
@@ -609,7 +615,6 @@ describe('the Titan abilities prefer a supplied sample, like every other voice',
   });
 
   it.each([
-    ['enemy:groundPoundCharge', 'quake-charge', 'charge'],
     ['enemy:groundPoundImpact', 'quake-impact', 'impact'],
     ['enemy:phaseChange', 'phase-change', 'phase'],
   ])('plays the %s sample with its own transform, not fire\'s', (event, soundKey, variant) => {

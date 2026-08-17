@@ -527,9 +527,9 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
     expect(Object.keys(ALL_TABLES)).toHaveLength(Object.keys(SFX).length + Object.keys(UNIT_VOICES).length);
     expect(
       extraLayers,
-      'waveStarted +1, bossWaveStarted +2, mortar +2, mortar-impact +2, quake-charge +1, '
+      'waveStarted +1, bossWaveStarted +2, mortar +2, mortar-impact +2, '
       + 'quake-impact +5, phase-change +2, defenderRemoved +1',
-    ).toBe(16);
+    ).toBe(15);
     expect(authoredLayers.length).toBe(Object.keys(ALL_TABLES).length + extraLayers);
   });
 
@@ -544,7 +544,7 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
     expect(layeredEntries.map(([id]) => id).sort())
       .toEqual([
         'bossWaveStarted', 'defenderRemoved', 'mortar', 'mortar-impact', 'phase-change',
-        'quake-charge', 'quake-impact', 'waveStarted',
+        'quake-impact', 'waveStarted',
       ]);
   });
 
@@ -606,49 +606,35 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
  * The Titan's two AoE abilities, which the owner playtested as "no audio for
  * the earthquake attack, no audio for the phase change".
  *
- * These assert the SHAPE the recipes are supposed to have - a wind-up that
- * fits in the wind-up window and is quieter than what follows, an impact whose
+ * These assert the SHAPE the recipes are supposed to have - an impact whose
  * three layers land where the three waves land, and two abilities a player can
  * tell apart without looking - rather than the exact numbers, so retuning a
  * gain does not have to fight the suite while flattening the design does.
+ *
+ * A third ability sound used to live here too: a separate wind-up tone
+ * ('charge' variant -> 'quake-charge') playing 500ms before the impact.
+ * Dropped per the owner's ask ("can we only keep the earthquake sound without
+ * the initial beep?") - the wind-up is silent now, so only the impact and the
+ * phase change remain audible.
  */
 describe('the Titan abilities the owner could not hear', () => {
   /** performGroundPound's own schedule, which the impact recipe mirrors. */
-  const CHARGE_SECONDS = 0.5;
   const WAVE_GAP_SECONDS = 0.2;
 
-  const charge = () => resolveVoice(soundKeyFor('TitanEnemy', 'charge'), 'charge');
   const impact = () => resolveVoice(soundKeyFor('TitanEnemy', 'impact'), 'impact');
   const phase = () => resolveVoice(soundKeyFor('TitanEnemy', 'phase'), 'phase');
 
-  it('gives the charge, the impact and the phase change three different sounds', () => {
-    // Rejects a missing soundKeyFor branch, which would resolve any of them to
-    // the generic 'projectile' and make a board-wide earthquake a bow twang.
+  it('gives the impact and the phase change two different sounds', () => {
+    // Rejects a missing soundKeyFor branch, which would resolve either of them
+    // to the generic 'projectile' and make a board-wide earthquake a bow twang.
     const keys = [
-      soundKeyFor('TitanEnemy', 'charge'),
       soundKeyFor('TitanEnemy', 'impact'),
       soundKeyFor('TitanEnemy', 'phase'),
     ];
 
-    expect(new Set(keys).size).toBe(3);
+    expect(new Set(keys).size).toBe(2);
     expect(keys).not.toContain('projectile');
     for (const key of keys) expect(SOUND_KEYS).toContain(key);
-  });
-
-  it('finishes the charge inside the 500ms wind-up, before the first wave', () => {
-    // A wind-up still sounding when the damage lands is not a wind-up.
-    expect(recipeSpan(charge())).toBeLessThanOrEqual(CHARGE_SECONDS);
-  });
-
-  it('keeps the charge quieter than the impact it warns about', () => {
-    const loudest = (recipe) => Math.max(...recipeLayers(recipe).map((layer) => layer.gain));
-    expect(loudest(charge())).toBeLessThan(loudest(impact()));
-  });
-
-  it('rises through the charge, because the tension is the point', () => {
-    for (const layer of recipeLayers(charge())) {
-      expect(layer.freqEnd, 'every charge layer should sweep upward').toBeGreaterThan(layer.freqStart);
-    }
   });
 
   it('carries one layer per earthquake wave, at the offsets the waves land on', () => {
@@ -699,8 +685,8 @@ describe('the Titan abilities the owner could not hear', () => {
     expect(slam.freqEnd).toBeLessThan(slam.freqStart);
   });
 
-  it('keeps all three inside one voice slot', () => {
-    for (const recipe of [charge(), impact(), phase()]) {
+  it('keeps both inside one voice slot', () => {
+    for (const recipe of [impact(), phase()]) {
       expect(recipeSpan(recipe)).toBeLessThanOrEqual(MAX_DURATION);
     }
   });
@@ -708,15 +694,15 @@ describe('the Titan abilities the owner could not hear', () => {
   it('keeps every layer above the laptop speaker floor as actually resolved', () => {
     /**
      * The derived reachable-pairs check earlier in this file cannot see these:
-     * it walks Object.keys(VARIANTS), and charge/impact/phase are deliberately
-     * NOT declared there - they play at their authored level, which is what
+     * it walks Object.keys(VARIANTS), and impact/phase are deliberately NOT
+     * declared there - they play at their authored level, which is what
      * resolveVoice's fallback to VARIANTS.fire already does. So the resolved
-     * form of exactly these three sounds needs its own check, and the floor is
+     * form of exactly these two sounds needs its own check, and the floor is
      * a literal here for the same reason it is everywhere else in this file.
      */
     const LAPTOP_SPEAKER_FLOOR_HZ = 200;
 
-    for (const [key, variant] of [['quake-charge', 'charge'], ['quake-impact', 'impact'], ['phase-change', 'phase']]) {
+    for (const [key, variant] of [['quake-impact', 'impact'], ['phase-change', 'phase']]) {
       for (const [index, layer] of recipeLayers(resolveVoice(key, variant)).entries()) {
         expect(layer.freqStart, `${key} layer ${index} freqStart`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
         expect(layer.freqEnd, `${key} layer ${index} freqEnd`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
@@ -800,18 +786,6 @@ describe('the ground pound rebuilt: crack, rumble and debris, not a bass note', 
 
     expect(nonNoise).toHaveLength(1);
     expect(nonNoise[0].freqEnd).toBeLessThan(nonNoise[0].freqStart);
-  });
-
-  it('leaves quake-charge exactly as authored - only the impact was rebuilt', () => {
-    // Rejects: incidentally touching the charge while rebuilding the impact.
-    // The charge keeps its role unchanged - it fires at the wind-up, 500ms
-    // before damage, and is the player's only window to react.
-    expect(UNIT_VOICES['quake-charge']).toEqual({
-      wave: 'sawtooth', freqStart: 260, freqEnd: 400, duration: 0.42, gain: 0.30, noise: false,
-      layers: [
-        { offset: 0.060, wave: 'sawtooth', freqStart: 380, freqEnd: 1500, duration: 0.40, gain: 0.20, noise: true },
-      ],
-    });
   });
 });
 
@@ -929,7 +903,7 @@ describe('the Mortar\'s shell landing: the payoff half of its two sounds', () =>
     // The generic authored-recipe floor check above already covers this
     // entry, layered or not; this pins it for the specific (key, variant)
     // pair the game actually plays, the same way the Titan block above does
-    // for quake-charge/quake-impact/phase-change.
+    // for quake-impact/phase-change.
     const LAPTOP_SPEAKER_FLOOR_HZ = 200;
     for (const [index, layer] of recipeLayers(landing()).entries()) {
       expect(layer.freqStart, `layer ${index} freqStart`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);

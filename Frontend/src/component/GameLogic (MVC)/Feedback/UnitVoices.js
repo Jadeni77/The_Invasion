@@ -72,8 +72,8 @@ export const UNIT_VOICES = {
    * The shell landing - the payoff half of the Mortar's two sounds, and per
    * the owner ("the impact is the payoff") the more important half. Keyed by
    * the 'landing' variant rather than by unit (see soundKeyFor), the same
-   * reasoning quake-charge/quake-impact/phase-change already follow, since
-   * only the Mortar reaches it today.
+   * reasoning quake-impact/phase-change already follow, since only the Mortar
+   * reaches it today.
    *
    * Same crack/body/tail vocabulary as the Mortar's own launch above and the
    * Titan's quake-impact, because that vocabulary is what reads as an
@@ -121,36 +121,6 @@ export const UNIT_VOICES = {
   melee:            { wave: 'triangle', freqStart: 340,  freqEnd: 220,  duration: 0.10, gain: 0.30, noise: true  },
   summon:           { wave: 'triangle', freqStart: 330,  freqEnd: 220,  duration: 0.30, gain: 0.35, noise: false },
   hit:              { wave: 'triangle', freqStart: 320,  freqEnd: 240,  duration: 0.07, gain: 0.25, noise: false },
-  /**
-   * The Titan's ground pound, in two halves, because it happens in two halves.
-   *
-   * performGroundPound charges for 500ms and THEN lands three waves 200ms
-   * apart. That gap is the only warning the player gets, so it gets a sound of
-   * its own rather than being folded into the impact - a single sound at the
-   * moment of damage tells a player what killed their defender, which is a
-   * post-mortem, not a warning.
-   *
-   *   quake-charge   0.42s  sawtooth  260 -> 400Hz   the strain, RISING. A
-   *                                                  pitched layer, so the
-   *                                                  harmonic stack still
-   *                                                  speaks after the laptop
-   *                                                  rolloff eats 260Hz
-   *                  0.40s  bandpass  380 -> 1500Hz  grit and debris, rising
-   *                  (+60ms)                         with it and ending bright,
-   *                                                  which is what points at
-   *                                                  the impact still to come
-   *
-   * The whole charge spans 0.46s and so finishes just as the first wave lands
-   * at 500ms. It is authored QUIETER than the impact (peak 0.30 against 0.58)
-   * even though both sit in the LOUD mix tier: the wind-up should read as the
-   * thing before the thing.
-   */
-  'quake-charge': {
-    wave: 'sawtooth', freqStart: 260, freqEnd: 400, duration: 0.42, gain: 0.30, noise: false,
-    layers: [
-      { offset: 0.060, wave: 'sawtooth', freqStart: 380, freqEnd: 1500, duration: 0.40, gain: 0.20, noise: true },
-    ],
-  },
   /**
    * The impact: ONE sound for all three waves, with the three waves authored
    * into it as layers at the offsets the waves actually land on.

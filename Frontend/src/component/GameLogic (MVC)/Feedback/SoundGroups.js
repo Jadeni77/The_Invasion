@@ -58,7 +58,7 @@ const DEFENDERS = new Set([
 export const SOUND_KEYS = [
   'projectile', 'artillery', 'magic', 'fire', 'heal', 'melee', 'summon', 'hit',
   'mortar', 'sniper', 'mortar-impact',
-  'quake-charge', 'quake-impact', 'phase-change',
+  'quake-impact', 'phase-change',
   'death-small', 'death-medium', 'death-defender', 'titan', 'boss',
 ];
 
@@ -78,12 +78,17 @@ export function soundKeyFor(unitName, variant) {
 
   // Big-ability sounds, keyed by the variant like hit and melee rather than by
   // the unit. Only the Titan reaches them today, but they are named for what
-  // the player has to recognise - something heavy winding up, that same thing
-  // landing, a boss escalating - not for who is doing it, which is the same
-  // rule the rest of this file follows. Without these branches the abilities
-  // would fall through to the firing branch and a board-wide earthquake would
-  // play a bow twang.
-  if (variant === 'charge') return 'quake-charge';
+  // the player has to recognise - a board-wide slam landing, a boss
+  // escalating - not for who is doing it, which is the same rule the rest of
+  // this file follows. Without these branches the abilities would fall
+  // through to the firing branch and a board-wide earthquake would play a bow
+  // twang.
+  //
+  // A third branch, `variant === 'charge'` -> 'quake-charge', used to sit
+  // here: a rising synth tone for the ground pound's 500ms wind-up. Dropped
+  // per the owner's ask ("can we only keep the earthquake sound without the
+  // initial beep?") - EnemyUnits.performGroundPound no longer emits the event
+  // that reached it, so the branch is gone rather than left unreachable.
   if (variant === 'impact') return 'quake-impact';
   if (variant === 'phase') return 'phase-change';
 
@@ -149,14 +154,12 @@ export const MIX_TIERS = {
    * transition disables everything within 1500px for five seconds. Nothing else
    * in the game does that.
    *
-   * quake-charge is loud for a second reason: it is not a decoration on the
-   * impact, it is the only warning a player gets, and a warning that loses to
-   * the projectile chatter is not a warning. Its LOWER level relative to the
-   * impact is authored into the recipe's gains, which is the right lever -
-   * the tier says how important the category is, the gain says how loud this
-   * sound is inside it.
+   * A third key, quake-charge, used to sit here at the same LOUD tier - the
+   * ground pound's 500ms wind-up warning. Dropped per the owner's ask ("can we
+   * only keep the earthquake sound without the initial beep?"); the wind-up is
+   * silent now, so only the impact and the phase change remain.
    */
-  'quake-charge': LOUD, 'quake-impact': LOUD, 'phase-change': LOUD,
+  'quake-impact': LOUD, 'phase-change': LOUD,
 
   // Game-event sounds, keyed by their SfxLibrary id because they play through
   // playSfx rather than through unit resolution. The ids must match exactly or

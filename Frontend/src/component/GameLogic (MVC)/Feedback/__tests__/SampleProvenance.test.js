@@ -31,10 +31,10 @@ import { stripComments } from '../../../../test/sourceFiles.js';
  *     SoundGroups.js): a unit-SENSITIVE key like 'mortar' is reached only
  *     where the real FIRE_SIGNATURES/FIRE_GROUPS/DEATH_SIGNATURES tables say
  *     so, so probing soundKeyFor(unit, variant) across every real exported
- *     class answers the question directly. A unit-AGNOSTIC key - charge,
- *     impact, phase and landing all resolve the SAME way no matter which
- *     unit is asked, by design (only one real unit's code ever supplies that
- *     variant in play) - cannot be answered by asking soundKeyFor at all; it
+ *     class answers the question directly. A unit-AGNOSTIC key - impact,
+ *     phase and landing all resolve the SAME way no matter which unit is
+ *     asked, by design (only one real unit's code ever supplies that variant
+ *     in play) - cannot be answered by asking soundKeyFor at all; it
  *     is answered by finding, in FeedbackManager.js's own event-routing
  *     table, which EVENT maps to that variant, then searching the real
  *     DefenderUnits.js/EnemyUnits.js source for that literal event string.
@@ -100,7 +100,7 @@ const EVENT_TO_VARIANT = eventToVariantMap(feedbackManagerSource);
 
 /**
  * Whether soundKeyFor resolves `variant` to the SAME key no matter which real
- * unit is asked. True for charge/impact/phase/landing: soundKeyFor trusts its
+ * unit is asked. True for impact/phase/landing: soundKeyFor trusts its
  * caller for these (only one real unit's code ever supplies them in play);
  * false for fire/death/hit/melee, which vary by unit or bucket.
  */
@@ -148,17 +148,21 @@ describe('no cross-contamination between Eagle Artillery and Earthquake sample s
 
   it('derives a non-empty variant list, so reachableUnitsFor is not vacuous', () => {
     expect(VARIANTS_TO_CHECK).toEqual(
-      expect.arrayContaining(['fire', 'charge', 'impact', 'phase', 'landing', 'melee', 'hit', 'death']),
+      expect.arrayContaining(['fire', 'impact', 'phase', 'landing', 'melee', 'hit', 'death']),
     );
   });
 
   it('derives the event -> variant routes this guard depends on, so it is not vacuous', () => {
     expect(EVENT_TO_VARIANT).toMatchObject({
       'defender:shellLanded': 'landing',
-      'enemy:groundPoundCharge': 'charge',
       'enemy:groundPoundImpact': 'impact',
       'enemy:phaseChange': 'phase',
     });
+    // The wind-up event this guard used to also derive a route for,
+    // 'enemy:groundPoundCharge' -> 'charge', is gone along with the sound it
+    // played: EnemyUnits.performGroundPound no longer emits it and
+    // FeedbackManager no longer routes it, so it no longer appears here.
+    expect(EVENT_TO_VARIANT).not.toHaveProperty('enemy:groundPoundCharge');
   });
 
   it('declares a source pack for every committed sample', () => {
@@ -200,20 +204,6 @@ describe('no cross-contamination between Eagle Artillery and Earthquake sample s
 
   it('confirms quake-impact (Earthquake_Spell) is reachable by the Titan', () => {
     expect(reachableUnitsFor('quake-impact').has('TitanEnemy')).toBe(true);
-  });
-
-  it('reproduces the original violation directly: an Eagle-sourced file under a Titan-exclusive key fails', () => {
-    // The bug this whole guard exists for, characterised without needing the
-    // deleted file back: quake-charge is reachable by TitanEnemy (via the
-    // enemy:groundPoundCharge -> 'charge' route) and not by Mortar, so
-    // declaring its source as Eagle Artillery content - exactly what was
-    // committed before this task - must fail the check above.
-    const reachableBy = reachableUnitsFor('quake-charge');
-    expect(reachableBy.has('TitanEnemy')).toBe(true);
-    expect(reachableBy.has('Mortar')).toBe(false);
-
-    const wouldBeViolation = 'EagleArtillery_Charge'.startsWith(EAGLE_ARTILLERY_PREFIX) && reachableBy.has('TitanEnemy');
-    expect(wouldBeViolation).toBe(true);
   });
 
   it('confirms the Mortar and the Titan never reach the same committed sample key', () => {

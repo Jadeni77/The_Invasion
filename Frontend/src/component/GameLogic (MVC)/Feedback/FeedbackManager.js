@@ -76,17 +76,17 @@ export class FeedbackManager {
      * The Titan's two AoE abilities, which were the loudest things in the game
      * and made no sound at all.
      *
-     * The charge is a SEPARATE event from the impact, not a decoration on it,
-     * because the 500ms between them is the whole point: it is the window in
-     * which a player can still move a defender out. A single event at the
-     * moment of damage would explain the death rather than prevent it.
+     * The wind-up used to also route a separate 'enemy:groundPoundCharge'
+     * event to a rising synth tone 500ms before the impact - dropped per the
+     * owner's ask ("can we only keep the earthquake sound without the initial
+     * beep?"). EnemyUnits.performGroundPound no longer emits that event, so
+     * the wind-up is silent; the Titan's attack animation (unaffected by this
+     * change) is the only warning before damage lands.
      *
      * The shake is deliberately below base:damaged's 0.5 for the pound and
      * level with it for the phase change, and both are gated by the screen
      * shake setting like every other trauma call here.
      */
-    on('enemy:groundPoundCharge', ({ unitType }) => this.playUnitVoice(unitType, 'charge'));
-
     on('enemy:groundPoundImpact', ({ unitType }) => {
       this.playUnitVoice(unitType, 'impact');
       this.juice.addTrauma(0.35);

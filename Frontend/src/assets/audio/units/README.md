@@ -49,17 +49,14 @@ sample's source pack in `SampleProvenance.js` when you add one.
 ## Titan ground pound
 
 Not part of the original 14 above - added once the Titan's ground pound and phase
-transition got their own sound keys (`quake-charge`, `quake-impact`, `phase-change`).
+transition got their own sound keys (`quake-impact`, `phase-change`).
 
-- [ ] `quake-charge.wav` — the 500ms wind-up telegraph before the pound lands, still
-      synthesized. **Earthquake_Spell.ogg cannot supply this**: measured in 0.3s
-      windows it opens at -12.8dB with the hit already at full level (finer-grained
-      50ms windows show the same peak in the first 50ms — there is no quiet build-up
-      before it), sustains a rumble around -11dB from 1.2s to 3.0s, decays through
-      -23.5dB and -39.8dB, and is silent from 3.72s. There is no wind-up anywhere in
-      the file to extract, so this stays synthesized until a real wind-up sample
-      exists. (A prior version of this file wrongly used an Eagle Artillery charge
-      sample here — see the rule above.)
+The wind-up used to have a third key, `quake-charge` (a synthesized 500ms telegraph
+before the pound lands). Removed per the owner's ask: "can we only keep the
+earthquake sound without the initial beep?" The wind-up is silent now - the Titan's
+attack animation is the only warning before the pound lands, with no audio cue.
+Don't re-add a `quake-charge.wav` file; there is no sound key left for it to fill.
+
 - [x] `quake-impact.wav` — the pound itself, all three waves (Clash of Clans
       Earthquake Spell sample, trimmed to fit before the Titan resumes moving)
 - [ ] `phase-change.wav` — the Titan's health-threshold escalation, still synthesized
@@ -98,7 +95,7 @@ because a sample chosen to be impressive on its own can disappear at 40%.
 - **70%** — everything else, including all three death sounds, `mortar`, `mortar-impact`,
   `sniper`, `magic`, `melee`, `summon`, `heal`, `artillery`, `fire`, and the wave-start stings.
 - **100%** — `titan` and `boss`, plus base damage, level won and level lost, and the
-  Titan's `quake-charge`/`quake-impact`/`phase-change` ability sounds above.
+  Titan's `quake-impact`/`phase-change` ability sounds above.
 
 Pick samples that sound right at those relative levels.
 
