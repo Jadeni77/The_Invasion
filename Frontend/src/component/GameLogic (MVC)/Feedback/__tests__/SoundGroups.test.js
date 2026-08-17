@@ -321,3 +321,56 @@ describe('the Titan ability variants', () => {
     }
   });
 });
+
+describe('the Mortar\'s shell landing', () => {
+  /**
+   * The owner's rule, verbatim: "Eagle Artillery should all belong to the
+   * Mortar only, and the earthquake belongs to the Titan only." The landing
+   * resolves by VARIANT rather than by unit, the same reasoning charge/impact/
+   * phase above already follow - only the Mortar reaches 'landing' today.
+   */
+  it('resolves the landing variant to mortar-impact', () => {
+    // Rejects: a missing branch in soundKeyFor. Without one the variant falls
+    // through to the firing branch and the shell's landing would play the
+    // generic 'mortar' launch sound a second time instead of its own.
+    expect(soundKeyFor('Mortar', 'landing')).toBe('mortar-impact');
+    expect(soundKeyFor('Mortar', 'landing')).not.toBe('projectile');
+  });
+
+  it('is a sound of its own, distinct from the Mortar\'s own fire and from the Titan\'s quake-impact', () => {
+    // Rejects: reusing the 'impact' variant name (which already means
+    // quake-impact above) or the 'mortar' key (the Mortar's own fire), either
+    // of which would cross-contaminate the two units' sounds the owner asked
+    // to keep separate.
+    expect(soundKeyFor('Mortar', 'landing')).not.toBe(soundKeyFor('Mortar', 'fire'));
+    expect(soundKeyFor('Mortar', 'landing')).not.toBe(soundKeyFor('TitanEnemy', 'impact'));
+  });
+
+  it('leaves the Mortar\'s firing, melee, hit and death sounds alone', () => {
+    // A branch placed above the death branch would swallow deaths as well.
+    expect(soundKeyFor('Mortar', 'fire')).toBe('mortar');
+    expect(soundKeyFor('Mortar', 'death')).toBe('death-defender');
+    expect(soundKeyFor('Mortar', 'hit')).toBe('hit');
+  });
+
+  it('is a declared key with a mix tier, like every other sound', () => {
+    expect(SOUND_KEYS).toContain(soundKeyFor('Mortar', 'landing'));
+    expect(MIX_TIERS).toHaveProperty('mortar-impact');
+  });
+
+  it('sits in the mid tier beside the Mortar\'s own fire sound, not the Titan\'s LOUD abilities', () => {
+    // The landing is the payoff of an ordinary defender's attack, not a
+    // board-wide event on the scale of a ground pound or a phase change -
+    // those are what the LOUD tier is reserved for (see MIX_TIERS's own
+    // comment). "Heavy but not the loudest thing in the game" is a gain
+    // decision (SAMPLE_VARIANTS.landing, UNIT_VOICES['mortar-impact']), not a
+    // tier decision.
+    expect(mixGainFor('mortar-impact')).toBe(mixGainFor('mortar'));
+    expect(mixGainFor('mortar-impact')).toBeLessThan(mixGainFor(soundKeyFor('TitanEnemy', 'impact')));
+  });
+
+  it('does not throw on a null or undefined unit name', () => {
+    expect(() => soundKeyFor(null, 'landing')).not.toThrow();
+    expect(() => soundKeyFor(undefined, 'landing')).not.toThrow();
+  });
+});

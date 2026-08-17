@@ -68,6 +68,52 @@ export const UNIT_VOICES = {
       { offset: 0.030, wave: 'sawtooth', freqStart: 700, freqEnd: 300, duration: 0.45, gain: 0.20, noise: true },
     ],
   },
+  /**
+   * The shell landing - the payoff half of the Mortar's two sounds, and per
+   * the owner ("the impact is the payoff") the more important half. Keyed by
+   * the 'landing' variant rather than by unit (see soundKeyFor), the same
+   * reasoning quake-charge/quake-impact/phase-change already follow, since
+   * only the Mortar reaches it today.
+   *
+   * Same crack/body/tail vocabulary as the Mortar's own launch above and the
+   * Titan's quake-impact, because that vocabulary is what reads as an
+   * explosion on a laptop speaker at all - but neither of those two directly:
+   * no amplitude-modulated rumble (quake-impact's rumble sells a SUSTAINED,
+   * multi-wave earthquake; a single shell has one moment, not three), and
+   * every number distinct from the Mortar's own launch recipe so the two
+   * halves of one attack do not sound like the same sound twice.
+   *
+   *   crack  0.05s  bandpass 2800->900Hz   the debris/shrapnel transient,
+   *                                        brightest and briefest, same role
+   *                                        as the Mortar's own crack
+   *   body   0.30s  sawtooth  520->260Hz   the thud you feel landing. Falling
+   *                 (+10ms)                pitch reads as something coming to
+   *                                        rest, the way the Mortar's own body
+   *                                        reads as something leaving; gain
+   *                                        (0.55) sits slightly above the
+   *                                        launch's body (0.60 authored, but
+   *                                        at the SAME mix tier) so the
+   *                                        payoff is not the quieter of the
+   *                                        two attack sounds
+   *   tail   0.35s  bandpass  650->300Hz   settling debris, quieter than the
+   *                 (+30ms)                body and ending last, same
+   *                                        role as the Mortar's own tail
+   *
+   * Every frequency here clears the 200Hz laptop-speaker floor with margin
+   * (lowest is 260Hz, both the body's freqEnd and nowhere near it) - see
+   * UnitVoices.test.js's floor guard, which is authored-recipe-wide and not
+   * weakened for this entry. Span 0.38s, inside MAX_DURATION and shorter than
+   * quake-impact's 0.65s: one shell landing once is a smaller moment than a
+   * three-wave board-wide earthquake, and should not occupy a voice slot as
+   * long as one.
+   */
+  'mortar-impact': {
+    wave: 'sawtooth', freqStart: 2800, freqEnd: 900, duration: 0.05, gain: 0.34, noise: true,
+    layers: [
+      { offset: 0.010, wave: 'sawtooth', freqStart: 520, freqEnd: 260, duration: 0.30, gain: 0.55, noise: false },
+      { offset: 0.030, wave: 'sawtooth', freqStart: 650, freqEnd: 300, duration: 0.35, gain: 0.22, noise: true },
+    ],
+  },
   sniper:           { wave: 'square',   freqStart: 1400, freqEnd: 700,  duration: 0.05, gain: 0.30, noise: false },
   magic:            { wave: 'triangle', freqStart: 1100, freqEnd: 1500, duration: 0.12, gain: 0.22, noise: false },
   fire:             { wave: 'sawtooth', freqStart: 520,  freqEnd: 240,  duration: 0.40, gain: 0.50, noise: true  },

@@ -100,6 +100,98 @@ describe('Mortar emits its own firing event', () => {
   });
 });
 
+/**
+ * The other half of the Mortar's two sounds: it fired with a sound and landed
+ * with nothing (createExplosion emitted no feedback event at all). The
+ * landing must lead the shared 'hit' sound that follows it for every enemy
+ * the splash catches (GameEngine.addDefenderExplosion's 'enemy:hit' emits),
+ * so it is emitted BEFORE addDefenderExplosion is called, not after.
+ */
+describe('the Mortar\'s shell landing emits its own event', () => {
+  function createMortarTarget() {
+    return { x: 400, y: 0, width: 64, height: 64, isAlive: true };
+  }
+
+  function eventsNamed(engine, name) {
+    return engine.emitFeedback.mock.calls.filter((call) => call[0] === name);
+  }
+
+  it('emits defender:shellLanded exactly when the shell actually lands', () => {
+    const mortar = new Mortar(0, 0, CARD);
+    const engine = { emitFeedback: vi.fn(), addDefenderExplosion: vi.fn(), explosions: [] };
+    mortar.gameEngine = engine;
+    mortar.attack(createMortarTarget(), 1000);
+
+    for (let i = 0; i < 1000 && mortar.pendingShells.length > 0; i++) mortar.update([], []);
+
+    expect(mortar.pendingShells).toHaveLength(0); // sanity: it really landed
+    expect(eventsNamed(engine, 'defender:shellLanded')).toHaveLength(1);
+    expect(engine.emitFeedback).toHaveBeenCalledWith(
+      'defender:shellLanded',
+      { defenderType: 'Mortar' },
+    );
+  });
+
+  it('does not emit the landing sound before the shell lands', () => {
+    // Verified by mutation: temporarily moving the emit into attack() (fired
+    // the instant the shell launches, instead of when it lands) makes this
+    // fail, as does removing the guard entirely and emitting on every
+    // update() tick.
+    const mortar = new Mortar(0, 0, CARD);
+    const engine = { emitFeedback: vi.fn(), addDefenderExplosion: vi.fn(), explosions: [] };
+    mortar.gameEngine = engine;
+    mortar.attack(createMortarTarget(), 1000);
+
+    // Drive update() one tick at a time up to (but not past) the instant
+    // before landing, derived from the shell's own remaining flight time
+    // rather than a hand-computed frame count.
+    let guard = 0;
+    while (mortar.pendingShells.length > 0 && mortar.pendingShells[0].timeRemaining > 1 && guard < 1000) {
+      mortar.update([], []);
+      guard++;
+    }
+
+    expect(mortar.pendingShells).toHaveLength(1); // still in flight
+    expect(eventsNamed(engine, 'defender:shellLanded')).toHaveLength(0);
+  });
+
+  it('never fires the landing sound for an attack that never launches a shell', () => {
+    const mortar = new Mortar(0, 0, CARD);
+    const engine = { emitFeedback: vi.fn(), addDefenderExplosion: vi.fn(), explosions: [] };
+    mortar.gameEngine = engine;
+    const tooClose = { x: 10, y: 10, width: 64, height: 64, isAlive: true };
+
+    mortar.attack(tooClose, 1000);
+    for (let i = 0; i < 300; i++) mortar.update([], []);
+
+    expect(eventsNamed(engine, 'defender:shellLanded')).toHaveLength(0);
+  });
+
+  it('emits the landing sound before addDefenderExplosion applies splash damage, so it leads the hit sound rather than trailing it', () => {
+    // Verified by mutation: swapping the two statements' order in
+    // createExplosion makes this fail.
+    const mortar = new Mortar(0, 0, CARD);
+    const engine = { emitFeedback: vi.fn(), addDefenderExplosion: vi.fn(), explosions: [] };
+    mortar.gameEngine = engine;
+
+    mortar.createExplosion(100, 100);
+
+    expect(engine.emitFeedback).toHaveBeenCalledWith(
+      'defender:shellLanded',
+      { defenderType: 'Mortar' },
+    );
+    expect(engine.addDefenderExplosion).toHaveBeenCalled();
+    const emitOrder = engine.emitFeedback.mock.invocationCallOrder[0];
+    const explosionOrder = engine.addDefenderExplosion.mock.invocationCallOrder[0];
+    expect(emitOrder).toBeLessThan(explosionOrder);
+  });
+
+  it('does not throw when landing without a gameEngine reference', () => {
+    const mortar = new Mortar(0, 0, CARD);
+    expect(() => mortar.createExplosion(100, 100)).not.toThrow();
+  });
+});
+
 describe('GrenadeDefender emits its own firing event', () => {
   it('triggers an immediate explosion (no projectile object) yet still emits projectile:fired', () => {
     const grenadier = new GrenadeDefender(0, 0, CARD);

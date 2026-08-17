@@ -84,6 +84,24 @@ export const SAMPLE_VARIANTS = {
   charge: { playbackRate: 1, gainScale: 0.45, durationScale: 1 },
   impact: { playbackRate: 1, gainScale: 0.6,  durationScale: 1 },
   phase:  { playbackRate: 1, gainScale: 0.6,  durationScale: 1 },
+  /**
+   * The Mortar's shell landing (EagleArtillery_Impact.ogg, trimmed to ~0.58s -
+   * the attack transient plus a short release, not the source file's full
+   * 2.52s continuous rumble).
+   *
+   * gainScale 0.65 rather than fire's 1: the file is mastered to the same
+   * near-0dBFS peak as every other sample here (measured -0.2dB), and
+   * mortar-impact sits in the MID mix tier (0.7) alongside the Mortar's own
+   * fire sample, which already plays at gainScale 1 - SAMPLE_BASE_GAIN(0.7) *
+   * 1 * 0.7. Leaving this at 1 as well would make the payoff exactly as loud
+   * as the launch off the same hot master, with no headroom for "heavy but
+   * not the loudest thing in the game" (the owner's own words, after already
+   * calling one synth sound too loud once). 0.65 keeps it slightly ABOVE the
+   * shared 'hit' sound that follows it (see FeedbackManager's
+   * 'defender:shellLanded' handler) so the landing still reads as the more
+   * prominent of the two, without reaching fire's own level.
+   */
+  landing: { playbackRate: 1, gainScale: 0.65, durationScale: 1 },
 };
 
 /**

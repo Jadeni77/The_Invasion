@@ -53,6 +53,16 @@ export class FeedbackManager {
 
     on('projectile:fired', ({ defenderType }) => this.playUnitVoice(defenderType, 'fire'));
 
+    /**
+     * The Mortar's shell landing - additive, not a replacement for the shared
+     * 'hit' sound that already plays for every enemy the splash catches (see
+     * GameEngine.addDefenderExplosion's 'enemy:hit' emits). DefenderUnits'
+     * createExplosion emits this BEFORE calling addDefenderExplosion, so this
+     * handler runs and this sound is scheduled first, and the hit sound(s)
+     * that follow are layered on top of it rather than replacing it.
+     */
+    on('defender:shellLanded', ({ defenderType }) => this.playUnitVoice(defenderType, 'landing'));
+
     // The four things a player watches an enemy do. Melee uses its own variant
     // so a strike resolves to the shared melee sound whichever enemy swung;
     // the rest are acting sounds, which is what the fire variant means here.
