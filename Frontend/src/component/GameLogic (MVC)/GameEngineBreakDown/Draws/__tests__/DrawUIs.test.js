@@ -52,6 +52,14 @@ describe('drawBackground base rendering', () => {
     const bodyShallow = ctxShallow.fillRect.mock.calls.find((c) => c[0] === shallow.defenseLineX);
     const bodyDeep = ctxDeep.fillRect.mock.calls.find((c) => c[0] === deep.defenseLineX);
 
+    // Y position, not just height: a baseY stuck at 0 (or any value other
+    // than the grid's own offset) would detach the base from the playfield
+    // - sliding it to the top of the canvas - while still passing a
+    // height-only check, since height alone says nothing about where the
+    // rectangle actually sits.
+    expect(bodyShallow[1]).toBe(shallow.gridManager.gridOffsetY);
+    expect(bodyDeep[1]).toBe(deep.gridManager.gridOffsetY);
+
     expect(bodyShallow[3]).toBe(shallow.gridManager.getRowsForLevel() * shallow.gridManager.gridSize);
     expect(bodyDeep[3]).toBe(deep.gridManager.getRowsForLevel() * deep.gridManager.gridSize);
     expect(bodyDeep[3]).not.toBe(bodyShallow[3]);
