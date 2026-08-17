@@ -61,24 +61,44 @@ export class DrawUIs {
         ctx.lineTo(this.gameEngine.defenseLineX - 1, this.gameEngine.canvasHeight);
         ctx.stroke();
 
-        // Draw base building
-        ctx.fillStyle = colors.edgeHighlight;
-        ctx.fillRect(
-            this.gameEngine.defenseLineX - 30,
-            this.gameEngine.canvasHeight * 0.3,
-            30,
-            this.gameEngine.canvasHeight * 0.4
-        );
+        // Draw base building: a structure sized to the actual playfield (the
+        // grid's own row count and cell size) rather than a fixed fraction of
+        // canvas height, so it meets the grid exactly at every level instead
+        // of drifting from it as the row count changes.
+        const grid = this.gameEngine.gridManager;
+        if (grid) {
+            const baseX = this.gameEngine.defenseLineX;
+            const baseY = grid.gridOffsetY;
+            const baseWidth = this.gameEngine.canvasWidth - baseX;
+            const baseHeight = grid.getRowsForLevel() * grid.gridSize;
 
-        // Draw windows
-        ctx.fillStyle = colors.accentEnergy;
-        for (let i = 0; i < 3; i++) {
-            ctx.fillRect(
-                this.gameEngine.defenseLineX - 25,
-                this.gameEngine.canvasHeight * 0.35 + i * 40,
-                10,
-                20
-            );
+            if (baseWidth > 0 && baseHeight > 0) {
+                ctx.save();
+
+                // Body
+                ctx.fillStyle = colors.surfacePanel;
+                ctx.fillRect(baseX, baseY, baseWidth, baseHeight);
+
+                // Inner highlight on the playfield-facing edge, so the wall
+                // reads as lit from the side the enemies approach from.
+                ctx.fillStyle = colors.edgeHighlight;
+                ctx.fillRect(baseX, baseY, 6, baseHeight);
+
+                ctx.strokeStyle = colors.edgeOutline;
+                ctx.lineWidth = 5;
+                ctx.strokeRect(baseX, baseY, baseWidth, baseHeight);
+
+                // Windows, evenly spaced down the wall regardless of how tall
+                // the wall ends up being for the level's row count.
+                ctx.fillStyle = colors.accentEnergy;
+                const windowCount = 3;
+                for (let i = 0; i < windowCount; i++) {
+                    const windowY = baseY + ((i + 1) * baseHeight) / (windowCount + 1) - 10;
+                    ctx.fillRect(baseX + baseWidth / 2 - 5, windowY, 10, 20);
+                }
+
+                ctx.restore();
+            }
         }
     }
 

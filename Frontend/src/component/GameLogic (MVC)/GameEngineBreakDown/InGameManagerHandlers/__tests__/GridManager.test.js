@@ -45,6 +45,18 @@ describe('GridManager', () => {
         });
     });
 
+    describe('getColsForLevel', () => {
+        it('returns 9 columns regardless of level', () => {
+            // Rejects hardcoding the old literal 9 at each call site instead of
+            // reading it from one accessor - and rejects an accessor that
+            // (wrongly) varies columns by level the way getRowsForLevel does.
+            for (const level of [1, 2, 3, 4, 5, 6, 10]) {
+                const g = new GridManager(800, 600, level);
+                expect(g.getColsForLevel()).toBe(9);
+            }
+        });
+    });
+
     describe('initializeGrid', () => {
         it('should create a grid with 9 columns', () => {
             expect(grid.deploymentGrid[0].length).toBe(9);

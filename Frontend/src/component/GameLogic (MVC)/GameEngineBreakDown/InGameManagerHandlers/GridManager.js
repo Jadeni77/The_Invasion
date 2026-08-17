@@ -52,13 +52,23 @@ export class GridManager {
     }
 
     /**
+     * The board is 9 columns wide at every level - only the row count grows
+     * with the level. A named accessor (mirroring getRowsForLevel) so the
+     * column count has one source of truth instead of a literal `9` repeated
+     * at every call site.
+     */
+    getColsForLevel() {
+        return 9;
+    }
+
+    /**
      * Initialize the grid system in the game board
      */
     initializeGrid() {
         const availableWidth = this.canvasWidth - this.leftMargin - this.rightMargin;
         const availableHeight = this.canvasHeight - this.topMargin - this.bottomMargin;
 
-        const cols = 9;
+        const cols = this.getColsForLevel();
         const rows = this.getRowsForLevel();
 
         // Calculate grid size based on available space
@@ -181,14 +191,14 @@ export class GridManager {
             const y = this.gridOffsetY + row * this.gridSize;
             ctx.beginPath();
             ctx.moveTo(this.gridOffsetX, y);
-            ctx.lineTo(this.gridOffsetX + 9 * this.gridSize, y);
+            ctx.lineTo(this.gridOffsetX + this.getColsForLevel() * this.gridSize, y);
             ctx.stroke();
         }
 
         // Draw column separators (lighter)
         ctx.strokeStyle = withAlpha(colors.textPrimary, 0.15);
         ctx.lineWidth = 1;
-        for (let col = 0; col <= 9; col++) {
+        for (let col = 0; col <= this.getColsForLevel(); col++) {
             const x = this.gridOffsetX + col * this.gridSize;
             ctx.beginPath();
             ctx.moveTo(x, this.gridOffsetY);
@@ -265,7 +275,7 @@ export class GridManager {
      */
     getColumnFromX(x) {
         const col = Math.floor((x - this.gridOffsetX) / this.gridSize);
-        if (col >= 0 && col < 9) {
+        if (col >= 0 && col < this.getColsForLevel()) {
             return col;
         }
         return -1;
@@ -279,10 +289,31 @@ export class GridManager {
      */
     getCellByIndices(row, col) {
         if (row >= 0 && row < this.deploymentGrid.length &&
-            col >= 0 && col < 9) {
+            col >= 0 && col < this.getColsForLevel()) {
             return this.deploymentGrid[row][col];
         }
         return null;
+    }
+
+    /**
+     * Alternating bands, one per row, drawn under everything else. The grid is
+     * otherwise invisible unless highlighted, which leaves the player guessing
+     * which row an enemy is in and where a unit may be placed.
+     */
+    drawLaneBands(ctx) {
+        const rows = this.getRowsForLevel();
+        const width = this.getColsForLevel() * this.gridSize;
+        ctx.save();
+        for (let row = 0; row < rows; row++) {
+            ctx.fillStyle = row % 2 === 0 ? colors.surfaceBase : colors.surfaceSunken;
+            ctx.fillRect(
+                this.gridOffsetX,
+                this.gridOffsetY + row * this.gridSize,
+                width,
+                this.gridSize,
+            );
+        }
+        ctx.restore();
     }
 
 }

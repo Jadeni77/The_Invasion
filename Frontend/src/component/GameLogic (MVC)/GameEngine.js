@@ -1423,6 +1423,9 @@ export class GameEngine {
     ctx.save();
     ctx.translate(shake.x, shake.y);
 
+    // Lane bands go first: they must sit under the grid overlay (cell tints,
+    // highlight, occupied state) and every entity drawn after it.
+    this.gridManager.drawLaneBands(ctx);
     this.gridManager.drawGrid(ctx);
     this.drawEntities.drawDefenders(ctx);
     this.drawEntities.drawEnemies(ctx);
