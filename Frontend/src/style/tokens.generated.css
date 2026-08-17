@@ -50,4 +50,6 @@
   --type-weight-regular: 400;
   --type-line-tight: 1.1;
   --type-line-body: 1.5;
+  /* sweep */
+  --sweep-angle: 0deg;
 }

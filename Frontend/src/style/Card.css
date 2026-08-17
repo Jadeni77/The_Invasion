@@ -4,12 +4,15 @@
   display: flex;
   flex-direction: column;
   background: var(--colors-surface-sunken);
-  border: 2px solid var(--colors-surface-panel);
-  border-radius: 10px;
+  /* Thick outline + hard drop shadow from the token layer, not the previous
+     hairline border and soft blur: a card should read as a stamped-out
+     physical object (a seed packet), not a flat panel. */
+  border: var(--borders-outline) solid var(--colors-edge-outline);
+  border-radius: var(--radii-md);
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 4px 8px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
+  transition: transform 60ms ease-out, box-shadow 60ms ease-out;
+  box-shadow: var(--shadows-drop);
   flex-shrink: 0; /* Prevent cards from shrinking */
   position: relative;
 }
@@ -24,6 +27,41 @@
   opacity: 0.6;
   filter: grayscale(80%);
   cursor: not-allowed;
+}
+
+/*
+ * Picking the card up: press it down and in rather than only tinting it.
+ * :not(.disabled) because Card.jsx never wires an onClick handler for a
+ * disabled card - it shouldn't look pressable if it isn't.
+ */
+.card-container:active:not(.disabled) {
+  transform: translateY(2px);
+  box-shadow: var(--shadows-pressed);
+}
+
+/*
+ * Recharge shown on the card itself rather than beside it (GameBoard.jsx
+ * currently renders a `.cooldown-overlay` as a sibling of the card - this
+ * replaces that with an overlay that lives on the card's own face). The
+ * angle comes from --sweep-angle, a custom property the component sets per
+ * card from its cooldown fraction; it defaults to 0deg (declared in
+ * tokens.generated.css, and again as the local var() fallback) so a card
+ * whose component never sets it renders fully ready rather than fully
+ * obscured.
+ *
+ * Card.jsx does not accept a cooldown fraction yet, so nothing sets
+ * --sweep-angle today - see task-7-report.md for the wiring this needs.
+ */
+.cooldown-sweep {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: conic-gradient(
+    var(--colors-surface-sunken) var(--sweep-angle, 0deg),
+    transparent var(--sweep-angle, 0deg)
+  );
+  opacity: 0.72;
 }
 
 .card-header {

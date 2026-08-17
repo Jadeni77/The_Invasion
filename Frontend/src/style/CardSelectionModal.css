@@ -118,7 +118,10 @@
 }
 
 .card-wrapper.selected .card-container {
-  border: 3px solid var(--colors-accent-success);
+  /* Same outline weight Card.css's base rule now uses (var(--borders-outline)
+     is 3px) - picking a card up for the deck shouldn't thin its edge back
+     down, only recolour it. */
+  border: var(--borders-outline) solid var(--colors-accent-success);
   box-shadow: 0 0 20px color-mix(in srgb, var(--colors-accent-success) 50%, transparent);
 }
 

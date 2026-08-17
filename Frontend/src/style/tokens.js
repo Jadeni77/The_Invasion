@@ -70,7 +70,23 @@ export const type = {
   lineBody:      '1.5',
 };
 
-const GROUPS = { colors, decorative, space, radii, borders, shadows, type };
+/**
+ * Not a shared design constant like the groups above - `angle` is the
+ * ready-state default for a per-card custom property a component sets
+ * per-instance (a cooldown fraction becomes a sweep angle on the card's
+ * recharge overlay; see `.cooldown-sweep` in Card.css). It is declared here,
+ * at its default, only so `var(--sweep-angle, 0deg)` resolves against a real
+ * declared custom property instead of an undeclared one - stylesheets are
+ * held to that rule for every var() reference, not just palette tokens.
+ * `sweep.angle` -> `--sweep-angle` (no group segment doubled into the name)
+ * because the component contract this backs already names the property
+ * `--sweep-angle`, not `--sweep-sweep-angle`.
+ */
+export const sweep = {
+  angle: '0deg',
+};
+
+const GROUPS = { colors, decorative, space, radii, borders, shadows, type, sweep };
 
 /** camelCase key in a group -> the kebab-case custom property name. */
 export function cssVariableName(groupName, key) {
