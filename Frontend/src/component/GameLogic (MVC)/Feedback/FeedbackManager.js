@@ -41,6 +41,11 @@ export class FeedbackManager {
 
     on('defender:placed', () => this.audio.playSfx('defenderPlaced', mixGainFor('defenderPlaced')));
 
+    // The hammer/shovel tool removing a deployed defender: a game event, like
+    // defenderPlaced, not a unit voice - it is the PLAYER'S action, not the
+    // unit's, so it plays through playSfx rather than playUnitVoice.
+    on('defender:removed', () => this.audio.playSfx('defenderRemoved', mixGainFor('defenderRemoved')));
+
     on('defender:died', ({ unitType }) => {
       this.playUnitVoice(unitType, 'death');
       this.juice.addTrauma(0.15);

@@ -25,6 +25,25 @@ describe('FeedbackManager', () => {
     expect(audio.playSfx).toHaveBeenCalledWith('defenderPlaced', mixGainFor('defenderPlaced'));
   });
 
+  it('plays the removal sound when a defender is removed', () => {
+    // The hammer/shovel tool had no feedback at all. Routed like
+    // defenderPlaced - a game event played through playSfx - not through
+    // playUnitVoice, because removing a unit is the PLAYER'S action, not the
+    // unit's own voice (see the 'is a game event, not a unit voice' test
+    // below, which rejects the wrong routing directly).
+    bus.emit('defender:removed', { type: 'Mortar' });
+    expect(audio.playSfx).toHaveBeenCalledWith('defenderRemoved', mixGainFor('defenderRemoved'));
+  });
+
+  it('routes removal as a game event, not a unit voice', () => {
+    // Rejects: an implementation that calls playUnitVoice(type, 'removed') or
+    // similar, resolving through soundKeyFor/resolveVoice by unit archetype.
+    // The owner's ask is explicit that this is the player's action, not the
+    // unit's, so it must reach the audio layer only through playSfx.
+    bus.emit('defender:removed', { type: 'Mortar' });
+    expect(audio.playRecipe).not.toHaveBeenCalled();
+  });
+
   it('plays the collection sound when energy is collected', () => {
     bus.emit('energy:collected', { amount: 25 });
     expect(audio.playSfx).toHaveBeenCalledWith('energyCollected', mixGainFor('energyCollected'));

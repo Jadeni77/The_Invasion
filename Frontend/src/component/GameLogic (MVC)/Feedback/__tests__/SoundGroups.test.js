@@ -238,6 +238,17 @@ describe('mix tiers', () => {
     expect(mixGainFor('nonsense')).toBe(0.7);
   });
 
+  it('gives removing a defender a heavier tier than placing one', () => {
+    // Rejects: copying defenderPlaced's QUIET tier verbatim. Placing happens
+    // constantly during setup and should stay in the background; removing is
+    // a deliberate, consequential choice (giving up a placed unit) and is
+    // meant to read as such, per the owner's ask - "probably not the quiet
+    // tier."
+    expect(SFX).toHaveProperty('defenderRemoved');
+    expect(MIX_TIERS).toHaveProperty('defenderRemoved');
+    expect(mixGainFor('defenderRemoved')).toBeGreaterThan(mixGainFor('defenderPlaced'));
+  });
+
   it('every declared key has a tier', () => {
     for (const key of SOUND_KEYS) {
       expect(MIX_TIERS, `no tier for ${key}`).toHaveProperty(key);

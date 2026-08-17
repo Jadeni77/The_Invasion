@@ -527,8 +527,9 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
     expect(Object.keys(ALL_TABLES)).toHaveLength(Object.keys(SFX).length + Object.keys(UNIT_VOICES).length);
     expect(
       extraLayers,
-      'waveStarted +1, bossWaveStarted +2, mortar +2, quake-charge +1, quake-impact +3, phase-change +2',
-    ).toBe(11);
+      'waveStarted +1, bossWaveStarted +2, mortar +2, quake-charge +1, quake-impact +5, '
+      + 'phase-change +2, defenderRemoved +1',
+    ).toBe(14);
     expect(authoredLayers.length).toBe(Object.keys(ALL_TABLES).length + extraLayers);
   });
 
@@ -541,7 +542,10 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
     // SFX and UNIT_VOICES share no key (asserted by 'game-event sounds are
     // served by SFX, not the voice table'), so merging them loses nothing.
     expect(layeredEntries.map(([id]) => id).sort())
-      .toEqual(['bossWaveStarted', 'mortar', 'phase-change', 'quake-charge', 'quake-impact', 'waveStarted']);
+      .toEqual([
+        'bossWaveStarted', 'defenderRemoved', 'mortar', 'phase-change',
+        'quake-charge', 'quake-impact', 'waveStarted',
+      ]);
   });
 
   it.each(layeredEntries)('%s keeps every one of its layers above the floor', (id, recipe) => {
@@ -660,11 +664,18 @@ describe('the Titan abilities the owner could not hear', () => {
   it('lets each wave recede rather than repeating at full level', () => {
     // The rings expand AWAY from the player's defenders; three copies at one
     // level is what emitting per wave would have sounded like.
-    const waves = recipeLayers(impact()).filter((layer) => layer.offset >= WAVE_GAP_SECONDS);
-    expect(waves).toHaveLength(2);
+    //
+    // Finds the body by its shape (the one pitched layer) rather than a fixed
+    // array index: the rebuild (Task 2) added a rumble and a debris layer
+    // between the crack and the two waves, so a hard-coded index would now
+    // point at the wrong layer even though the receding-waves invariant it
+    // was protecting still holds.
+    const layers = recipeLayers(impact());
+    const body = layers.find((layer) => !layer.noise);
+    const waves = layers.filter((layer) => layer.offset >= WAVE_GAP_SECONDS);
 
-    const first = recipeLayers(impact())[1]; // the body of the first slam
-    expect(first.gain).toBeGreaterThan(waves[0].gain);
+    expect(waves).toHaveLength(2);
+    expect(body.gain).toBeGreaterThan(waves[0].gain);
     expect(waves[0].gain).toBeGreaterThan(waves[1].gain);
   });
 
@@ -720,5 +731,129 @@ describe('the Titan abilities the owner could not hear', () => {
     // other, a supplied sample would not match its synthesized stand-in.
     expect(resolveVoice('quake-impact', 'impact')).toEqual(UNIT_VOICES['quake-impact']);
     expect(resolveVoice('phase-change', 'phase')).toEqual(UNIT_VOICES['phase-change']);
+  });
+});
+
+/**
+ * Task 2's rebuild: "a low, rumbling bass thud accompanied by a cracking,
+ * stone-shattering echo" - the Clash of Clans earthquake feel, built without
+ * any layer or recipe reaching below the 200Hz laptop-speaker floor (guarded
+ * literally, and non-negotiably, by the block above). The rumble is built
+ * from amplitude modulation (AudioManager.scheduleModulatedEnvelope) rather
+ * than pitch, and the crack leads because it is the half of the brief that
+ * actually reproduces on a small speaker.
+ */
+describe('the ground pound rebuilt: crack, rumble and debris, not a bass note', () => {
+  const impact = () => resolveVoice(soundKeyFor('TitanEnemy', 'impact'), 'impact');
+
+  it('leads with the stone-crack transient: offset zero, brightest and briefest layer', () => {
+    // Rejects: reordering the recipe so a duller or slower layer opens the
+    // sound, which would bury the one part of this design that reads clearly
+    // on a laptop or phone speaker.
+    const layers = recipeLayers(impact());
+    const crack = layers[0];
+
+    expect(crack.offset).toBe(0);
+    expect(crack.noise, 'the crack is broadband, not a pitched note').toBe(true);
+    for (const layer of layers.slice(1)) {
+      expect(crack.duration, 'the crack must be the shortest layer').toBeLessThan(layer.duration);
+      expect(crack.freqStart, 'the crack must be the brightest layer').toBeGreaterThan(layer.freqStart);
+    }
+  });
+
+  it('carries a mid-band rumble layer whose GAIN is modulated, not a static low band', () => {
+    // Rejects two wrong implementations at once: (a) no modulated layer at
+    // all - a static recipe faking "rumble" with prose alone - and (b) a
+    // modulated layer that still reaches for sub-bass instead of using the
+    // modulation to do the work, which is the exact mistake this file's
+    // header exists to prevent.
+    const layers = recipeLayers(impact());
+    const rumble = layers.find((layer) => layer.modulationHz);
+
+    expect(rumble, 'no amplitude-modulated layer found').toBeDefined();
+    expect(rumble.modulationHz).toBeGreaterThan(0);
+    expect(rumble.modulationDepth).toBeGreaterThan(0);
+    expect(rumble.noise, 'the rumble is a noise band, not a pitched tone').toBe(true);
+    expect(rumble.freqStart, 'the rumble must sit in the mid band, not the crack\'s top end').toBeLessThan(500);
+    expect(rumble.freqEnd, 'the rumble must still clear the laptop floor').toBeGreaterThanOrEqual(200);
+  });
+
+  it('keeps a debris tail that outlasts every other layer, selling the aftermath', () => {
+    // Rejects: a rebuild that adds the rumble but nothing to sell the
+    // settling aftermath afterward - e.g. the sound ending the moment the
+    // third wave's echo decays, with nothing scattering past it.
+    const layers = recipeLayers(impact());
+    const ends = layers.map((layer) => layer.offset + layer.duration);
+    const tail = layers[ends.indexOf(Math.max(...ends))];
+
+    expect(tail.duration, 'the tail should run long, not merely start late').toBeGreaterThan(0.3);
+    expect(tail.gain, 'the tail must recede quietly, not compete with the crack or body').toBeLessThan(0.3);
+    expect(tail.offset, 'the tail should begin with the impact, not after a gap').toBeLessThan(0.2);
+  });
+
+  it('still gives the impact exactly one pitched, falling body layer - the Mortar\'s lesson', () => {
+    // Rejects: "solving" the rumble by turning the pitched body into another
+    // noise layer, which would leave the slam with no note at all (a hiss),
+    // or by adding a SECOND pitched layer, which would break every test
+    // upstream that finds "the" body by filtering for the one non-noise layer.
+    const nonNoise = recipeLayers(impact()).filter((layer) => !layer.noise);
+
+    expect(nonNoise).toHaveLength(1);
+    expect(nonNoise[0].freqEnd).toBeLessThan(nonNoise[0].freqStart);
+  });
+
+  it('leaves quake-charge exactly as authored - only the impact was rebuilt', () => {
+    // Rejects: incidentally touching the charge while rebuilding the impact.
+    // The charge keeps its role unchanged - it fires at the wind-up, 500ms
+    // before damage, and is the player's only window to react.
+    expect(UNIT_VOICES['quake-charge']).toEqual({
+      wave: 'sawtooth', freqStart: 260, freqEnd: 400, duration: 0.42, gain: 0.30, noise: false,
+      layers: [
+        { offset: 0.060, wave: 'sawtooth', freqStart: 380, freqEnd: 1500, duration: 0.40, gain: 0.20, noise: true },
+      ],
+    });
+  });
+});
+
+/**
+ * resolveVoice must carry amplitude modulation through the same way it
+ * carries `layers` through (see 'resolveVoice carries layers through'
+ * above): scaleRecipe builds its result field by field, so a field it does
+ * not explicitly forward is silently dropped, which would strip modulation
+ * from the rumble the moment it passed through resolveVoice - exactly the
+ * kind of bug that shipped the Mortar with no body layer.
+ */
+describe('resolveVoice carries amplitude modulation through', () => {
+  const MODULATED_LAYERED = {
+    wave: 'sawtooth', freqStart: 800, freqEnd: 400, duration: 0.10, gain: 0.5, noise: true,
+    layers: [
+      {
+        offset: 0.02, wave: 'sawtooth', freqStart: 300, freqEnd: 260, duration: 0.4, gain: 0.4, noise: true,
+        modulationHz: 5, modulationDepth: 0.6,
+      },
+    ],
+  };
+
+  it('keeps modulationHz and modulationDepth on a layer that declares them', () => {
+    const resolved = resolveVoice('__modulated__', 'fire', MODULATED_LAYERED);
+    expect(resolved.layers[0].modulationHz).toBe(5);
+    expect(resolved.layers[0].modulationDepth).toBe(0.6);
+  });
+
+  it('does not invent a modulationHz key on a layer that never declared one', () => {
+    // Rejects: unconditionally spreading `modulationHz: undefined` onto every
+    // recipe and layer, which would put a meaningless key on all fourteen
+    // other UNIT_VOICES entries - the same reasoning `layers` above already
+    // follows.
+    const plain = resolveVoice('sniper', 'fire');
+    expect(Object.keys(plain)).not.toContain('modulationHz');
+  });
+
+  it('carries the real quake-impact rumble layer\'s modulation through resolveVoice', () => {
+    // Exercises the actual production data, not just a synthetic fixture.
+    const resolved = resolveVoice('quake-impact', 'impact');
+    const rumble = resolved.layers.find((layer) => layer.modulationHz);
+    expect(rumble).toBeDefined();
+    expect(rumble.modulationHz).toBe(UNIT_VOICES['quake-impact'].layers.find((l) => l.modulationHz).modulationHz);
   });
 });

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { SFX, SFX_IDS, recipeLayers, recipeSpan } from '../SfxLibrary.js';
 
 const REQUIRED_IDS = [
-  'defenderPlaced', 'defenderDied', 'projectileFired', 'enemyHit',
+  'defenderPlaced', 'defenderDied', 'defenderRemoved', 'projectileFired', 'enemyHit',
   'enemyDied', 'bossDied', 'energyCollected', 'deployRejected',
   'baseDamaged', 'waveStarted', 'bossWaveStarted', 'levelWon', 'levelLost',
 ];
@@ -131,7 +131,7 @@ describe('layered recipes are well formed', () => {
   const layered = Object.entries(SFX).filter(([, recipe]) => recipe.layers);
 
   it('finds the layered game-event sounds, so the checks below are not vacuous', () => {
-    expect(layered.map(([id]) => id).sort()).toEqual(['bossWaveStarted', 'waveStarted']);
+    expect(layered.map(([id]) => id).sort()).toEqual(['bossWaveStarted', 'defenderRemoved', 'waveStarted']);
   });
 
   it.each(layered)('%s: every layer is a valid recipe with a sane offset', (id, recipe) => {

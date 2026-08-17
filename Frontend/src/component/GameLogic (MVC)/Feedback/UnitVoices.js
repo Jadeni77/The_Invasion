@@ -109,37 +109,77 @@ export const UNIT_VOICES = {
    * The impact: ONE sound for all three waves, with the three waves authored
    * into it as layers at the offsets the waves actually land on.
    *
-   * Emitting per wave was the alternative and it is worse in both directions.
-   * The waves are 200ms apart, five times AudioManager's 40ms dedupe window, so
-   * nothing would collapse them: the player would get three identical
-   * full-volume copies of a LOUD sound in 400ms, which is how a mix turns to
-   * mud. Suppressing two of the three instead would lose the rhythm that is the
-   * clearest thing about the attack. Layers cost one voice and one dedupe slot
-   * (see SfxLibrary's header) and let the three hits be authored as what they
-   * are - the same hit receding.
+   * REBUILT (Task 2) to the owner's spec: "a low, rumbling bass thud
+   * accompanied by a cracking, stone-shattering echo - think Clash of Clans'
+   * earthquake." That is a real tension against this file's floor, because
+   * Clash's earthquake plays on phones whose speakers cannot reproduce
+   * sub-bass either - its weight is NOT actually down there. Two levers do
+   * the work instead of pitch:
    *
-   *   crack  0.08s  bandpass 1400 -> 420Hz   the transient, highest and
-   *                                          shortest, wide open at the top
-   *                                          where a laptop speaker is most
-   *                                          efficient
-   *   body   0.36s  sawtooth  400 -> 260Hz   the weight, PITCHED. A noise-only
-   *          (+10ms)                         slam is a hiss - the lesson the
-   *                                          Mortar above cost
-   *   wave 2 0.26s  bandpass  900 -> 330Hz   the second ring, quieter and
-   *          (+200ms)                        duller
-   *   wave 3 0.22s  bandpass  700 -> 280Hz   the third, quieter and duller
-   *          (+400ms)                        again
+   *   1. LEAD WITH THE CRACK. The stone-shattering half of the brief is a
+   *      sharp, high, brief transient, which is exactly what a small speaker
+   *      reproduces best - so it opens the sound rather than being buried
+   *      under the thud.
+   *   2. AMPLITUDE MODULATION FOR THE RUMBLE. A mid-band noise layer whose
+   *      GAIN oscillates a few times a second is heard as rumbling movement
+   *      even though its spectrum sits well above 200Hz - see
+   *      AudioManager.scheduleModulatedEnvelope, which is the repeated ramp
+   *      pattern that renders this, there being no LFO node in the graph.
    *
-   * Falling gains (0.58 -> 0.32 -> 0.20) because the rings are expanding AWAY:
-   * receding level is what that looks like, and it also keeps the tail of a
-   * LOUD sound from fighting whatever plays next. Span 0.62s.
+   * Emitting per wave was, and remains, the alternative to layering, and it
+   * is worse in both directions: the waves are 200ms apart, five times
+   * AudioManager's 40ms dedupe window, so nothing would collapse three
+   * full-volume copies of a LOUD sound into one; suppressing two of the three
+   * would lose the rhythm that is the clearest thing about the attack. Layers
+   * cost one voice and one dedupe slot (see SfxLibrary's header).
+   *
+   *   crack   0.07s  bandpass 3400 -> 1000Hz  the stone shattering. Offset 0,
+   *                                           shortest and brightest layer -
+   *                                           it leads.
+   *   body    0.38s  sawtooth  420 ->  260Hz  the one PITCHED layer, so the
+   *           (+15ms)                        slam has a note and not just a
+   *                                           hiss - the lesson the Mortar
+   *                                           above cost.
+   *   rumble  0.45s  bandpass  310 ->  260Hz  the "low thud" impression. A
+   *           (+20ms)                        narrow, near-static mid band
+   *                                           whose GAIN is modulated at 5Hz
+   *                                           (modulationDepth 0.65) instead
+   *                                           of being pitched down - 5Hz
+   *                                           happens to match the 200ms gap
+   *                                           between waves, so the pulsing
+   *                                           echoes the attack's own rhythm.
+   *   debris  0.60s  bandpass  520 ->  270Hz  broadband scatter, starting
+   *           (+50ms)                        with the crack and quiet enough
+   *                                           to stay under it, ending LAST
+   *                                           of every layer - the aftermath
+   *                                           settling.
+   *   wave 2  0.22s  bandpass 1000 ->  400Hz  the crack's echo, quieter and
+   *           (+200ms)                       duller.
+   *   wave 3  0.20s  bandpass  800 ->  320Hz  the crack's echo again,
+   *           (+400ms)                       quieter and duller still.
+   *
+   * Falling gains through the crack's echoes (0.58 body -> 0.30 -> 0.18)
+   * because the rings are expanding AWAY: receding level is what that looks
+   * like, and it also keeps the tail of a LOUD sound from fighting whatever
+   * plays next. The lowest frequency anywhere in this recipe is 260Hz (both
+   * the body's freqEnd and the rumble's), 60Hz clear of the floor even before
+   * accounting for margin against the death-variant's 0.8 pitch scale (which
+   * this sound never actually receives in play - resolveVoice falls back to
+   * VARIANTS.fire for the 'impact' variant - but which UnitVoices.test.js
+   * checks regardless, so every layered voice in this table honors it). Span
+   * 0.65s, inside MAX_DURATION.
    */
   'quake-impact': {
-    wave: 'sawtooth', freqStart: 1400, freqEnd: 420, duration: 0.08, gain: 0.45, noise: true,
+    wave: 'sawtooth', freqStart: 3400, freqEnd: 1000, duration: 0.07, gain: 0.60, noise: true,
     layers: [
-      { offset: 0.010, wave: 'sawtooth', freqStart: 400, freqEnd: 260, duration: 0.36, gain: 0.58, noise: false },
-      { offset: 0.200, wave: 'sawtooth', freqStart: 900, freqEnd: 330, duration: 0.26, gain: 0.32, noise: true },
-      { offset: 0.400, wave: 'sawtooth', freqStart: 700, freqEnd: 280, duration: 0.22, gain: 0.20, noise: true },
+      { offset: 0.015, wave: 'sawtooth', freqStart: 420, freqEnd: 260, duration: 0.38, gain: 0.58, noise: false },
+      {
+        offset: 0.020, wave: 'sawtooth', freqStart: 310, freqEnd: 260, duration: 0.45, gain: 0.50, noise: true,
+        modulationHz: 5, modulationDepth: 0.65,
+      },
+      { offset: 0.050, wave: 'sawtooth', freqStart: 520, freqEnd: 270, duration: 0.60, gain: 0.16, noise: true },
+      { offset: 0.200, wave: 'sawtooth', freqStart: 1000, freqEnd: 400, duration: 0.22, gain: 0.30, noise: true },
+      { offset: 0.400, wave: 'sawtooth', freqStart: 800, freqEnd: 320, duration: 0.20, gain: 0.18, noise: true },
     ],
   },
   /**
@@ -275,6 +315,13 @@ function scaleRecipe(recipe, scale) {
     freqEnd: clamp(recipe.freqEnd * scale.freqScale, MIN_FREQ, MAX_FREQ),
     duration: clamp(recipe.duration * scale.durationScale, 0.01, MAX_DURATION),
     gain: clamp(recipe.gain * scale.gainScale, 0.001, MAX_GAIN),
+    // Only when the source declares amplitude modulation (see quake-impact's
+    // rumble layer and AudioManager.scheduleModulatedEnvelope): adding
+    // `modulationHz: undefined` to every other recipe and layer would put a
+    // meaningless key on all of them, the same reasoning `layers` below
+    // already follows. Passed through UNSCALED - rate and depth are not a
+    // function of pitch or duration scaling.
+    ...(recipe.modulationHz ? { modulationHz: recipe.modulationHz, modulationDepth: recipe.modulationDepth } : {}),
   };
 }
 
