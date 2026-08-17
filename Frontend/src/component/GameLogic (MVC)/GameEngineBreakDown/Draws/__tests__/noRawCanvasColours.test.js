@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 // Not `fileURLToPath(new URL('../', import.meta.url))`: Vite's import-analysis
 // plugin statically recognizes that exact `new URL(literal, import.meta.url)`
@@ -11,35 +11,65 @@ import { dirname, join } from 'node:path';
 // because the rewritten URL is http:, not file:. node:path composition avoids
 // the rewrite (same fix as tokens.test.js, fonts.test.js and noRawColours.test.js).
 const here = dirname(fileURLToPath(import.meta.url));
-const drawsDir = join(here, '..') + '/';
-const logicDir = join(here, '..', '..', '..') + '/';
+const logicRoot = join(here, '..', '..', '..') + '/'; // GameLogic (MVC)/
 
 /**
- * Every drawing file the guard scans. A first version of this guard matched
- * only `ctx.fillStyle = "literal"` - a bare assignment - and missed the
- * colour arriving as an object property (`color: "brown"`), a ternary branch
- * (`cond ? "a" : "b"`), a `gradient.addColorStop()` argument, and a
- * `return "literal"` feeding fillStyle indirectly. All four forms were found
- * and converted by hand; none of them would have been caught by re-running
- * that guard, which is exactly the failure mode this project has shipped
- * four times now. This version matches the colour itself, in any quoted
- * string in the file, so no future syntactic position can hide one.
+ * A file is "in scope" if it draws or feeds a colour into a file that does:
+ * it touches the canvas colour API directly (fillStyle, strokeStyle,
+ * shadowColor, addColorStop), constructs an object with a color/innerColor/
+ * particleColor property, or imports the token module.
  *
- * CombatManager.js and FeedbackManager.js aren't part of Draws/ and share no
- * directory a scan could sweep up automatically, but they are real
- * construction sites for colours these files paint (the enemy projectile's
- * `color`, and the screen flash's colour) - so they're named explicitly.
- * Everything else is derived from readdirSync, so a new Draws file cannot
- * slip past the way these two originally did.
+ * The import check exists because not every construction site matches the
+ * keyword patterns: FeedbackManager.js hands a colour to triggerFlash() as a
+ * bare function argument (`triggerFlash(colors.accentDanger, 250)`), which
+ * has no `.fillStyle`, no `addColorStop(`, and no `color:` property key
+ * anywhere in the file. It would silently fall out of a keyword-only
+ * derivation. Importing tokens.js is the one thing every one of these files
+ * does regardless of which shape its colour reference takes, and nothing in
+ * this codebase imports tokens.js for a reason other than drawing or feeding
+ * a drawn colour - a scan of every `.js` file under here at the time this
+ * was written turned up exactly the ten files already known to need it, and
+ * nothing else.
  */
-const FILES = [
-  ...readdirSync(drawsDir).filter((f) => f.endsWith('.js')).map((f) => drawsDir + f),
-  logicDir + 'GameEngine.js',
-  logicDir + 'EnemyUnits.js',
-  logicDir + 'DefenderUnits.js',
-  logicDir + 'GameEngineBreakDown/InGameManagerHandlers/CombatManager.js',
-  logicDir + 'Feedback/FeedbackManager.js',
-];
+const DRAW_SIGNAL = /\.(fillStyle|strokeStyle|shadowColor)\b|\baddColorStop\s*\(|\b(color|innerColor|particleColor)\s*:/;
+const TOKEN_IMPORT_SIGNAL = /from\s+['"][^'"]*\/style\/tokens\.js['"]/;
+
+/** Comments are stripped for the same reason stringLiteralsIn() strips them below - see its comment. */
+function stripComments(src) {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+}
+
+/**
+ * Walks every `.js` file under GameLogic (MVC), skipping `__tests__`
+ * directories - fixtures, not production drawing code. (A fake canvas
+ * context's placeholder `fillStyle: '#000000'` in a test is not a colour
+ * this game renders, and scanning it would fail the guard over a value
+ * nobody is asking a player to look at.)
+ *
+ * This replaces a hand-named array of files, which was the actual defect: it
+ * had no reason to include GridManager.js (not a Draws/ file), nor
+ * EnergyDrop.js/CardPieceDrop.js (never in any task's file list at all), so
+ * six literals in the grid-highlight colours and nine more in the drop
+ * pickups went unconverted and unguarded simultaneously. Whether a file is
+ * in scope is now a property of what the file contains, not of anyone's
+ * memory of where drawing code lives.
+ */
+function walkJsFiles(dir, out) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) walkJsFiles(full, out);
+    else if (entry.isFile() && entry.name.endsWith('.js')) out.push(full);
+  }
+  return out;
+}
+
+function drawsOrFeedsACanvasColour(file) {
+  const code = stripComments(readFileSync(file, 'utf8'));
+  return DRAW_SIGNAL.test(code) || TOKEN_IMPORT_SIGNAL.test(code);
+}
+
+const FILES = walkJsFiles(logicRoot, []).filter(drawsOrFeedsACanvasColour);
 
 /** The extended CSS colour keyword set - not just the handful this codebase happened to use. */
 const CSS_NAMED_COLOURS = [
@@ -73,9 +103,7 @@ const NAMED_COLOUR_RE = new RegExp(`\\b(${CSS_NAMED_COLOURS.join('|')})\\b`, 'i'
  * one, silently swallowing real code in between.
  */
 function stringLiteralsIn(src) {
-  const withoutComments = src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/.*$/gm, '');
+  const withoutComments = stripComments(src);
   const literals = [];
   for (const re of [/"(?:[^"\\]|\\.)*"/g, /'(?:[^'\\]|\\.)*'/g, /`(?:[^`\\]|\\.)*`/g]) {
     for (const m of withoutComments.matchAll(re)) literals.push(m[0]);
@@ -102,11 +130,38 @@ function colourLiteralsIn(src) {
   return found;
 }
 
-describe('canvas drawing uses tokens, not raw colours, in any form', () => {
-  it('finds drawing files to check', () => {
-    expect(FILES.length).toBeGreaterThan(4);
+describe('the derived file list actually finds what it must', () => {
+  const relPaths = FILES.map((f) => relative(logicRoot, f));
+
+  it('finds more than a handful of files to check', () => {
+    expect(FILES.length).toBeGreaterThan(10);
   });
 
+  // Each of these was, at some point, missing from a hand-written list: the
+  // Draws/ files and the three top-level classes were the original brief;
+  // CombatManager.js and FeedbackManager.js were found by manual audit;
+  // GridManager.js and the two Drops/ files were found only once the list
+  // stopped being hand-written. If any of these ever drops out again, the
+  // derivation - not memory - has regressed.
+  it.each([
+    'GameEngineBreakDown/Draws/DrawEntities.js',
+    'GameEngineBreakDown/Draws/DrawUIs.js',
+    'GameEngineBreakDown/Draws/DrawExplosionEffect.js',
+    'GameEngineBreakDown/Draws/DrawNegativeEffect.js',
+    'GameEngine.js',
+    'EnemyUnits.js',
+    'DefenderUnits.js',
+    'GameEngineBreakDown/InGameManagerHandlers/CombatManager.js',
+    'Feedback/FeedbackManager.js',
+    'GameEngineBreakDown/InGameManagerHandlers/GridManager.js',
+    'GameEngineBreakDown/Drops/EnergyDrop.js',
+    'GameEngineBreakDown/Drops/CardPieceDrop.js',
+  ])('includes %s', (rel) => {
+    expect(relPaths).toContain(rel);
+  });
+});
+
+describe('canvas drawing uses tokens, not raw colours, in any form', () => {
   it.each(FILES)('%s has no colour literal, in any position', (path) => {
     const hits = colourLiteralsIn(readFileSync(path, 'utf8'));
     expect(hits, `${path} has ${hits.length} raw colour literal(s): ${hits.join(', ')}`).toEqual([]);

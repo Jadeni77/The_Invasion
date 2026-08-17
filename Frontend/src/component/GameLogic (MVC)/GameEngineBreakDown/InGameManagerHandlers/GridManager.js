@@ -1,3 +1,5 @@
+import { colors, withAlpha } from '../../../../style/tokens.js';
+
 /**
  * This class represent the grid cells of the in game board. Including
  * importance of initializing a grid and resetting a grid.
@@ -131,25 +133,25 @@ export class GridManager {
         for (let row of this.deploymentGrid) {
             for (let cell of row) {
                 // Base grid styling
-                ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+                ctx.strokeStyle = withAlpha(colors.textPrimary, 0.2);
                 ctx.lineWidth = 1;
 
                 // Different visual hints for different columns (optional)
                 // Leftmost columns slightly darker to show enemy approach area
                 if (cell.col < 2) {
-                    ctx.fillStyle = "rgba(150, 150, 255, 0.05)"; // Slight blue tint for danger zone
+                    ctx.fillStyle = withAlpha(colors.accentInfo, 0.05); // Slight blue tint for danger zone
                     ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
                 }
 
                 // Highlight occupied cells
                 if (cell.occupied) {
-                    ctx.fillStyle = "rgba(255, 100, 100, 0.15)";
+                    ctx.fillStyle = withAlpha(colors.accentDanger, 0.15);
                     ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
                 }
 
                 // If player is selecting a card, highlight valid cells
                 if (this.highlightGrid && !cell.occupied) {
-                    ctx.fillStyle = "rgba(100, 255, 100, 0.25)";
+                    ctx.fillStyle = withAlpha(colors.accentSuccess, 0.25);
                     ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
                 }
 
@@ -159,7 +161,7 @@ export class GridManager {
         }
 
         // Draw stronger row separators (lane indicators)
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+        ctx.strokeStyle = withAlpha(colors.textPrimary, 0.3);
         ctx.lineWidth = 2;
         for (let row = 0; row <= this.deploymentGrid.length; row++) {
             const y = this.gridOffsetY + row * this.gridSize;
@@ -170,7 +172,7 @@ export class GridManager {
         }
 
         // Draw column separators (lighter)
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.strokeStyle = withAlpha(colors.textPrimary, 0.15);
         ctx.lineWidth = 1;
         for (let col = 0; col <= 9; col++) {
             const x = this.gridOffsetX + col * this.gridSize;

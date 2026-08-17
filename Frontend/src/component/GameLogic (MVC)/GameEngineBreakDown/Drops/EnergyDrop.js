@@ -1,4 +1,5 @@
 import { frameScale } from "../../Animation/FrameTime.js";
+import { colors, withAlpha } from '../../../../style/tokens.js';
 
 export class EnergyDrop {
     constructor(x, y, amount) {
@@ -65,20 +66,20 @@ export class EnergyDrop {
         // Glow effect
         ctx.beginPath();
         ctx.arc(this.x, this.y + this.floatOffset, this.radius + 5, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 0, ${alpha * 0.3})`;
+        ctx.fillStyle = withAlpha(colors.accentEnergy, alpha * 0.3);
         ctx.fill();
 
         // Main energy orb
         ctx.beginPath();
         ctx.arc(this.x, this.y + this.floatOffset, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 215, 0, ${alpha})`;
+        ctx.fillStyle = withAlpha(colors.accentEnergy, alpha);
         ctx.fill();
-        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.strokeStyle = withAlpha(colors.textPrimary, alpha);
         ctx.lineWidth = 2;
         ctx.stroke();
 
         // Energy amount text
-        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+        ctx.fillStyle = withAlpha(colors.edgeOutline, alpha);
         ctx.font = "bold 12px Arial";
         ctx.textAlign = "center";
         ctx.fillText(`+${this.amount}`, this.x, this.y + this.floatOffset + 4);
