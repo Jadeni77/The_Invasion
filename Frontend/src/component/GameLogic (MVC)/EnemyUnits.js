@@ -20,7 +20,7 @@ import {
   frameDurationMs,
 } from "./Animation/AttackPlayback.js";
 import { frameDeltaMs, frameScale } from "./Animation/FrameTime.js";
-import { colors, decorative, withAlpha } from '../../style/tokens.js';
+import { canvasFont, colors, decorative, withAlpha } from '../../style/tokens.js';
 import { fitNativeFrame } from './Animation/SpriteFit.js';
 
 // Re-exported for callers/tests that import it from here (its original
@@ -460,7 +460,7 @@ export class Enemy {
     if (this.isAlive) {
       // Unit name text
       ctx.fillStyle = colors.edgeOutline;
-      ctx.font = "12px Arial";
+      ctx.font = canvasFont(12);
       ctx.fillText(
           this.name.substring(0, this.name.length),
           this.x + 2,
@@ -486,7 +486,7 @@ export class Enemy {
 
     // Draw unit type initial
     ctx.fillStyle = colors.edgeOutline;
-    ctx.font = "12px Arial";
+    ctx.font = canvasFont(12);
     ctx.fillText(this.name.charAt(0), this.x + 5, this.y + 15);
   }
 
@@ -1545,7 +1545,7 @@ export class BerserkerEnemy extends Enemy {
     if (this.killCount > 0) {
       ctx.save();
       ctx.fillStyle = colors.accentDanger;
-      ctx.font = "bold 12px Arial";
+      ctx.font = canvasFont(12, "bold");
       ctx.textAlign = "center";
       ctx.fillText(`x${this.killCount}`, this.x + this.width / 2, this.y - 20);
 
@@ -1684,7 +1684,7 @@ export class NecromancerEnemy extends Enemy {
 
     // Show revive count
     ctx.fillStyle = decorative.violet;
-    ctx.font = "10px Arial";
+    ctx.font = canvasFont(10);
     ctx.fillText(`Revives: ${this.reviveCount}`, this.x, this.y - 20);
   }
 
@@ -2428,7 +2428,7 @@ export class TitanEnemy extends Enemy {
     }
     // Phase indicator text
     ctx.fillStyle = this.phase === 3 ? colors.accentDanger : this.phase === 2 ? decorative.orange : colors.textPrimary;
-    ctx.font = "bold 12px Arial";
+    ctx.font = canvasFont(12, "bold");
     ctx.textAlign = "center";
     ctx.fillText(`P${this.phase}`, this.x + this.width / 2, this.y - 15);
   }

@@ -423,7 +423,19 @@ const GameBoard = () => {
             {gameWon && !isEndless && (
               <p>
                 Stars Earned:{" "}
-                <span className="stars-value">{"⭐".repeat(stars)}</span>
+                {/*
+                  U+2605 BLACK STAR, not U+2B50 WHITE MEDIUM STAR. U+2B50 has
+                  Emoji_Presentation=Yes, so it renders from the platform
+                  colour-emoji font: it ignores .stars-value's font-family
+                  (that font is not in the --type-display stack) and ignores
+                  its `color` (emoji glyphs carry their own colour), leaving
+                  only font-size and line-height in effect. The results
+                  screen therefore looked exactly as it did pre-branch while
+                  the lobby's stars - already U+2605, in Lobby.jsx - took the
+                  new gold treatment. U+2605 defaults to text presentation,
+                  so the same CSS applies on both screens.
+                */}
+                <span className="stars-value">{"★".repeat(stars)}</span>
               </p>
             )}
           </div>
@@ -593,12 +605,21 @@ const GameBoard = () => {
                   cooldownFraction={cooldownFraction}
                 />
 
+                {/*
+                  The numeral only. The recharge is shown twice more than it
+                  used to be: Card's .cooldown-sweep draws a conic wedge from
+                  12 o'clock over the same fraction, and there used to be a
+                  .cooldown-progress bottom-up rectangular fill here as well.
+                  A band and a wedge covering the same fraction of different
+                  areas overlap partially and disagree everywhere else - at
+                  50% the card was dark across its bottom half AND its left
+                  half, with a doubly-dark quadrant where the two met, which
+                  reads as a rendering artefact rather than an indicator. The
+                  sweep is the spec's requirement ("cooldown visible on the
+                  card"); the rectangle is what it replaces.
+                */}
                 {cooldown > 0 && (
                   <div className="cooldown-overlay">
-                    <div
-                      className="cooldown-progress"
-                      style={{ height: `${cooldownPercent}%` }}
-                    />
                     <div className="cooldown-text">
                       {Math.ceil(cooldown / 1000)}s
                     </div>

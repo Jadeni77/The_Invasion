@@ -51,7 +51,7 @@ import { AssetManifest } from "../../assets/AssetManifest.js";
 import { GameLevelConfigs } from "./GameEngineBreakDown/GameLevelConfigs.js";
 import { GameClock } from "./Feedback/GameClock.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
-import { colors, decorative, withAlpha } from '../../style/tokens.js';
+import { colors, decorative, ensureDisplayFontLoaded, withAlpha } from '../../style/tokens.js';
 
 export class GameEngine {
   constructor(
@@ -268,6 +268,16 @@ export class GameEngine {
     }
 
     this.ctx = canvas.getContext("2d"); // Get 2D rendering context
+
+    // Started here and awaited below, next to the animation load. Canvas text
+    // does not trigger a webfont fetch the way DOM text does, so the first
+    // frames would draw every damage number, wave banner and drop label in
+    // the fallback family and never redraw them when the face arrived. Kicked
+    // off before loadAllAnimations() so the two fetches overlap and this
+    // costs no extra wall-clock time on a cold cache; see
+    // ensureDisplayFontLoaded in tokens.js.
+    const displayFontLoaded = ensureDisplayFontLoaded();
+
     this.canvasWidth = width;
     this.canvasHeight = height;
     this.defenseLineX = width - 60; // Defense line 150px from right edge
@@ -296,6 +306,7 @@ export class GameEngine {
     );
 
     await this.loadAllAnimations();
+    await displayFontLoaded;
     this.resetGame();
     this.startLoop();
   }

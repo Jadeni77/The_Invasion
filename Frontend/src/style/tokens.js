@@ -113,6 +113,59 @@ export function withAlpha(hex, alpha) {
 }
 
 /**
+ * Builds a `ctx.font` string from the type tokens.
+ *
+ * `ctx.font` takes the CSS `font` shorthand and needs a concrete family
+ * list - it cannot resolve `var(--type-display)` any more than `fillStyle`
+ * can resolve `var(--colors-surface-panel)`. Every canvas string in this game
+ * was therefore hardcoded as `"bold 12px Arial"` at 28 sites, so the
+ * battlefield drew in Arial in the same frame as a DOM HUD rendering in Black
+ * Ops One, and the font guard - which only reads stylesheets - could not see
+ * any of it.
+ *
+ * The full stack is passed through, not just the first family, so canvas text
+ * falls back the same way DOM text does if the display face is unavailable.
+ *
+ * @param {number} sizePx  Size in CSS pixels; may be fractional (fade
+ *                         effects scale it by an alpha).
+ * @param {string} [weight] Optional weight/style prefix, e.g. 'bold'.
+ */
+export function canvasFont(sizePx, weight) {
+  return `${weight ? `${weight} ` : ''}${sizePx}px ${type.display}`;
+}
+
+/**
+ * Makes sure the display face is actually loaded before canvas text asks for
+ * it.
+ *
+ * This is the ordering trap that a naive "just put the family in ctx.font"
+ * fix walks into. DOM text triggers a font fetch when an element that needs
+ * the face is laid out; canvas text does not. `ctx.font` is resolved against
+ * the font faces already available to the document, and a `@font-face` that
+ * has not loaded yet is simply not among them - so the canvas silently draws
+ * in the next family in the stack and never retries, because nothing
+ * re-renders a canvas when a font arrives. In practice the DOM usually wins
+ * this race for us (the lobby and HUD both use --type-display, and
+ * `font-display: swap` means the fetch starts as soon as they paint), which
+ * is exactly what makes the bug intermittent and worth removing rather than
+ * relying on.
+ *
+ * Resolves - never rejects - so a caller can await it unconditionally: a
+ * missing `document.fonts` (jsdom, SSR, Node) or a failed fetch must not stop
+ * the game from starting, it just means the fallback family is used.
+ */
+export function ensureDisplayFontLoaded(doc = globalThis.document) {
+  const fonts = doc && doc.fonts;
+  if (!fonts || typeof fonts.load !== 'function') return Promise.resolve();
+  // A size is required by the shorthand parser even though it is irrelevant
+  // to which face gets fetched.
+  return Promise.resolve(fonts.load(`1em ${type.display}`)).then(
+    () => undefined,
+    () => undefined,
+  );
+}
+
+/**
  * A few fire/ember particle effects jitter their green channel every frame for
  * a hand-drawn flicker, rather than painting a flat colour. That jitter is
  * anchored to a token's own channels - not a hardcoded hue - so the flicker

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { read, relativeToSrc, sourceFiles, stringLiteralsIn } from '../../test/sourceFiles.js';
 
 // Not `fileURLToPath(new URL('../', import.meta.url))`: Vite's import-analysis
 // plugin statically recognizes that exact `new URL(literal, import.meta.url)`
@@ -77,6 +78,134 @@ describe('every referenced custom property exists', () => {
       .matchAll(/var\((--[a-z0-9-]+)/g)].map((m) => m[1]);
     const missing = [...new Set(used)].filter((name) => !declared.has(name));
     expect(missing, `${file} uses undeclared: ${missing.join(', ')}`).toEqual([]);
+  });
+});
+
+/**
+ * The seam. This guard read `src/style/*.css`; the canvas guard read
+ * `GameLogic (MVC)/**\/*.js`. `src/component/**\/*.jsx` was owned by neither,
+ * and it held 22 raw colour literals - five flat-UI zone hues with five
+ * hand-darkened borders and five glows, an inline '#444' for locked levels,
+ * and a seven-hex rainbow gradient - rendering twenty level nodes and six
+ * zone backdrops on the lobby map. Inline styles beat the stylesheet, so
+ * tokenizing Lobby.css could not touch any of it, and criterion 2's letter
+ * ("no *stylesheet*...") survived while its purpose did not.
+ *
+ * Scope is therefore the whole JS/JSX surface under `src/`, derived by
+ * walking the tree (see src/test/sourceFiles.js), not a list of directories
+ * anyone has to remember to update. Over-inclusion is free here: a file with
+ * no colour literal passes trivially, so pointing this at everything costs
+ * nothing and removes the possibility of a seam.
+ */
+describe('component source uses tokens, not raw colours', () => {
+  const FILES = sourceFiles();
+
+  /**
+   * Hex, rgb()/rgba(), hsl()/hsla() in any string literal, anywhere. This is
+   * the check that covers the shapes actually found: object-property values
+   * in a config module, an inline ternary, and a gradient argument list.
+   */
+  function functionalColoursIn(src) {
+    const found = [];
+    for (const literal of stringLiteralsIn(src)) {
+      const inner = literal.slice(1, -1);
+      for (const m of inner.matchAll(/#[0-9a-fA-F]{3,8}\b/g)) found.push(m[0]);
+      for (const m of inner.matchAll(/\brgba?\([^)]*\)/gi)) found.push(m[0]);
+      for (const m of inner.matchAll(/\bhsla?\([^)]*\)/gi)) found.push(m[0]);
+    }
+    return found;
+  }
+
+  /**
+   * Named colours, but only where the string is being used *as* a colour.
+   *
+   * The canvas guard can match a named colour in any string position because
+   * game logic never uses a colour word as data. JSX does: Lobby renders
+   * `<ResourceIcon type="gold" />` for the gold resource, and there are
+   * "grain"/"water"/"gem" siblings that happen not to collide. Matching
+   * anywhere here would fail on `type="gold"`, and the natural response to a
+   * guard that cries wolf is to delete it - so this looks only at values
+   * assigned to a colour-valued CSS/JSX style property, plus any string
+   * containing a gradient function, where a bare colour word is unambiguous.
+   */
+  const COLOUR_PROPERTY = String.raw`(?:background|backgroundColor|borderColor|border|borderTopColor|borderRightColor|borderBottomColor|borderLeftColor|color|fill|stroke|outline|outlineColor|boxShadow|textShadow|caretColor|columnRuleColor|textDecorationColor|glowColor)`;
+
+  function namedColoursIn(src) {
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    const found = [];
+    const values = [];
+    for (const m of code.matchAll(new RegExp(`${COLOUR_PROPERTY}\\s*:\\s*(['"\`])((?:[^\\\\]|\\\\.)*?)\\1`, 'g'))) {
+      values.push(m[2]);
+    }
+    for (const literal of stringLiteralsIn(src)) {
+      if (/\b(?:linear|radial|conic|repeating-linear|repeating-radial|repeating-conic)-gradient\s*\(/i.test(literal)) {
+        values.push(literal.slice(1, -1));
+      }
+    }
+    for (const value of values) {
+      // var(--decorative-orange) legitimately contains a colour word; the
+      // stylesheet half of this guard strips var() for the same reason.
+      const stripped = value.replace(/var\([^)]*\)/g, '');
+      for (const wordMatch of stripped.matchAll(/[a-z]+/gi)) {
+        const word = wordMatch[0].toLowerCase();
+        if (!NAMED_ALLOWED.has(word) && CSS_NAMED_COLOURS.has(word)) found.push(word);
+      }
+    }
+    return found;
+  }
+
+  /**
+   * The login screen predates this spec, is named nowhere in it, and styles
+   * itself entirely from a local inline-style object in a different idiom
+   * (dark blue-violet gradients, #4CAF50 buttons). Converting it would be an
+   * unreviewed redesign of a whole screen at the final gate, so it is pinned
+   * rather than exempted: the exact multiset of literals is asserted below,
+   * so adding one, changing one, or converting some-but-not-all fails.
+   *
+   * This is the same supervised-escape-hatch shape as contrastRatio.test.js's
+   * audited opt-out list, and deliberately not a `SKIP_FILES` set - a name in
+   * a skip list is invisible once written, which is how scope holes start.
+   */
+  const PINNED = new Map([
+    ['component/login/LoginPage.jsx', [
+      '#1a1a2e', '#16213e',
+      'rgba(255,255,255,0.05)', 'rgba(255,255,255,0.1)',
+      '#fff', 'rgba(255,255,255,0.2)', 'rgba(255,255,255,0.08)', '#fff',
+      '#4CAF50', '#fff', '#ff6b6b', '#7fffa4', '#88aaff',
+    ]],
+  ]);
+
+  it('derives a file list covering the whole JS/JSX surface, not one directory', () => {
+    expect(FILES.length).toBeGreaterThan(20);
+  });
+
+  // The two files the seam actually contained, plus one from each side of it.
+  // If any of these drops out, the derivation has regressed and the guard is
+  // silently narrower than it reads.
+  it.each([
+    'component/GameRendering/MapLayout.jsx',
+    'component/GameRendering/Lobby.jsx',
+    'component/GameRendering/GameBoard.jsx',
+    'component/common/Card.jsx',
+    'component/login/LoginPage.jsx',
+    'component/GameLogic (MVC)/GameEngineBreakDown/Draws/DrawUIs.js',
+  ])('includes %s', (rel) => {
+    expect(FILES.map(relativeToSrc)).toContain(rel);
+  });
+
+  it.each(FILES.map((f) => [relativeToSrc(f), f]))('%s has no functional colour literal', (rel, file) => {
+    const hits = functionalColoursIn(read(file));
+    const pinned = PINNED.get(rel);
+    if (pinned) {
+      expect(hits, `${rel}'s pinned literal set has changed - convert it or update the pin deliberately`).toEqual(pinned);
+      return;
+    }
+    expect(hits, `${rel} has ${hits.length} raw colour literal(s): ${hits.join(', ')}`).toEqual([]);
+  });
+
+  it.each(FILES.map((f) => [relativeToSrc(f), f]))('%s names no colour where a colour is expected', (rel, file) => {
+    const hits = namedColoursIn(read(file));
+    expect(hits, `${rel} uses named colour(s) as a style value: ${hits.join(', ')}`).toEqual([]);
   });
 });
 

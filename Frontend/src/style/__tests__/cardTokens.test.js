@@ -145,6 +145,56 @@ describe('recharge is shown on the card itself, not beside it', () => {
   });
 });
 
+/**
+ * One shaded region, not two. While a card recharged, the player saw a
+ * bottom-up rectangular fill (`.cooldown-progress`, in GameBoard's overlay),
+ * a conic wedge from 12 o'clock (`.cooldown-sweep`, on the card) and the
+ * numeral, all driven from the same value. A band and a wedge covering the
+ * same *fraction* of different areas agree only at 0% and 100%: at 50% the
+ * card was dark across its bottom half and its left half at once, with a
+ * doubly-dark quadrant where the two met, which reads as a rendering artefact
+ * rather than as an indicator.
+ *
+ * The stacking-order question ("is the number still legible") was asked and
+ * answered during the task; this is the question that was not.
+ */
+describe('a recharging card has one shaded indicator, not two geometries', () => {
+  const gameBoardCss = readFileSync(join(styleDir, 'GameBoard.css'), 'utf8');
+  // Comments stripped: the JSX comment where the deletion is explained names
+  // `.cooldown-progress`, and a raw `includes()` would read the explanation as
+  // the thing it explains.
+  const gameBoardJsx = readFileSync(
+    join(styleDir, '..', 'component', 'GameRendering', 'GameBoard.jsx'),
+    'utf8',
+  ).replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it('keeps the conic sweep, which is the spec\'s "cooldown visible on the card"', () => {
+    expect(ruleFor(rules, '.cooldown-sweep')).toBeTruthy();
+  });
+
+  it('keeps the numeral, which is the only thing that says how long is left', () => {
+    // Rejects over-correcting by deleting the whole overlay: the sweep shows
+    // roughly how much time remains, the numeral shows exactly.
+    expect(rulesOf(gameBoardCss).find((r) => selectorNames(r.selector).includes('.cooldown-text'))).toBeTruthy();
+    expect(gameBoardJsx).toContain('cooldown-text');
+  });
+
+  it('renders no second, rectangular fill over the same value', () => {
+    // Rejects re-adding `.cooldown-progress` in either half - the markup or
+    // the stylesheet. A rule with no element is harmless but invites someone
+    // to re-add the div; an element with no rule is an invisible div that
+    // invites someone to re-add the rule. Both halves have to stay gone.
+    expect(
+      gameBoardJsx.includes('cooldown-progress'),
+      'GameBoard.jsx renders a .cooldown-progress element again',
+    ).toBe(false);
+    expect(
+      rulesOf(gameBoardCss).some((r) => selectorNames(r.selector).includes('.cooldown-progress')),
+      'GameBoard.css declares a .cooldown-progress rule again',
+    ).toBe(false);
+  });
+});
+
 describe('--sweep-angle defaults to fully ready', () => {
   it('declares a 0deg default in the generated token layer', () => {
     // This is the load-bearing default: a card whose component never sets

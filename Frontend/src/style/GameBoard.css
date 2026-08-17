@@ -285,16 +285,13 @@
   overflow: hidden;
 }
 
-.cooldown-progress {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: color-mix(in srgb, var(--colors-edge-outline) 70%, transparent);
-  transition: height 0.1s linear;
-  border-radius: 0 0 8px 8px;
-}
-
+/*
+ * There is no .cooldown-progress rule here on purpose. The card's own
+ * .cooldown-sweep (Card.css) is the recharge indicator; a bottom-up
+ * rectangular fill in this overlay covered the same fraction of a different
+ * shape, so the two shaded regions only agreed at 0% and 100% and produced a
+ * doubly-dark quadrant at 50%. Re-adding it would restore that artefact.
+ */
 .cooldown-text {
   position: absolute;
   top: 50%;

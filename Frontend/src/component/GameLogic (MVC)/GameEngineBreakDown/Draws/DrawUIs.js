@@ -1,5 +1,5 @@
 import { frameScale } from "../../Animation/FrameTime.js";
-import { colors, withAlpha } from '../../../../style/tokens.js';
+import { canvasFont, colors, withAlpha } from '../../../../style/tokens.js';
 
 export class DrawUIs {
     constructor(gameEngine) {
@@ -75,13 +75,27 @@ export class DrawUIs {
             if (baseWidth > 0 && baseHeight > 0) {
                 ctx.save();
 
-                // Body
-                ctx.fillStyle = colors.surfacePanel;
+                // Body. Deliberately NOT surfacePanel: that is the grass
+                // token this function fills the top and bottom 40% of the
+                // canvas with just above, and the base's Y extent now
+                // overlaps both of those bands exactly, so painting the
+                // body in surfacePanel makes roughly two thirds of the wall
+                // invisible - a 1.000:1 contrast against what it sits on.
+                // That regression has shipped once already (fixed in Task
+                // 4, reverted by Task 6's rewrite of this block), so the
+                // distinction is asserted in DrawUIs.test.js against the
+                // colours actually handed to fillRect, not against a token
+                // name a future rewrite could change.
+                ctx.fillStyle = colors.edgeHighlight;
                 ctx.fillRect(baseX, baseY, baseWidth, baseHeight);
 
                 // Inner highlight on the playfield-facing edge, so the wall
                 // reads as lit from the side the enemies approach from.
-                ctx.fillStyle = colors.edgeHighlight;
+                // surfaceRaised rather than accentEnergy: the windows below
+                // are already accentEnergy, and a gold strip beside gold
+                // windows would merge into one shape instead of reading as
+                // a lit edge.
+                ctx.fillStyle = colors.surfaceRaised;
                 ctx.fillRect(baseX, baseY, 6, baseHeight);
 
                 ctx.strokeStyle = colors.edgeOutline;
@@ -147,7 +161,7 @@ export class DrawUIs {
             ctx.fillRect(x - 60, y - 20, 120, 40);
 
             // Timer text
-            ctx.font = "16px Arial";
+            ctx.font = canvasFont(16);
             ctx.fillStyle = secondsUntilNext <= 5 ? colors.accentDanger : colors.textPrimary;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
@@ -175,7 +189,7 @@ export class DrawUIs {
         ctx.save();
 
         ctx.fillStyle = colors.textPrimary;
-        ctx.font = "16px Arial";
+        ctx.font = canvasFont(16);
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
 
@@ -214,7 +228,7 @@ export class DrawUIs {
 
         // Main wave counter - larger and centered
         ctx.save();
-        ctx.font = "bold 24px Arial";
+        ctx.font = canvasFont(24, "bold");
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillStyle = colors.accentEnergy; // Gold color for endless
@@ -226,7 +240,7 @@ export class DrawUIs {
         ctx.fillText(waveText, this.gameEngine.canvasWidth / 2, 25);
 
         // Sub-info
-        ctx.font = "14px Arial";
+        ctx.font = canvasFont(14);
         ctx.fillStyle = colors.textPrimary;
         const enemiesActive = this.gameEngine.enemies.length;
         const killCount = waveManager.totalEnemiesKilled;
@@ -288,7 +302,7 @@ export class DrawUIs {
 
         // Text
         ctx.fillStyle = this.waveAnnouncement.isBoss ? colors.accentEnergy : colors.textPrimary;
-        ctx.font = this.waveAnnouncement.isBoss ? "bold 32px Arial" : "bold 28px Arial";
+        ctx.font = this.waveAnnouncement.isBoss ? canvasFont(32, "bold") : canvasFont(28, "bold");
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
 
@@ -299,7 +313,7 @@ export class DrawUIs {
         );
 
         if (this.waveAnnouncement.subtitle) {
-            ctx.font = "18px Arial";
+            ctx.font = canvasFont(18);
             ctx.fillStyle = colors.textMuted;
             ctx.fillText(
                 this.waveAnnouncement.subtitle,
@@ -329,7 +343,7 @@ export class DrawUIs {
 
             ctx.save();
             ctx.globalAlpha = this.milestoneAnimation.pulse;
-            ctx.font = "bold 36px Arial";
+            ctx.font = canvasFont(36, "bold");
             ctx.textAlign = "center";
             ctx.fillStyle = colors.accentEnergy;
             ctx.strokeStyle = colors.edgeOutline;
@@ -394,7 +408,7 @@ export class DrawUIs {
     drawDamageNumbers(ctx, numbers) {
         if (!numbers.length) return;
         ctx.save();
-        ctx.font = "bold 14px Arial";
+        ctx.font = canvasFont(14, "bold");
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         for (const number of numbers) {

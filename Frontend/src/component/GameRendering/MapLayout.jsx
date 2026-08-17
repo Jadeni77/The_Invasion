@@ -1,5 +1,32 @@
 // MapLayout.js - Enhanced map system with 20 levels + endless mode
 
+import { colors, decorative } from "../../style/tokens.js";
+
+/**
+ * The seven-stop rainbow used by anything "endless": the portal zone
+ * background here, and `.rainbow-connection` in Lobby.css.
+ *
+ * Composed from tokens rather than written out as seven hex literals, and
+ * ordered to match Lobby.css:857 stop for stop, because the two rainbows sit
+ * on the same screen a few pixels apart - a CSS gradient on the connector
+ * line and an inline gradient on the zone it leads to. They were previously
+ * two independent hand-written hue lists, so tuning one silently left the
+ * other behind, which is the same "two sources that must agree" failure the
+ * token module exists to remove.
+ */
+export const RAINBOW_STOPS = [
+  colors.accentDanger,
+  decorative.orange,
+  colors.accentEnergy,
+  colors.accentSuccess,
+  colors.accentInfo,
+  decorative.indigo,
+  decorative.violet,
+];
+
+/** The endless zone's backdrop, as a CSS `background` value. */
+export const RAINBOW_GRADIENT = `linear-gradient(45deg, ${RAINBOW_STOPS.join(", ")})`;
+
 // Level nodes arranged in a serpentine pattern across the map
 export const levelsMapData = [
   // Tutorial Zone (Levels 1-3)
@@ -304,42 +331,73 @@ export const levelDefenderReward = {
   2: "Barricade",
 };
 
-// Zone visual configurations for styling
+/**
+ * Zone visual configurations for styling.
+ *
+ * Read by Lobby.jsx as inline styles on twenty level nodes and six zone
+ * backdrops, which is why these had to move onto the token layer: inline
+ * styles beat the stylesheet, so tokenizing Lobby.css could not reach any of
+ * this, and the lobby - the first screen with a map on it - kept a saturated
+ * five-hue flat-UI palette inside earth-tone chrome.
+ *
+ * Each zone still gets its own hue, because telling five zones apart at a
+ * glance is a real requirement; the hues now come from the palette (the
+ * `decorative` group where the semantic four do not stretch far enough)
+ * instead of from five invented flat-UI shades. Hue *families* are preserved
+ * from the pre-token values - green, blue, orange, red-ish, purple - so a
+ * player's mental map of the board does not move; only the shades do.
+ *
+ * `borderColor` collapses to the one shared cartoon outline for every zone.
+ * It was five hand-darkened per-zone shades, which is precisely the "three
+ * idioms coexist" problem, and the outline is the branch's single most
+ * recognisable structural token.
+ *
+ * `glowColor` is currently read by nothing (kept because the shape is
+ * exported and callers may add a glow); it mirrors the zone's own hue rather
+ * than inventing a sixth lightened shade per zone.
+ */
 export const zoneConfigs = {
   tutorial: {
-    backgroundColor: "#4a7c59",
-    borderColor: "#2d5436",
-    glowColor: "#6fb85f",
+    backgroundColor: colors.accentSuccess,
+    borderColor: colors.edgeOutline,
+    glowColor: colors.accentSuccess,
     nodeClass: "tutorial-node",
   },
   early: {
-    backgroundColor: "#5a7cb8",
-    borderColor: "#3a5c88",
-    glowColor: "#7a9cd8",
+    backgroundColor: colors.accentInfo,
+    borderColor: colors.edgeOutline,
+    glowColor: colors.accentInfo,
     nodeClass: "early-node",
   },
   mid: {
-    backgroundColor: "#b87c5a",
-    borderColor: "#885c3a",
-    glowColor: "#d89c7a",
+    backgroundColor: decorative.orange,
+    borderColor: colors.edgeOutline,
+    glowColor: decorative.orange,
     nodeClass: "mid-node",
   },
   late: {
-    backgroundColor: "#b85a7c",
-    borderColor: "#883a5c",
-    glowColor: "#d87a9c",
+    backgroundColor: colors.accentDanger,
+    borderColor: colors.edgeOutline,
+    glowColor: colors.accentDanger,
     nodeClass: "late-node",
   },
   endgame: {
-    backgroundColor: "#7c5ab8",
-    borderColor: "#5c3a88",
-    glowColor: "#9c7ad8",
+    backgroundColor: decorative.violet,
+    borderColor: colors.edgeOutline,
+    glowColor: decorative.violet,
     nodeClass: "endgame-node",
   },
   endless: {
-    backgroundColor: "#rainbow-gradient",
-    borderColor: "#animated",
-    glowColor: "#rainbow-pulse",
+    // A single colour for the node itself (a `background` gradient is not a
+    // valid `backgroundColor`), plus the gradient as its own field. This
+    // replaces three sentinel strings - "#rainbow-gradient", "#animated" and
+    // "#rainbow-pulse" - that were shaped like colours, were not colours,
+    // and forced Lobby.jsx to compare backgroundColor against one of them to
+    // decide whether to draw a gradient.
+    backgroundColor: decorative.indigo,
+    backgroundGradient: RAINBOW_GRADIENT,
+    borderColor: colors.edgeOutline,
+    glowColor: decorative.violet,
     nodeClass: "endless-portal",
     animation: "portal-swirl",
   },
@@ -354,15 +412,8 @@ export const endlessPortalConfig = {
     particles: true,
     glowIntensity: 2,
     pulseSpeed: 1.5,
-    colors: [
-      "#ff0000",
-      "#ff7f00",
-      "#ffff00",
-      "#00ff00",
-      "#0000ff",
-      "#4b0082",
-      "#9400d3",
-    ],
+    // Was a second, independent seven-hex rainbow. Same list, one source.
+    colors: RAINBOW_STOPS,
   },
 
   // Unlock requirements

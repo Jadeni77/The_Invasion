@@ -5,7 +5,7 @@ import { DrawNegativeEffect } from "./GameEngineBreakDown/Draws/DrawNegativeEffe
 import { getSettings } from "./Feedback/SettingsStore.js";
 import { frameDurationMs } from "./Animation/AttackPlayback.js";
 import { frameDeltaMs, frameScale } from "./Animation/FrameTime.js";
-import { colors, decorative, withAlpha, withFlicker } from '../../style/tokens.js';
+import { canvasFont, colors, decorative, withAlpha, withFlicker } from '../../style/tokens.js';
 import { fitNativeFrame } from './Animation/SpriteFit.js';
 
 export class DefenderUnit {
@@ -354,7 +354,7 @@ export class DefenderUnit {
     if (this.isAlive) {
       // Unit name text
       ctx.fillStyle = colors.edgeOutline;
-      ctx.font = "12px Arial";
+      ctx.font = canvasFont(12);
       ctx.fillText(
         this.name.substring(0, this.name.length),
         this.x + 2,
@@ -384,7 +384,7 @@ export class DefenderUnit {
     ctx.fillRect(this.x, this.y, this.width, this.height);
 
     ctx.fillStyle = colors.edgeOutline;
-    ctx.font = "12px Arial";
+    ctx.font = canvasFont(12);
     ctx.fillText(this.name.charAt(0), this.x + 5, this.y + 15);
   }
 
@@ -754,7 +754,7 @@ export class HealerDefender extends DefenderUnit {
 
       // Resurrection symbol
       ctx.fillStyle = colors.accentEnergy;
-      ctx.font = "bold 12px Arial";
+      ctx.font = canvasFont(12, "bold");
       ctx.textAlign = "center";
       ctx.fillText("✚", this.x + this.width / 2, this.y - 5);
       ctx.restore();
@@ -1161,7 +1161,7 @@ export class BarricadeDefender extends DefenderUnit {
         ctx.stroke();
       } else {
         ctx.fillStyle = withAlpha(colors.accentEnergy, 0.6 + Math.sin(Date.now() / 200) * 0.3);
-        ctx.font = "bold 14px Arial";
+        ctx.font = canvasFont(14, "bold");
         ctx.textAlign = "center";
         ctx.fillText("⚡", this.x + this.width / 2, this.y - 4);
       }
@@ -2035,7 +2035,7 @@ export class Mortar extends DefenderUnit {
     if (this.hasShellInFlight && this.isAlive) {
       ctx.save();
       ctx.fillStyle = withAlpha(decorative.orange, 0.8);
-      ctx.font = "bold 10px Arial";
+      ctx.font = canvasFont(10, "bold");
       ctx.textAlign = "center";
       ctx.fillText("RELOADING", this.x + this.width / 2, this.y - 20);
       ctx.restore();
@@ -2065,7 +2065,7 @@ export class Mortar extends DefenderUnit {
 
       // Label for dead zone
       ctx.fillStyle = withAlpha(colors.accentDanger, 0.8);
-      ctx.font = "12px Arial";
+      ctx.font = canvasFont(12);
       ctx.textAlign = "center";
       ctx.fillText(
         "DEAD ZONE",
@@ -2150,7 +2150,7 @@ export class Mortar extends DefenderUnit {
 
       // Target lock text
       ctx.fillStyle = withAlpha(colors.accentDanger, pulse);
-      ctx.font = "bold 14px Arial";
+      ctx.font = canvasFont(14, "bold");
       ctx.textAlign = "center";
       ctx.fillText("LOCKED", targetX, targetY - 60);
 

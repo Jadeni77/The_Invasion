@@ -1,5 +1,5 @@
 import { getSettings } from '../../Feedback/SettingsStore.js';
-import { colors, decorative, withAlpha, withFlicker } from '../../../../style/tokens.js';
+import { canvasFont, colors, decorative, withAlpha, withFlicker } from '../../../../style/tokens.js';
 
 export class DrawExplosionEffect {
     constructor(engine) {
@@ -306,7 +306,7 @@ export class DrawExplosionEffect {
 
         // Skull symbol in center
         ctx.fillStyle = withAlpha(colors.textPrimary, alpha * 0.6);
-        ctx.font = `${20 * alpha}px Arial`;
+        ctx.font = canvasFont(20 * alpha);
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText("💀", explosion.x, explosion.y);

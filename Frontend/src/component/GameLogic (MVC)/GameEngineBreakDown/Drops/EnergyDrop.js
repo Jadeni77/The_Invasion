@@ -1,5 +1,5 @@
 import { frameScale } from "../../Animation/FrameTime.js";
-import { colors, withAlpha } from '../../../../style/tokens.js';
+import { canvasFont, colors, withAlpha } from '../../../../style/tokens.js';
 
 export class EnergyDrop {
     constructor(x, y, amount) {
@@ -80,7 +80,7 @@ export class EnergyDrop {
 
         // Energy amount text
         ctx.fillStyle = withAlpha(colors.edgeOutline, alpha);
-        ctx.font = "bold 12px Arial";
+        ctx.font = canvasFont(12, "bold");
         ctx.textAlign = "center";
         ctx.fillText(`+${this.amount}`, this.x, this.y + this.floatOffset + 4);
 

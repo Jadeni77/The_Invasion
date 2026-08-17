@@ -13,6 +13,10 @@ import {
   getLevelStatus,
   zoneConfigs
 } from "./MapLayout"; // New: Import map data from MapData.js
+// Inline styles on the map nodes win over Lobby.css, so this screen's colours
+// have to come from the token module directly - the same reason canvas
+// drawing code imports it rather than reading a CSS variable.
+import { colors } from "../../style/tokens.js";
 import "../../style/Lobby.css"; // Correct path
 import "../../style/UpgradeModal.css"; // Correct path (if UpgradeModal.css is used by Lobby too)
 import CardSelectionModal from "./CardSelectionModal";
@@ -271,7 +275,11 @@ const Lobby = () => {
             style={{
               top: `${level.y}px`,
               left: `${level.x}px`,
-              backgroundColor: status.locked ? '#444' : zone.backgroundColor,
+              // surfaceSunken, the token for wells/slots/disabled, rather
+              // than the '#444' neutral grey that was written inline here -
+              // the one raw colour on this screen that was not even in
+              // MapLayout's config to be found.
+              backgroundColor: status.locked ? colors.surfaceSunken : zone.backgroundColor,
               borderColor: zone.borderColor
             }}
             onClick={() => !status.locked && handleLevelNodeClick(level.id)}
@@ -336,12 +344,29 @@ const Lobby = () => {
               <i className="icon-achievement" />
               <span>Achievement</span>
             </button>
+            {/*
+              These two buttons carried the same `icon-setting` glyph, with
+              the destructive one (log out, ending the session) sitting
+              immediately left of the benign one. Icons are the only thing a
+              player scanning this bar reads; two identical ones made ending
+              the session a coin flip. The button *classes* are left alone -
+              `settings` on the logout button is a pre-existing mislabel, and
+              renaming it would touch Lobby.css for no visual gain - but the
+              icons are now distinct in both directions: the gear belongs to
+              Settings, and logout says logout.
+
+              Note for whoever adds the artwork: no stylesheet in this repo
+              defines `icon-*` yet, so every one of these <i> elements is
+              currently empty and nothing is drawn. The duplication was
+              therefore latent rather than on screen - but it is the markup a
+              real icon set will be hung on, and it had the wrong name on it.
+            */}
             <button className="menu-button settings" onClick={handleLogout}>
-              <i className="icon-setting" />
+              <i className="icon-logout" />
               <span>Logout</span>
             </button>
             <button className="menu-button open-settings" onClick={openSettings}>
-              <i className="icon-setting" />
+              <i className="icon-gear" />
               <span>Settings</span>
             </button>
           </div>
@@ -396,9 +421,14 @@ const Lobby = () => {
                     key={`zone-${zone}`}
                     className={`zone-background zone-${zone}`}
                     style={{
-                      background: config.backgroundColor === '#rainbow-gradient' ?
-                                  'linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)' :
-                                  config.backgroundColor
+                      // A zone that declares a gradient uses it; the rest use
+                      // their flat hue. Previously this compared
+                      // backgroundColor against the sentinel string
+                      // '#rainbow-gradient' and, when it matched, wrote out a
+                      // seven-hex gradient inline - a second copy of the
+                      // rainbow that no guard read and that could not be
+                      // retuned from the token layer.
+                      background: config.backgroundGradient ?? config.backgroundColor
                     }}
                 />
             ))}

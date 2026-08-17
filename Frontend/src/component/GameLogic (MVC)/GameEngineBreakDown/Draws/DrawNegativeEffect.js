@@ -1,4 +1,4 @@
-import { colors, decorative, withAlpha, withFlicker } from '../../../../style/tokens.js';
+import { canvasFont, colors, decorative, withAlpha, withFlicker } from '../../../../style/tokens.js';
 
 export class DrawNegativeEffect {
     constructor(unit) {
@@ -203,7 +203,7 @@ export class DrawNegativeEffect {
 
         // Exclamation mark
         ctx.fillStyle = colors.edgeOutline;
-        ctx.font = `bold ${size}px Arial`;
+        ctx.font = canvasFont(size, "bold");
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText("!", centerX, centerY);
@@ -219,7 +219,7 @@ export class DrawNegativeEffect {
         // 6. "DISABLED" text (optional - only for larger units)
         if (this.unit.width > 40) {
             ctx.fillStyle = withAlpha(colors.textPrimary, pulseAlpha);
-            ctx.font = "bold 10px Arial";
+            ctx.font = canvasFont(10, "bold");
             ctx.textAlign = "center";
             ctx.textBaseline = "bottom";
             ctx.fillText("DISABLED", centerX, this.unit.y + this.unit.height + 20);
@@ -235,7 +235,7 @@ export class DrawNegativeEffect {
         ctx.fillStyle = withAlpha(decorative.violet, pulse);
         ctx.strokeStyle = withAlpha(colors.textPrimary, 0.8);
         ctx.lineWidth = 1;
-        ctx.font = "bold 14px Arial";
+        ctx.font = canvasFont(14, "bold");
         ctx.textAlign = "center";
         ctx.fillText("◈", this.unit.x + this.unit.width / 2, this.unit.y );
         ctx.strokeText("◈", this.unit.x + this.unit.width / 2, this.unit.y );
@@ -266,7 +266,7 @@ export class DrawNegativeEffect {
 
         // Snowflake icon above
         ctx.fillStyle = colors.accentInfo;
-        ctx.font = "16px Arial";
+        ctx.font = canvasFont(16);
         ctx.textAlign = "center";
         ctx.fillText("❄", this.unit.x + this.unit.width / 2, this.unit.y - 5);
         ctx.restore();

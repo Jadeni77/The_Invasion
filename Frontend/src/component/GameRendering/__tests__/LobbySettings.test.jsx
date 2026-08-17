@@ -112,6 +112,32 @@ describe("lobby settings button", () => {
     expect(screen.queryByText("Upgrade Cards")).not.toBeInTheDocument();
   });
 
+  it("does not give Settings the same icon as the button that logs you out", () => {
+    // The logout button carried `icon-setting`, and Task 8 put an
+    // identically-iconed Settings button immediately beside it: a destructive
+    // action one indistinguishable gear away from a benign one, in a bar where
+    // the icon is the only thing a player scanning it reads. Rejects any
+    // future state where the two share a glyph class, in either direction -
+    // including "fixing" it by moving Settings off the gear and leaving logout
+    // on it, which would swap the confusion rather than remove it.
+    //
+    // Queried through the rendered tree by accessible name, so this follows
+    // the buttons if the markup is reordered or restructured. jsdom draws
+    // nothing, so this cannot confirm the two glyphs *look* different - and in
+    // fact no stylesheet defines `icon-*` yet, so today neither draws at all.
+    render(<Lobby />);
+    const settings = screen.getByRole("button", { name: /settings/i });
+    const logout = screen.getByRole("button", { name: /logout/i });
+
+    const iconClass = (button) => button.querySelector("i")?.className;
+    expect(iconClass(settings), "settings button has no icon element").toBeTruthy();
+    expect(iconClass(logout), "logout button has no icon element").toBeTruthy();
+    expect(iconClass(settings)).not.toBe(iconClass(logout));
+
+    // And the destructive one must not be the one wearing the gear.
+    expect(iconClass(logout)).not.toMatch(/setting|gear|cog/i);
+  });
+
   it("can close the settings modal and return to the lobby", () => {
     render(<Lobby />);
     fireEvent.click(screen.getByRole("button", { name: /settings/i }));

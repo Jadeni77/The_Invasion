@@ -1,5 +1,5 @@
 import { frameScale } from "../../Animation/FrameTime.js";
-import { colors, decorative, withAlpha } from '../../../../style/tokens.js';
+import { canvasFont, colors, decorative, withAlpha } from '../../../../style/tokens.js';
 
 /**
  * This class represent the card pieces that will drop during the
@@ -84,7 +84,7 @@ export class CardPieceDrop {
 
         // Card icon/symbol
         ctx.fillStyle = withAlpha(colors.textPrimary, alpha * 0.8);
-        ctx.font = "bold 10px Arial";
+        ctx.font = canvasFont(10, "bold");
         ctx.textAlign = "center";
         ctx.fillText("⬟", this.x, this.y + this.floatOffset + 3);
 
