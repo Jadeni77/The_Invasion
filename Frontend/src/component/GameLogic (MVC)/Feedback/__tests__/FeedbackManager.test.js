@@ -591,3 +591,42 @@ describe('the Titan abilities reach the audio layer', () => {
     expect(() => bus.emit('enemy:phaseChange', {})).not.toThrow();
   });
 });
+
+describe('the Titan abilities prefer a supplied sample, like every other voice', () => {
+  // Before this task, SAMPLE_VARIANTS had no charge/impact/phase entries, so
+  // even with hasSample() true this call would have handed AudioManager
+  // SAMPLE_VARIANTS.fire (the `?? SAMPLE_VARIANTS.fire` fallback) instead of
+  // SAMPLE_VARIANTS.charge/impact/phase - a full-gain, full-length Earthquake
+  // Spell sample playing for 3.91s at whatever the LOUD tier allows.
+  let bus, juice;
+
+  beforeEach(() => {
+    bus = new FeedbackBus();
+    juice = {
+      addTrauma: vi.fn(), triggerHitStop: vi.fn(),
+      addDamageNumber: vi.fn(), triggerFlash: vi.fn(), setEnabled: vi.fn(),
+    };
+  });
+
+  it.each([
+    ['enemy:groundPoundCharge', 'quake-charge', 'charge'],
+    ['enemy:groundPoundImpact', 'quake-impact', 'impact'],
+    ['enemy:phaseChange', 'phase-change', 'phase'],
+  ])('plays the %s sample with its own transform, not fire\'s', (event, soundKey, variant) => {
+    const audio = {
+      playSfx: vi.fn(), playRecipe: vi.fn(), playSample: vi.fn(),
+      hasSample: vi.fn(() => true), setVolumes: vi.fn(),
+    };
+    new FeedbackManager(bus, audio, juice).attach();
+
+    bus.emit(event, { unitType: 'TitanEnemy', phase: 2 });
+
+    expect(audio.playSample).toHaveBeenCalledWith(
+      soundKey, SAMPLE_VARIANTS[variant], `${soundKey}:${variant}`, mixGainFor(soundKey),
+    );
+    expect(audio.playSample).not.toHaveBeenCalledWith(
+      soundKey, SAMPLE_VARIANTS.fire, expect.anything(), expect.anything(),
+    );
+    expect(audio.playRecipe).not.toHaveBeenCalled();
+  });
+});
