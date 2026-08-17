@@ -154,7 +154,7 @@ describe('every variant soundKeyFor special-cases has a sample transform', () =>
     // Pins the derived set: if soundKeyFor's branches are reformatted in a
     // way the regex stops matching, this fails loudly instead of the
     // it.each below silently shrinking to nothing.
-    expect(variants.sort()).toEqual(['charge', 'death', 'hit', 'impact', 'melee', 'phase']);
+    expect(variants.sort()).toEqual(['charge', 'death', 'hit', 'impact', 'landing', 'melee', 'phase']);
   });
 
   it.each(branchedVariants(soundGroupsSource))('%s has a SAMPLE_VARIANTS entry', (variant) => {
@@ -166,6 +166,48 @@ describe('every variant soundKeyFor special-cases has a sample transform', () =>
     // later dropped under those keys. Removing any one entry here
     // reproduces that failure exactly (verified by mutation).
     expect(SAMPLE_VARIANTS, `SAMPLE_VARIANTS.${variant} is missing`).toHaveProperty(variant);
+  });
+});
+
+describe('the landing variant (the Mortar\'s shell landing)', () => {
+  // Before this task 'landing' had no SAMPLE_VARIANTS entry at all, so
+  // playUnitVoice's `SAMPLE_VARIANTS[variant] ?? SAMPLE_VARIANTS.fire`
+  // fallback would hand mortar-impact.wav fire's untouched transform: full
+  // gain, full length - exactly the "melee-variant trap" this file's
+  // SAMPLE_VARIANTS header warns about, repeating a third time.
+
+  it('gives the landing a lower gainScale than fire, so a hot-mastered sample does not become the loudest thing in the game', () => {
+    // Rejects: leaving SAMPLE_VARIANTS.landing at gainScale 1 (fire's value).
+    // EagleArtillery_Impact.ogg measures ~-0.2dB peak, the same near-0dBFS
+    // mastering as every other sample here; at gainScale 1 in the MID tier it
+    // would land exactly as loud as the Mortar's own fire sample, leaving no
+    // margin for "heavy but not the loudest thing in the game."
+    expect(SAMPLE_VARIANTS.landing.gainScale).toBeLessThan(SAMPLE_VARIANTS.fire.gainScale);
+    expect(SAMPLE_VARIANTS.landing.gainScale).toBe(0.65);
+  });
+
+  it('does not pitch-shift or truncate the landing - the file was pre-trimmed with ffmpeg, not scaled here', () => {
+    // durationScale < 1 makes playSample fade continuously across the WHOLE
+    // truncated length (AudioManager.playSample's `durationScale < 1` branch),
+    // right for masking a hard cut in a 35%-length hit and wrong for a sound
+    // meant to hold its own shape. mortar-impact.wav was trimmed to its
+    // attack transient plus a short release (~0.58s) before being committed,
+    // so durationScale stays 1 - full length, held then released - like fire,
+    // death, charge, impact and phase.
+    expect(SAMPLE_VARIANTS.landing.durationScale).toBe(1);
+    expect(SAMPLE_VARIANTS.landing.playbackRate).toBe(1);
+  });
+
+  it('has a SAMPLE_VARIANTS entry, so the derived soundKeyFor-branch guard below finds it', () => {
+    expect(Object.keys(SAMPLE_VARIANTS)).toContain('landing');
+  });
+
+  it('stays within the valid multiplier ranges, like every other variant', () => {
+    // The generic "every variant is within valid multiplier ranges" test
+    // above already walks Object.entries(SAMPLE_VARIANTS), so it covers this
+    // automatically once it exists - this pins the fact that it does.
+    expect(SAMPLE_VARIANTS.landing.gainScale).toBeGreaterThan(0);
+    expect(SAMPLE_VARIANTS.landing.gainScale).toBeLessThanOrEqual(1);
   });
 });
 

@@ -527,9 +527,9 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
     expect(Object.keys(ALL_TABLES)).toHaveLength(Object.keys(SFX).length + Object.keys(UNIT_VOICES).length);
     expect(
       extraLayers,
-      'waveStarted +1, bossWaveStarted +2, mortar +2, quake-charge +1, quake-impact +5, '
-      + 'phase-change +2, defenderRemoved +1',
-    ).toBe(14);
+      'waveStarted +1, bossWaveStarted +2, mortar +2, mortar-impact +2, quake-charge +1, '
+      + 'quake-impact +5, phase-change +2, defenderRemoved +1',
+    ).toBe(16);
     expect(authoredLayers.length).toBe(Object.keys(ALL_TABLES).length + extraLayers);
   });
 
@@ -543,7 +543,7 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
     // served by SFX, not the voice table'), so merging them loses nothing.
     expect(layeredEntries.map(([id]) => id).sort())
       .toEqual([
-        'bossWaveStarted', 'defenderRemoved', 'mortar', 'phase-change',
+        'bossWaveStarted', 'defenderRemoved', 'mortar', 'mortar-impact', 'phase-change',
         'quake-charge', 'quake-impact', 'waveStarted',
       ]);
   });
@@ -855,5 +855,85 @@ describe('resolveVoice carries amplitude modulation through', () => {
     const rumble = resolved.layers.find((layer) => layer.modulationHz);
     expect(rumble).toBeDefined();
     expect(rumble.modulationHz).toBe(UNIT_VOICES['quake-impact'].layers.find((l) => l.modulationHz).modulationHz);
+  });
+});
+
+/**
+ * The Mortar's shell landing: silent before this task (DefenderUnits.js's
+ * createExplosion emitted nothing). Built from the same crack/body/tail
+ * vocabulary as the Mortar's own launch and the Titan's quake-impact - the
+ * only vocabulary in this file that reads as an explosion on a laptop speaker
+ * - but distinct from both, so the two halves of one attack (launch, landing)
+ * do not sound like the same sound twice, and so Eagle Artillery's sound stays
+ * unmistakably its own rather than borrowing the earthquake's rumble.
+ */
+describe('the Mortar\'s shell landing: the payoff half of its two sounds', () => {
+  const landing = () => resolveVoice(soundKeyFor('Mortar', 'landing'), 'landing');
+
+  it('has a transient, a body and a tail, like the Mortar\'s own launch', () => {
+    expect(recipeLayers(landing())).toHaveLength(3);
+  });
+
+  it('opens with the shortest, highest layer - the debris crack', () => {
+    const [crack, ...rest] = recipeLayers(landing());
+
+    expect(crack.offset).toBe(0);
+    expect(crack.noise, 'a crack is broadband, not a pitched note').toBe(true);
+    for (const layer of rest) {
+      expect(crack.duration, 'the crack must be the shortest layer').toBeLessThan(layer.duration);
+      expect(crack.freqStart, 'the crack must be the highest layer').toBeGreaterThan(layer.freqStart);
+    }
+  });
+
+  it('carries its weight on a single pitched layer that falls, the Mortar\'s own lesson', () => {
+    // A noise-only impact is a hiss with no note, the exact mistake this
+    // file's header on `mortar` already paid for once.
+    const layers = recipeLayers(landing());
+    const nonNoise = layers.filter((layer) => !layer.noise);
+
+    expect(nonNoise).toHaveLength(1);
+    expect(nonNoise[0].freqEnd).toBeLessThan(nonNoise[0].freqStart);
+  });
+
+  it('decays into a tail that outlasts the crack', () => {
+    const layers = recipeLayers(landing());
+    const ends = layers.map((layer) => layer.offset + layer.duration);
+    const tail = layers[ends.indexOf(Math.max(...ends))];
+
+    expect(tail.offset, 'the tail follows the crack rather than opening the sound').toBeGreaterThan(0);
+    expect(Math.max(...ends)).toBeGreaterThan(2 * Math.min(...ends));
+  });
+
+  it('fits comfortably in one voice slot, and is shorter than the Titan\'s quake-impact', () => {
+    // One shell landing once is a smaller moment than a three-wave board-wide
+    // earthquake and should not occupy a voice slot as long as one.
+    const span = recipeSpan(landing());
+    expect(span).toBeLessThanOrEqual(MAX_DURATION);
+    expect(span).toBeLessThan(recipeSpan(resolveVoice('quake-impact', 'impact')));
+  });
+
+  it('is not the same recipe as the Mortar\'s own fire sound or the Titan\'s quake-impact', () => {
+    expect(UNIT_VOICES['mortar-impact']).not.toEqual(UNIT_VOICES.mortar);
+    expect(UNIT_VOICES['mortar-impact']).not.toEqual(UNIT_VOICES['quake-impact']);
+  });
+
+  it('plays at its authored level, because the landing variant scales nothing', () => {
+    // Like charge/impact/phase, 'landing' is deliberately absent from VARIANTS
+    // - it plays at its authored level, and resolveVoice's fallback to
+    // VARIANTS.fire (identity) is what delivers that rather than any
+    // landing-specific scale factor.
+    expect(resolveVoice('mortar-impact', 'landing')).toEqual(UNIT_VOICES['mortar-impact']);
+  });
+
+  it('clears the laptop-speaker floor with margin, as resolved for play', () => {
+    // The generic authored-recipe floor check above already covers this
+    // entry, layered or not; this pins it for the specific (key, variant)
+    // pair the game actually plays, the same way the Titan block above does
+    // for quake-charge/quake-impact/phase-change.
+    const LAPTOP_SPEAKER_FLOOR_HZ = 200;
+    for (const [index, layer] of recipeLayers(landing()).entries()) {
+      expect(layer.freqStart, `layer ${index} freqStart`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+      expect(layer.freqEnd, `layer ${index} freqEnd`).toBeGreaterThanOrEqual(LAPTOP_SPEAKER_FLOOR_HZ);
+    }
   });
 });

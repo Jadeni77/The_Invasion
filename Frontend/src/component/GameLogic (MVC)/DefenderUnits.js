@@ -1956,6 +1956,15 @@ export class Mortar extends DefenderUnit {
   createExplosion(x, y) {
     if (!this.gameEngine) return;
 
+    // The shell's own landing sound - the payoff half of the Mortar's two
+    // sounds, the other being 'projectile:fired' on launch. Emitted BEFORE
+    // addDefenderExplosion on purpose: that call is what applies splash
+    // damage and, per enemy caught in it, emits 'enemy:hit' (the shared
+    // sound already used for every hit in the game). This is additive to
+    // that sound, not a replacement for it, and has to lead it rather than
+    // trail it, or the landing would read as an afterthought to its own hits.
+    this.gameEngine?.emitFeedback?.('defender:shellLanded', { defenderType: this.constructor.name });
+
     // Main explosion with increased damage and radius
     this.gameEngine.addDefenderExplosion(
       x,

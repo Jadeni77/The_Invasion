@@ -57,7 +57,7 @@ const DEFENDERS = new Set([
  */
 export const SOUND_KEYS = [
   'projectile', 'artillery', 'magic', 'fire', 'heal', 'melee', 'summon', 'hit',
-  'mortar', 'sniper',
+  'mortar', 'sniper', 'mortar-impact',
   'quake-charge', 'quake-impact', 'phase-change',
   'death-small', 'death-medium', 'death-defender', 'titan', 'boss',
 ];
@@ -87,6 +87,19 @@ export function soundKeyFor(unitName, variant) {
   if (variant === 'impact') return 'quake-impact';
   if (variant === 'phase') return 'phase-change';
 
+  // The Mortar's shell landing - the payoff half of its two sounds, the other
+  // being its own firing signature above. Named 'landing' rather than reusing
+  // 'impact' on purpose: 'impact' already means the Titan's ground pound
+  // (quake-impact) above, and the owner's rule is that Eagle Artillery belongs
+  // to the Mortar only while the earthquake belongs to the Titan only - a
+  // shared variant name would let a Mortar shell resolve to quake-impact the
+  // moment someone reused it, exactly the cross-contamination this file's
+  // sample-provenance guard (SampleProvenance.test.js) exists to catch. Only
+  // the Mortar reaches this variant today, which is why it is keyed by
+  // variant rather than by unit, the same reasoning charge/impact/phase above
+  // already follow.
+  if (variant === 'landing') return 'mortar-impact';
+
   if (variant === 'death') {
     if (DEATH_SIGNATURES[unitName]) return DEATH_SIGNATURES[unitName];
     if (DEFENDERS.has(unitName)) return 'death-defender';
@@ -114,6 +127,16 @@ export const MIX_TIERS = {
   projectile: QUIET, hit: QUIET,
   artillery: MID, magic: MID, fire: MID, heal: MID, melee: MID, summon: MID,
   mortar: MID, sniper: MID,
+  /**
+   * The Mortar's shell landing sits beside its own firing sound in the MID
+   * tier, not with the Titan's abilities in LOUD. It is the payoff of an
+   * ordinary defender's attack - heavy, but not a board-wide event costing the
+   * player most of their defenders the way a ground pound or a phase change
+   * does, which is what LOUD is reserved for here. Gain (SAMPLE_VARIANTS.landing,
+   * UNIT_VOICES['mortar-impact']) is the lever for "heavy but not the loudest
+   * thing in the game", not the tier.
+   */
+  'mortar-impact': MID,
   'death-small': MID, 'death-medium': MID, 'death-defender': MID,
   titan: LOUD, boss: LOUD,
   /**

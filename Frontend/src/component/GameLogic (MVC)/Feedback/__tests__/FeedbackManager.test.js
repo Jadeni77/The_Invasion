@@ -630,3 +630,160 @@ describe('the Titan abilities prefer a supplied sample, like every other voice',
     expect(audio.playRecipe).not.toHaveBeenCalled();
   });
 });
+
+describe('the Mortar shell landing reaches the audio layer', () => {
+  // The owner's clarification, mid-task: "the existing sound... keep that, but
+  // add the eagle artillery landing sound before it" - the landing is
+  // additive to the shared 'hit' sound already playing for every enemy the
+  // splash catches (GameEngine.addDefenderExplosion's 'enemy:hit' emits), not
+  // a replacement for it.
+  let bus, audio, juice, manager;
+
+  beforeEach(() => {
+    bus = new FeedbackBus();
+    audio = { playSfx: vi.fn(), playRecipe: vi.fn(), setVolumes: vi.fn() };
+    juice = {
+      addTrauma: vi.fn(), triggerHitStop: vi.fn(),
+      addDamageNumber: vi.fn(), triggerFlash: vi.fn(), setEnabled: vi.fn(),
+    };
+    manager = new FeedbackManager(bus, audio, juice);
+    manager.attach();
+  });
+
+  it('routes defender:shellLanded to the mortar-impact voice', () => {
+    // Rejects: a missing handler (silent shell landing), or one that reuses
+    // 'impact' and resolves to quake-impact instead - the exact
+    // cross-contamination the owner's split forbids (Eagle Artillery belongs
+    // to the Mortar only, the earthquake to the Titan only).
+    bus.emit('defender:shellLanded', { defenderType: 'Mortar' });
+
+    expect(audio.playRecipe).toHaveBeenCalledWith(
+      resolveVoice('mortar-impact', 'landing'),
+      'mortar-impact:landing',
+      mixGainFor('mortar-impact'),
+    );
+  });
+
+  it('gives the landing a different sound and dedupe key than the Mortar\'s own fire', () => {
+    bus.emit('projectile:fired', { defenderType: 'Mortar' });
+    bus.emit('defender:shellLanded', { defenderType: 'Mortar' });
+
+    const [fireCall, landingCall] = audio.playRecipe.mock.calls;
+    expect(fireCall[0]).not.toEqual(landingCall[0]);
+    expect(fireCall[1]).not.toBe(landingCall[1]);
+  });
+
+  it('sits in the mid tier with the Mortar\'s own fire sound, not the Titan\'s LOUD abilities', () => {
+    expect(mixGainFor('mortar-impact')).toBe(mixGainFor('mortar'));
+    expect(mixGainFor('mortar-impact')).toBeLessThan(mixGainFor('quake-impact'));
+  });
+
+  it('does not throw when the event carries no defender type', () => {
+    expect(() => bus.emit('defender:shellLanded', {})).not.toThrow();
+    expect(audio.playRecipe).toHaveBeenCalled();
+  });
+
+  it('stops responding after detach', () => {
+    manager.detach();
+
+    bus.emit('defender:shellLanded', { defenderType: 'Mortar' });
+
+    expect(audio.playRecipe).not.toHaveBeenCalled();
+  });
+});
+
+describe('the Mortar\'s landing prefers a supplied sample, like every other voice', () => {
+  let bus, juice;
+
+  beforeEach(() => {
+    bus = new FeedbackBus();
+    juice = {
+      addTrauma: vi.fn(), triggerHitStop: vi.fn(),
+      addDamageNumber: vi.fn(), triggerFlash: vi.fn(), setEnabled: vi.fn(),
+    };
+  });
+
+  it('plays the mortar-impact sample with its own transform, not fire\'s', () => {
+    // Before this task, SAMPLE_VARIANTS had no 'landing' entry, so even with
+    // hasSample() true this call would have handed AudioManager
+    // SAMPLE_VARIANTS.fire (the `?? SAMPLE_VARIANTS.fire` fallback in
+    // playUnitVoice) - a full-gain, full-length EagleArtillery_Impact sample
+    // rather than the deliberately reduced landing transform.
+    const audio = {
+      playSfx: vi.fn(), playRecipe: vi.fn(), playSample: vi.fn(),
+      hasSample: vi.fn(() => true), setVolumes: vi.fn(),
+    };
+    new FeedbackManager(bus, audio, juice).attach();
+
+    bus.emit('defender:shellLanded', { defenderType: 'Mortar' });
+
+    expect(audio.playSample).toHaveBeenCalledWith(
+      'mortar-impact', SAMPLE_VARIANTS.landing, 'mortar-impact:landing', mixGainFor('mortar-impact'),
+    );
+    expect(audio.playSample).not.toHaveBeenCalledWith(
+      'mortar-impact', SAMPLE_VARIANTS.fire, expect.anything(), expect.anything(),
+    );
+    expect(audio.playRecipe).not.toHaveBeenCalled();
+  });
+});
+
+describe('the Mortar\'s landing plays alongside the hit sound it precedes, not instead of it', () => {
+  // "Both must survive the dedupe and the voice cap" (the owner's
+  // clarification): they need different dedupe keys, or AudioManager's 40ms
+  // window (DEDUPE_WINDOW_SECONDS) would silence whichever plays second.
+  // These fire both events in the same synchronous tick, mirroring
+  // DefenderUnits.createExplosion's real call order - emit the landing, then
+  // call addDefenderExplosion, which applies damage and emits enemy:hit for
+  // whatever the splash catches.
+  let bus, audio, juice;
+
+  beforeEach(() => {
+    bus = new FeedbackBus();
+    audio = { playSfx: vi.fn(), playRecipe: vi.fn(), setVolumes: vi.fn() };
+    juice = {
+      addTrauma: vi.fn(), triggerHitStop: vi.fn(),
+      addDamageNumber: vi.fn(), triggerFlash: vi.fn(), setEnabled: vi.fn(),
+    };
+    new FeedbackManager(bus, audio, juice).attach();
+  });
+
+  it('plays both the landing and the splash hit when a shell lands on an enemy', () => {
+    // Rejects: a shared or colliding dedupe key, which would let AudioManager
+    // silence one of the two even though FeedbackManager asked for both.
+    bus.emit('defender:shellLanded', { defenderType: 'Mortar' });
+    bus.emit('enemy:hit', { unitType: 'BasicEnemy', damage: 20, x: 10, y: 10 });
+
+    expect(audio.playRecipe).toHaveBeenCalledTimes(2);
+    const keys = audio.playRecipe.mock.calls.map((call) => call[1]);
+    expect(keys).toEqual(['mortar-impact:landing', 'hit:hit']);
+    expect(new Set(keys).size).toBe(2);
+  });
+
+  it('leads the hit sound rather than trailing it', () => {
+    // The landing must be the FIRST call FeedbackManager makes to the audio
+    // layer, so it is scheduled ahead of (never behind) the hit it precedes.
+    bus.emit('defender:shellLanded', { defenderType: 'Mortar' });
+    bus.emit('enemy:hit', { unitType: 'BasicEnemy', damage: 20, x: 10, y: 10 });
+
+    const keys = audio.playRecipe.mock.calls.map((call) => call[1]);
+    expect(keys.indexOf('mortar-impact:landing')).toBeLessThan(keys.indexOf('hit:hit'));
+  });
+
+  it('still emits one landing sound and one (deduped-by-key) hit key when several enemies are caught in the same splash', () => {
+    // FeedbackManager does not itself dedupe repeated calls - that is
+    // AudioManager's job, keyed on soundKey:variant (see AudioManager.js). What
+    // this proves is that the calls FeedbackManager makes are shaped so that
+    // dedupe collapses correctly one layer down: every splash hit resolves to
+    // the SAME 'hit:hit' key regardless of which enemy it was, so real
+    // dedupe collapses three hits to one sound, while the landing keeps its
+    // own distinct key throughout.
+    bus.emit('defender:shellLanded', { defenderType: 'Mortar' });
+    bus.emit('enemy:hit', { unitType: 'BasicEnemy', damage: 20, x: 10, y: 10 });
+    bus.emit('enemy:hit', { unitType: 'TankEnemy', damage: 20, x: 20, y: 20 });
+    bus.emit('enemy:hit', { unitType: 'FastEnemy', damage: 20, x: 30, y: 30 });
+
+    const keys = audio.playRecipe.mock.calls.map((call) => call[1]);
+    expect(keys[0]).toBe('mortar-impact:landing');
+    expect(keys.slice(1)).toEqual(['hit:hit', 'hit:hit', 'hit:hit']);
+  });
+});
