@@ -62,7 +62,7 @@ export class DrawUIs {
         ctx.stroke();
 
         // Draw base building
-        ctx.fillStyle = colors.surfacePanel;
+        ctx.fillStyle = colors.edgeHighlight;
         ctx.fillRect(
             this.gameEngine.defenseLineX - 30,
             this.gameEngine.canvasHeight * 0.3,
@@ -251,7 +251,7 @@ export class DrawUIs {
         // Draw background with gradient
         const gradient = ctx.createLinearGradient(boxX, boxY, boxX, boxY + boxHeight);
         if (this.waveAnnouncement.isBoss) {
-            gradient.addColorStop(0, withAlpha(colors.accentDanger, 0.9));
+            gradient.addColorStop(0, withAlpha(colors.edgeOutline, 0.9));
             gradient.addColorStop(1, withAlpha(colors.accentDanger, 0.9));
         } else {
             gradient.addColorStop(0, withAlpha(colors.edgeOutline, 0.8));

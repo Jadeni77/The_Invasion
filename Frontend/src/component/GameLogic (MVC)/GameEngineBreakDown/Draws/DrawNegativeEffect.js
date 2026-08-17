@@ -38,7 +38,7 @@ export class DrawNegativeEffect {
             glowRadius
         );
         glowGradient.addColorStop(0, withAlpha(decorative.orange, 0.4));
-        glowGradient.addColorStop(0.5, withAlpha(decorative.orange, 0.3));
+        glowGradient.addColorStop(0.5, withAlpha(colors.accentDanger, 0.3));
         glowGradient.addColorStop(1, withAlpha(colors.accentDanger, 0));
 
         ctx.fillStyle = glowGradient;

@@ -153,8 +153,8 @@ export class DrawExplosionEffect {
             explosion.x, explosion.y, radius * 0.5
         );
         gradient.addColorStop(0, withAlpha(decorative.violet, alpha));
-        gradient.addColorStop(0.5, withAlpha(decorative.violet, alpha * 0.5));
-        gradient.addColorStop(1, withAlpha(decorative.violet, 0));
+        gradient.addColorStop(0.5, withAlpha(decorative.indigo, alpha * 0.5));
+        gradient.addColorStop(1, withAlpha(decorative.indigo, 0));
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -247,9 +247,9 @@ export class DrawExplosionEffect {
             explosion.x, explosion.y, 0,
             explosion.x, explosion.y, pulseRadius
         );
-        gradient.addColorStop(0, withAlpha(colors.accentDanger, alpha));
+        gradient.addColorStop(0, withAlpha(colors.edgeOutline, alpha));
         gradient.addColorStop(0.5, withAlpha(colors.accentDanger, alpha * 0.6));
-        gradient.addColorStop(1, withAlpha(colors.accentDanger, 0));
+        gradient.addColorStop(1, withAlpha(colors.edgeOutline, 0));
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -400,7 +400,7 @@ export class DrawExplosionEffect {
         ctx.strokeStyle = withAlpha(colors.textPrimary, alpha);
         ctx.lineWidth = 4;
         ctx.shadowBlur = 20;
-        ctx.shadowColor = withAlpha(decorative.violet, 0.8);
+        ctx.shadowColor = withAlpha(decorative.indigo, 0.8);
 
         ctx.beginPath();
         ctx.moveTo(targetX, targetY - strikeHeight);
@@ -419,7 +419,7 @@ export class DrawExplosionEffect {
         ctx.stroke();
 
         // Purple-blue glow
-        ctx.strokeStyle = withAlpha(decorative.violet, alpha * 0.8);
+        ctx.strokeStyle = withAlpha(decorative.indigo, alpha * 0.8);
         ctx.lineWidth = 8;
         ctx.stroke();
 
@@ -434,9 +434,9 @@ export class DrawExplosionEffect {
             targetX, targetY, radius
         );
         impactGradient.addColorStop(0, withAlpha(colors.textPrimary, alpha));
-        impactGradient.addColorStop(0.3, withAlpha(decorative.violet, alpha * 0.8));
+        impactGradient.addColorStop(0.3, withAlpha(decorative.indigo, alpha * 0.8));
         impactGradient.addColorStop(0.6, withAlpha(decorative.violet, alpha * 0.5));
-        impactGradient.addColorStop(1, withAlpha(decorative.violet, 0));
+        impactGradient.addColorStop(1, withAlpha(decorative.indigo, 0));
 
         ctx.fillStyle = impactGradient;
         ctx.beginPath();

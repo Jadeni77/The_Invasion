@@ -102,6 +102,17 @@ export function withAlpha(hex, alpha) {
  * anchored to a token's own channels - not a hardcoded hue - so the flicker
  * is still recognisably "the token" with noise added, and cannot drift from
  * it the way a hand-picked literal could.
+ *
+ * The jitter's starting point is capped at `255 - jitter`, not the jittered
+ * result: capping the result would let the canvas's own channel clamp do the
+ * same job silently, collapsing every value above 255 onto a single flat 255
+ * and erasing that whole slice of the intended spread. Capping the start
+ * keeps the full range inside 0-255 so nothing downstream ever needs to
+ * clamp. For a token whose green channel already sits inside the range
+ * `jitter` leaves room for, this changes nothing; for one that doesn't (e.g.
+ * `decorative.orange`'s 127 against a jitter of 155), it reproduces the
+ * historical [100, 255) spread this codebase used before there were tokens,
+ * rather than the [127, 282) range a naive `g + jitter` produces.
  */
 export function withFlicker(hex, alpha, jitter) {
   const clean = hex.replace('#', '');
@@ -110,7 +121,8 @@ export function withFlicker(hex, alpha, jitter) {
   const r = (value >> 16) & 255;
   const g = (value >> 8) & 255;
   const b = value & 255;
-  return `rgba(${r}, ${g + Math.random() * jitter}, ${b}, ${alpha})`;
+  const start = Math.max(0, Math.min(g, 255 - jitter));
+  return `rgba(${r}, ${start + Math.random() * jitter}, ${b}, ${alpha})`;
 }
 
 export { GROUPS };
