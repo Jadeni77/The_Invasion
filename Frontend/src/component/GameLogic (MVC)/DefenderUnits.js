@@ -6,7 +6,7 @@ import { getSettings } from "./Feedback/SettingsStore.js";
 import { frameDurationMs } from "./Animation/AttackPlayback.js";
 import { frameDeltaMs, frameScale } from "./Animation/FrameTime.js";
 import { colors, decorative, withAlpha, withFlicker } from '../../style/tokens.js';
-import { SPRITE_NATIVE_PX } from './GameEngineBreakDown/InGameManagerHandlers/GridManager.js';
+import { fitNativeFrame } from './Animation/SpriteFit.js';
 
 export class DefenderUnit {
   constructor(x, y, cardData = {}) {
@@ -303,16 +303,27 @@ export class DefenderUnit {
       const frames = this.animationFrames[this.currentAnimation];
       if (frames && frames[this.animationFrame]) {
         try {
-          const scale = Math.max(1, Math.floor(this.width / SPRITE_NATIVE_PX));
-          const drawn = SPRITE_NATIVE_PX * scale;
-          const insetX = Math.round((this.width - drawn) / 2);
-          const insetY = Math.round((this.height - drawn) / 2);
+          // Native size comes from *this* defender's own config, not a
+          // shared constant: most defenders crop to 48x48, but Mortar and
+          // Frost Archer's true art doesn't fit that template and are
+          // delivered uncropped, at their full 64x64 frame (see
+          // AssetManifest.js). fitNativeFrame() reads whichever applies.
+          const animConfig = this.animationConfig && this.animationConfig[this.currentAnimation];
+          const crop = animConfig?.cropConfig;
+          const nativeWidth = crop?.enabled ? crop.cropWidth : animConfig?.frameWidth;
+          const nativeHeight = crop?.enabled ? crop.cropHeight : animConfig?.frameHeight;
+          const { drawnWidth, drawnHeight, insetX, insetY } = fitNativeFrame(
+            nativeWidth,
+            nativeHeight,
+            this.width,
+            this.height,
+          );
           ctx.drawImage(
             frames[this.animationFrame],
             this.x + insetX,
             this.y + insetY,
-            drawn,
-            drawn,
+            drawnWidth,
+            drawnHeight,
           );
         } catch (e) {
           console.error("Failed to draw frame:", e);

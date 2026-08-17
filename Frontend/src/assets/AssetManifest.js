@@ -472,6 +472,13 @@ export const AssetManifest = {
         death: () => BasicDefenderDeath,
       },
       config: {
+        // Measured content bbox (union across idle/attack/death, alpha>0):
+        // x=[16,62) y=[20,46). The attack sheet's weapon swing reaches
+        // x=62, 6px past the shared template's cropWidth=48/offsetX=8
+        // window (x=[8,56)), clipping the swing on every attack frame.
+        // offsetX=15 keeps cropWidth=48 (so this defender still delivers a
+        // 48x48 native frame like the rest) and centers the 46px-wide
+        // content in the 48px window (x=[15,63), 1px margin each side).
         idle: {
           frameCount: 4,
           frameWidth: 64,
@@ -481,7 +488,7 @@ export const AssetManifest = {
             enabled: true,
             cropWidth: 48, // Actual sprite size
             cropHeight: 48,
-            offsetX: 8, // Center offset
+            offsetX: 15, // shifted right so the attack swing (x up to 62) isn't clipped
             offsetY: 8,
           },
         },
@@ -494,7 +501,7 @@ export const AssetManifest = {
             enabled: true,
             cropWidth: 48, // Actual sprite size
             cropHeight: 48,
-            offsetX: 8, // Center offset
+            offsetX: 15, // shifted right so the attack swing (x up to 62) isn't clipped
             offsetY: 8,
           },
         },
@@ -508,7 +515,7 @@ export const AssetManifest = {
             enabled: true,
             cropWidth: 48, // Actual sprite size
             cropHeight: 48,
-            offsetX: 8, // Center offset
+            offsetX: 15, // shifted right so the attack swing (x up to 62) isn't clipped
             offsetY: 8,
           },
         },
@@ -521,6 +528,12 @@ export const AssetManifest = {
         death: () => HealerDefenderDeath,
       },
       config: {
+        // Measured content bbox (union across idle/attack/death, alpha>0):
+        // x=[10,52) y=[6,46). The attack sheet's staff-raise reaches y=6,
+        // 2px above the shared template's offsetY=8 window (y=[8,56)),
+        // clipping the top of the raised staff on the mid-cast frames.
+        // offsetY=2 keeps cropHeight=48 (still a 48x48 native frame) and
+        // fully contains y=[6,46) (y=[2,50) window).
         idle: {
           frameCount: 4,
           frameWidth: 64,
@@ -531,7 +544,7 @@ export const AssetManifest = {
             cropWidth: 48, // Actual sprite size
             cropHeight: 48,
             offsetX: 8, // Center offset
-            offsetY: 8,
+            offsetY: 2, // shifted up so the attack staff-raise (y down to 6) isn't clipped
           },
         },
         attack: {
@@ -544,7 +557,7 @@ export const AssetManifest = {
             cropWidth: 48, // Actual sprite size
             cropHeight: 48,
             offsetX: 8, // Center offset
-            offsetY: 8,
+            offsetY: 2, // shifted up so the attack staff-raise (y down to 6) isn't clipped
           },
         },
         death: {
@@ -558,7 +571,7 @@ export const AssetManifest = {
             cropWidth: 48, // Actual sprite size
             cropHeight: 48,
             offsetX: 8, // Center offset
-            offsetY: 8,
+            offsetY: 2, // shifted up so the attack staff-raise (y down to 6) isn't clipped
           },
         },
       },
@@ -765,32 +778,28 @@ export const AssetManifest = {
         attack: () => MortarAttack,
         death: () => MortarDeath,
       },
+      // No cropConfig, deliberately: measured content bbox (union across
+      // idle/attack/death, alpha>0) is x=[12,62) y=[8,62) - 50px wide and
+      // 54px tall. Neither fits inside any 48x48 window (the shared
+      // template's own size), so no offsetX/offsetY choice avoids clipping
+      // at cropWidth=48/cropHeight=48. This was previously hidden by a typo
+      // ("ropConfig") that disabled cropping entirely - which, by accident,
+      // is exactly the correct fix here: Mortar draws at its full native
+      // 64x64, uncropped. (DefenderUnits.js reads native size per-defender
+      // via fitNativeFrame() rather than assuming a shared 48px constant,
+      // specifically so this doesn't reintroduce fractional-scale drawing.)
       config: {
         idle: {
           frameCount: 8,
           frameWidth: 64,
           frameHeight: 64,
           fps: 16,
-          cropConfig: {
-            enabled: true,
-            cropWidth: 48, // Actual sprite size
-            cropHeight: 48,
-            offsetX: 8, // Center offset
-            offsetY: 8,
-          },
         },
         attack: {
           frameCount: 3,
           frameWidth: 64,
           frameHeight: 64,
           fps: 6,
-          cropConfig: {
-            enabled: true,
-            cropWidth: 48, // Actual sprite size
-            cropHeight: 48,
-            offsetX: 8, // Center offset
-            offsetY: 8,
-          },
         },
         death: {
           frameCount: 6,
@@ -798,13 +807,6 @@ export const AssetManifest = {
           frameHeight: 64,
           fps: 12,
           loop: false,
-          cropConfig: {
-            enabled: true,
-            cropWidth: 48, // Actual sprite size
-            cropHeight: 48,
-            offsetX: 8, // Center offset
-            offsetY: 8,
-          },
         },
       },
     },
@@ -814,32 +816,23 @@ export const AssetManifest = {
         attack: () => FrozenAttack,
         death: () => FrozenDeath,
       },
+      // No cropConfig, deliberately: measured content bbox (union across
+      // idle/attack/death, alpha>0) is x=[10,64) y=[16,46) - 54px wide,
+      // reaching the tile's own right edge on the bow-fully-drawn attack
+      // frame. 54px doesn't fit inside any 48x48 window, so this draws at
+      // its full native 64x64, uncropped - the same reasoning as Mortar.
       config: {
         idle: {
           frameCount: 4,
           frameWidth: 64,
           frameHeight: 64,
           fps: 8,
-          cropConfig: {
-            enabled: true,
-            cropWidth: 48, // Actual sprite size
-            cropHeight: 48,
-            offsetX: 8, // Center offset
-            offsetY: 8,
-          },
         },
         attack: {
           frameCount: 9,
           frameWidth: 64,
           frameHeight: 64,
           fps: 18,
-          cropConfig: {
-            enabled: true,
-            cropWidth: 48, // Actual sprite size
-            cropHeight: 48,
-            offsetX: 8, // Center offset
-            offsetY: 8,
-          },
         },
         death: {
           frameCount: 9,
@@ -847,13 +840,6 @@ export const AssetManifest = {
           frameHeight: 64,
           fps: 18,
           loop: false,
-          cropConfig: {
-            enabled: true,
-            cropWidth: 48, // Actual sprite size
-            cropHeight: 48,
-            offsetX: 8, // Center offset
-            offsetY: 8,
-          },
         },
       },
     },

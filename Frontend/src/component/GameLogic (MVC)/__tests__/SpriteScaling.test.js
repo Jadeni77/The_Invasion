@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { GridManager, SPRITE_NATIVE_PX } from '../GameEngineBreakDown/InGameManagerHandlers/GridManager.js';
+import * as DefenderUnitsModule from '../DefenderUnits.js';
 import { DefenderUnit } from '../DefenderUnits.js';
 import * as EnemyModule from '../EnemyUnits.js';
 import { Enemy, fitNativeFrame } from '../EnemyUnits.js';
@@ -105,6 +106,7 @@ function createRecordingContext() {
     translate(tx, ty) {
       transformCalls.push({ type: 'translate', tx, ty });
     },
+    rotate() {},
     beginPath() {},
     arc() {},
     fill() {},
@@ -161,21 +163,51 @@ describe('the horizontal flip still lands the defender sprite in its own cell', 
   // gridSize never goes below SPRITE_NATIVE_PX (48) or above 80 in the real
   // game; both parities are covered because centering an odd remainder
   // needs Math.round, which is where a naive implementation could drift.
-  it.each([48, 49, 60, 61, 79, 80])('defender at gridSize=%i', (gridSize) => {
+  //
+  // `animationConfig` is attached here deliberately (from the real
+  // manifest) rather than left unset: without it, fitNativeFrame() has no
+  // native size to work from and falls back to drawing at the box's own
+  // size with insetX/insetY = 0, which trivially satisfies the "stays
+  // inside the cell" assertion below no matter what the flip transform
+  // does - a version of this test that skipped this would exercise the
+  // fallback branch only, never the scale-and-inset branch it's meant to
+  // guard.
+  it.each([48, 49, 60, 61, 79, 80])('Shooter (48x48 native) at gridSize=%i', (gridSize) => {
     // Rejects a translate built from the drawn/scaled width instead of the
     // full cell width - that mismatch shifts a flipped sprite outside its
-    // cell by up to (cellWidth - nativeSize) pixels, ~16px worst case for a
+    // cell by up to (cellWidth - nativeSize) pixels, ~32px worst case for a
     // defender at gridSize 80. Because this replays the actual recorded
     // scale()/translate() arguments (not a reimplementation of the formula),
     // it would have caught that regression instead of merely restating it.
     const x = 137;
     const { ctx, drawImageCalls, transformCalls } = createRecordingContext();
     const unit = new DefenderUnit(x, 50, { width: gridSize, height: gridSize });
+    unit.animationConfig = AssetManifest.defenders['Shooter'].config;
     unit.animationFrames = { idle: [{}] };
     unit.draw(ctx);
 
     expect(drawImageCalls).toHaveLength(1);
     const { dx, dWidth } = drawImageCalls[0];
+    const [left, right] = drawnScreenRangeX(transformCalls, dx, dWidth);
+    expect(left).toBeGreaterThanOrEqual(x - 1);
+    expect(right).toBeLessThanOrEqual(x + gridSize + 1);
+  });
+
+  // Mortar has no cropConfig (see AssetManifest.js) and delivers its full
+  // 64x64 native frame - the scenario this fix round introduced. At
+  // gridSize=64 that's an exact 1x fit (insetX=insetY=0); at gridSize=80 the
+  // native still fits inside the box but with a real, non-zero inset.
+  it.each([64, 80])('Mortar (64x64 native, no crop) at gridSize=%i', (gridSize) => {
+    const x = 137;
+    const { ctx, drawImageCalls, transformCalls } = createRecordingContext();
+    const unit = new DefenderUnit(x, 50, { width: gridSize, height: gridSize });
+    unit.animationConfig = AssetManifest.defenders['Mortar'].config;
+    unit.animationFrames = { idle: [{}] };
+    unit.draw(ctx);
+
+    expect(drawImageCalls).toHaveLength(1);
+    const { dx, dWidth } = drawImageCalls[0];
+    expect(dWidth).toBe(64); // scale=1 at both grid sizes (64/64=1, 80/64=1)
     const [left, right] = drawnScreenRangeX(transformCalls, dx, dWidth);
     expect(left).toBeGreaterThanOrEqual(x - 1);
     expect(right).toBeLessThanOrEqual(x + gridSize + 1);
@@ -348,5 +380,123 @@ describe('the horizontal flip still lands the enemy sprite in its own cell', () 
     const [left, right] = drawnScreenRangeX(transformCalls, dx, dWidth);
     expect(left).toBeGreaterThanOrEqual(x - 1);
     expect(right).toBeLessThanOrEqual(x + 100 + 1);
+  });
+});
+
+/**
+ * Ground truth for the clipping guard below, measured directly from the PNG
+ * files (alpha>0, union across every frame of idle/attack/death) with a
+ * one-off PIL script - not reproduced here, since nothing in this suite can
+ * decode a PNG's pixels. jsdom's canvas has no image decoder and no pixel
+ * buffer, so no test can see a sprite's actual content, only the numbers a
+ * human measured once and wrote down. That measurement, not a computed
+ * check, *is* the guard against a defender's crop window clipping real
+ * pixel content - this is the literal form of "no test can see clipping."
+ *
+ * x/y are [min, maxExclusive) in local frame coordinates (0..64 per frame).
+ */
+const MEASURED_CONTENT_BBOX = {
+  Shooter: { x: [16, 62], y: [20, 46] },
+  Healer: { x: [10, 52], y: [6, 46] },
+  Grenadier: { x: [16, 54], y: [16, 46] },
+  Barricade: { x: [16, 50], y: [18, 46] },
+  'E-Gen': { x: [20, 56], y: [22, 46] },
+  Sniper: { x: [16, 50], y: [22, 46] },
+  Mortar: { x: [12, 62], y: [8, 62] },
+  'Frost Archer': { x: [10, 64], y: [16, 46] },
+  'Fire Blast': { x: [18, 44], y: [14, 46] },
+  'Ice Bomb': { x: [18, 44], y: [10, 46] },
+};
+
+describe('every defender crop window actually contains its measured sprite content', () => {
+  it.each(Object.entries(MEASURED_CONTENT_BBOX))('%s', (name, bbox) => {
+    // Rejects exactly the bug this fix round found: a crop window
+    // (offsetX/offsetY/cropWidth/cropHeight, or the full frame when no crop
+    // is configured) that cuts into a measured content pixel on any side -
+    // whether from the wrong shared template (old Shooter/Healer), a typo
+    // that accidentally disabled cropping (old Mortar), or a crop re-enabled
+    // at the wrong size for a sprite that never fit it.
+    const config = AssetManifest.defenders[name].config;
+    for (const animName of ['idle', 'attack', 'death']) {
+      const animConfig = config[animName];
+      const crop = animConfig.cropConfig;
+      const enabled = crop?.enabled;
+      const windowX0 = enabled ? crop.offsetX : 0;
+      const windowY0 = enabled ? crop.offsetY : 0;
+      const windowX1 = enabled ? crop.offsetX + crop.cropWidth : animConfig.frameWidth;
+      const windowY1 = enabled ? crop.offsetY + crop.cropHeight : animConfig.frameHeight;
+
+      expect(windowX0, `${name} ${animName} left edge`).toBeLessThanOrEqual(bbox.x[0]);
+      expect(windowY0, `${name} ${animName} top edge`).toBeLessThanOrEqual(bbox.y[0]);
+      expect(windowX1, `${name} ${animName} right edge`).toBeGreaterThanOrEqual(bbox.x[1]);
+      expect(windowY1, `${name} ${animName} bottom edge`).toBeGreaterThanOrEqual(bbox.y[1]);
+    }
+  });
+
+  it('Mortar and Frost Archer have no cropConfig - their content does not fit any 48x48 window', () => {
+    // Rejects re-enabling a crop for either without re-measuring: both
+    // exceed 48px on their widest axis (Mortar 50px tall... actually 54px
+    // tall/50px wide; Frost Archer 54px wide), so no offset choice at
+    // cropWidth=cropHeight=48 can contain them.
+    for (const name of ['Mortar', 'Frost Archer']) {
+      const config = AssetManifest.defenders[name].config;
+      for (const animName of ['idle', 'attack', 'death']) {
+        expect(config[animName].cropConfig, `${name} ${animName}`).toBeUndefined();
+      }
+    }
+  });
+
+  it('the other eight defenders keep a 48x48 crop', () => {
+    // Rejects accidentally widening (or dropping) the crop for a defender
+    // whose content already fit the template - Grenadier, Barricade, E-Gen,
+    // Sniper, Fire Blast and Ice Bomb needed no change, and Shooter/Healer
+    // only needed a shifted offset, not a resized window.
+    for (const name of ['Shooter', 'Healer', 'Grenadier', 'Barricade', 'E-Gen', 'Sniper', 'Fire Blast', 'Ice Bomb']) {
+      const config = AssetManifest.defenders[name].config;
+      for (const animName of ['idle', 'attack', 'death']) {
+        const crop = config[animName].cropConfig;
+        expect(crop?.enabled, `${name} ${animName}`).toBe(true);
+        expect(crop.cropWidth, `${name} ${animName}`).toBe(48);
+        expect(crop.cropHeight, `${name} ${animName}`).toBe(48);
+      }
+    }
+  });
+});
+
+describe('every defender type stays within its own cell and preserves native aspect', () => {
+  // Derived from the module's own exports, not a hand-written list, for the
+  // same reason as the enemy sweep above.
+  const defenderClasses = Object.values(DefenderUnitsModule).filter(
+    (value) => typeof value === 'function' && value.prototype instanceof DefenderUnit,
+  );
+
+  it('found all ten defender types', () => {
+    expect(defenderClasses.length).toBe(10);
+  });
+
+  it.each([48, 64, 80])('at gridSize=%i, no defender type overflows its cell or distorts its native aspect', (gridSize) => {
+    for (const DefenderClass of defenderClasses) {
+      const unit = new DefenderClass(0, 0, { level: 1, image: null });
+      unit.width = gridSize;
+      unit.height = gridSize;
+      unit.animationConfig = AssetManifest.defenders[unit.name]?.config;
+      unit.animationFrames = { [unit.currentAnimation]: [{}] };
+
+      const { ctx, drawImageCalls } = createRecordingContext();
+      unit.draw(ctx);
+
+      expect(drawImageCalls, unit.name).toHaveLength(1);
+      const { dWidth, dHeight } = drawImageCalls[0];
+      expect(dWidth, `${unit.name} at ${gridSize}`).toBeLessThanOrEqual(gridSize);
+      expect(dHeight, `${unit.name} at ${gridSize}`).toBeLessThanOrEqual(gridSize);
+
+      const nativeConfig = unit.animationConfig?.[unit.currentAnimation];
+      const crop = nativeConfig?.cropConfig;
+      const nativeWidth = crop?.enabled ? crop.cropWidth : nativeConfig?.frameWidth;
+      const nativeHeight = crop?.enabled ? crop.cropHeight : nativeConfig?.frameHeight;
+      if (nativeWidth && nativeHeight && Math.min(gridSize / nativeWidth, gridSize / nativeHeight) >= 1) {
+        expect(dWidth / dHeight, unit.name).toBeCloseTo(nativeWidth / nativeHeight, 5);
+      }
+    }
   });
 });
