@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
+import { relativeToSrc, stylesheetFiles } from '../../test/sourceFiles.js';
 
 // Not `fileURLToPath(new URL('../', import.meta.url))`: Vite's import-analysis
 // plugin statically recognizes that exact `new URL(literal, import.meta.url)`
@@ -10,10 +11,19 @@ import { dirname, join } from 'node:path';
 // composition avoids the rewrite (same fix as the other tests in this dir).
 const styleDir = join(dirname(fileURLToPath(import.meta.url)), '..') + '/';
 
-const EXEMPT = new Set(['tokens.generated.css', 'fonts.css']);
-
+/**
+ * Every stylesheet under `src/`, derived by walking the tree (see
+ * src/test/sourceFiles.js) rather than by a non-recursive
+ * `readdirSync(src/style)`. A stylesheet colocated with its component was
+ * invisible to this guard as well as to the colour and font guards - all four
+ * shared that one listing, which is why widening it is a change in one place.
+ */
 function stylesheets() {
-  return readdirSync(styleDir).filter((f) => f.endsWith('.css') && !EXEMPT.has(f));
+  return stylesheetFiles().map(relativeToSrc);
+}
+
+function readStylesheet(rel) {
+  return readFileSync(join(styleDir, '..', rel), 'utf8');
 }
 
 /** --custom-property -> hex, read straight from the generated stylesheet. */
@@ -263,9 +273,16 @@ describe('WCAG contrast ratio for token-derived colour pairs', () => {
   const results = [];
   const optOuts = [];
 
-  for (const file of stylesheets()) {
-    const css = readFileSync(styleDir + file, 'utf8');
+  for (const path of stylesheets()) {
+    const css = readStylesheet(path);
     const rules = rulesOf(css);
+    // Opt-out labels stay keyed on the sheet's own name, not its path from
+    // `src/`. EXPECTED_OPT_OUTS below is an audited list the owner signed off
+    // on; widening this guard's file list is not a re-audit, and rewriting all
+    // fourteen entries to carry a `style/` prefix would make the diff read
+    // like one. A colocated sheet with a colliding basename would be
+    // ambiguous here, which is a problem to have when one exists.
+    const file = basename(path);
 
     // Same-rule pairs: one selector sets both color and background(-color).
     for (const { selector, body } of rules) {

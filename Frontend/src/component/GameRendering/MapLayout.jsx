@@ -3,16 +3,17 @@
 import { colors, decorative } from "../../style/tokens.js";
 
 /**
- * The seven-stop rainbow used by anything "endless": the portal zone
- * background here, and `.rainbow-connection` in Lobby.css.
+ * The seven-stop rainbow, ordered to match `.rainbow-connection` in
+ * Lobby.css:857 stop for stop.
  *
- * Composed from tokens rather than written out as seven hex literals, and
- * ordered to match Lobby.css:857 stop for stop, because the two rainbows sit
- * on the same screen a few pixels apart - a CSS gradient on the connector
- * line and an inline gradient on the zone it leads to. They were previously
- * two independent hand-written hue lists, so tuning one silently left the
- * other behind, which is the same "two sources that must agree" failure the
- * token module exists to remove.
+ * Composed from tokens rather than written out as seven hex literals. Its one
+ * consumer is `endlessPortalConfig.visual.colors` below, which nothing imports
+ * yet - so this is a value waiting for a consumer rather than one in use.
+ * Kept, rather than deleted with the zone colours, because the config it feeds
+ * is exported and a hardcoded rainbow is exactly what would grow back there.
+ * If the endless portal ever draws these, it will already agree with the CSS
+ * connector that leads to it, which the two hand-written hex lists it replaced
+ * did not.
  */
 export const RAINBOW_STOPS = [
   colors.accentDanger,
@@ -23,9 +24,6 @@ export const RAINBOW_STOPS = [
   decorative.indigo,
   decorative.violet,
 ];
-
-/** The endless zone's backdrop, as a CSS `background` value. */
-export const RAINBOW_GRADIENT = `linear-gradient(45deg, ${RAINBOW_STOPS.join(", ")})`;
 
 // Level nodes arranged in a serpentine pattern across the map
 export const levelsMapData = [
@@ -332,75 +330,41 @@ export const levelDefenderReward = {
 };
 
 /**
- * Zone visual configurations for styling.
+ * Zone visual configurations.
  *
- * Read by Lobby.jsx as inline styles on twenty level nodes and six zone
- * backdrops, which is why these had to move onto the token layer: inline
- * styles beat the stylesheet, so tokenizing Lobby.css could not reach any of
- * this, and the lobby - the first screen with a map on it - kept a saturated
- * five-hue flat-UI palette inside earth-tone chrome.
+ * **These carry no colour, deliberately. `Lobby.css` is the single source for
+ * what a zone looks like.**
  *
- * Each zone still gets its own hue, because telling five zones apart at a
- * glance is a real requirement; the hues now come from the palette (the
- * `decorative` group where the semantic four do not stretch far enough)
- * instead of from five invented flat-UI shades. Hue *families* are preserved
- * from the pre-token values - green, blue, orange, red-ish, purple - so a
- * player's mental map of the board does not move; only the shades do.
+ * The first pass at this moved the five zone hues from raw hex onto tokens but
+ * left them here, as inline styles - which reintroduced the exact defect the
+ * move was meant to fix, one zone at a time. `Lobby.css` already had five
+ * reviewed, tokenized zone rules from Task 3 (`.tutorial-node` accent-success,
+ * `.early-node` accent-info, `.mid-node` surface-raised, `.late-node`
+ * accent-danger, `.endgame-node` decorative-violet). Four of them happened to
+ * agree with the inline values; `.mid-node` did not, and because an inline
+ * style beats a stylesheet, the reviewed earth-tone `surface-raised` was
+ * silently overridden by `decorative.orange` - the loudest colour on the map -
+ * on the first screen a player sees.
  *
- * `borderColor` collapses to the one shared cartoon outline for every zone.
- * It was five hand-darkened per-zone shades, which is precisely the "three
- * idioms coexist" problem, and the outline is the branch's single most
- * recognisable structural token.
+ * Two sources that must agree is this codebase's most repeated defect, and the
+ * token module exists to remove it. So the stylesheet won, for three reasons:
+ * it is where the reviewed choice already lived; it is reachable by the CSS
+ * colour, font and contrast guards, where an inline style is reachable only by
+ * the JSX guard added in this same wave; and deleting the inline colours
+ * removes the override *mechanism*, not just today's one instance of it.
  *
- * `glowColor` is currently read by nothing (kept because the shape is
- * exported and callers may add a glow); it mirrors the zone's own hue rather
- * than inventing a sixth lightened shade per zone.
+ * `zone-<key>` and `nodeClass` are what tie a zone to its rules, so those
+ * stay. The dropped fields - `backgroundColor`, `borderColor`, `glowColor` -
+ * had exactly one live consumer between them (the node background), which
+ * `Lobby.css` now owns outright; `glowColor` was read by nothing at all.
  */
 export const zoneConfigs = {
-  tutorial: {
-    backgroundColor: colors.accentSuccess,
-    borderColor: colors.edgeOutline,
-    glowColor: colors.accentSuccess,
-    nodeClass: "tutorial-node",
-  },
-  early: {
-    backgroundColor: colors.accentInfo,
-    borderColor: colors.edgeOutline,
-    glowColor: colors.accentInfo,
-    nodeClass: "early-node",
-  },
-  mid: {
-    backgroundColor: decorative.orange,
-    borderColor: colors.edgeOutline,
-    glowColor: decorative.orange,
-    nodeClass: "mid-node",
-  },
-  late: {
-    backgroundColor: colors.accentDanger,
-    borderColor: colors.edgeOutline,
-    glowColor: colors.accentDanger,
-    nodeClass: "late-node",
-  },
-  endgame: {
-    backgroundColor: decorative.violet,
-    borderColor: colors.edgeOutline,
-    glowColor: decorative.violet,
-    nodeClass: "endgame-node",
-  },
-  endless: {
-    // A single colour for the node itself (a `background` gradient is not a
-    // valid `backgroundColor`), plus the gradient as its own field. This
-    // replaces three sentinel strings - "#rainbow-gradient", "#animated" and
-    // "#rainbow-pulse" - that were shaped like colours, were not colours,
-    // and forced Lobby.jsx to compare backgroundColor against one of them to
-    // decide whether to draw a gradient.
-    backgroundColor: decorative.indigo,
-    backgroundGradient: RAINBOW_GRADIENT,
-    borderColor: colors.edgeOutline,
-    glowColor: decorative.violet,
-    nodeClass: "endless-portal",
-    animation: "portal-swirl",
-  },
+  tutorial: { nodeClass: "tutorial-node" },
+  early: { nodeClass: "early-node" },
+  mid: { nodeClass: "mid-node" },
+  late: { nodeClass: "late-node" },
+  endgame: { nodeClass: "endgame-node" },
+  endless: { nodeClass: "endless-portal", animation: "portal-swirl" },
 };
 
 // Endless Mode Configuration

@@ -528,6 +528,7 @@
 }
 
 .zone-tutorial {
+  background: var(--colors-accent-success);
   left: 150px;
   top: 350px;
   width: 400px;
@@ -536,6 +537,7 @@
 }
 
 .zone-early {
+  background: var(--colors-accent-info);
   left: 550px;
   top: 250px;
   width: 600px;
@@ -544,6 +546,7 @@
 }
 
 .zone-mid {
+  background: var(--colors-surface-raised);
   left: 1150px;
   top: 300px;
   width: 750px;
@@ -552,6 +555,7 @@
 }
 
 .zone-late {
+  background: var(--colors-accent-danger);
   left: 1200px;
   top: 100px;
   width: 700px;
@@ -560,6 +564,7 @@
 }
 
 .zone-endgame {
+  background: var(--decorative-violet);
   left: 750px;
   top: 50px;
   width: 450px;
@@ -579,7 +584,11 @@
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 4px 8px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
-  border: 3px solid;
+  /* Was `border: 3px solid` with no colour, relying on an inline
+     `borderColor` from MapLayout's config for every node - five hand-darkened
+     per-zone shades. One shared cartoon outline instead, declared here so the
+     node needs no inline colour at all. */
+  border: var(--borders-outline) solid var(--colors-edge-outline);
   z-index: 10;
 }
 

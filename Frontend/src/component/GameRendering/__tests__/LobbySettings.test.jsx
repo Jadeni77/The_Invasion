@@ -14,9 +14,13 @@
 // Lobby. useSyncExternalStore is what actually reproduces GameContext's
 // real contract: one shared value, every consumer re-renders on change.
 import React from "react";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import Lobby from "../Lobby.jsx";
+import { zoneConfigs } from "../MapLayout.jsx";
 
 let mockGameState = "lobby";
 const listeners = new Set();
@@ -151,5 +155,98 @@ describe("lobby settings button", () => {
       screen.queryByRole("heading", { name: /settings/i }),
     ).not.toBeInTheDocument();
     expect(screen.getByText("Upgrade Cards")).toBeInTheDocument();
+  });
+});
+
+/**
+ * One source for what a zone looks like.
+ *
+ * `Lobby.css` has carried five reviewed, tokenized zone rules since Task 3
+ * (`.mid-node { background: var(--colors-surface-raised) }` among them). The
+ * first fix for the lobby's raw colour literals moved them onto tokens but
+ * left them where they were - as inline styles in MapLayout's `zoneConfigs` -
+ * and an inline style beats a stylesheet. Four zones coincidentally agreed;
+ * `.mid-node` did not, so the reviewed earth tone was silently overridden by a
+ * bright orange on the first screen a player sees. Two sources that must
+ * agree, which is what the token module exists to remove.
+ *
+ * These tests live in this file because it is the one place that already
+ * stands up a real Lobby render (see the mock at the top). They assert the
+ * absence of the override *mechanism*, not just today's values: no inline
+ * colour on any map element, and a stylesheet rule behind every zone. jsdom
+ * has no layout engine, so what colour anything ends up is not checkable here
+ * - only where that colour is allowed to come from.
+ */
+describe("zone colour has exactly one source", () => {
+  const lobbyCss = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "style", "Lobby.css"),
+    "utf8",
+  ).replace(/\/\*[\s\S]*?\*\//g, "");
+
+  /** Inline style properties that would override a stylesheet's colour. */
+  const COLOUR_PROPERTIES = [
+    "background", "backgroundColor", "backgroundImage",
+    "borderColor", "border", "color", "boxShadow",
+  ];
+
+  function inlineColoursOn(element) {
+    return COLOUR_PROPERTIES.filter((property) => element.style[property] !== "");
+  }
+
+  it("puts no inline colour on any level node", () => {
+    // Rejects reintroducing `backgroundColor`/`borderColor` in the inline
+    // style - including with a correct token, which is how this broke: an
+    // inline token still wins over the stylesheet, so a future edit to
+    // Lobby.css would silently do nothing for whichever zones disagreed.
+    render(<Lobby />);
+    const nodes = [...document.querySelectorAll(".level-node")];
+    expect(nodes.length, "no level nodes rendered").toBeGreaterThan(10);
+
+    for (const node of nodes) {
+      const offenders = inlineColoursOn(node);
+      expect(
+        offenders,
+        `a level node carries inline ${offenders.join(", ")}, which beats Lobby.css`,
+      ).toEqual([]);
+    }
+  });
+
+  it("puts no inline colour on any zone backdrop", () => {
+    // Same rule for the six `.zone-background` washes, whose hue used to be
+    // supplied inline from the same config - and whose endless variant wrote
+    // out a seven-hex rainbow gradient inline.
+    render(<Lobby />);
+    const backdrops = [...document.querySelectorAll(".zone-background")];
+    expect(backdrops.length, "no zone backdrops rendered").toBeGreaterThan(4);
+
+    for (const backdrop of backdrops) {
+      expect(inlineColoursOn(backdrop)).toEqual([]);
+    }
+  });
+
+  it("carries no colour-valued field in zoneConfigs at all", () => {
+    // The mechanism, at its source: as long as the config holds a colour,
+    // something can wire it back into an inline style. Rejects re-adding
+    // `backgroundColor`, `borderColor` or `glowColor` to any zone.
+    for (const [zone, config] of Object.entries(zoneConfigs)) {
+      const colourFields = Object.keys(config).filter((key) => /colour|color|gradient/i.test(key));
+      expect(colourFields, `zoneConfigs.${zone} carries ${colourFields.join(", ")}`).toEqual([]);
+    }
+  });
+
+  it("has a stylesheet rule for every zone's node class", () => {
+    // The other half: having removed the inline colour, every zone must
+    // actually be styled somewhere, or a zone silently renders with no hue
+    // and the map loses a distinction the config still claims to make.
+    // `.endless-portal` is exempt - the endless node is rendered by
+    // renderEndlessPortal with its own portal artwork, not as a level node.
+    for (const [zone, config] of Object.entries(zoneConfigs)) {
+      if (config.nodeClass === "endless-portal") continue;
+      const rule = new RegExp(`\\.${config.nodeClass}\\s*\\{[^}]*background`);
+      expect(
+        rule.test(lobbyCss),
+        `Lobby.css has no background for .${config.nodeClass} (zone "${zone}")`,
+      ).toBe(true);
+    }
   });
 });

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { read, relativeToSrc, sourceFiles, stringLiteralsIn } from '../../test/sourceFiles.js';
+import { read, relativeToSrc, sourceFiles, stringLiteralsIn, stylesheetFiles } from '../../test/sourceFiles.js';
 
 // Not `fileURLToPath(new URL('../', import.meta.url))`: Vite's import-analysis
 // plugin statically recognizes that exact `new URL(literal, import.meta.url)`
@@ -13,13 +13,21 @@ import { read, relativeToSrc, sourceFiles, stringLiteralsIn } from '../../test/s
 // the rewrite (same fix as tokens.test.js and fonts.test.js).
 const styleDir = join(dirname(fileURLToPath(import.meta.url)), '..') + '/';
 
-/** Generated or font-only sheets are allowed to hold literals. */
-const EXEMPT = new Set(['tokens.generated.css', 'fonts.css']);
-
 const NAMED_ALLOWED = new Set(['transparent', 'currentcolor', 'inherit', 'initial', 'unset', 'none']);
 
+/**
+ * Every stylesheet under `src/`, not `readdirSync(src/style)`. The old listing
+ * was non-recursive and directory-bound, so a stylesheet colocated with its
+ * component (`component/GameRendering/ProbePanel.css`) was invisible to it -
+ * the same seam as the `.jsx` one below, in the half that was widened second.
+ * Paths are relative to `src/` so a colocated sheet reads as what it is.
+ */
 function stylesheets() {
-  return readdirSync(styleDir).filter((f) => f.endsWith('.css') && !EXEMPT.has(f));
+  return stylesheetFiles().map(relativeToSrc);
+}
+
+function readStylesheet(rel) {
+  return readFileSync(join(styleDir, '..', rel), 'utf8');
 }
 
 function rawColoursIn(css) {
@@ -62,7 +70,7 @@ describe('stylesheets use tokens, not raw colours', () => {
   });
 
   it.each(stylesheets())('%s contains no raw colour literal', (file) => {
-    const found = rawColoursIn(readFileSync(styleDir + file, 'utf8'));
+    const found = rawColoursIn(readStylesheet(file));
     expect(found, `${file} still has raw colours: ${found.join(', ')}`).toEqual([]);
   });
 });
@@ -74,7 +82,7 @@ describe('every referenced custom property exists', () => {
   );
 
   it.each(stylesheets())('%s references only declared properties', (file) => {
-    const used = [...readFileSync(styleDir + file, 'utf8')
+    const used = [...readStylesheet(file)
       .matchAll(/var\((--[a-z0-9-]+)/g)].map((m) => m[1]);
     const missing = [...new Set(used)].filter((name) => !declared.has(name));
     expect(missing, `${file} uses undeclared: ${missing.join(', ')}`).toEqual([]);

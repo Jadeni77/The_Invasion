@@ -13,10 +13,6 @@ import {
   getLevelStatus,
   zoneConfigs
 } from "./MapLayout"; // New: Import map data from MapData.js
-// Inline styles on the map nodes win over Lobby.css, so this screen's colours
-// have to come from the token module directly - the same reason canvas
-// drawing code imports it rather than reading a CSS variable.
-import { colors } from "../../style/tokens.js";
 import "../../style/Lobby.css"; // Correct path
 import "../../style/UpgradeModal.css"; // Correct path (if UpgradeModal.css is used by Lobby too)
 import CardSelectionModal from "./CardSelectionModal";
@@ -272,15 +268,16 @@ const Lobby = () => {
             className={`level-node ${zone.nodeClass} ${status.locked ? 'locked' : ''} ${
                 status.completed ? 'completed' : ''
             } ${level.isBoss ? 'boss-level' : ''} ${level.isFinal ? 'final-level' : ''}`}
+            // Position only. Colour comes from Lobby.css - `.level-node` for
+            // the shared outline, `.{zone}-node` for the zone hue, and
+            // `.level-node.locked` for the locked state, which is where the
+            // inline '#444' used to be. An inline colour here would beat all
+            // three, which is how a reviewed stylesheet choice
+            // (`.mid-node { background: var(--colors-surface-raised) }`) got
+            // silently overridden by an inline token of a different hue.
             style={{
               top: `${level.y}px`,
               left: `${level.x}px`,
-              // surfaceSunken, the token for wells/slots/disabled, rather
-              // than the '#444' neutral grey that was written inline here -
-              // the one raw colour on this screen that was not even in
-              // MapLayout's config to be found.
-              backgroundColor: status.locked ? colors.surfaceSunken : zone.backgroundColor,
-              borderColor: zone.borderColor
             }}
             onClick={() => !status.locked && handleLevelNodeClick(level.id)}
             title={level.name}
@@ -416,20 +413,20 @@ const Lobby = () => {
               }}
           >
             {/* Zone backgrounds */}
-            {Object.entries(zoneConfigs).map(([zone, config]) => (
+            {/*
+              No inline style at all. Each backdrop's wash is `.zone-<key>` in
+              Lobby.css, alongside the position and size that rule already
+              carried. This previously compared `config.backgroundColor`
+              against the sentinel string '#rainbow-gradient' and, on a match,
+              wrote a seven-hex gradient inline - a second copy of the rainbow
+              that no guard read and that could not be retuned from the token
+              layer. `.zone-endless` deliberately has no rule: it never had a
+              box, so that div has always rendered nothing.
+            */}
+            {Object.keys(zoneConfigs).map((zone) => (
                 <div
                     key={`zone-${zone}`}
                     className={`zone-background zone-${zone}`}
-                    style={{
-                      // A zone that declares a gradient uses it; the rest use
-                      // their flat hue. Previously this compared
-                      // backgroundColor against the sentinel string
-                      // '#rainbow-gradient' and, when it matched, wrote out a
-                      // seven-hex gradient inline - a second copy of the
-                      // rainbow that no guard read and that could not be
-                      // retuned from the token layer.
-                      background: config.backgroundGradient ?? config.backgroundColor
-                    }}
                 />
             ))}
 

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { canvasFont, ensureDisplayFontLoaded, type } from '../tokens.js';
-import { read, relativeToSrc, sourceFiles, stringLiteralsIn, stripComments } from '../../test/sourceFiles.js';
+import { read, relativeToSrc, sourceFiles, stringLiteralsIn, stripComments, stylesheetFiles } from '../../test/sourceFiles.js';
 
 // Not `fileURLToPath(new URL('../fonts.css', import.meta.url))`: Vite's
 // import-analysis plugin statically recognizes that exact
@@ -60,11 +60,18 @@ describe('fonts', () => {
  * quietly rendering as whatever the fallback happens to be.
  */
 describe('stylesheets name only tokenized font families', () => {
-  const styleDir = join(here, '..') + '/';
-  const EXEMPT = new Set(['tokens.generated.css', 'fonts.css']);
-
+  // Every stylesheet under `src/`, derived by walking (see
+  // src/test/sourceFiles.js). The previous non-recursive
+  // `readdirSync(src/style)` could not see a stylesheet colocated with its
+  // component - `component/GameRendering/ProbePanel.css` declaring
+  // `font-family: "Comic Sans MS"` passed this guard without being read at
+  // all. Same defect as the `.jsx` seam, in the CSS half.
   function stylesheets() {
-    return readdirSync(styleDir).filter((f) => f.endsWith('.css') && !EXEMPT.has(f));
+    return stylesheetFiles().map(relativeToSrc);
+  }
+
+  function readStylesheet(rel) {
+    return readFileSync(join(here, '..', '..', rel), 'utf8');
   }
 
   it('finds stylesheets to check', () => {
@@ -72,7 +79,7 @@ describe('stylesheets name only tokenized font families', () => {
   });
 
   it.each(stylesheets())('%s declares font-family only via var(--type-*)', (file) => {
-    const css = readFileSync(styleDir + file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const css = readStylesheet(file).replace(/\/\*[\s\S]*?\*\//g, '');
     const declarations = [...css.matchAll(/font-family:\s*([^;]+);/g)].map((m) => m[1].trim());
     const untokenized = declarations.filter((value) => !/^var\(--type-[a-z-]+\)$/.test(value));
     expect(untokenized, `${file} names a font family outside the token layer: ${untokenized.join(', ')}`).toEqual([]);
@@ -83,7 +90,7 @@ describe('stylesheets name only tokenized font families', () => {
   // family and passed silently - latent today (nothing uses the shorthand),
   // and closed here rather than left as the next instance of this pattern.
   it.each(stylesheets())('%s does not smuggle a family in via the font: shorthand', (file) => {
-    const css = readFileSync(styleDir + file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const css = readStylesheet(file).replace(/\/\*[\s\S]*?\*\//g, '');
     const shorthands = [...css.matchAll(/(?:^|[;{\s])font:\s*([^;}]+)/g)].map((m) => m[1].trim());
     expect(shorthands, `${file} uses the font: shorthand: ${shorthands.join(', ')}`).toEqual([]);
   });
