@@ -534,3 +534,64 @@ tokens and that scale arithmetic is whole — never that a screen looks right. R
 looking wrong, from the final review: the lobby map's five moved zone hues and new backdrop washes; the
 base wall against the terrain; lane bands at 1.146:1 possibly reading as "nothing shipped"; two
 typefaces per frame if the canvas font fails to load; recharging cards; `Mortar` at portrait width.
+
+## Found 2026-08-17 while diagnosing owner play-test feedback
+
+### 26. Spawn intervals reach 25 enemies per second, and maxActiveEnemies is never enforced
+
+The owner reported: "The game spawning logic also need improvements, it spawn so often, and that some
+of the zombie movements are way faster that it is hard to defend."
+
+Measured. **40 hand-written wave configs sit below 300ms**, escalating by level:
+
+| Level | Fastest interval | Spawns/second |
+|---|---|---|
+| 12-13 | 200-250ms | 4-5 |
+| 14-16 | 140-180ms | 5.6-7.1 |
+| 17 | 100ms | 10 |
+| 18 | 60ms | 16.7 |
+| 20 | **40ms** | **25** |
+
+Two things make this worse than a steep curve:
+
+- **`maxActiveEnemies` is not checked at the spawn gate.** `WaveManager.spawnWaveEnemies` returns early
+  only on `waveEnemiesSpawned >= waveConfig.enemyCount` and on the interval. Nothing caps how many
+  enemies are alive at once, so the interval alone governs the field.
+- **Hand-written configs bypass the floors the generated ones have.** `WaveManager` clamps its own
+  generated intervals with `Math.max(500, …)` and `Math.max(300, …)`, but a `waveConfigurations` entry
+  is used verbatim. The two paths disagree about what a safe minimum is.
+
+On speed: enemy movement runs 0.1-1.6, with FastEnemy at 1.5 and SwarmLeader at 1.6 against a basic
+zombie's 0.8 — close to 2x. That is defensible on its own and punishing alongside a sub-200ms interval.
+
+**Note for whoever tunes this:** `speed: 12` appears twice in `EnemyUnits.js` and is *not* enemy
+movement — it is fireball and icebolt projectile speed in `MageEnemy`. An earlier diagnosis of mine
+mistook it for a movement outlier. Do not "fix" it.
+
+Belongs with the balance pass (issue 10), alongside 14, 16, 17 and 18.
+
+### 27. The settings screen is the only blue-accented screen in the game
+
+The owner reported it "seems unrelated to the game… like an isolated area."
+
+Counted across every stylesheet:
+
+| Stylesheet | `accent-info` (blue) | `accent-energy` (gold) |
+|---|---|---|
+| AchievementPage | 0 | 18 |
+| GameBoard | 0 | 16 |
+| Lobby | 8 | 32 |
+| UpgradeModal | 7 | 11 |
+| CollectionPage | 5 | 6 |
+| **SettingModal** | **14** | **0** |
+
+Every other screen is gold-dominant. `SettingModal.css` uses blue fourteen times and gold not once —
+headings, sliders, the selected quality button, and Apply.
+
+The cause is a role error in the token conversion, not a bad token. Blue is the **informational** accent
+(frost, information); gold is the primary accent (energy, currency, stars, primary action). The settings
+screen's original colours were blue-ish, so the conversion preserved the hue where it should have mapped
+the role.
+
+Fix is small: primary actions and headings take `accent-energy`, and blue is kept for anything genuinely
+informational. Worth checking `CollectionPage` and `UpgradeModal` for the same error while there.
