@@ -7,6 +7,7 @@
     height: 100%;
     background-color: var(--colors-surface-base);
     color: var(--colors-text-primary);
+    font-family: var(--type-body);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -91,6 +92,7 @@
 
 .category-title {
     text-align: center;
+    font-family: var(--type-display);
     color: var(--colors-accent-energy);
     margin-bottom: 30px;
     font-size: 1.8rem;
@@ -144,6 +146,7 @@
 
 .achievement-title {
     margin: 0;
+    font-family: var(--type-display);
     font-size: 1.3rem;
     color: var(--colors-accent-energy);
 }
