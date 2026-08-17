@@ -83,6 +83,28 @@ describe('card reads as a physical object', () => {
     const pressed = ruleMatching(rules, /:active/);
     expect(pressed.selector).toMatch(/:not\(\.disabled\)/);
   });
+
+  it('resolves the :active/.selected cascade tie explicitly rather than leaving it to file order', () => {
+    // `.card-container.selected` and a bare `.card-container:active` rule
+    // are equal-specificity two-class-equivalent selectors, so without a
+    // deliberate exclusion, whichever stylesheet happens to load later
+    // would silently decide what a pressed, already-selected card looks
+    // like - the same "measuring a rule the cascade discards" failure mode
+    // as the Task 3 contrast bug. Rejects a `:active` rule with no
+    // `:not(.selected)` guard.
+    const pressed = ruleMatching(rules, /:active/);
+    expect(pressed.selector).toMatch(/:not\(\.selected\)/);
+  });
+
+  it('scopes the fast press transition to :active, leaving .selected at its original timing', () => {
+    // Rejects a global transition-speed change on the base `.card-container`
+    // rule (e.g. `transition: transform 60ms, box-shadow 60ms` on the base
+    // rule), which would also speed up .selected's pre-existing lift/glow
+    // animation - nobody asked for that, only the press needed to be snappy.
+    expect(base.body).toMatch(/transition:\s*all\s+0\.3s/);
+    const pressed = ruleMatching(rules, /:active/);
+    expect(pressed.body).toMatch(/transition:\s*transform\s+60ms/);
+  });
 });
 
 describe('recharge is shown on the card itself, not beside it', () => {

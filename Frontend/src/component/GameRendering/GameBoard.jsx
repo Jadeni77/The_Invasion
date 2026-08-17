@@ -576,6 +576,11 @@ const GameBoard = () => {
             const cooldown = cardCooldown[card.id] || 0;
             const cooldownPercent =
               cooldown > 0 ? (cooldown / getCooldownDuration(card)) * 100 : 0;
+            // Fraction of the recharge still remaining: 1 right after
+            // deploying, counting down to 0 as the card becomes ready again.
+            // Card.jsx turns this into --sweep-angle, so the on-card overlay
+            // uncovers the card as it recharges rather than covering it.
+            const cooldownFraction = cooldownPercent / 100;
             const isDisabled = cooldown > 0 || inGameEnergy < card.cost;
 
             return (
@@ -585,6 +590,7 @@ const GameBoard = () => {
                   onClick={() => handleCardSelection(card)}
                   selected={selectedCard?.id === card.id && !shovelMode}
                   disabled={isDisabled}
+                  cooldownFraction={cooldownFraction}
                 />
 
                 {cooldown > 0 && (
