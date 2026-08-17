@@ -4,6 +4,7 @@ import { useGame } from "../GameLogic (MVC)/GameContext"; // Correct path
 import ResourceIcon from "./ResourceIcon"; // Correct path
 import EnergyBar from "./EnergyBar"; // Correct path
 import UpgradeModal from "./LobbyButton/UpgradeModal.jsx"; // Correct path
+import SettingModal from "./LobbyButton/SettingModal.jsx";
 import {
   levelsMapData,
   connectionsData,
@@ -26,6 +27,7 @@ const Lobby = () => {
     openUpgradeModal,
     openAchievements,
     openCollection,
+    openSettings,
     handleLogout,
     collectTreasure,
       unlockedDefender,
@@ -301,6 +303,7 @@ const Lobby = () => {
     );
   }
   if (gameState === "upgrade") return <UpgradeModal />;
+  if (gameState === "settings") return <SettingModal />;
 
   // Render Lobby UI
   return (
@@ -336,6 +339,10 @@ const Lobby = () => {
             <button className="menu-button settings" onClick={handleLogout}>
               <i className="icon-setting" />
               <span>Logout</span>
+            </button>
+            <button className="menu-button open-settings" onClick={openSettings}>
+              <i className="icon-setting" />
+              <span>Settings</span>
             </button>
           </div>
         </div>

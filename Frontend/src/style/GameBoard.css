@@ -453,6 +453,13 @@
   font-size: 1.2em;
 }
 
+.stars-value {
+  font-family: var(--type-display);
+  font-size: var(--type-size-xl);
+  color: var(--colors-accent-energy);
+  line-height: var(--type-line-tight);
+}
+
 .rewards-section h3 {
   text-align: center;
   margin-bottom: 15px;

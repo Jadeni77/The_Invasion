@@ -695,16 +695,20 @@
   position: absolute;
   bottom: -15px;
   display: flex;
-  gap: 2px;
+  gap: var(--space-xs);
+  justify-content: center;
 }
 
 .star {
-  color: var(--colors-text-muted);
-  font-size: 12px;
+  color: var(--colors-surface-sunken);
+  text-shadow: 0 1px 0 var(--colors-edge-outline);
+  font-size: var(--type-size-md);
+  line-height: 1;
 }
 
 .star.earned {
   color: var(--colors-accent-energy);
+  text-shadow: 0 2px 0 var(--colors-edge-outline);
 }
 
 /* Endless Portal */
