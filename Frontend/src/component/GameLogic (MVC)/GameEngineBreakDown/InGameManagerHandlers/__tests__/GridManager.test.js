@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { GridManager } from '../GridManager.js';
+import { GridManager, MIN_CELL_PX } from '../GridManager.js';
 
 describe('GridManager', () => {
     let grid;
@@ -79,10 +79,11 @@ describe('GridManager', () => {
             }
         });
 
-        it('should enforce minimum grid size of 40', () => {
+        it('should enforce a minimum grid size of MIN_CELL_PX', () => {
             const tinyGrid = new GridManager(100, 100, 6);
             tinyGrid.initializeGrid();
-            expect(tinyGrid.gridSize).toBeGreaterThanOrEqual(40);
+            expect(tinyGrid.gridSize).toBeGreaterThanOrEqual(MIN_CELL_PX);
+            expect(tinyGrid.gridSize).toBe(MIN_CELL_PX);
         });
 
         it('should cap grid size at 80', () => {

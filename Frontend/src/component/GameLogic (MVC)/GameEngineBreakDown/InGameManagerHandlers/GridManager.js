@@ -1,6 +1,34 @@
 import { colors, withAlpha } from '../../../../style/tokens.js';
 
 /**
+ * The post-crop frame size of a defender sprite. AssetManifest.defenders
+ * crops every animation frame down to 48x48 (see each entry's cropConfig),
+ * uniformly across all defender types and animations.
+ */
+export const SPRITE_NATIVE_PX = 48;
+
+/**
+ * The native frame size of an enemy sprite. AssetManifest.enemies carries no
+ * cropConfig at all - enemy frames are drawn at their raw imported size,
+ * which is not uniform: frame width varies by enemy type from 64 to 100px
+ * (e.g. Basic Zombie's attack sheet is 80x64), but frame height is 64px for
+ * every enemy animation in the manifest. 64 is the one invariant across the
+ * whole enemy roster, so it is the number the enemy-side integer scale is
+ * built on.
+ */
+export const ENEMY_NATIVE_PX = 64;
+
+/**
+ * Cells never go below the larger of the two native sizes, so neither side's
+ * art ever has to draw smaller than its own native frame (which would force
+ * upscaling past 1x) nor overflow the cell (which a too-small floor would
+ * allow for whichever side has the bigger native size). Pixel art at a
+ * fractional scale gives uneven pixel rows, which is what this exists to
+ * prevent.
+ */
+export const MIN_CELL_PX = Math.max(SPRITE_NATIVE_PX, ENEMY_NATIVE_PX);
+
+/**
  * This class represent the grid cells of the in game board. Including
  * importance of initializing a grid and resetting a grid.
  */
@@ -54,8 +82,8 @@ export class GridManager {
             80  // Maximum grid size cap
         );
 
-        if (this.gridSize < 40) {
-            this.gridSize = 40; //minimun for playability
+        if (this.gridSize < MIN_CELL_PX) {
+            this.gridSize = MIN_CELL_PX; // never smaller than the largest native sprite it holds
         }
 
         // Center the grid in the available space

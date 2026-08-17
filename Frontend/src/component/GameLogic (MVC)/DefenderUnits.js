@@ -6,6 +6,7 @@ import { getSettings } from "./Feedback/SettingsStore.js";
 import { frameDurationMs } from "./Animation/AttackPlayback.js";
 import { frameDeltaMs, frameScale } from "./Animation/FrameTime.js";
 import { colors, decorative, withAlpha, withFlicker } from '../../style/tokens.js';
+import { SPRITE_NATIVE_PX } from './GameEngineBreakDown/InGameManagerHandlers/GridManager.js';
 
 export class DefenderUnit {
   constructor(x, y, cardData = {}) {
@@ -302,12 +303,16 @@ export class DefenderUnit {
       const frames = this.animationFrames[this.currentAnimation];
       if (frames && frames[this.animationFrame]) {
         try {
+          const scale = Math.max(1, Math.floor(this.width / SPRITE_NATIVE_PX));
+          const drawn = SPRITE_NATIVE_PX * scale;
+          const insetX = Math.round((this.width - drawn) / 2);
+          const insetY = Math.round((this.height - drawn) / 2);
           ctx.drawImage(
             frames[this.animationFrame],
-            this.x,
-            this.y,
-            this.width,
-            this.height,
+            this.x + insetX,
+            this.y + insetY,
+            drawn,
+            drawn,
           );
         } catch (e) {
           console.error("Failed to draw frame:", e);

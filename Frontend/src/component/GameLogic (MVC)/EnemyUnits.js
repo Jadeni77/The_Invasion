@@ -21,6 +21,7 @@ import {
 } from "./Animation/AttackPlayback.js";
 import { frameDeltaMs, frameScale } from "./Animation/FrameTime.js";
 import { colors, decorative, withAlpha } from '../../style/tokens.js';
+import { ENEMY_NATIVE_PX } from './GameEngineBreakDown/InGameManagerHandlers/GridManager.js';
 
 export class Enemy {
   constructor(x, y, typeData = {}) {
@@ -421,12 +422,16 @@ export class Enemy {
       const frames = this.animationFrames[this.currentAnimation];
       if (frames && frames[this.animationFrame]) {
         try {
+          const scale = Math.max(1, Math.floor(this.width / ENEMY_NATIVE_PX));
+          const drawn = ENEMY_NATIVE_PX * scale;
+          const insetX = Math.round((this.width - drawn) / 2);
+          const insetY = Math.round((this.height - drawn) / 2);
           ctx.drawImage(
               frames[this.animationFrame],
-              this.x,
-              this.y,
-              this.width,
-              this.height
+              this.x + insetX,
+              this.y + insetY,
+              drawn,
+              drawn
           );
         } catch (e) {
           console.error('Failed to draw frame:', e);
