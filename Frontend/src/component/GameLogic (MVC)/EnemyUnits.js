@@ -2330,9 +2330,11 @@ export class TitanEnemy extends Enemy {
     this.isAttacking = true;
     this.beginAttackAnimation();
 
-    // Emitted at the START of the wind-up, 500ms before any damage. A sound
-    // that arrives with the damage explains a death; this one can prevent it.
-    this.gameEngine?.emitFeedback?.('enemy:groundPoundCharge', { unitType: this.constructor.name });
+    // The wind-up used to also emit 'enemy:groundPoundCharge' here, a rising
+    // synth tone 500ms before the impact - dropped per the owner's ask ("can
+    // we only keep the earthquake sound without the initial beep?"). The
+    // wind-up is now silent; the animation above is the only warning before
+    // damage lands.
 
     //charge up animation
     setTimeout(() => {

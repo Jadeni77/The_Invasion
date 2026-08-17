@@ -188,22 +188,13 @@ describe('the earthquake damages every live defender, whatever the array order',
   });
 });
 
-describe('the ground pound is audible before it lands', () => {
-  it('emits a charge event the moment the wind-up starts', () => {
-    const engine = createEngine();
-    const titan = createTitan(engine);
-    engine.defenders = [createDefender()];
-
-    titan.performGroundPound();
-
-    // Before any timer runs: the charge sound is the cue to move a defender
-    // out, so it is worth nothing if it arrives with the damage.
-    expect(engine.emitFeedback).toHaveBeenCalledWith(
-      'enemy:groundPoundCharge',
-      { unitType: 'TitanEnemy' },
-    );
-    expect(eventsNamed(engine, 'enemy:groundPoundImpact')).toHaveLength(0);
-  });
+describe('the ground pound impact is audible when it lands', () => {
+  // The wind-up used to also emit 'enemy:groundPoundCharge', a separate sound
+  // 500ms before the impact - dropped per the owner's ask ("can we only keep
+  // the earthquake sound without the initial beep?"). The wind-up itself is
+  // silent now; only the impact still makes a sound. See
+  // 'produces exactly one sound for the whole pound: the impact, no charge'
+  // below, which pins that directly against the real audio-routing path.
 
   it('emits the impact when the first wave actually lands', () => {
     const engine = createEngine();
@@ -235,17 +226,6 @@ describe('the ground pound is audible before it lands', () => {
     expect(eventsNamed(engine, 'enemy:groundPoundImpact')).toHaveLength(1);
   });
 
-  it('emits one charge per pound, not one per defender in range', () => {
-    const engine = createEngine();
-    const titan = createTitan(engine);
-    engine.defenders = [createDefender(), createDefender(), createDefender()];
-
-    titan.performGroundPound();
-    vi.advanceTimersByTime(POUND_MS);
-
-    expect(eventsNamed(engine, 'enemy:groundPoundCharge')).toHaveLength(1);
-  });
-
   it('stays silent about an impact the Titan died before delivering', () => {
     const engine = createEngine();
     const titan = createTitan(engine);
@@ -255,7 +235,6 @@ describe('the ground pound is audible before it lands', () => {
     titan.isAlive = false;
     vi.advanceTimersByTime(POUND_MS);
 
-    expect(eventsNamed(engine, 'enemy:groundPoundCharge')).toHaveLength(1);
     expect(eventsNamed(engine, 'enemy:groundPoundImpact')).toHaveLength(0);
   });
 
@@ -433,19 +412,21 @@ describe('what the player actually hears, through the real feedback path', () =>
     return { engine, audio, juice };
   }
 
-  it('plays a charge sound, then a different impact sound', () => {
+  it('produces exactly one sound for the whole pound: the impact, no charge', () => {
+    // The owner's ask, verbatim: "can we only keep the earthquake sound
+    // without the initial beep?" The wind-up used to play a separate rising
+    // synth tone (quake-charge) 500ms before the impact; that event no longer
+    // exists, so the only sound the ability makes is the impact landing. If a
+    // future change reintroduces a wind-up emit, this goes from one call to
+    // two and fails.
     const { engine, audio } = createWiredEngine();
     const titan = createTitan(engine);
     engine.defenders = [createDefender()];
 
     titan.performGroundPound();
-    expect(audio.playRecipe).toHaveBeenCalledWith(
-      resolveVoice('quake-charge', 'charge'),
-      'quake-charge:charge',
-      mixGainFor('quake-charge'),
-    );
+    vi.advanceTimersByTime(POUND_MS);
 
-    vi.advanceTimersByTime(CHARGE_MS);
+    expect(audio.playRecipe).toHaveBeenCalledTimes(1);
     expect(audio.playRecipe).toHaveBeenCalledWith(
       resolveVoice('quake-impact', 'impact'),
       'quake-impact:impact',
@@ -467,7 +448,7 @@ describe('what the player actually hears, through the real feedback path', () =>
     );
   });
 
-  it('none of the three fall back to the generic projectile sound', () => {
+  it('neither ability falls back to the generic projectile sound', () => {
     // Rejects a missing soundKeyFor branch. Every unknown variant resolves to
     // 'projectile' by design, so a typo'd or unrouted variant is not silent -
     // it is a bow twang under a boss's earthquake, which is worse.
@@ -480,7 +461,6 @@ describe('what the player actually hears, through the real feedback path', () =>
     titan.takeDamage(damageToReach(titan, 0.66));
 
     const keys = audio.playRecipe.mock.calls.map((call) => call[1]);
-    expect(keys).not.toContain('projectile:charge');
     expect(keys).not.toContain('projectile:impact');
     expect(keys).not.toContain('projectile:phase');
   });

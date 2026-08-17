@@ -278,11 +278,18 @@ describe('the Titan ability variants', () => {
   /**
    * The Titan's ground pound and phase transition were silent in play. They
    * resolve by VARIANT rather than by unit, the way hit and melee do, because
-   * what the player needs to recognise is the ABILITY - a heavy wind-up, that
-   * thing landing, a boss escalating - not which unit produced it.
+   * what the player needs to recognise is the ABILITY - a board-wide slam
+   * landing, a boss escalating - not which unit produced it.
+   *
+   * A third variant, 'charge', used to resolve here too (-> 'quake-charge'):
+   * a separate sound for the ground pound's 500ms wind-up. Dropped per the
+   * owner's ask ("can we only keep the earthquake sound without the initial
+   * beep?") - soundKeyFor no longer has a branch for it, so it now falls
+   * through to the generic firing branch like any other unrouted variant
+   * (see 'resolution safety' above), which is moot in practice because
+   * nothing emits the 'charge' variant any more.
    */
   it.each([
-    ['charge', 'quake-charge'],
     ['impact', 'quake-impact'],
     ['phase', 'phase-change'],
   ])('resolves the %s variant to the %s sound', (variant, expected) => {
@@ -293,9 +300,9 @@ describe('the Titan ability variants', () => {
     expect(soundKeyFor('TitanEnemy', variant)).not.toBe('projectile');
   });
 
-  it('gives the three abilities three different sounds', () => {
-    const keys = new Set(['charge', 'impact', 'phase'].map((v) => soundKeyFor('TitanEnemy', v)));
-    expect(keys.size).toBe(3);
+  it('gives the two abilities two different sounds', () => {
+    const keys = new Set(['impact', 'phase'].map((v) => soundKeyFor('TitanEnemy', v)));
+    expect(keys.size).toBe(2);
   });
 
   it('leaves the Titan\'s firing, melee, hit and death sounds alone', () => {
@@ -305,17 +312,17 @@ describe('the Titan ability variants', () => {
     expect(soundKeyFor('TitanEnemy', 'melee')).toBe('melee');
   });
 
-  it('puts all three in the loud tier, with the big moments', () => {
+  it('puts both in the loud tier, with the big moments', () => {
     // These are the two most consequential things that happen to a player's
     // board - 135 damage inside 350px, and a five-second disable inside
     // 1500px - so they belong at baseDamaged's level, not at an attack's.
-    for (const variant of ['charge', 'impact', 'phase']) {
+    for (const variant of ['impact', 'phase']) {
       expect(mixGainFor(soundKeyFor('TitanEnemy', variant)), variant).toBe(mixGainFor('baseDamaged'));
     }
   });
 
   it('does not throw on a null or undefined unit name', () => {
-    for (const variant of ['charge', 'impact', 'phase']) {
+    for (const variant of ['impact', 'phase']) {
       expect(() => soundKeyFor(null, variant)).not.toThrow();
       expect(() => soundKeyFor(undefined, variant)).not.toThrow();
     }
@@ -326,8 +333,8 @@ describe('the Mortar\'s shell landing', () => {
   /**
    * The owner's rule, verbatim: "Eagle Artillery should all belong to the
    * Mortar only, and the earthquake belongs to the Titan only." The landing
-   * resolves by VARIANT rather than by unit, the same reasoning charge/impact/
-   * phase above already follow - only the Mortar reaches 'landing' today.
+   * resolves by VARIANT rather than by unit, the same reasoning impact/phase
+   * above already follow - only the Mortar reaches 'landing' today.
    */
   it('resolves the landing variant to mortar-impact', () => {
     // Rejects: a missing branch in soundKeyFor. Without one the variant falls

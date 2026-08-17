@@ -60,14 +60,20 @@ describe('SAMPLE_VARIANTS', () => {
   });
 });
 
-describe('the Titan ability variants (charge, impact, phase)', () => {
-  // Prior to this task these three had no SAMPLE_VARIANTS entry at all, so
-  // playUnitVoice's `SAMPLE_VARIANTS[variant] ?? SAMPLE_VARIANTS.fire`
-  // fallback would hand any future sample dropped under quake-charge,
-  // quake-impact or phase-change the untouched fire transform: full gain,
-  // full length. The suite passed throughout because no such sample existed
-  // to expose it - the exact "melee-variant trap" this file's SAMPLE_VARIANTS
-  // header now calls out.
+describe('the Titan ability variants (impact, phase)', () => {
+  // Prior to the clash-samples task these two had no SAMPLE_VARIANTS entry at
+  // all, so playUnitVoice's `SAMPLE_VARIANTS[variant] ?? SAMPLE_VARIANTS.fire`
+  // fallback would hand any future sample dropped under quake-impact or
+  // phase-change the untouched fire transform: full gain, full length. The
+  // suite passed throughout because no such sample existed to expose it - the
+  // exact "melee-variant trap" this file's SAMPLE_VARIANTS header now calls
+  // out.
+  //
+  // A third variant, 'charge', used to sit here too (SAMPLE_VARIANTS.charge,
+  // for a hypothetical future quake-charge sample). Removed along with the
+  // 'charge' variant itself - UNIT_VOICES['quake-charge'], the soundKeyFor
+  // branch that reached it, and the event that supplied it - per the owner's
+  // ask ("can we only keep the earthquake sound without the initial beep?").
 
   it('gives the impact a lower gainScale than fire, so a hot-mastered sample is not louder than the "too loud" synth version', () => {
     // Rejects: leaving SAMPLE_VARIANTS.impact at gainScale 1 (fire's value).
@@ -80,15 +86,6 @@ describe('the Titan ability variants (charge, impact, phase)', () => {
     expect(SAMPLE_VARIANTS.impact.gainScale).toBe(0.6);
   });
 
-  it('keeps the charge quieter than the impact, the relationship the synth recipe authors', () => {
-    // UNIT_VOICES['quake-charge'].gain (0.30) sits below quake-impact's
-    // (0.60) on purpose - "the wind-up should read as the thing before the
-    // thing" (UnitVoices.js). The sample transform preserves that ordering
-    // rather than making both equally loud.
-    expect(SAMPLE_VARIANTS.charge.gainScale).toBeLessThan(SAMPLE_VARIANTS.impact.gainScale);
-    expect(SAMPLE_VARIANTS.charge.gainScale).toBe(0.45);
-  });
-
   it('gives phase-change the same conservative gain, ahead of any sample being supplied for it', () => {
     // No phase-change sample ships with this task (see the audio README) -
     // but the LOUD-tier-meets-hot-sample problem this fixes is a property of
@@ -97,23 +94,20 @@ describe('the Titan ability variants (charge, impact, phase)', () => {
     expect(SAMPLE_VARIANTS.phase.gainScale).toBe(0.6);
   });
 
-  it('does not truncate charge, impact or phase - their files were pre-trimmed with ffmpeg, not scaled here', () => {
+  it('does not truncate impact or phase - their files were pre-trimmed with ffmpeg, not scaled here', () => {
     // durationScale < 1 makes playSample fade continuously across the WHOLE
     // truncated length (see AudioManager.playSample's `durationScale < 1`
     // branch) rather than holding level and releasing only over a short
     // tail - right for a sound meant to mask a 35%-length cut (hit), wrong
     // for one meant to hold its own shape for the better part of a second.
-    // The 3.91s Earthquake_Spell.ogg and 3.06s EagleArtillery_Charge.ogg were
-    // trimmed to their ability windows (~1.2s, ~0.45s) before being
-    // committed, so durationScale here stays 1 - full length, held-then-
-    // released - like fire and death.
-    expect(SAMPLE_VARIANTS.charge.durationScale).toBe(1);
+    // The 3.91s Earthquake_Spell.ogg was trimmed to the impact's ability
+    // window (~1.2s) before being committed, so durationScale here stays 1 -
+    // full length, held-then-released - like fire and death.
     expect(SAMPLE_VARIANTS.impact.durationScale).toBe(1);
     expect(SAMPLE_VARIANTS.phase.durationScale).toBe(1);
   });
 
-  it('does not pitch-shift charge, impact or phase', () => {
-    expect(SAMPLE_VARIANTS.charge.playbackRate).toBe(1);
+  it('does not pitch-shift impact or phase', () => {
     expect(SAMPLE_VARIANTS.impact.playbackRate).toBe(1);
     expect(SAMPLE_VARIANTS.phase.playbackRate).toBe(1);
   });
@@ -121,11 +115,21 @@ describe('the Titan ability variants (charge, impact, phase)', () => {
   it('stays within the valid multiplier ranges, like every other variant', () => {
     // The generic "every variant is within valid multiplier ranges" test
     // above already walks Object.entries(SAMPLE_VARIANTS), so it covers
-    // these three automatically once they exist - this pins the fact that it
+    // these two automatically once they exist - this pins the fact that it
     // does, rather than only relying on it silently.
     expect(Object.keys(SAMPLE_VARIANTS)).toEqual(
-      expect.arrayContaining(['charge', 'impact', 'phase']),
+      expect.arrayContaining(['impact', 'phase']),
     );
+  });
+
+  it('no longer has a charge entry - nothing reaches it any more', () => {
+    // Rejects: leaving SAMPLE_VARIANTS.charge behind as dead weight after the
+    // 'charge' variant and everything that reached it (UNIT_VOICES entry,
+    // soundKeyFor branch, the groundPoundCharge event and its FeedbackManager
+    // route) were removed. A stray entry here would sit unreachable, exactly
+    // the kind of leftover configuration this project has repeatedly had to
+    // clean up after the fact.
+    expect(SAMPLE_VARIANTS).not.toHaveProperty('charge');
   });
 });
 
@@ -154,7 +158,7 @@ describe('every variant soundKeyFor special-cases has a sample transform', () =>
     // Pins the derived set: if soundKeyFor's branches are reformatted in a
     // way the regex stops matching, this fails loudly instead of the
     // it.each below silently shrinking to nothing.
-    expect(variants.sort()).toEqual(['charge', 'death', 'hit', 'impact', 'landing', 'melee', 'phase']);
+    expect(variants.sort()).toEqual(['death', 'hit', 'impact', 'landing', 'melee', 'phase']);
   });
 
   it.each(branchedVariants(soundGroupsSource))('%s has a SAMPLE_VARIANTS entry', (variant) => {
@@ -193,7 +197,7 @@ describe('the landing variant (the Mortar\'s shell landing)', () => {
     // meant to hold its own shape. mortar-impact.wav was trimmed to its
     // attack transient plus a short release (~0.58s) before being committed,
     // so durationScale stays 1 - full length, held then released - like fire,
-    // death, charge, impact and phase.
+    // death, impact and phase.
     expect(SAMPLE_VARIANTS.landing.durationScale).toBe(1);
     expect(SAMPLE_VARIANTS.landing.playbackRate).toBe(1);
   });
