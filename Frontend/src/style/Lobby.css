@@ -25,6 +25,19 @@
   transition: transform 0.1s ease-out;
 }
 
+/* Darkens the terrain's edges so the eye settles on the route, not the map's
+   own boundary. Sits above every zone's ground/ridge/fore (z-index 5) and
+   below the interactive layer (chests at 8, nodes at 10, the portal at 15),
+   so it never dims what the player can click. */
+.game-map::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: radial-gradient(130% 100% at 50% 45%, transparent 52%, var(--terrain-vignette) 100%);
+}
+
 .level-node {
   cursor: pointer;
 }
@@ -492,53 +505,75 @@
 /* Zone backgrounds */
 .zone-background {
   position: absolute;
-  opacity: 0.1;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+/*
+ * The grain wash in each rule below is mixed from that same zone's own
+ * `--terrain-groundN-top`, not a semantic `--colors-accent-*` token: an
+ * accent used as page-scale ground is what flattened the map into a green
+ * rectangle in the first place (see the guard in noRawColours.test.js and the
+ * accent check in TerrainLayers.test.jsx). Grain still varies zone to zone
+ * because it is mixed from that zone's own hue, just without borrowing a
+ * token that means something else.
+ */
+.zone-tutorial {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground1-top) 5%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground1-top) 0%, var(--terrain-ground1-mid) 42%, var(--terrain-ground1-bot) 100%);
+}
+.zone-early {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground2-top) 5%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground2-top) 0%, var(--terrain-ground2-mid) 42%, var(--terrain-ground2-bot) 100%);
+}
+.zone-mid {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground3-top) 4%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground3-top) 0%, var(--terrain-ground3-mid) 42%, var(--terrain-ground3-bot) 100%);
+}
+.zone-late {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground4-top) 5%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground4-top) 0%, var(--terrain-ground4-mid) 42%, var(--terrain-ground4-bot) 100%);
+}
+.zone-endgame {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground5-top) 6%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground5-top) 0%, var(--terrain-ground5-mid) 42%, var(--terrain-ground5-bot) 100%);
+}
+
+/*
+ * Depth layers inside each zone backdrop - inline SVG, so their fills read
+ * token colours. Stacking (lowest first): the flat ground gradient above
+ * (.zone-background itself, z-index auto) < .zone-ridge (distant hills,
+ * z-index 1) < the mid-ground props Task 6 adds between the ridge and the
+ * foreground (reserved z-index 2-3) < .zone-fore (the nearest band, z-index
+ * 4) < .game-map::after's vignette (z-index 5, below every node) < the
+ * interactive layer (.treasure-chest z-index 8, .level-node z-index 10,
+ * .endless-portal z-index 15 - all pre-existing, untouched here).
+ */
+.zone-ridge {
+  position: absolute;
+  left: -2%;
+  right: -2%;
+  top: 0;
+  height: 44%;
+  z-index: 1;
+  opacity: 0.5;
   pointer-events: none;
 }
 
-.zone-tutorial {
-  background: var(--colors-accent-success);
-  left: 150px;
-  top: 350px;
-  width: 400px;
-  height: 200px;
-  border-radius: 20px;
-}
-
-.zone-early {
-  background: var(--colors-accent-info);
-  left: 550px;
-  top: 250px;
-  width: 600px;
-  height: 200px;
-  border-radius: 20px;
-}
-
-.zone-mid {
-  background: var(--colors-surface-raised);
-  left: 1150px;
-  top: 300px;
-  width: 750px;
-  height: 250px;
-  border-radius: 20px;
-}
-
-.zone-late {
-  background: var(--colors-accent-danger);
-  left: 1200px;
-  top: 100px;
-  width: 700px;
-  height: 200px;
-  border-radius: 20px;
-}
-
-.zone-endgame {
-  background: var(--decorative-violet);
-  left: 750px;
-  top: 50px;
-  width: 450px;
-  height: 200px;
-  border-radius: 20px;
+.zone-fore {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22%;
+  z-index: 4;
+  pointer-events: none;
 }
 
 /* Level Nodes */

@@ -19,6 +19,39 @@ import CardSelectionModal from "./CardSelectionModal";
 import CloseChest from "../../Icons/CloseChest.png";
 import OpenChest from "../../Icons/OpenChest.png";
 
+/** Distant hills. Fills the upper third, which was dead space before. */
+const RIDGE_FAR = 'M0,150 L60,110 L120,135 L190,80 L260,120 L330,70 L400,115 L470,85 L540,125 L600,100 L600,200 L0,200Z';
+/** Nearer hills, drawn over RIDGE_FAR so the two read as depth. */
+const RIDGE_NEAR = 'M0,175 L80,145 L160,168 L240,130 L320,160 L410,125 L500,158 L600,138 L600,200 L0,200Z';
+/** Foreground lip. Frames the bottom; nearest, so darkest. */
+const FOREGROUND = 'M0,55 Q70,28 150,48 T310,40 T470,52 T600,35 L600,100 L0,100Z';
+
+/**
+ * Zones that actually carry ground, in the order the campaign progresses.
+ * `endless` is the portal at the far end, not a region - it renders no band,
+ * matching its historical absence (see the comment at the zone-backdrop map
+ * below).
+ */
+const TERRAIN_ZONES = Object.keys(zoneConfigs).filter((zone) => zone !== "endless");
+
+/**
+ * Equal-width vertical bands across the map's full width, one per terrain
+ * zone, left to right. Node positions (`levelsMapData`) weave a serpentine
+ * path across these bands rather than sitting neatly inside them - the bands
+ * give the ground its progression, the path is free to swing through it, the
+ * same relationship the approved mockup uses between its flex regions and its
+ * route line.
+ */
+function zoneBounds(zone) {
+  const index = TERRAIN_ZONES.indexOf(zone);
+  if (index === -1) return { display: "none" };
+  const bandWidth = mapSettings.mapWidth / TERRAIN_ZONES.length;
+  return {
+    left: `${index * bandWidth}px`,
+    width: `${bandWidth}px`,
+  };
+}
+
 const Lobby = () => {
   const {
     gameState,
@@ -414,20 +447,38 @@ const Lobby = () => {
           >
             {/* Zone backgrounds */}
             {/*
-              No inline style at all. Each backdrop's wash is `.zone-<key>` in
-              Lobby.css, alongside the position and size that rule already
-              carried. This previously compared `config.backgroundColor`
-              against the sentinel string '#rainbow-gradient' and, on a match,
-              wrote a seven-hex gradient inline - a second copy of the rainbow
-              that no guard read and that could not be retuned from the token
-              layer. `.zone-endless` deliberately has no rule: it never had a
-              box, so that div has always rendered nothing.
+              No inline colour at all - `zoneBounds` only ever returns
+              position (left/width, or `display: none` for the endless
+              portal), never a colour property, so it can't reintroduce the
+              override mechanism the comment below describes. Each backdrop's
+              wash is `.zone-<key>` in Lobby.css. This previously compared
+              `config.backgroundColor` against the sentinel string
+              '#rainbow-gradient' and, on a match, wrote a seven-hex gradient
+              inline - a second copy of the rainbow that no guard read and
+              that could not be retuned from the token layer. `.zone-endless`
+              deliberately has no rule and no bounds: it never had a box, so
+              that div has always rendered nothing.
+
+              Each region also carries a ridgeline (two SVG passes, far and
+              near) filling the upper third, and a foreground band framing
+              the bottom - the exact top-and-bottom dead space the owner
+              flagged on the first mockup. Both are inline SVG, not raster
+              images, so their fills take token colours via `var()`.
             */}
             {Object.keys(zoneConfigs).map((zone) => (
                 <div
                     key={`zone-${zone}`}
                     className={`zone-background zone-${zone}`}
-                />
+                    style={zoneBounds(zone)}
+                >
+                  <svg className="zone-ridge" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true">
+                    <path d={RIDGE_FAR} fill="var(--terrain-ridge-far)" />
+                    <path d={RIDGE_NEAR} fill="var(--terrain-ridge-near)" />
+                  </svg>
+                  <svg className="zone-fore" viewBox="0 0 600 100" preserveAspectRatio="none" aria-hidden="true">
+                    <path d={FOREGROUND} fill="var(--terrain-foreground)" />
+                  </svg>
+                </div>
             ))}
 
             {/* Connection lines */}
