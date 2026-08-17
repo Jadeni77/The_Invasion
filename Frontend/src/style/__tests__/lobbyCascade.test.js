@@ -22,7 +22,14 @@ describe('the lobby has one rule per container, not several fighting', () => {
   });
 
   it('uses no accent token as the map surface', () => {
-    const rule = css.slice(css.search(/^\s*\.game-map\s*\{/m));
-    expect(rule.slice(0, 400)).not.toMatch(/--colors-accent-/);
+    // Bounded by this rule's own closing brace, not a fixed character count:
+    // a window measured from the selector to file end (or any fixed length)
+    // depends on what happens to follow .game-map in the file, which is
+    // exactly the kind of position-dependent guard this project keeps
+    // finding and having to fix. .game-map's body has no nested braces
+    // (no @-rule inside it), so `[^}]*` reliably stops at its own `}`.
+    const [rule] = css.match(/^\s*\.game-map\s*\{[^}]*\}/m) ?? [];
+    expect(rule, 'no .game-map rule found').toBeTruthy();
+    expect(rule).not.toMatch(/--colors-accent-/);
   });
 });

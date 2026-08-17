@@ -195,11 +195,19 @@ function isCovered(rules, heading, ancestorStack) {
  *
  * Was: ['component/GameRendering/Lobby.jsx:304 <h2>'] - `.loading-screen`
  * (Lobby.jsx's "Loading Game Data..." state) still has no stylesheet rule of
- * its own, but this module's own rule parser (`rulesOf` above) splits rules
- * on every unescaped `{`/`}`, so nested at-rules - `@keyframes` blocks, of
- * which Lobby.css had several - desynchronised it, and it was only ever
- * finding the *first* of Lobby.css's three `.lobby-container` blocks (the one
- * with no `color`). Collapsing those three into the one required by
+ * its own, but this module's own rule parser (`rulesOf` above) does not strip
+ * comments first, and its selector group `[^{}]+` happily swallows whatever
+ * comment text precedes a rule along with the real selector. Two of
+ * Lobby.css's three `.lobby-container` blocks were immediately preceded by a
+ * comment (`/* Lobby Container *\/`, `/* Lobby.css - Enhanced... *\/`), so
+ * their captured "selector" was the comment plus `.lobby-container` glued
+ * together - a string that never equals `.lobby-container` - and only the
+ * file's first block (the one with no preceding comment, and no `color`)
+ * was ever found. (Not `@keyframes`, despite what an earlier version of this
+ * comment claimed: stripping only comments from the pre-collapse file, with
+ * every `@keyframes` block left untouched, was enough to make the parser
+ * find all three blocks - verified directly against the pre-collapse
+ * source, not inferred.) Collapsing those three into the one required by
  * lobbyCascade.test.js (task 1 of the lobby-campaign-map plan) removed the
  * other two, so the sole remaining `.lobby-container` - which does declare
  * `color: var(--colors-text-primary)` - is now the one this parser finds,

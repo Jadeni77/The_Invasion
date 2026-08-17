@@ -2,13 +2,27 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--space-sm);
+  width: 100%;
   height: 100vh;
   padding: var(--space-md);
   background: var(--colors-surface-base);
   font-family: var(--type-display);
   color: var(--colors-text-primary);
   box-sizing: border-box;
+}
+
+.game-map {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--colors-surface-sunken);
+  /* Preserved from the pre-collapse rule: Lobby.jsx sets
+     transition: isDragging ? 'none' : undefined on this element while
+     panning, and `undefined` falls back to whatever CSS declares - drop
+     this and releasing a drag snaps instead of easing back. */
+  transition: transform 0.1s ease-out;
 }
 
 .level-node {
@@ -1066,16 +1080,4 @@
   50% {
     transform: translateY(-10px);
   }
-}
-
-/* The terrain canvas: one declaration, collapsed from three conflicting
-   duplicates (see lobbyCascade.test.js). Placed here rather than beside
-   .lobby-container/.game-map-container above so it isn't immediately
-   followed by any of this file's many --colors-accent- rules; the guard
-   checks the text right after the selector, not just its own declarations. */
-.game-map {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  background: var(--colors-surface-sunken);
 }
