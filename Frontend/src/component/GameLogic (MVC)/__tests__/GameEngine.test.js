@@ -249,3 +249,85 @@ describe('adjacent deployment at small cell sizes', () => {
     ).toBe(false);
   });
 });
+
+/**
+ * removeDefenderAt is tested the same way as collectEnergy above: the real
+ * prototype method pulled onto a minimal fake with just the fields it
+ * touches, so the assertions track the real implementation instead of
+ * re-describing it.
+ *
+ * The hammer (GameBoard's shovel mode) had no sound at all. The fix is an
+ * emitFeedback call in removeDefenderAt itself, gated on a defender actually
+ * having been removed - a click on empty ground, or on a corpse, must stay
+ * silent, or the sound stops meaning "you removed something."
+ */
+function createFakeRemovalEngine(defenders, overrides = {}) {
+  return {
+    gameOver: false,
+    defenders,
+    gridManager: { getGridCell: vi.fn(() => ({ occupied: true })) },
+    emitFeedback: vi.fn(),
+    removeDefenderAt: GameEngine.prototype.removeDefenderAt,
+    ...overrides,
+  };
+}
+
+class FakeBasicDefender {}
+
+function makeDefender(overrides = {}) {
+  return Object.assign(new FakeBasicDefender(), {
+    x: 0, y: 0, width: 20, height: 20, isAlive: true,
+  }, overrides);
+}
+
+describe('GameEngine.removeDefenderAt', () => {
+  it('emits defender:removed with the removed unit type when a click actually removes one', () => {
+    const defender = makeDefender();
+    const engine = createFakeRemovalEngine([defender]);
+
+    const removed = engine.removeDefenderAt(10, 10);
+
+    expect(removed).toBe(true);
+    expect(engine.emitFeedback).toHaveBeenCalledWith('defender:removed', {
+      type: 'FakeBasicDefender',
+    });
+  });
+
+  it('does not emit when the click lands on empty ground', () => {
+    // Rejects: emitting unconditionally regardless of whether anything was
+    // actually removed, which would teach the player that this sound means
+    // nothing - it would fire on every miss the same as every hit.
+    const engine = createFakeRemovalEngine([]);
+
+    const removed = engine.removeDefenderAt(500, 500);
+
+    expect(removed).toBe(false);
+    expect(engine.emitFeedback).not.toHaveBeenCalled();
+  });
+
+  it('does not emit when the click lands on an already-dead defender', () => {
+    // Rejects: emitting based on "a defender's bounds were clicked" rather
+    // than "a defender was removed". removeDefenderAt refuses to remove a
+    // corpse, so the sound must refuse to play for one too.
+    const corpse = makeDefender({ isAlive: false });
+    const engine = createFakeRemovalEngine([corpse]);
+
+    const removed = engine.removeDefenderAt(10, 10);
+
+    expect(removed).toBeFalsy();
+    expect(engine.emitFeedback).not.toHaveBeenCalled();
+  });
+
+  it('frees the grid cell and still emits together, not one without the other', () => {
+    const defender = makeDefender();
+    const gridCell = { occupied: true };
+    const engine = createFakeRemovalEngine([defender], {
+      gridManager: { getGridCell: vi.fn(() => gridCell) },
+    });
+
+    engine.removeDefenderAt(10, 10);
+
+    expect(gridCell.occupied).toBe(false);
+    expect(engine.emitFeedback).toHaveBeenCalledOnce();
+  });
+});

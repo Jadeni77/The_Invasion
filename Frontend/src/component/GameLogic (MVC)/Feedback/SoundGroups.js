@@ -139,6 +139,16 @@ export const MIX_TIERS = {
   // playSfx rather than through unit resolution. The ids must match exactly or
   // the tier silently never applies.
   energyCollected: QUIET, defenderPlaced: QUIET, deployRejected: QUIET,
+  /**
+   * Removing a defender sits at MID, not beside defenderPlaced in the quiet
+   * tier. Placing happens constantly while setting up a board and has to stay
+   * out of the way; removing is a deliberate, consequential choice - giving up
+   * a unit already on the field - and the owner's ask was explicit that it
+   * should feel that way ("probably not the quiet tier"). MID puts it beside
+   * the other single-action sounds that matter without competing with
+   * baseDamaged or a Titan ability.
+   */
+  defenderRemoved: MID,
   waveStarted: MID, bossWaveStarted: MID,
   baseDamaged: LOUD, levelWon: LOUD, levelLost: LOUD,
 };

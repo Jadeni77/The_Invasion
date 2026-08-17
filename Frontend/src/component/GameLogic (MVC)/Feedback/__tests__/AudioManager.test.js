@@ -1059,6 +1059,107 @@ describe('playRecipe and playSample sharing state', () => {
   });
 });
 
+/**
+ * Amplitude modulation: a layer's GAIN oscillating a few times a second reads
+ * as low-frequency rumble even when its spectral energy sits well above the
+ * 200Hz laptop-speaker floor (see UnitVoices.js's header and the quake-impact
+ * rebuild). AudioManager has no LFO node - every envelope before this was
+ * exactly one setValueAtTime plus one exponentialRampToValueAtTime - so this
+ * is the repeated ramp pattern that expresses modulation with the two
+ * primitives already in use, rather than a new kind of node.
+ */
+describe('amplitude-modulated layers (rumble)', () => {
+  const MODULATED = {
+    wave: 'sawtooth', freqStart: 300, freqEnd: 260, duration: 0.4, gain: 0.5, noise: true,
+    modulationHz: 5, modulationDepth: 0.6,
+  };
+  const STATIC = { wave: 'sawtooth', freqStart: 300, freqEnd: 260, duration: 0.4, gain: 0.5, noise: true };
+
+  function readyAudio() {
+    const { ctx, made } = createMockContext();
+    const audio = new AudioManager(() => ctx);
+    audio.init();
+    audio.resume();
+    return { ctx, made, audio };
+  }
+
+  it('schedules more than one ramp for a modulated layer, not the single decay a static layer gets', () => {
+    // Rejects: an implementation that ignores modulationHz and falls through
+    // to the ordinary single-decay envelope - a static layer faking the
+    // effect rather than actually varying its gain.
+    const { made, audio } = readyAudio();
+    audio.playRecipe(MODULATED, 'quake-impact:rumble');
+
+    const envelope = made.gains[3];
+    expect(envelope.gain.exponentialRampToValueAtTime.mock.calls.length).toBeGreaterThan(2);
+  });
+
+  it('alternates the ramp target between a peak and a quieter trough, not a monotonic decay', () => {
+    // Rejects: an implementation that schedules several ramps but always
+    // toward a lower value (i.e. a staircase decay), which would not read as
+    // oscillation at all.
+    const { made, audio } = readyAudio();
+    audio.playRecipe(MODULATED, 'quake-impact:rumble');
+
+    const envelope = made.gains[3];
+    const values = envelope.gain.exponentialRampToValueAtTime.mock.calls.map(([value]) => value);
+    const body = values.slice(0, -1); // exclude the final fade-to-floor call
+    expect(body.length).toBeGreaterThan(1);
+    for (let i = 1; i < body.length; i++) {
+      expect(Math.abs(body[i] - body[i - 1])).toBeGreaterThan(0.05);
+    }
+  });
+
+  it('spaces the ramps at half the modulation period, so the rate is the authored one', () => {
+    // Rejects: modulation scheduled at an arbitrary or hard-coded rate rather
+    // than the layer's own modulationHz.
+    const { ctx, made, audio } = readyAudio();
+    ctx.currentTime = 2;
+    audio.playRecipe(MODULATED, 'quake-impact:rumble');
+
+    const envelope = made.gains[3];
+    const times = envelope.gain.exponentialRampToValueAtTime.mock.calls.map(([, t]) => t);
+    const halfPeriod = 1 / (2 * MODULATED.modulationHz);
+    for (let i = 1; i < times.length; i++) {
+      expect(times[i] - times[i - 1]).toBeCloseTo(halfPeriod, 5);
+    }
+  });
+
+  it('still ends faded to the floor exactly at the layer\'s scheduled end', () => {
+    // Rejects: modulation that never closes out, leaving the source stopped
+    // mid-cycle at a non-trivial gain (an audible click).
+    const { ctx, made, audio } = readyAudio();
+    ctx.currentTime = 0;
+    audio.playRecipe(MODULATED, 'quake-impact:rumble');
+
+    const envelope = made.gains[3];
+    const last = envelope.gain.exponentialRampToValueAtTime.mock.calls.at(-1);
+    expect(last[0]).toBeCloseTo(0.0001, 4);
+    expect(last[1]).toBeCloseTo(MODULATED.duration, 5);
+  });
+
+  it('leaves a layer with no modulationHz decaying exactly once, unaffected by the new path', () => {
+    // Guards the default: modulation must be opt-in per layer, or every
+    // existing recipe's envelope shape would silently change.
+    const { made, audio } = readyAudio();
+    audio.playRecipe(STATIC, 'static-layer');
+
+    const envelope = made.gains[3];
+    expect(envelope.gain.exponentialRampToValueAtTime).toHaveBeenCalledTimes(1);
+    expect(envelope.gain.exponentialRampToValueAtTime).toHaveBeenCalledWith(0.0001, STATIC.duration);
+  });
+
+  it('still sets the initial peak the same way a static layer does', () => {
+    // The renderedLevel tolerance suite in the file above reads the FIRST
+    // setValueAtTime call as the peak; modulation must not change that call.
+    const { made, audio } = readyAudio();
+    audio.playRecipe(MODULATED, 'quake-impact:rumble', 0.8);
+
+    const envelope = made.gains[3];
+    expect(envelope.gain.setValueAtTime).toHaveBeenCalledWith(MODULATED.gain * 0.8, expect.any(Number));
+  });
+});
+
 describe('mix gain', () => {
   const RECIPE = { wave: 'sine', freqStart: 440, freqEnd: 220, duration: 0.2, gain: 0.5, noise: false };
 

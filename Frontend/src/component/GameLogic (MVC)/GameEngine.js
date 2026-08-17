@@ -596,6 +596,12 @@ export class GameEngine {
         this.defenders.splice(i, 1);
 
         console.log(`Removed defender: ${defender.name}`);
+        // A deliberate player action (the hammer/shovel tool) had no feedback
+        // at all. Emitted only here, after the defender is confirmed alive
+        // and actually spliced out - a click on empty ground or a corpse
+        // takes neither branch and stays silent, so the sound keeps meaning
+        // "you removed something" rather than firing on every click.
+        this.emitFeedback('defender:removed', { type: defender.constructor.name });
         return true;
       }
     }

@@ -17,6 +17,14 @@ export const MAX_VOICES = 12;
 export const SAMPLE_BASE_GAIN = 0.7;
 
 /**
+ * Default depth for an amplitude-modulated layer that does not specify its
+ * own: how far the trough dips below peak, as a fraction of peak. 0.6 is deep
+ * enough to read as movement without dropping near silence between pulses,
+ * which would sound like stutter rather than rumble.
+ */
+export const DEFAULT_MODULATION_DEPTH = 0.6;
+
+/**
  * Q of the noise bandpass, set explicitly rather than left to
  * BiquadFilterNode's default because noiseMakeupGain is derived from it. Two
  * places depending on one unstated default is how they drift apart silently.
@@ -220,12 +228,20 @@ export class AudioManager {
   startLayer(layer, triggerTime, mixGain) {
     const start = triggerTime + layer.offset;
     const end = start + layer.duration;
+    const peak = Math.max(0.0001, layer.gain * mixGain);
 
     const envelope = this.ctx.createGain();
     envelope.connect(this.sfxGain);
-    envelope.gain.setValueAtTime(Math.max(0.0001, layer.gain * mixGain), start);
-    // Exponential fade to near-silence; exponentialRamp cannot reach exactly 0.
-    envelope.gain.exponentialRampToValueAtTime(0.0001, end);
+    if (layer.modulationHz) {
+      this.scheduleModulatedEnvelope(
+        envelope.gain, peak, start, end,
+        layer.modulationHz, layer.modulationDepth ?? DEFAULT_MODULATION_DEPTH,
+      );
+    } else {
+      envelope.gain.setValueAtTime(peak, start);
+      // Exponential fade to near-silence; exponentialRamp cannot reach exactly 0.
+      envelope.gain.exponentialRampToValueAtTime(0.0001, end);
+    }
 
     const { source, output } = layer.noise
       ? this.createNoiseSource(layer, start, end)
@@ -236,6 +252,47 @@ export class AudioManager {
     source.stop(end);
 
     return source;
+  }
+
+  /**
+   * Schedules a repeated ramp pattern on a gain AudioParam so a sustained
+   * layer's LEVEL rises and falls at `hz` times a second, instead of decaying
+   * once.
+   *
+   * WHY THIS EXISTS RATHER THAN A LOWER-PITCHED LAYER. "Low and rumbling" is
+   * normally reached for as a sub-bass frequency, and this codebase has
+   * already paid for that mistake once - see SfxLibrary.js and UnitVoices.js's
+   * headers: the Mortar and the whole death family were originally authored
+   * at 25-90Hz and were completely inaudible on a laptop speaker, because
+   * those speakers have essentially no output down there. Amplitude
+   * modulation is the other route to the same impression: ears read a
+   * few-Hz wobble in LOUDNESS as low-frequency movement even when the
+   * carrier sits well above the rolloff, the way a tremolo effect reads as
+   * "throbbing" without the pitch itself ever going anywhere near sub-bass.
+   *
+   * HOW. AudioManager has no LFO node in its graph - no second oscillator
+   * modulating a gain via .connect() - so this is expressed the only way the
+   * two primitives every other envelope here is built from allow: a repeated
+   * ramp pattern, alternating the AudioParam's target between `peak` and a
+   * quieter `trough` every half period, and closing with the same
+   * fade-to-floor every other envelope ends on. If a future sound needed a
+   * smoother (non-exponential-segment) modulation shape, an actual LFO node
+   * - a second oscillator at `hz`, scaled and offset, connected into
+   * envelope.gain - would be the next step; nothing here needs it yet.
+   */
+  scheduleModulatedEnvelope(gainParam, peak, start, end, hz, depth) {
+    const trough = Math.max(0.0001, peak * (1 - depth));
+    const halfPeriod = 1 / (2 * hz);
+
+    gainParam.setValueAtTime(peak, start);
+    let time = start;
+    let atPeak = true;
+    while (time + halfPeriod < end) {
+      time += halfPeriod;
+      atPeak = !atPeak;
+      gainParam.exponentialRampToValueAtTime(atPeak ? peak : trough, time);
+    }
+    gainParam.exponentialRampToValueAtTime(0.0001, end);
   }
 
   /**

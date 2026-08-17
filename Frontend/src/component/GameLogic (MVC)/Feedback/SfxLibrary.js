@@ -41,6 +41,25 @@ export const SFX = {
   defenderPlaced:   { wave: 'sine',     freqStart: 440, freqEnd: 220, duration: 0.12, gain: 0.5, noise: false },
   // Losing a unit: descending crumble.
   defenderDied:     { wave: 'sawtooth', freqStart: 540, freqEnd: 270, duration: 0.35, gain: 0.4, noise: true  },
+  /**
+   * Removing a deployed defender (the hammer/shovel tool): a dry,
+   * wood-and-metal thunk of something being pried up and carted off. This is
+   * a GAME EVENT, not a unit voice - the player did this, not the unit - so
+   * it lives here and plays through playSfx, the same way defenderPlaced
+   * does, rather than through playUnitVoice/resolveVoice.
+   *
+   * Two layers because the owner named two materials: the base is the wood -
+   * a dull, falling knock - and the layer is the metal - a brief bright
+   * scrape/clink landing just after, as the hardware comes free. Short and
+   * dry throughout: nothing here rings or decays slowly, because this is a
+   * removal, not a death.
+   */
+  defenderRemoved: {
+    wave: 'triangle', freqStart: 360, freqEnd: 215, duration: 0.10, gain: 0.5, noise: false,
+    layers: [
+      { offset: 0.015, wave: 'sawtooth', freqStart: 1800, freqEnd: 650, duration: 0.05, gain: 0.30, noise: true },
+    ],
+  },
   // Firing: quick upward blip.
   projectileFired:  { wave: 'square',   freqStart: 640, freqEnd: 880, duration: 0.06, gain: 0.18, noise: false },
   // Enemy taking damage: dull tick.
