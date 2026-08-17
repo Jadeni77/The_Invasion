@@ -21,7 +21,7 @@ Aim for cartoon-arcade character: soft pops, comic thuds, squelches. Short, 0.1�
 
 - [ ] `projectile.wav` — every basic ranged shot, both sides (Shooter, Skeleton)
 - [ ] `artillery.wav` — Grenadier
-- [ ] `mortar.wav` — Mortar only, a heavier thump
+- [x] `mortar.wav` — Mortar only, a heavier thump (Eagle Artillery fire sample)
 - [ ] `sniper.wav` — Sniper only, a sharp crack
 - [ ] `magic.wav` — Frost Archer, Ice Bomb, Mage spells
 - [ ] `fire.wav` — Fire Blast
@@ -36,6 +36,23 @@ Aim for cartoon-arcade character: soft pops, comic thuds, squelches. Short, 0.1�
 
 The shared `hit` sound (an enemy taking damage) is already in place and needs no file.
 
+## Titan ground pound
+
+Not part of the original 14 above - added once the Titan's ground pound and phase
+transition got their own sound keys (`quake-charge`, `quake-impact`, `phase-change`).
+
+- [x] `quake-charge.wav` — the 500ms wind-up telegraph before the pound lands
+      (Eagle Artillery charge sample, trimmed to the wind-up window)
+- [x] `quake-impact.wav` — the pound itself, all three waves (Clash of Clans
+      Earthquake Spell sample, trimmed to fit before the Titan resumes moving)
+- [ ] `phase-change.wav` — the Titan's health-threshold escalation, still synthesized
+
+Both supplied files were trimmed and gain-reduced from source before being committed
+here — see `SAMPLE_VARIANTS` in `UnitSamples.js` for why gain is handled as a variant
+transform rather than baked into the files, and the branch's dev log for the exact
+ffmpeg commands. **These are a best-effort guess at the right trim point and level,
+not a mix decision — they need the owner's ears.**
+
 ## Levels
 
 Sounds are mixed in three tiers so the game has a foreground. You do not need to match
@@ -46,7 +63,8 @@ because a sample chosen to be impressive on its own can disappear at 40%.
   energy pickup, placing a defender, a rejected placement.
 - **70%** — everything else, including all three death sounds, `mortar`, `sniper`, `magic`,
   `melee`, `summon`, `heal`, `artillery`, `fire`, and the wave-start stings.
-- **100%** — `titan` and `boss`, plus base damage, level won and level lost.
+- **100%** — `titan` and `boss`, plus base damage, level won and level lost, and the
+  Titan's `quake-charge`/`quake-impact`/`phase-change` ability sounds above.
 
 Pick samples that sound right at those relative levels.
 
