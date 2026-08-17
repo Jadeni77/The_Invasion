@@ -4,6 +4,7 @@ import { useGame } from "../GameLogic (MVC)/GameContext"; // Correct path
 import ResourceIcon from "./ResourceIcon"; // Correct path
 import EnergyBar from "./EnergyBar"; // Correct path
 import UpgradeModal from "./LobbyButton/UpgradeModal.jsx"; // Correct path
+import SettingModal from "./LobbyButton/SettingModal.jsx";
 import {
   levelsMapData,
   connectionsData,
@@ -26,6 +27,7 @@ const Lobby = () => {
     openUpgradeModal,
     openAchievements,
     openCollection,
+    openSettings,
     handleLogout,
     collectTreasure,
       unlockedDefender,
@@ -266,11 +268,16 @@ const Lobby = () => {
             className={`level-node ${zone.nodeClass} ${status.locked ? 'locked' : ''} ${
                 status.completed ? 'completed' : ''
             } ${level.isBoss ? 'boss-level' : ''} ${level.isFinal ? 'final-level' : ''}`}
+            // Position only. Colour comes from Lobby.css - `.level-node` for
+            // the shared outline, `.{zone}-node` for the zone hue, and
+            // `.level-node.locked` for the locked state, which is where the
+            // inline '#444' used to be. An inline colour here would beat all
+            // three, which is how a reviewed stylesheet choice
+            // (`.mid-node { background: var(--colors-surface-raised) }`) got
+            // silently overridden by an inline token of a different hue.
             style={{
               top: `${level.y}px`,
               left: `${level.x}px`,
-              backgroundColor: status.locked ? '#444' : zone.backgroundColor,
-              borderColor: zone.borderColor
             }}
             onClick={() => !status.locked && handleLevelNodeClick(level.id)}
             title={level.name}
@@ -301,6 +308,7 @@ const Lobby = () => {
     );
   }
   if (gameState === "upgrade") return <UpgradeModal />;
+  if (gameState === "settings") return <SettingModal />;
 
   // Render Lobby UI
   return (
@@ -333,9 +341,30 @@ const Lobby = () => {
               <i className="icon-achievement" />
               <span>Achievement</span>
             </button>
+            {/*
+              These two buttons carried the same `icon-setting` glyph, with
+              the destructive one (log out, ending the session) sitting
+              immediately left of the benign one. Icons are the only thing a
+              player scanning this bar reads; two identical ones made ending
+              the session a coin flip. The button *classes* are left alone -
+              `settings` on the logout button is a pre-existing mislabel, and
+              renaming it would touch Lobby.css for no visual gain - but the
+              icons are now distinct in both directions: the gear belongs to
+              Settings, and logout says logout.
+
+              Note for whoever adds the artwork: no stylesheet in this repo
+              defines `icon-*` yet, so every one of these <i> elements is
+              currently empty and nothing is drawn. The duplication was
+              therefore latent rather than on screen - but it is the markup a
+              real icon set will be hung on, and it had the wrong name on it.
+            */}
             <button className="menu-button settings" onClick={handleLogout}>
-              <i className="icon-setting" />
+              <i className="icon-logout" />
               <span>Logout</span>
+            </button>
+            <button className="menu-button open-settings" onClick={openSettings}>
+              <i className="icon-gear" />
+              <span>Settings</span>
             </button>
           </div>
         </div>
@@ -384,15 +413,20 @@ const Lobby = () => {
               }}
           >
             {/* Zone backgrounds */}
-            {Object.entries(zoneConfigs).map(([zone, config]) => (
+            {/*
+              No inline style at all. Each backdrop's wash is `.zone-<key>` in
+              Lobby.css, alongside the position and size that rule already
+              carried. This previously compared `config.backgroundColor`
+              against the sentinel string '#rainbow-gradient' and, on a match,
+              wrote a seven-hex gradient inline - a second copy of the rainbow
+              that no guard read and that could not be retuned from the token
+              layer. `.zone-endless` deliberately has no rule: it never had a
+              box, so that div has always rendered nothing.
+            */}
+            {Object.keys(zoneConfigs).map((zone) => (
                 <div
                     key={`zone-${zone}`}
                     className={`zone-background zone-${zone}`}
-                    style={{
-                      background: config.backgroundColor === '#rainbow-gradient' ?
-                                  'linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)' :
-                                  config.backgroundColor
-                    }}
                 />
             ))}
 

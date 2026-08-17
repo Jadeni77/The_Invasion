@@ -3,15 +3,15 @@
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  background-color: #2e7d32;
+  background-color: var(--colors-surface-base);
   min-height: 100vh;
-  font-family: "Pixel", sans-serif;
+  font-family: var(--type-display);
 }
 
 .game-map {
   width: 80%;
   max-width: 800px;
-  background-color: #4caf50;
+  background-color: var(--colors-accent-success);
   border-radius: 10px;
   padding: 20px;
   margin: 20px 0;
@@ -22,19 +22,19 @@
 }
 
 .level-node.unlocked circle {
-  fill: #ff9800;
-  stroke: #e65100;
+  fill: var(--colors-accent-energy);
+  stroke: var(--colors-accent-energy);
   stroke-width: 2;
 }
 
 .level-node.locked circle {
-  fill: #9e9e9e;
-  stroke: #616161;
+  fill: var(--colors-surface-raised);
+  stroke: var(--colors-surface-sunken);
   stroke-width: 2;
 }
 
 .level-node text {
-  fill: white;
+  fill: var(--colors-text-primary);
   font-weight: bold;
   font-size: 14px;
   pointer-events: none;
@@ -48,17 +48,18 @@
 
 .label {
   font-size: 16px;
-  color: #d7ccc8;
+  color: var(--colors-text-muted);
 }
 
 .value {
+  font-family: var(--type-display);
   font-size: 18px;
   font-weight: bold;
-  color: #ffd54f;
+  color: var(--colors-accent-energy);
 }
 
 .energy .value {
-  color: #4fc3f7;
+  color: var(--colors-accent-info);
 }
 
 .card-hand {
@@ -69,30 +70,30 @@
 
 .card {
   padding: 10px 15px;
-  background-color: #5d4037;
+  background-color: var(--colors-surface-panel);
   border-radius: 8px;
   cursor: pointer;
-  border: 2px solid #8d6e63;
+  border: 2px solid var(--colors-surface-raised);
   transition: all 0.2s;
   min-width: 100px;
   text-align: center;
 }
 
 .card.selected {
-  border-color: #ffd54f;
-  background-color: #6d4c41;
+  border-color: var(--colors-accent-energy);
+  background-color: var(--colors-surface-panel);
   transform: translateY(-5px);
 }
 
 .card-name {
   font-size: 14px;
-  color: #fff;
+  color: var(--colors-text-primary);
   margin-bottom: 5px;
 }
 
 .card-cost {
   font-size: 18px;
-  color: #ffd54f;
+  color: var(--colors-accent-energy);
   font-weight: bold;
 }
 
@@ -101,10 +102,10 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: color-mix(in srgb, var(--colors-edge-outline) 70%, transparent);
   padding: 10px 20px;
   border-radius: 8px;
-  color: white;
+  color: var(--colors-text-primary);
   pointer-events: none;
   display: flex;
   align-items: center;
@@ -113,7 +114,7 @@
 
 .indicator-icon {
   font-size: 24px;
-  color: #4fc3f7;
+  color: var(--colors-accent-info);
 }
 
 /* Wave animation for energy bar when charging */
@@ -140,7 +141,7 @@
   right: -5px;
   bottom: -5px;
   left: -5px;
-  border: 2px solid #4fc3f7;
+  border: 2px solid var(--colors-accent-info);
   border-radius: 8px;
   opacity: 0;
   animation: pulse 2s infinite;
@@ -159,8 +160,8 @@
   background-image: url("/assets/lobby-bg.jpg");
   background-size: cover;
   background-position: center;
-  font-family: "Pixel", sans-serif;
-  color: white;
+  font-family: var(--type-display);
+  color: var(--colors-text-primary);
   padding: 20px;
 }
 
@@ -171,10 +172,10 @@
   align-items: center;
   margin-bottom: 20px;
   padding: 15px;
-  background: rgba(0, 0, 0, 0.7);
+  background: color-mix(in srgb, var(--colors-edge-outline) 70%, transparent);
   border-radius: 12px;
-  border: 2px solid #5a3921;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  border: 2px solid var(--colors-surface-panel);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
 .player-info {
@@ -184,13 +185,13 @@
 .player-name {
   font-size: 24px;
   font-weight: bold;
-  color: #ffd700;
-  text-shadow: 2px 2px 0 #000;
+  color: var(--colors-accent-energy);
+  text-shadow: 2px 2px 0 var(--colors-edge-outline);
 }
 
 .player-rank {
   font-size: 16px;
-  color: #a9a9a9;
+  color: var(--colors-text-muted);
 }
 
 .menu-buttons {
@@ -203,16 +204,17 @@
   flex-direction: column;
   align-items: center;
   padding: 10px 15px;
-  background: #4a2e17;
-  border: 2px solid #6b4b2e;
+  background: var(--colors-surface-panel);
+  border: var(--borders-outline) solid var(--colors-surface-raised);
   border-radius: 8px;
-  color: #f0e6d2;
+  box-shadow: var(--shadows-drop);
+  color: var(--colors-text-primary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .menu-button:hover {
-  background: #5a3a20;
+  background: var(--colors-surface-sunken);
   transform: translateY(-2px);
 }
 
@@ -227,9 +229,9 @@
   justify-content: space-around;
   margin-bottom: 20px;
   padding: 10px;
-  background: rgba(0, 0, 0, 0.6);
+  background: color-mix(in srgb, var(--colors-edge-outline) 60%, transparent);
   border-radius: 10px;
-  border: 1px solid #5a3921;
+  border: 1px solid var(--colors-surface-panel);
 }
 
 .resource-icon {
@@ -237,9 +239,9 @@
   align-items: center;
   gap: 8px;
   padding: 8px 15px;
-  background: rgba(90, 57, 33, 0.8);
+  background: color-mix(in srgb, var(--colors-surface-panel) 80%, transparent);
   border-radius: 20px;
-  border: 1px solid #a78b71;
+  border: 1px solid var(--colors-surface-raised);
 }
 
 .resource-symbol {
@@ -252,13 +254,14 @@
 }
 
 .resource-value {
+  font-family: var(--type-display);
   font-size: 18px;
   font-weight: bold;
 }
 
 .resource-label {
   font-size: 12px;
-  color: #d4c0a1;
+  color: var(--colors-text-muted);
 }
 
 /* Worker Status */
@@ -275,10 +278,10 @@
   height: 60vh;
   width: 100%;
   overflow: hidden;
-  background: rgba(25, 40, 15, 0.7);
-  border-radius: 15px;
-  border: 3px solid #4a2e17;
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+  background: color-mix(in srgb, var(--colors-surface-sunken) 70%, transparent);
+  border-radius: var(--radii-lg);
+  border: 3px solid var(--colors-surface-panel);
+  box-shadow: inset 0 0 20px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
 .game-map {
@@ -298,7 +301,7 @@
   content: "";
   position: absolute;
   z-index: 5;
-  background: rgba(255, 215, 0, 0.3);
+  background: color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
   pointer-events: none;
 }
 
@@ -308,7 +311,7 @@
   left: 0;
   right: 0;
   height: 5px;
-  box-shadow: 0 -2px 5px rgba(255, 215, 0, 0.5);
+  box-shadow: 0 -2px 5px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent);
 }
 
 .game-map-container::after {
@@ -317,7 +320,7 @@
   left: 0;
   bottom: 0;
   width: 5px;
-  box-shadow: -2px 0 5px rgba(255, 215, 0, 0.5);
+  box-shadow: -2px 0 5px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent);
 }
 
 /* Boundary indicators for opposite sides */
@@ -327,8 +330,8 @@
   right: 0;
   bottom: 0;
   width: 5px;
-  background: rgba(255, 215, 0, 0.3);
-  box-shadow: 2px 0 5px rgba(255, 215, 0, 0.5);
+  background: color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
+  box-shadow: 2px 0 5px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent);
   pointer-events: none;
   z-index: 5;
 }
@@ -339,8 +342,8 @@
   left: 0;
   right: 0;
   height: 5px;
-  background: rgba(255, 215, 0, 0.3);
-  box-shadow: 0 2px 5px rgba(255, 215, 0, 0.5);
+  background: color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
+  box-shadow: 0 2px 5px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent);
   pointer-events: none;
   z-index: 5;
 }
@@ -348,10 +351,10 @@
 .map-connection {
   position: absolute;
   height: 8px;
-  background: #d4c0a1;
-  border: 2px solid #8b6f4b;
+  background: var(--colors-surface-raised);
+  border: 2px solid var(--colors-surface-panel);
   border-radius: 4px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 5px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
 }
 
 .level-node {
@@ -364,19 +367,20 @@
   align-items: center;
   cursor: pointer;
   transform: translate(-50%, -50%);
-  filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.7));
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--colors-edge-outline) 70%, transparent));
 }
 
 .level-node.locked {
   filter: grayscale(100%) brightness(0.5)
-    drop-shadow(0 0 5px rgba(0, 0, 0, 0.7));
+    drop-shadow(0 0 5px color-mix(in srgb, var(--colors-edge-outline) 70%, transparent));
 }
 
 .level-number {
+  font-family: var(--type-display);
   font-size: 24px;
   font-weight: bold;
-  color: #ffd700;
-  text-shadow: 2px 2px 0 #000;
+  color: var(--colors-accent-energy);
+  text-shadow: 2px 2px 0 var(--colors-edge-outline);
   margin-top: 5px;
 }
 
@@ -385,7 +389,7 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: rgba(255, 215, 0, 0.3);
+  background: color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
   animation: pulse 2s infinite;
 }
 
@@ -411,7 +415,7 @@
   height: 40px;
   cursor: pointer;
   transform: translate(-50%, -50%);
-  filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.7));
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--colors-accent-energy) 70%, transparent));
   transition: all 0.3s;
 }
 
@@ -432,7 +436,7 @@
 
 .treasure-chest:not(.collected):not(.locked-chest):hover {
   transform: translate(-50%, -50%) scale(1.1);
-  filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.9));
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--colors-accent-energy) 90%, transparent));
 }
 
 .chest-glow {
@@ -444,8 +448,8 @@
   transform: translate(-50%, -50%);
   background: radial-gradient(
     circle,
-    rgba(255, 215, 0, 0.5) 0%,
-    rgba(255, 215, 0, 0) 70%
+    color-mix(in srgb, var(--colors-accent-energy) 50%, transparent) 0%,
+    transparent 70%
   );
   border-radius: 50%;
   animation: glow 2s infinite alternate;
@@ -466,24 +470,24 @@
   bottom: 20px;
   right: 20px;
   padding: 15px 25px;
-  background: linear-gradient(to bottom, #8b6f4b, #5a3a20);
-  border: 3px solid #d4c0a1;
+  background: linear-gradient(to bottom, var(--colors-surface-panel), var(--colors-surface-sunken));
+  border: 3px solid var(--colors-surface-raised);
   border-radius: 50px;
-  color: #ffd700;
+  color: var(--colors-accent-energy);
   font-size: 18px;
   font-weight: bold;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 10px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
   z-index: 100;
   transition: all 0.2s;
 }
 
 .upgrade-button:hover {
   transform: scale(1.05);
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 6px 15px color-mix(in srgb, var(--colors-edge-outline) 70%, transparent);
 }
 
 
@@ -493,7 +497,7 @@
   position: relative;
   width: 100%;
   height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--decorative-indigo) 0%, var(--decorative-violet) 100%);
   overflow: hidden;
 }
 
@@ -503,11 +507,11 @@
   width: 90%;
   height: 60vh;
   margin: 20px auto;
-  border: 3px solid #333;
+  border: 3px solid var(--colors-surface-sunken);
   border-radius: 10px;
   overflow: hidden;
-  background: linear-gradient(to bottom, #87CEEB, #98D8C8);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(to bottom, var(--colors-accent-info), var(--colors-accent-success));
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
 }
 
 .game-map {
@@ -524,6 +528,7 @@
 }
 
 .zone-tutorial {
+  background: var(--colors-accent-success);
   left: 150px;
   top: 350px;
   width: 400px;
@@ -532,6 +537,7 @@
 }
 
 .zone-early {
+  background: var(--colors-accent-info);
   left: 550px;
   top: 250px;
   width: 600px;
@@ -540,6 +546,7 @@
 }
 
 .zone-mid {
+  background: var(--colors-surface-raised);
   left: 1150px;
   top: 300px;
   width: 750px;
@@ -548,6 +555,7 @@
 }
 
 .zone-late {
+  background: var(--colors-accent-danger);
   left: 1200px;
   top: 100px;
   width: 700px;
@@ -556,6 +564,7 @@
 }
 
 .zone-endgame {
+  background: var(--decorative-violet);
   left: 750px;
   top: 50px;
   width: 450px;
@@ -574,46 +583,50 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  border: 3px solid;
+  box-shadow: 0 4px 8px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
+  /* Was `border: 3px solid` with no colour, relying on an inline
+     `borderColor` from MapLayout's config for every node - five hand-darkened
+     per-zone shades. One shared cartoon outline instead, declared here so the
+     node needs no inline colour at all. */
+  border: var(--borders-outline) solid var(--colors-edge-outline);
   z-index: 10;
 }
 
 .level-node.locked {
-  background: #555 !important;
-  border-color: #333 !important;
+  background: var(--colors-surface-raised) !important;
+  border-color: var(--colors-surface-sunken) !important;
   cursor: not-allowed;
   opacity: 0.6;
 }
 
 .level-node.completed {
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--colors-accent-energy) 60%, transparent);
 }
 
 .level-node.unlocked:hover {
   transform: scale(1.1);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 12px color-mix(in srgb, var(--colors-edge-outline) 40%, transparent);
 }
 
 /* Zone-specific node styles */
 .tutorial-node {
-  background: linear-gradient(135deg, #4a7c59, #6fb85f);
+  background: var(--colors-accent-success);
 }
 
 .early-node {
-  background: linear-gradient(135deg, #5a7cb8, #7a9cd8);
+  background: var(--colors-accent-info);
 }
 
 .mid-node {
-  background: linear-gradient(135deg, #b87c5a, #d89c7a);
+  background: var(--colors-surface-raised);
 }
 
 .late-node {
-  background: linear-gradient(135deg, #b85a7c, #d87a9c);
+  background: var(--colors-accent-danger);
 }
 
 .endgame-node {
-  background: linear-gradient(135deg, #7c5ab8, #9c7ad8);
+  background: var(--decorative-violet);
 }
 
 /* Boss level indicator */
@@ -621,15 +634,17 @@
   width: 70px;
   height: 70px;
   border-width: 4px;
-  border-color: #FFD700 !important;
+  border-color: var(--colors-accent-energy) !important;
 }
 
 .boss-indicator {
   position: absolute;
   top: -10px;
   right: -10px;
-  background: #FF0000;
-  color: white;
+  background: var(--colors-accent-danger);
+  /* contrast-ok: 3.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+     contrast opt-outs". */
+  color: var(--colors-text-primary);
   font-size: 10px;
   padding: 2px 5px;
   border-radius: 10px;
@@ -642,16 +657,17 @@
 }
 
 @keyframes finalPulse {
-  0%, 100% { box-shadow: 0 0 30px rgba(255, 215, 0, 0.8); }
-  50% { box-shadow: 0 0 50px rgba(255, 215, 0, 1); }
+  0%, 100% { box-shadow: 0 0 30px color-mix(in srgb, var(--colors-accent-energy) 80%, transparent); }
+  50% { box-shadow: 0 0 50px var(--colors-accent-energy); }
 }
 
 /* Level interior */
 .level-number {
+  font-family: var(--type-display);
   font-size: 20px;
   font-weight: bold;
-  color: white;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  color: var(--colors-text-primary);
+  text-shadow: 1px 1px 2px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
 .level-name {
@@ -661,9 +677,9 @@
   transform: translateX(-50%);
   font-size: 10px;
   white-space: nowrap;
-  color: #333;
+  color: var(--colors-surface-sunken);
   font-weight: bold;
-  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
+  text-shadow: 1px 1px 2px color-mix(in srgb, var(--colors-text-primary) 50%, transparent);
 }
 
 .level-pulse {
@@ -674,7 +690,7 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
+  background: color-mix(in srgb, var(--colors-text-primary) 30%, transparent);
   animation: pulse 1.5s infinite;
 }
 
@@ -688,16 +704,20 @@
   position: absolute;
   bottom: -15px;
   display: flex;
-  gap: 2px;
+  gap: var(--space-xs);
+  justify-content: center;
 }
 
 .star {
-  color: #ccc;
-  font-size: 12px;
+  color: var(--colors-surface-sunken);
+  text-shadow: 0 1px 0 var(--colors-edge-outline);
+  font-size: var(--type-size-md);
+  line-height: 1;
 }
 
 .star.earned {
-  color: #FFD700;
+  color: var(--colors-accent-energy);
+  text-shadow: 0 2px 0 var(--colors-edge-outline);
 }
 
 /* Endless Portal */
@@ -735,7 +755,7 @@
 .ring-1 {
   width: 100%;
   height: 100%;
-  border-color: #ff0000;
+  border-color: var(--colors-accent-danger);
   animation-duration: 3s;
 }
 
@@ -744,7 +764,7 @@
   height: 80%;
   top: 10%;
   left: 10%;
-  border-color: #ff7f00;
+  border-color: var(--decorative-orange);
   animation-duration: 4s;
   animation-direction: reverse;
 }
@@ -754,7 +774,7 @@
   height: 60%;
   top: 20%;
   left: 20%;
-  border-color: #ffff00;
+  border-color: var(--colors-accent-energy);
   animation-duration: 2s;
 }
 
@@ -770,7 +790,7 @@
   transform: translate(-50%, -50%);
   width: 40%;
   height: 40%;
-  background: radial-gradient(circle, #9400d3, #4b0082, #0000ff);
+  background: radial-gradient(circle, var(--decorative-violet), var(--decorative-indigo), var(--colors-accent-info));
   border-radius: 50%;
   display: flex;
   flex-direction: column;
@@ -785,14 +805,15 @@
 }
 
 .portal-label {
-  color: white;
+  color: var(--colors-text-primary);
   font-weight: bold;
   font-size: 12px;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--colors-text-primary) 80%, transparent);
 }
 
 .highest-wave {
-  color: #FFD700;
+  font-family: var(--type-display);
+  color: var(--colors-accent-energy);
   font-size: 10px;
   margin-top: 2px;
 }
@@ -804,7 +825,7 @@
   right: -20px;
   bottom: -20px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(148, 0, 211, 0.4), transparent);
+  background: radial-gradient(circle, color-mix(in srgb, var(--decorative-violet) 40%, transparent), transparent);
   animation: portalGlow 2s infinite;
 }
 
@@ -818,8 +839,8 @@
   bottom: -25px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
+  background: color-mix(in srgb, var(--colors-edge-outline) 80%, transparent);
+  color: var(--colors-text-primary);
   padding: 3px 8px;
   border-radius: 3px;
   font-size: 10px;
@@ -830,19 +851,19 @@
 .map-connection {
   position: absolute;
   height: 3px;
-  background: linear-gradient(90deg, transparent, #666, transparent);
+  background: linear-gradient(90deg, transparent, var(--colors-text-muted), transparent);
   transform-origin: left center;
   opacity: 0.3;
 }
 
 .map-connection.unlocked {
-  background: linear-gradient(90deg, transparent, #4CAF50, transparent);
+  background: linear-gradient(90deg, transparent, var(--colors-accent-success), transparent);
   opacity: 0.7;
 }
 
 .map-connection.rainbow-connection {
   background: linear-gradient(90deg,
-  #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3);
+  var(--colors-accent-danger), var(--decorative-orange), var(--colors-accent-energy), var(--colors-accent-success), var(--colors-accent-info), var(--decorative-indigo), var(--decorative-violet));
   opacity: 1;
   animation: rainbowFlow 2s linear infinite;
 }
@@ -882,8 +903,8 @@
 }
 
 @keyframes secretPulse {
-  0%, 100% { filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5)); }
-  50% { filter: drop-shadow(0 0 20px rgba(255, 215, 0, 1)); }
+  0%, 100% { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent)); }
+  50% { filter: drop-shadow(0 0 20px var(--colors-accent-energy)); }
 }
 
 .chest-glow {
@@ -893,7 +914,7 @@
   right: -10px;
   bottom: -10px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 215, 0, 0.6), transparent);
+  background: radial-gradient(circle, color-mix(in srgb, var(--colors-accent-energy) 60%, transparent), transparent);
   animation: chestGlow 1.5s infinite;
 }
 
@@ -910,7 +931,7 @@
   display: flex;
   gap: 10px;
   align-items: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
   padding: 5px 10px;
   border-radius: 20px;
   z-index: 20;
@@ -921,19 +942,25 @@
   height: 30px;
   border-radius: 50%;
   border: none;
-  background: #4CAF50;
-  color: white;
+  background: var(--colors-accent-success);
+  /* Ring via box-shadow, not a border: fixed 30x30px circle, no
+     box-sizing: border-box in this project, so a 3px border would grow it
+     to 36x36px. */
+  box-shadow: var(--shadows-drop), 0 0 0 var(--borders-outline) var(--colors-edge-outline);
+  /* contrast-ok: 2.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+     contrast opt-outs". */
+  color: var(--colors-text-primary);
   font-size: 18px;
   cursor: pointer;
   transition: background 0.3s;
 }
 
 .zoom-controls button:hover {
-  background: #45a049;
+  background: var(--colors-accent-success);
 }
 
 .zoom-controls span {
-  color: white;
+  color: var(--colors-text-primary);
   font-size: 14px;
   min-width: 40px;
   text-align: center;
@@ -941,7 +968,7 @@
 
 /* Endless Options Modal */
 .endless-options-modal {
-  background: white;
+  background: var(--colors-text-primary);
   border-radius: 10px;
   padding: 30px;
   max-width: 600px;
@@ -953,7 +980,7 @@
 .endless-options-modal h2 {
   text-align: center;
   margin-bottom: 20px;
-  color: #333;
+  color: var(--colors-surface-sunken);
 }
 
 .difficulty-options {
@@ -965,40 +992,50 @@
 
 .difficulty-option {
   padding: 15px;
-  border: 2px solid #ddd;
+  border: 2px solid var(--colors-text-muted);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
-  background: white;
+  background: var(--colors-text-primary);
 }
 
 .difficulty-option:hover {
-  border-color: #4CAF50;
+  border-color: var(--colors-accent-success);
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 8px color-mix(in srgb, var(--colors-edge-outline) 10%, transparent);
 }
 
 .difficulty-option.normal {
-  border-color: #4CAF50;
+  border-color: var(--colors-accent-success);
 }
 
 .difficulty-option.challenge {
-  border-color: #ff9800;
+  border-color: var(--colors-accent-energy);
 }
 
 .difficulty-option h3 {
   margin: 0 0 8px 0;
-  color: #333;
+  color: var(--colors-surface-sunken);
 }
 
 .difficulty-option p {
   margin: 0 0 8px 0;
-  color: #666;
+  /* This modal's background is text-primary (a light cream) - inherited
+     from the rest of the dark theme's palette, not a light theme of its
+     own. text-muted is a light tan built for muted text on a dark surface;
+     against this light background it measured 1.99:1. surface-sunken (dark)
+     matches the h2/h3 in this same modal and gives 13.93:1. */
+  color: var(--colors-surface-sunken);
   font-size: 14px;
 }
 
 .difficulty-option .multiplier {
-  color: #4CAF50;
+  /* surface-sunken, not accent-success: this sits in the same light
+     (text-primary-background) modal as .difficulty-option p and h3, both
+     already switched to a dark token for the same reason - accent-success
+     measured 2.48:1 against this light background. Matches the modal's
+     established dark-text pattern; 13.93:1. */
+  color: var(--colors-surface-sunken);
   font-weight: bold;
   font-size: 16px;
 }
@@ -1009,10 +1046,10 @@
   top: 100px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 15px;
+  background: linear-gradient(135deg, var(--decorative-indigo) 0%, var(--decorative-violet) 100%);
+  border-radius: var(--radii-lg);
   padding: 20px 30px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 40px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -1032,11 +1069,12 @@
 }
 
 .notification-content {
-  color: white;
+  color: var(--colors-text-primary);
 }
 
 .notification-content h3 {
   margin: 0 0 5px 0;
+  font-family: var(--type-display);
   font-size: 18px;
   font-weight: bold;
 }
@@ -1045,8 +1083,8 @@
   margin: 0 0 5px 0;
   font-size: 24px;
   font-weight: bold;
-  color: #ffd700;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  color: var(--colors-accent-energy);
+  text-shadow: 2px 2px 4px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
 }
 
 .notification-content .notification-hint {

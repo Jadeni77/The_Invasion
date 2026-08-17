@@ -5,7 +5,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: color-mix(in srgb, var(--colors-edge-outline) 80%, transparent);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -23,14 +23,14 @@
 }
 
 .card-selection-modal {
-  background: #2a2a2a;
-  border-radius: 15px;
+  background: var(--colors-surface-panel);
+  border-radius: var(--radii-lg);
   padding: 30px;
   max-width: 900px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-  border: 2px solid #444;
+  box-shadow: 0 10px 40px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
+  border: 2px solid var(--colors-edge-outline);
   animation: slideIn 0.3s ease;
 }
 
@@ -51,13 +51,14 @@
 }
 
 .modal-header h2 {
-  color: #fff;
+  color: var(--colors-text-primary);
+  font-family: var(--type-display);
   font-size: 2em;
   margin-bottom: 10px;
 }
 
 .modal-header p {
-  color: #ccc;
+  color: var(--colors-text-muted);
   font-size: 1.1em;
 }
 
@@ -65,7 +66,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--colors-text-primary) 10%, transparent);
   padding: 15px 20px;
   border-radius: 10px;
   margin-bottom: 20px;
@@ -75,7 +76,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #ffeb3b;
+  color: var(--colors-accent-energy);
   font-size: 1.1em;
 }
 
@@ -84,7 +85,8 @@
 }
 
 .selected-count {
-  color: #4CAF50;
+  font-family: var(--type-display);
+  color: var(--colors-accent-success);
   font-weight: bold;
   font-size: 1.1em;
 }
@@ -95,7 +97,7 @@
   gap: 15px;
   margin-bottom: 30px;
   padding: 20px;
-  background: rgba(0, 0, 0, 0.3);
+  background: color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   border-radius: 10px;
   max-height: 400px;
   overflow-y: auto;
@@ -116,23 +118,28 @@
 }
 
 .card-wrapper.selected .card-container {
-  border: 3px solid #4CAF50;
-  box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+  /* Same outline weight Card.css's base rule now uses (var(--borders-outline)
+     is 3px) - picking a card up for the deck shouldn't thin its edge back
+     down, only recolour it. */
+  border: var(--borders-outline) solid var(--colors-accent-success);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--colors-accent-success) 50%, transparent);
 }
 
 .selection-indicator {
   position: absolute;
   top: -10px;
   right: -10px;
-  background: #4CAF50;
-  color: white;
+  background: var(--colors-accent-success);
+  /* contrast-ok: 2.48:1, below 4.5:1 - pre-existing white-on-accent button
+     convention (task-3-report.md, "Systemic contrast opt-outs"). */
+  color: var(--colors-text-primary);
   width: 30px;
   height: 30px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   animation: popIn 0.3s ease;
 }
 
@@ -160,37 +167,39 @@
 .confirm-button {
   padding: 12px 30px;
   font-size: 1.1em;
-  border: none;
+  border: var(--borders-outline) solid var(--colors-edge-outline);
   border-radius: 5px;
   cursor: pointer;
   font-weight: bold;
   transition: all 0.3s ease;
   text-transform: uppercase;
+  box-shadow: var(--shadows-drop);
 }
 
 .cancel-button {
-  background: #666;
-  color: white;
+  background: var(--colors-surface-raised);
+  color: var(--colors-text-primary);
 }
 
 .cancel-button:hover {
-  background: #555;
+  background: var(--colors-surface-raised);
   transform: scale(1.05);
 }
 
 .confirm-button {
-  background: #4CAF50;
-  color: white;
+  background: var(--colors-accent-success);
+  /* contrast-ok: 2.48:1, below 4.5:1 - see .selection-indicator above. */
+  color: var(--colors-text-primary);
 }
 
 .confirm-button:hover:not(:disabled) {
-  background: #45a049;
+  background: var(--colors-accent-success);
   transform: scale(1.05);
 }
 
 .confirm-button:disabled {
-  background: #333;
-  color: #666;
+  background: var(--colors-surface-sunken);
+  color: var(--colors-text-muted);
   cursor: not-allowed;
   transform: none;
 }
@@ -201,15 +210,15 @@
 }
 
 .cards-grid::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--colors-text-primary) 10%, transparent);
   border-radius: 4px;
 }
 
 .cards-grid::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
+  background: color-mix(in srgb, var(--colors-text-primary) 30%, transparent);
   border-radius: 4px;
 }
 
 .cards-grid::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: color-mix(in srgb, var(--colors-text-primary) 50%, transparent);
 }

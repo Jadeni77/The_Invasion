@@ -444,3 +444,93 @@ Two lessons worth keeping:
   deliberate decision recorded in the design spec.
 - The music is deliberately simple synthesized ambience so the Music Volume slider controls something
   real. It is not a composed soundtrack.
+
+## Deferred from the visual-direction branch (2026-08-17)
+
+Recorded at the close of `feat/visual-direction`. The branch shipped a token layer over both CSS and
+canvas, a real display font, integer sprite scaling, lane bands, a base with a body, cards as objects,
+and a reachable settings screen. These are the things deliberately left.
+
+### 19. Settings had never been reachable before this branch
+
+Worth recording because it explains a lot. `GameBoard.jsx`'s element with `className="settings-button"`
+is a **quit-to-lobby button** (`onClick={handleQuitClick}`, `title="Return to Lobby"`), and
+`openSettings`/`closeSettings` had **zero call sites anywhere** in the codebase. So every audio control
+built during the audio work — volume, mute — was unreachable in play for the life of the project.
+
+The lobby now has a real settings button and the full open/close loop is tested. The misleading class
+name on the quit button was left alone; renaming it is cosmetic and touches a screen this branch
+otherwise did not.
+
+### 20. Fourteen buttons put white text on accent colours below 4.5:1
+
+The contrast guard added on this branch found them and they are pinned as explicit opt-outs, each with a
+measured ratio and a reason, so a new one cannot be added silently. They are a systemic convention
+rather than a slip: "Play", "Upgrade", "Claim" and similar.
+
+White on gold at 3-4:1 is ordinary in game UI and reads fine for most people; 4.5:1 is an accessibility
+standard, not an aesthetic one. **The owner's call.** The mechanical fix is `edge-outline` text on
+accent backgrounds, which clears all fourteen at 12.85:1 but changes the look of most primary buttons.
+
+### 21. Mortar and Frost Archer draw at 0.75x on narrow viewports
+
+Both are 64px native after the crop audit; every other defender is 48px, which is the grid floor. So
+below a ~716px container the two of them scale fractionally while the other eight stay crisp.
+
+This bites hardest on iPhone: `screen.orientation.lock()` is unsupported in iOS Safari and the failure
+is silently caught in `UseMobileOrientation.js`, so the game runs at portrait width (375-430px).
+
+Raising the floor to 64 fixes it and costs a quarter of the columns at every size — declined. The
+recommended fix is **on the art side**: re-export those two sheets inside a 48x48-compatible frame.
+
+### 22. Three defenders were being clipped, and one crop typo was hiding it
+
+Found by measuring sprite content boxes with PIL, which no test can do. `Shooter` lost 6px off its
+attack swing and `Healer` 2px off its staff-raise — both for the life of the project, because the
+shared 48x48 crop template happened to fit `Sniper`, the only unit anyone had checked.
+
+`Mortar`'s `cropConfig` was also misspelled **`ropConfig`** at three lines, so it never cropped at all.
+Fixing the typo activated a crop that did not fit it, which is how the clipping was found. `Mortar` and
+`Frost Archer` now draw uncropped; `Shooter` and `Healer` have corrected offsets.
+
+### 23. Guard tests fail on scope, not on matching logic
+
+Eight guards were found during this work that did not guard, and **every one failed the same way**: it
+scanned too narrow a set of files. Not one failed because its pattern was wrong.
+
+- a font family declared with no file behind it, in a stylesheet the font guard did not read
+- a contrast test measuring a rule the browser discards, because it took the first selector match
+  rather than the cascade winner
+- a colour guard seeing one of six syntactic forms
+- a suite green over completely silent audio, because a fake context lacked one property and the bus
+  swallowed the error
+- `.jsx` owned by no guard at all, in the seam between the CSS and canvas scanners
+- a stylesheet colocated with a component, invisible to a non-recursive directory read
+- any directory named `test`, which disabled scanning for everything beneath it
+
+The durable form is the one that never failed: **derive scope from what a file is** — does it call a
+canvas API, declare a colour property, import the token module — **not from where it sits.**
+`Frontend/src/test/sourceFiles.js` does this now. Its own first version fixed a hand-written list of
+directories to include and reintroduced the same seam with a hand-written list of directories to
+exclude, which is the trap in miniature.
+
+### 24. Smaller items left open
+
+- **No canvas contrast guard.** The WCAG check covers CSS pairs only; canvas text has no equivalent.
+- **`accentDanger` carries two meanings** on the lobby map — boss indicator and "late" zone. Pre-existing,
+  not introduced; a palette decision.
+- **`LoginPage.jsx`'s 13 colour literals** are pinned by an exact ordered list, so a 14th fails the guard.
+  Whether that screen belongs to the visual direction is an owner decision, not an oversight.
+- **12 declared tokens have no uses** — mostly `--space-*`, `--radii-sm`, `--type-size-*`. Adopting them
+  is a geometry change wanting its own look and its own guard; `--type-weight-regular` can just go.
+- **`RAINBOW_STOPS` has no live consumer**, kept deliberately so a hardcoded rainbow does not grow back.
+- **`.ts`/`.tsx` are outside the guards' extensions.** Parked: the repo has no TypeScript.
+- **`drawBackground` has no top-level save/restore.** Confirmed leaking, no live bug.
+
+### 25. Nothing visual on this branch has been seen
+
+jsdom has no layout engine and no rasteriser, so 1228 passing tests confirm that colours come from
+tokens and that scale arithmetic is whole — never that a screen looks right. Ranked by likelihood of
+looking wrong, from the final review: the lobby map's five moved zone hues and new backdrop washes; the
+base wall against the terrain; lane bands at 1.146:1 possibly reading as "nothing shipped"; two
+typefaces per frame if the canvas font fails to load; recharging cards; `Mortar` at portrait width.

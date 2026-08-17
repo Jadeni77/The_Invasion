@@ -5,8 +5,8 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: #1a1a2e;
-    color: #ffffff;
+    background-color: var(--colors-surface-base);
+    color: var(--colors-text-primary);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -18,28 +18,33 @@
     justify-content: space-between;
     align-items: center;
     padding: 20px 40px;
-    background-color: #16213e;
-    border-bottom: 2px solid #0f3460;
+    /* edge-outline, not surface-panel: the h1 sitting on this bar is
+       accent-danger, and accent-danger on surface-panel measures 2.43:1
+       (below the 3:1 floor for its 2.5rem size). edge-outline, the darkest
+       token, brings it to 4.41:1. */
+    background-color: var(--colors-edge-outline);
+    border-bottom: 2px solid var(--colors-surface-base);
 }
 
 .collection-header h1 {
     margin: 0;
+    font-family: var(--type-display);
     font-size: 2.5rem;
-    color: #e74c3c;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    color: var(--colors-accent-danger);
+    text-shadow: 2px 2px 4px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
 .close-button {
     background: none;
     border: none;
-    color: #ffffff;
+    color: var(--colors-text-primary);
     font-size: 2rem;
     cursor: pointer;
     transition: color 0.3s;
 }
 
 .close-button:hover {
-    color: #e74c3c;
+    color: var(--colors-accent-danger);
 }
 
 .collection-tabs {
@@ -47,32 +52,35 @@
     justify-content: center;
     gap: 20px;
     padding: 20px;
-    background-color: #0f3460;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    background-color: var(--colors-surface-base);
+    box-shadow: 0 2px 10px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
 }
 
 .collection-tab {
     padding: 12px 40px;
-    background-color: #16213e;
-    border: 2px solid #1a1a2e;
+    background-color: var(--colors-surface-panel);
+    border: var(--borders-outline) solid var(--colors-edge-outline);
     border-radius: 25px;
-    color: #ffffff;
+    color: var(--colors-text-primary);
     font-size: 1.1rem;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.3s;
+    box-shadow: var(--shadows-drop);
 }
 
 .collection-tab:hover {
-    background-color: #1e3a5f;
+    background-color: var(--colors-surface-panel);
     transform: translateY(-2px);
 }
 
 .collection-tab.active {
-    background-color: #e74c3c;
-    border-color: #e74c3c;
-    color: #ffffff;
-    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+    background-color: var(--colors-accent-danger);
+    border-color: var(--colors-accent-danger);
+    /* contrast-ok: 3.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+       contrast opt-outs". */
+    color: var(--colors-text-primary);
+    box-shadow: 0 4px 15px color-mix(in srgb, var(--colors-accent-danger) 30%, transparent);
 }
 
 .collection-container {
@@ -83,7 +91,7 @@
 
 .section-title {
     text-align: center;
-    color: #e74c3c;
+    color: var(--colors-accent-danger);
     margin-bottom: 30px;
     font-size: 1.8rem;
     text-transform: uppercase;
@@ -99,9 +107,9 @@
 }
 
 .collection-unit-card {
-    background-color: #16213e;
-    border: 2px solid #0f3460;
-    border-radius: 15px;
+    background-color: var(--colors-surface-panel);
+    border: 2px solid var(--colors-surface-base);
+    border-radius: var(--radii-lg);
     padding: 20px;
     transition: all 0.3s;
     display: flex;
@@ -112,17 +120,17 @@
 
 .collection-unit-card:hover {
     transform: translateY(-5px);
-    border-color: #3498db;
-    box-shadow: 0 10px 30px rgba(52, 152, 219, 0.3);
+    border-color: var(--colors-accent-info);
+    box-shadow: 0 10px 30px color-mix(in srgb, var(--colors-accent-info) 30%, transparent);
 }
 
 .collection-unit-card.enemy-card:hover {
-    border-color: #e74c3c;
-    box-shadow: 0 10px 30px rgba(231, 76, 60, 0.3);
+    border-color: var(--colors-accent-danger);
+    box-shadow: 0 10px 30px color-mix(in srgb, var(--colors-accent-danger) 30%, transparent);
 }
 
 .collection-unit-card.locked {
-    background-color: #0f3460;
+    background-color: var(--colors-surface-base);
     opacity: 0.7;
 }
 
@@ -132,7 +140,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #0f3460;
+    background-color: var(--colors-surface-base);
     border-radius: 10px;
     margin-bottom: 15px;
 }
@@ -140,18 +148,20 @@
 .unit-sprite {
     width: 80px;
     height: 80px;
-    background-color: #3498db;
+    background-color: var(--colors-accent-info);
     border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 2rem;
     font-weight: bold;
-    color: #ffffff;
+    /* contrast-ok: 2.61:1, below the 3:1 large-text floor - see
+       task-3-report.md, "Systemic contrast opt-outs". */
+    color: var(--colors-text-primary);
 }
 
 .unit-sprite.enemy {
-    background-color: #e74c3c;
+    background-color: var(--colors-accent-danger);
 }
 
 .collection-unit-sprite-img {
@@ -164,18 +174,18 @@
 
 .locked-icon {
     font-size: 3rem;
-    color: #7f8c8d;
+    color: var(--colors-text-muted);
 }
 
 .collection-unit-name {
     margin: 0 0 15px 0;
     font-size: 1.3rem;
     text-align: center;
-    color: #3498db;
+    color: var(--colors-accent-info);
 }
 
 .enemy-card .collection-unit-name {
-    color: #e74c3c;
+    color: var(--colors-accent-danger);
     margin: 0;
 }
 
@@ -188,8 +198,8 @@
 }
 
 .boss-badge {
-    background: linear-gradient(135deg, #FFD700, #FF8C00);
-    color: #1a1a2e;
+    background: var(--colors-accent-energy);
+    color: var(--colors-surface-base);
     font-size: 0.65rem;
     font-weight: bold;
     padding: 2px 7px;
@@ -200,8 +210,8 @@
 }
 
 .boss-card {
-    border-color: #FFD700 !important;
-    box-shadow: 0 0 12px rgba(255, 215, 0, 0.35);
+    border-color: var(--colors-accent-energy) !important;
+    box-shadow: 0 0 12px color-mix(in srgb, var(--colors-accent-energy) 35%, transparent);
 }
 
 .collection-unit-stats {
@@ -212,7 +222,7 @@
 }
 
 .collection-stat {
-    background-color: #0f3460;
+    background-color: var(--colors-surface-base);
     padding: 8px;
     border-radius: 5px;
     text-align: center;
@@ -221,17 +231,17 @@
 }
 
 .collection-stat.cost {
-    color: #f39c12;
+    color: var(--colors-accent-energy);
 }
 
 .collection-stat.bounty {
-    color: #f1c40f;
+    color: var(--colors-accent-energy);
 }
 
 .collection-unit-description {
     margin-bottom: 15px;
     padding: 10px;
-    background-color: #0f3460;
+    background-color: var(--colors-surface-base);
     border-radius: 5px;
     flex-grow: 1;
 }
@@ -240,7 +250,7 @@
     margin: 0;
     font-size: 0.85rem;
     line-height: 1.4;
-    color: #bdc3c7;
+    color: var(--colors-text-muted);
 }
 
 .special-abilities,
@@ -251,13 +261,13 @@
 
 .special-abilities strong,
 .enemy-abilities strong {
-    color: #3498db;
+    color: var(--colors-accent-info);
     display: block;
     margin-bottom: 5px;
 }
 
 .enemy-abilities strong {
-    color: #e74c3c;
+    color: var(--colors-accent-danger);
 }
 
 .special-abilities ul,
@@ -269,26 +279,28 @@
 .special-abilities li,
 .enemy-abilities li {
     margin-bottom: 3px;
-    color: #95a5a6;
+    color: var(--colors-text-muted);
 }
 
 .collection-unit-status {
     text-align: center;
     padding: 8px;
-    background-color: #27ae60;
-    color: #ffffff;
+    background-color: var(--colors-accent-success);
+    /* contrast-ok: 2.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+       contrast opt-outs". */
+    color: var(--colors-text-primary);
     border-radius: 5px;
     font-weight: bold;
     margin-top: auto;
 }
 
 .collection-unit-status.encountered {
-    background-color: #e74c3c;
+    background-color: var(--colors-accent-danger);
 }
 
 .locked-message {
     text-align: center;
-    color: #7f8c8d;
+    color: var(--colors-text-muted);
     font-style: italic;
     padding: 20px;
 }
@@ -313,7 +325,7 @@
     justify-content: center;
     gap: 8px;
     border-radius: 10px;
-    background: rgba(0, 0, 0, 0.45);
+    background: color-mix(in srgb, var(--colors-edge-outline) 45%, transparent);
     pointer-events: none;
 }
 
@@ -324,7 +336,7 @@
 .collection-lock-text {
     font-size: 0.85rem;
     font-weight: bold;
-    color: #bdc3c7;
+    color: var(--colors-text-muted);
     letter-spacing: 1px;
     text-transform: uppercase;
 }
@@ -338,8 +350,8 @@
 }
 
 .collection-level-badge {
-    background-color: #f39c12;
-    color: #1a1a2e;
+    background-color: var(--colors-accent-energy);
+    color: var(--colors-surface-base);
     font-size: 0.75rem;
     font-weight: bold;
     padding: 2px 8px;
@@ -348,27 +360,29 @@
 
 .collection-pieces-text {
     font-size: 0.75rem;
-    color: #bdc3c7;
+    color: var(--colors-text-muted);
 }
 
 .back-button {
     margin: 20px auto;
     padding: 15px 40px;
-    background-color: #e74c3c;
+    background-color: var(--colors-accent-danger);
     border: none;
     border-radius: 25px;
-    color: #ffffff;
+    /* contrast-ok: 3.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+       contrast opt-outs". */
+    color: var(--colors-text-primary);
     font-size: 1.1rem;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.3s;
-    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+    box-shadow: 0 4px 15px color-mix(in srgb, var(--colors-accent-danger) 30%, transparent);
 }
 
 .back-button:hover {
-    background-color: #c0392b;
+    background-color: var(--colors-accent-danger);
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--colors-accent-danger) 40%, transparent);
 }
 
 /* Scrollbar styling */
@@ -377,15 +391,15 @@
 }
 
 .collection-container::-webkit-scrollbar-track {
-    background: #0f3460;
+    background: var(--colors-surface-base);
     border-radius: 5px;
 }
 
 .collection-container::-webkit-scrollbar-thumb {
-    background: #e74c3c;
+    background: var(--colors-accent-danger);
     border-radius: 5px;
 }
 
 .collection-container::-webkit-scrollbar-thumb:hover {
-    background: #c0392b;
+    background: var(--colors-accent-danger);
 }

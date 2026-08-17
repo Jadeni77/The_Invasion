@@ -1,4 +1,5 @@
 import { isConsumableSpell } from '../../DefenderUnits.js';
+import { colors } from '../../../../style/tokens.js';
 
 /**
  * This class represent the combat system of how defender and enemy interact
@@ -81,7 +82,7 @@ export class CombatManager {
                                                                   target: target,
                                                                   speed: 8,
                                                                   damage: enemy.attackDamage,
-                                                                  color: "#FF4444",
+                                                                  color: colors.accentDanger,
                                                                   attacker: enemy,
                                                                   onHit: () => {
                                                                       enemy.attack(target, now);

@@ -1,5 +1,30 @@
 // MapLayout.js - Enhanced map system with 20 levels + endless mode
 
+import { colors, decorative } from "../../style/tokens.js";
+
+/**
+ * The seven-stop rainbow, ordered to match `.rainbow-connection` in
+ * Lobby.css:857 stop for stop.
+ *
+ * Composed from tokens rather than written out as seven hex literals. Its one
+ * consumer is `endlessPortalConfig.visual.colors` below, which nothing imports
+ * yet - so this is a value waiting for a consumer rather than one in use.
+ * Kept, rather than deleted with the zone colours, because the config it feeds
+ * is exported and a hardcoded rainbow is exactly what would grow back there.
+ * If the endless portal ever draws these, it will already agree with the CSS
+ * connector that leads to it, which the two hand-written hex lists it replaced
+ * did not.
+ */
+export const RAINBOW_STOPS = [
+  colors.accentDanger,
+  decorative.orange,
+  colors.accentEnergy,
+  colors.accentSuccess,
+  colors.accentInfo,
+  decorative.indigo,
+  decorative.violet,
+];
+
 // Level nodes arranged in a serpentine pattern across the map
 export const levelsMapData = [
   // Tutorial Zone (Levels 1-3)
@@ -304,45 +329,42 @@ export const levelDefenderReward = {
   2: "Barricade",
 };
 
-// Zone visual configurations for styling
+/**
+ * Zone visual configurations.
+ *
+ * **These carry no colour, deliberately. `Lobby.css` is the single source for
+ * what a zone looks like.**
+ *
+ * The first pass at this moved the five zone hues from raw hex onto tokens but
+ * left them here, as inline styles - which reintroduced the exact defect the
+ * move was meant to fix, one zone at a time. `Lobby.css` already had five
+ * reviewed, tokenized zone rules from Task 3 (`.tutorial-node` accent-success,
+ * `.early-node` accent-info, `.mid-node` surface-raised, `.late-node`
+ * accent-danger, `.endgame-node` decorative-violet). Four of them happened to
+ * agree with the inline values; `.mid-node` did not, and because an inline
+ * style beats a stylesheet, the reviewed earth-tone `surface-raised` was
+ * silently overridden by `decorative.orange` - the loudest colour on the map -
+ * on the first screen a player sees.
+ *
+ * Two sources that must agree is this codebase's most repeated defect, and the
+ * token module exists to remove it. So the stylesheet won, for three reasons:
+ * it is where the reviewed choice already lived; it is reachable by the CSS
+ * colour, font and contrast guards, where an inline style is reachable only by
+ * the JSX guard added in this same wave; and deleting the inline colours
+ * removes the override *mechanism*, not just today's one instance of it.
+ *
+ * `zone-<key>` and `nodeClass` are what tie a zone to its rules, so those
+ * stay. The dropped fields - `backgroundColor`, `borderColor`, `glowColor` -
+ * had exactly one live consumer between them (the node background), which
+ * `Lobby.css` now owns outright; `glowColor` was read by nothing at all.
+ */
 export const zoneConfigs = {
-  tutorial: {
-    backgroundColor: "#4a7c59",
-    borderColor: "#2d5436",
-    glowColor: "#6fb85f",
-    nodeClass: "tutorial-node",
-  },
-  early: {
-    backgroundColor: "#5a7cb8",
-    borderColor: "#3a5c88",
-    glowColor: "#7a9cd8",
-    nodeClass: "early-node",
-  },
-  mid: {
-    backgroundColor: "#b87c5a",
-    borderColor: "#885c3a",
-    glowColor: "#d89c7a",
-    nodeClass: "mid-node",
-  },
-  late: {
-    backgroundColor: "#b85a7c",
-    borderColor: "#883a5c",
-    glowColor: "#d87a9c",
-    nodeClass: "late-node",
-  },
-  endgame: {
-    backgroundColor: "#7c5ab8",
-    borderColor: "#5c3a88",
-    glowColor: "#9c7ad8",
-    nodeClass: "endgame-node",
-  },
-  endless: {
-    backgroundColor: "#rainbow-gradient",
-    borderColor: "#animated",
-    glowColor: "#rainbow-pulse",
-    nodeClass: "endless-portal",
-    animation: "portal-swirl",
-  },
+  tutorial: { nodeClass: "tutorial-node" },
+  early: { nodeClass: "early-node" },
+  mid: { nodeClass: "mid-node" },
+  late: { nodeClass: "late-node" },
+  endgame: { nodeClass: "endgame-node" },
+  endless: { nodeClass: "endless-portal", animation: "portal-swirl" },
 };
 
 // Endless Mode Configuration
@@ -354,15 +376,8 @@ export const endlessPortalConfig = {
     particles: true,
     glowIntensity: 2,
     pulseSpeed: 1.5,
-    colors: [
-      "#ff0000",
-      "#ff7f00",
-      "#ffff00",
-      "#00ff00",
-      "#0000ff",
-      "#4b0082",
-      "#9400d3",
-    ],
+    // Was a second, independent seven-hex rainbow. Same list, one source.
+    colors: RAINBOW_STOPS,
   },
 
   // Unlock requirements

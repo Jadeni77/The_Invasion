@@ -51,6 +51,7 @@ import { AssetManifest } from "../../assets/AssetManifest.js";
 import { GameLevelConfigs } from "./GameEngineBreakDown/GameLevelConfigs.js";
 import { GameClock } from "./Feedback/GameClock.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
+import { colors, decorative, ensureDisplayFontLoaded, withAlpha } from '../../style/tokens.js';
 
 export class GameEngine {
   constructor(
@@ -267,6 +268,16 @@ export class GameEngine {
     }
 
     this.ctx = canvas.getContext("2d"); // Get 2D rendering context
+
+    // Started here and awaited below, next to the animation load. Canvas text
+    // does not trigger a webfont fetch the way DOM text does, so the first
+    // frames would draw every damage number, wave banner and drop label in
+    // the fallback family and never redraw them when the face arrived. Kicked
+    // off before loadAllAnimations() so the two fetches overlap and this
+    // costs no extra wall-clock time on a cold cache; see
+    // ensureDisplayFontLoaded in tokens.js.
+    const displayFontLoaded = ensureDisplayFontLoaded();
+
     this.canvasWidth = width;
     this.canvasHeight = height;
     this.defenseLineX = width - 60; // Defense line 150px from right edge
@@ -295,6 +306,7 @@ export class GameEngine {
     );
 
     await this.loadAllAnimations();
+    await displayFontLoaded;
     this.resetGame();
     this.startLoop();
   }
@@ -1233,9 +1245,9 @@ export class GameEngine {
           damage: 0,
           radius: 180,
           timer: 30,
-          color: "orange",
-          innerColor: "yellow",
-          particleColor: "rgba(255, 165, 0, 0.9)",
+          color: decorative.orange,
+          innerColor: colors.accentEnergy,
+          particleColor: withAlpha(decorative.orange, 0.9),
           style: "fireball",
           type: "effect",
           source: "mage",
@@ -1266,9 +1278,9 @@ export class GameEngine {
           damage: 0,
           radius: 150,
           timer: 30,
-          color: "lightblue",
-          innerColor: "white",
-          particleColor: "rgba(173, 216, 230, 0.9)",
+          color: colors.accentInfo,
+          innerColor: colors.textPrimary,
+          particleColor: withAlpha(colors.accentInfo, 0.9),
           style: "ice",
           type: "effect",
           source: "mage",
@@ -1422,6 +1434,9 @@ export class GameEngine {
     ctx.save();
     ctx.translate(shake.x, shake.y);
 
+    // Lane bands go first: they must sit under the grid overlay (cell tints,
+    // highlight, occupied state) and every entity drawn after it.
+    this.gridManager.drawLaneBands(ctx);
     this.gridManager.drawGrid(ctx);
     this.drawEntities.drawDefenders(ctx);
     this.drawEntities.drawEnemies(ctx);

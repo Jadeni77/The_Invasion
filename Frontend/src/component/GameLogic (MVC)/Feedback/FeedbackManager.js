@@ -1,6 +1,7 @@
 import { resolveVoice } from './UnitVoices.js';
 import { SAMPLE_VARIANTS } from './UnitSamples.js';
 import { soundKeyFor, mixGainFor } from './SoundGroups.js';
+import { colors } from '../../../style/tokens.js';
 
 /**
  * Translates gameplay events into sound and juice.
@@ -103,7 +104,7 @@ export class FeedbackManager {
     on('base:damaged', () => {
       this.audio.playSfx('baseDamaged', mixGainFor('baseDamaged'));
       this.juice.addTrauma(0.5);
-      this.juice.triggerFlash('#ff0000', 250);
+      this.juice.triggerFlash(colors.accentDanger, 250);
     });
 
     on('wave:started', ({ isBoss }) => {

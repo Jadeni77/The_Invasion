@@ -1,3 +1,5 @@
+import { colors, decorative, withAlpha } from '../../../../style/tokens.js';
+
 export class DrawEntities {
     constructor(gameEngine) {
         this.gameEngine = gameEngine;
@@ -24,11 +26,11 @@ export class DrawEntities {
             ctx.save();
 
             // Draw trail for frost projectiles
-            if (projectile.color === "lightblue" && projectile.trail) {
+            if (projectile.color === colors.accentInfo && projectile.trail) {
                 for (let i = 0; i < projectile.trail.length; i++) {
                     const point = projectile.trail[i];
                     const opacity = (i / projectile.trail.length) * 0.5;
-                    ctx.fillStyle = `rgba(173, 216, 230, ${opacity})`;
+                    ctx.fillStyle = withAlpha(colors.accentInfo, opacity);
                     ctx.beginPath();
                     ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
                     ctx.fill();
@@ -47,9 +49,9 @@ export class DrawEntities {
             }
 
             // Draw projectile
-            ctx.fillStyle = projectile.color || "red";
+            ctx.fillStyle = projectile.color || colors.accentDanger;
             ctx.shadowBlur = 5;
-            ctx.shadowColor = projectile.color || "yellow";
+            ctx.shadowColor = projectile.color || colors.accentEnergy;
             ctx.beginPath();
             ctx.arc(projectile.startX, projectile.startY, 4, 0, Math.PI * 2);
             ctx.fill();
@@ -58,7 +60,7 @@ export class DrawEntities {
         }
         // Draw enemy projectiles
         for (const projectile of this.gameEngine.enemyProjectiles) {
-            ctx.fillStyle = projectile.color || "#FF0000"; // Red for enemies
+            ctx.fillStyle = projectile.color || colors.accentDanger; // Red for enemies
             ctx.beginPath();
             ctx.arc(projectile.startX, projectile.startY, 4, 0, Math.PI * 2);
             ctx.fill();
@@ -80,9 +82,9 @@ export class DrawEntities {
                         point.x, point.y, 0,
                         point.x, point.y, 15
                     );
-                    gradient.addColorStop(0, "yellow");
-                    gradient.addColorStop(0.5, "orange");
-                    gradient.addColorStop(1, "rgba(255, 0, 0, 0)");
+                    gradient.addColorStop(0, colors.accentEnergy);
+                    gradient.addColorStop(0.5, decorative.orange);
+                    gradient.addColorStop(1, withAlpha(colors.accentDanger, 0));
                     ctx.fillStyle = gradient;
                     ctx.beginPath();
                     ctx.arc(point.x, point.y, 15 - i * 0.5, 0, Math.PI * 2);
@@ -96,9 +98,9 @@ export class DrawEntities {
                         point.x, point.y, 0,
                         point.x, point.y, 12
                     );
-                    gradient.addColorStop(0, "white");
-                    gradient.addColorStop(0.5, "lightblue");
-                    gradient.addColorStop(1, "rgba(173, 216, 230, 0)");
+                    gradient.addColorStop(0, colors.textPrimary);
+                    gradient.addColorStop(0.5, colors.accentInfo);
+                    gradient.addColorStop(1, withAlpha(colors.accentInfo, 0));
                     ctx.fillStyle = gradient;
                     ctx.beginPath();
                     ctx.arc(point.x, point.y, 12 - i * 0.5, 0, Math.PI * 2);
@@ -116,10 +118,10 @@ export class DrawEntities {
                     spell.currentX, spell.currentY, 0,
                     spell.currentX, spell.currentY, 20
                 );
-                gradient.addColorStop(0, "white");
-                gradient.addColorStop(0.3, "yellow");
-                gradient.addColorStop(0.7, "orange");
-                gradient.addColorStop(1, "rgba(255, 0, 0, 0.5)");
+                gradient.addColorStop(0, colors.textPrimary);
+                gradient.addColorStop(0.3, colors.accentEnergy);
+                gradient.addColorStop(0.7, decorative.orange);
+                gradient.addColorStop(1, withAlpha(colors.accentDanger, 0.5));
 
                 ctx.fillStyle = gradient;
                 ctx.beginPath();
@@ -132,7 +134,7 @@ export class DrawEntities {
                     const px = spell.currentX + Math.cos(angle) * 15;
                     const py = spell.currentY + Math.sin(angle) * 15;
 
-                    ctx.fillStyle = "rgba(255, 100, 0, 0.8)";
+                    ctx.fillStyle = withAlpha(decorative.orange, 0.8);
                     ctx.beginPath();
                     ctx.arc(px, py, 4, 0, Math.PI * 2);
                     ctx.fill();
@@ -143,9 +145,9 @@ export class DrawEntities {
                     spell.currentX, spell.currentY, 0,
                     spell.currentX, spell.currentY, 18
                 );
-                gradient.addColorStop(0, "white");
-                gradient.addColorStop(0.5, "lightblue");
-                gradient.addColorStop(1, "rgba(135, 206, 235, 0.5)");
+                gradient.addColorStop(0, colors.textPrimary);
+                gradient.addColorStop(0.5, colors.accentInfo);
+                gradient.addColorStop(1, withAlpha(colors.accentInfo, 0.5));
 
                 ctx.fillStyle = gradient;
                 ctx.beginPath();
@@ -153,7 +155,7 @@ export class DrawEntities {
                 ctx.fill();
 
                 // Ice crystals
-                ctx.strokeStyle = "white";
+                ctx.strokeStyle = colors.textPrimary;
                 ctx.lineWidth = 2;
                 for (let i = 0; i < 6; i++) {
                     const angle = (Math.PI * 2 * i) / 6;

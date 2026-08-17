@@ -5,6 +5,8 @@ import { DrawNegativeEffect } from "./GameEngineBreakDown/Draws/DrawNegativeEffe
 import { getSettings } from "./Feedback/SettingsStore.js";
 import { frameDurationMs } from "./Animation/AttackPlayback.js";
 import { frameDeltaMs, frameScale } from "./Animation/FrameTime.js";
+import { canvasFont, colors, decorative, withAlpha, withFlicker } from '../../style/tokens.js';
+import { fitNativeFrame } from './Animation/SpriteFit.js';
 
 export class DefenderUnit {
   constructor(x, y, cardData = {}) {
@@ -21,7 +23,7 @@ export class DefenderUnit {
     this.health = cardData.health || 100;
     this.maxHealth = cardData.health || 100;
     this.cost = cardData.cost || 0;
-    this.color = cardData.color || "cyan";
+    this.color = cardData.color || colors.accentInfo;
     this.name = cardData.name || "Basic Police";
     this.image = cardData.image;
 
@@ -301,12 +303,27 @@ export class DefenderUnit {
       const frames = this.animationFrames[this.currentAnimation];
       if (frames && frames[this.animationFrame]) {
         try {
-          ctx.drawImage(
-            frames[this.animationFrame],
-            this.x,
-            this.y,
+          // Native size comes from *this* defender's own config, not a
+          // shared constant: most defenders crop to 48x48, but Mortar and
+          // Frost Archer's true art doesn't fit that template and are
+          // delivered uncropped, at their full 64x64 frame (see
+          // AssetManifest.js). fitNativeFrame() reads whichever applies.
+          const animConfig = this.animationConfig && this.animationConfig[this.currentAnimation];
+          const crop = animConfig?.cropConfig;
+          const nativeWidth = crop?.enabled ? crop.cropWidth : animConfig?.frameWidth;
+          const nativeHeight = crop?.enabled ? crop.cropHeight : animConfig?.frameHeight;
+          const { drawnWidth, drawnHeight, insetX, insetY } = fitNativeFrame(
+            nativeWidth,
+            nativeHeight,
             this.width,
             this.height,
+          );
+          ctx.drawImage(
+            frames[this.animationFrame],
+            this.x + insetX,
+            this.y + insetY,
+            drawnWidth,
+            drawnHeight,
           );
         } catch (e) {
           console.error("Failed to draw frame:", e);
@@ -336,8 +353,8 @@ export class DefenderUnit {
     // Only draw health bar and name for alive units
     if (this.isAlive) {
       // Unit name text
-      ctx.fillStyle = "black";
-      ctx.font = "12px Arial";
+      ctx.fillStyle = colors.edgeOutline;
+      ctx.font = canvasFont(12);
       ctx.fillText(
         this.name.substring(0, this.name.length),
         this.x + 2,
@@ -346,9 +363,9 @@ export class DefenderUnit {
 
       // Health bar
       if (this.health < this.maxHealth && getSettings().display.showHealthBars) {
-        ctx.fillStyle = "red";
+        ctx.fillStyle = colors.accentDanger;
         ctx.fillRect(this.x, this.y - 10, this.width, 5);
-        ctx.fillStyle = "lime";
+        ctx.fillStyle = colors.accentSuccess;
         const healthWidth = (this.health / this.maxHealth) * this.width;
         ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
         ctx.fillText(
@@ -366,8 +383,8 @@ export class DefenderUnit {
     ctx.fillStyle = this.color;
     ctx.fillRect(this.x, this.y, this.width, this.height);
 
-    ctx.fillStyle = "black";
-    ctx.font = "12px Arial";
+    ctx.fillStyle = colors.edgeOutline;
+    ctx.font = canvasFont(12);
     ctx.fillText(this.name.charAt(0), this.x + 5, this.y + 15);
   }
 
@@ -402,7 +419,7 @@ export class BasicDefender extends DefenderUnit {
       cost: 20,
       width: 64,
       height: 64,
-      color: "blue",
+      color: colors.accentInfo,
       isRanged: true,
       level: cardData.level || 1,
       image: cardData.image,
@@ -470,7 +487,7 @@ export class HealerDefender extends DefenderUnit {
       cost: 30,
       width: 64,
       height: 64,
-      color: "lightgreen",
+      color: colors.accentSuccess,
       isRanged: false,
       level: cardData.level || 1,
       image: cardData.image,
@@ -587,9 +604,9 @@ export class HealerDefender extends DefenderUnit {
               damage: 0,
               radius: 30,
               timer: 20,
-              color: "lightgreen",
-              innerColor: "white",
-              particleColor: "rgba(0, 255, 0, 0.6)",
+              color: colors.accentSuccess,
+              innerColor: colors.textPrimary,
+              particleColor: withAlpha(colors.accentSuccess, 0.6),
               style: "heal",
               type: "effect",
               source: "healer",
@@ -614,9 +631,9 @@ export class HealerDefender extends DefenderUnit {
             damage: 0,
             radius: 30,
             timer: 20,
-            color: "lightgreen",
-            innerColor: "white",
-            particleColor: "rgba(0, 255, 0, 0.6)",
+            color: colors.accentSuccess,
+            innerColor: colors.textPrimary,
+            particleColor: withAlpha(colors.accentSuccess, 0.6),
             style: "heal",
             type: "effect",
             source: "healer",
@@ -701,7 +718,7 @@ export class HealerDefender extends DefenderUnit {
         0,
         Math.PI * 2,
       );
-      ctx.strokeStyle = `rgba(0, 255, 0, ${pulse * 0.5})`;
+      ctx.strokeStyle = withAlpha(colors.accentSuccess, pulse * 0.5);
       ctx.lineWidth = 3;
       ctx.stroke();
 
@@ -712,7 +729,7 @@ export class HealerDefender extends DefenderUnit {
         const particleX = this.x + this.width / 2 + Math.cos(angle) * distance;
         const particleY = this.y + this.height / 2 + Math.sin(angle) * distance;
 
-        ctx.fillStyle = `rgba(0, 255, 0, ${pulse * 0.8})`;
+        ctx.fillStyle = withAlpha(colors.accentSuccess, pulse * 0.8);
         ctx.beginPath();
         ctx.arc(particleX, particleY, 3, 0, Math.PI * 2);
         ctx.fill();
@@ -724,7 +741,7 @@ export class HealerDefender extends DefenderUnit {
     // Visual indicator for resurrection ability
     if (this.hasResurrection && this.canResurrect) {
       ctx.save();
-      ctx.fillStyle = "rgba(255, 215, 0, 0.3)"; // Golden glow
+      ctx.fillStyle = withAlpha(colors.accentEnergy, 0.3); // Golden glow
       ctx.beginPath();
       ctx.arc(
         this.x + this.width / 2,
@@ -736,8 +753,8 @@ export class HealerDefender extends DefenderUnit {
       ctx.fill();
 
       // Resurrection symbol
-      ctx.fillStyle = "gold";
-      ctx.font = "bold 12px Arial";
+      ctx.fillStyle = colors.accentEnergy;
+      ctx.font = canvasFont(12, "bold");
       ctx.textAlign = "center";
       ctx.fillText("✚", this.x + this.width / 2, this.y - 5);
       ctx.restore();
@@ -746,7 +763,7 @@ export class HealerDefender extends DefenderUnit {
     // Healing range indicator (optional - shows when hovering or healing)
     if (this.isHealing) {
       ctx.save();
-      ctx.strokeStyle = "rgba(0, 255, 0, 0.2)";
+      ctx.strokeStyle = withAlpha(colors.accentSuccess, 0.2);
       ctx.setLineDash([5, 10]);
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -774,7 +791,7 @@ export class GrenadeDefender extends DefenderUnit {
       cost: 60,
       width: 64,
       height: 64,
-      color: "darkorange",
+      color: decorative.orange,
       isRanged: true,
       level: cardData.level || 1,
       image: cardData.image,
@@ -847,9 +864,9 @@ export class GrenadeDefender extends DefenderUnit {
         damage: 0,
         radius: this.grenadeRadius,
         timer: 30,
-        color: "orange",
-        innerColor: "yellow",
-        particleColor: "rgba(255, 200, 0, 0.8)",
+        color: decorative.orange,
+        innerColor: colors.accentEnergy,
+        particleColor: withAlpha(decorative.orange, 0.8),
         style: "burst",
         type: "defender",
         source: "grenadier",
@@ -876,9 +893,9 @@ export class GrenadeDefender extends DefenderUnit {
                 damage: 0,
                 radius: this.grenadeRadius * 0.8,
                 timer: 25,
-                color: "orange",
-                innerColor: "yellow",
-                particleColor: "rgba(255, 200, 0, 0.8)",
+                color: decorative.orange,
+                innerColor: colors.accentEnergy,
+                particleColor: withAlpha(decorative.orange, 0.8),
                 style: "burst",
                 type: "defender",
                 source: "grenadier",
@@ -903,9 +920,9 @@ export class GrenadeDefender extends DefenderUnit {
                 damage: 0,
                 radius: napalmRadius,
                 timer: 15,
-                color: "orange",
-                innerColor: "red",
-                particleColor: "rgba(255, 100, 0, 0.9)",
+                color: decorative.orange,
+                innerColor: colors.accentDanger,
+                particleColor: withAlpha(decorative.orange, 0.9),
                 style: "burst",
                 type: "defender",
                 source: "grenadier",
@@ -946,7 +963,7 @@ export class BarricadeDefender extends DefenderUnit {
       cost: 30,
       width: 64,
       height: 64,
-      color: "gray",
+      color: colors.textMuted,
       isRanged: false,
       level: cardData.level || 1,
       image: cardData.image,
@@ -1053,9 +1070,9 @@ export class BarricadeDefender extends DefenderUnit {
             damage: 0,
             radius: 20,
             timer: 15,
-            color: "silver",
-            innerColor: "gray",
-            particleColor: "rgba(192, 192, 192, 0.8)",
+            color: colors.edgeHighlight,
+            innerColor: colors.textMuted,
+            particleColor: withAlpha(colors.textMuted, 0.8),
             style: "spike",
             type: "effect",
             source: "barricade",
@@ -1089,9 +1106,9 @@ export class BarricadeDefender extends DefenderUnit {
             damage: 0,
             radius: stunRadius,
             timer: 20,
-            color: "yellow",
-            innerColor: "white",
-            particleColor: "rgba(255, 255, 0, 0.6)",
+            color: colors.accentEnergy,
+            innerColor: colors.textPrimary,
+            particleColor: withAlpha(colors.accentEnergy, 0.6),
             style: "electric",
             type: "effect",
             source: "barricade",
@@ -1107,7 +1124,7 @@ export class BarricadeDefender extends DefenderUnit {
     // Spike visual indicator
     if (this.hasSpikes && this.isAlive) {
       ctx.save();
-      ctx.strokeStyle = "silver";
+      ctx.strokeStyle = colors.edgeHighlight;
       ctx.lineWidth = 2;
 
       // Draw spikes on the barricade
@@ -1130,7 +1147,7 @@ export class BarricadeDefender extends DefenderUnit {
     if (this.hasElectricField && this.isAlive) {
       ctx.save();
       if (this.showRangeIndicators) {
-        ctx.strokeStyle = `rgba(255, 255, 0, ${0.3 + Math.sin(Date.now() / 200) * 0.2})`;
+        ctx.strokeStyle = withAlpha(colors.accentEnergy, 0.3 + Math.sin(Date.now() / 200) * 0.2);
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
         ctx.beginPath();
@@ -1143,8 +1160,8 @@ export class BarricadeDefender extends DefenderUnit {
         );
         ctx.stroke();
       } else {
-        ctx.fillStyle = `rgba(255, 255, 0, ${0.6 + Math.sin(Date.now() / 200) * 0.3})`;
-        ctx.font = "bold 14px Arial";
+        ctx.fillStyle = withAlpha(colors.accentEnergy, 0.6 + Math.sin(Date.now() / 200) * 0.3);
+        ctx.font = canvasFont(14, "bold");
         ctx.textAlign = "center";
         ctx.fillText("⚡", this.x + this.width / 2, this.y - 4);
       }
@@ -1164,7 +1181,7 @@ export class EnergyGenerator extends DefenderUnit {
       cost: 25,
       width: 64,
       height: 64,
-      color: "yellow",
+      color: colors.accentEnergy,
       isRanged: false,
       level: cardData.level || 1,
       image: cardData.image,
@@ -1312,7 +1329,7 @@ export class EnergyGenerator extends DefenderUnit {
     // Energy burst indicator
     if (this.hasEnergyBurst && this.energyBurstCooldown && this.isAlive) {
       const progress = 1 - this.energyBurstCooldown / 600;
-      ctx.strokeStyle = "gold";
+      ctx.strokeStyle = colors.accentEnergy;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(
@@ -1328,7 +1345,7 @@ export class EnergyGenerator extends DefenderUnit {
     // Auto-collect field visual — full ring only when hovered.
     if (this.autoCollect && this.isAlive && this.showRangeIndicators) {
       ctx.save();
-      ctx.strokeStyle = `rgba(255, 215, 0, ${0.2 + Math.sin(Date.now() / 300) * 0.1})`;
+      ctx.strokeStyle = withAlpha(colors.accentEnergy, 0.2 + Math.sin(Date.now() / 300) * 0.1);
       ctx.lineWidth = 1;
       ctx.setLineDash([10, 5]);
       ctx.beginPath();
@@ -1353,7 +1370,7 @@ export class EnergyGenerator extends DefenderUnit {
       -Math.PI / 2,
       -Math.PI / 2 + Math.PI * 2 * progress,
     );
-    ctx.strokeStyle = "rgba(255, 255, 0, 0.8)";
+    ctx.strokeStyle = withAlpha(colors.accentEnergy, 0.8);
     ctx.lineWidth = 3;
     ctx.stroke();
   }
@@ -1370,7 +1387,7 @@ export class Sniper extends DefenderUnit {
       cost: 100,
       width: 64,
       height: 64,
-      color: "darkgreen",
+      color: colors.accentSuccess,
       isRanged: true,
       level: cardData.level || 1,
       image: cardData.image,
@@ -1542,9 +1559,9 @@ export class Sniper extends DefenderUnit {
         damage: 0,
         radius: 200,
         timer: 30,
-        color: "crimson",
-        innerColor: "white",
-        particleColor: "rgba(220, 20, 60, 0.9)",
+        color: colors.accentDanger,
+        innerColor: colors.textPrimary,
+        particleColor: withAlpha(colors.accentDanger, 0.9),
         style: "piercing",
         type: "defender",
         source: "sniper",
@@ -1581,8 +1598,8 @@ export class Sniper extends DefenderUnit {
           this.lastTargetPosition.x,
           this.lastTargetPosition.y,
         );
-        gradient.addColorStop(0, `rgba(255, 0, 0, ${fadeAlpha})`);
-        gradient.addColorStop(1, `rgba(255, 100, 0, ${fadeAlpha * 0.5})`);
+        gradient.addColorStop(0, withAlpha(colors.accentDanger, fadeAlpha));
+        gradient.addColorStop(1, withAlpha(decorative.orange, fadeAlpha * 0.5));
 
         ctx.strokeStyle = gradient;
         ctx.lineWidth = 3 - (timeSinceShot / this.laserDuration) * 2; // Shrinking line
@@ -1606,7 +1623,7 @@ export class Sniper extends DefenderUnit {
         }
 
         // Draw hit markers on pierced enemies
-        ctx.fillStyle = `rgba(255, 0, 0, ${fadeAlpha * 0.7})`;
+        ctx.fillStyle = withAlpha(colors.accentDanger, fadeAlpha * 0.7);
         for (const enemyId of this.piercingTargets) {
           const enemy = this.gameEngine.enemies.find((e) => e.id === enemyId);
           if (enemy) {
@@ -1625,7 +1642,7 @@ export class Sniper extends DefenderUnit {
         }
       } else {
         // Regular laser sight (non-piercing)
-        ctx.strokeStyle = `rgba(255, 0, 0, ${fadeAlpha * 0.8})`;
+        ctx.strokeStyle = withAlpha(colors.accentDanger, fadeAlpha * 0.8);
         ctx.lineWidth = 2 - timeSinceShot / this.laserDuration;
         ctx.beginPath();
         ctx.moveTo(this.x + this.width / 2, this.y + this.height / 2);
@@ -1633,7 +1650,7 @@ export class Sniper extends DefenderUnit {
         ctx.stroke();
 
         // Impact point
-        ctx.fillStyle = `rgba(255, 100, 0, ${fadeAlpha})`;
+        ctx.fillStyle = withAlpha(decorative.orange, fadeAlpha);
         ctx.beginPath();
         ctx.arc(
           this.lastTargetPosition.x,
@@ -1650,7 +1667,7 @@ export class Sniper extends DefenderUnit {
 
     // Scope indicator
     if (this.hasHeadshot) {
-      ctx.strokeStyle = "rgba(255, 0, 0, 0.3)";
+      ctx.strokeStyle = withAlpha(colors.accentDanger, 0.3);
       ctx.lineWidth = 1;
       ctx.beginPath();
       // Crosshair
@@ -1674,7 +1691,7 @@ export class Mortar extends DefenderUnit {
       cost: 120,
       width: 64,
       height: 64,
-      color: "darkgray",
+      color: colors.textMuted,
       isRanged: true,
       level: cardData.level || 1,
       image: cardData.image,
@@ -1953,9 +1970,9 @@ export class Mortar extends DefenderUnit {
       damage: 0,
       radius: this.explosionRadius,
       timer: 30,
-      color: "orange",
-      innerColor: "yellow",
-      particleColor: "rgba(255, 200, 0, 0.9)",
+      color: decorative.orange,
+      innerColor: colors.accentEnergy,
+      particleColor: withAlpha(decorative.orange, 0.9),
       style: "burst",
       type: "defender",
       source: "mortar",
@@ -1983,9 +2000,9 @@ export class Mortar extends DefenderUnit {
                 damage: 0,
                 radius: this.explosionRadius * 0.7,
                 timer: 30,
-                color: "orange",
-                innerColor: "yellow",
-                particleColor: "rgba(255, 200, 0, 0.9)",
+                color: decorative.orange,
+                innerColor: colors.accentEnergy,
+                particleColor: withAlpha(decorative.orange, 0.9),
                 style: "burst",
                 type: "defender",
                 source: "mortar",
@@ -2017,8 +2034,8 @@ export class Mortar extends DefenderUnit {
     // Draw loading indicator if shell is in flight
     if (this.hasShellInFlight && this.isAlive) {
       ctx.save();
-      ctx.fillStyle = "rgba(255, 165, 0, 0.8)";
-      ctx.font = "bold 10px Arial";
+      ctx.fillStyle = withAlpha(decorative.orange, 0.8);
+      ctx.font = canvasFont(10, "bold");
       ctx.textAlign = "center";
       ctx.fillText("RELOADING", this.x + this.width / 2, this.y - 20);
       ctx.restore();
@@ -2031,8 +2048,8 @@ export class Mortar extends DefenderUnit {
       ctx.save();
 
       // Dead zone (minimum range) - red with pattern
-      ctx.strokeStyle = "rgba(255, 0, 0, 0.4)";
-      ctx.fillStyle = "rgba(255, 0, 0, 0.1)";
+      ctx.strokeStyle = withAlpha(colors.accentDanger, 0.4);
+      ctx.fillStyle = withAlpha(colors.accentDanger, 0.1);
       ctx.lineWidth = 2;
       ctx.setLineDash([10, 5]);
       ctx.beginPath();
@@ -2047,8 +2064,8 @@ export class Mortar extends DefenderUnit {
       ctx.stroke();
 
       // Label for dead zone
-      ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
-      ctx.font = "12px Arial";
+      ctx.fillStyle = withAlpha(colors.accentDanger, 0.8);
+      ctx.font = canvasFont(12);
       ctx.textAlign = "center";
       ctx.fillText(
         "DEAD ZONE",
@@ -2057,7 +2074,7 @@ export class Mortar extends DefenderUnit {
       );
 
       // Maximum range - green
-      ctx.strokeStyle = "rgba(0, 255, 0, 0.3)";
+      ctx.strokeStyle = withAlpha(colors.accentSuccess, 0.3);
       ctx.lineWidth = 2;
       ctx.setLineDash([]);
       ctx.beginPath();
@@ -2084,11 +2101,11 @@ export class Mortar extends DefenderUnit {
 
     // Barrel with recoil
     const barrelLength = 35 - this.barrelRecoil;
-    ctx.fillStyle = "#444";
+    ctx.fillStyle = colors.surfacePanel;
     ctx.fillRect(5, -6, barrelLength, 12);
 
     // Barrel end
-    ctx.fillStyle = "#222";
+    ctx.fillStyle = colors.surfaceSunken;
     ctx.fillRect(barrelLength + 5, -8, 5, 16);
 
     ctx.restore();
@@ -2110,7 +2127,7 @@ export class Mortar extends DefenderUnit {
       const pulse = Math.sin(Date.now() / 100) * 0.2 + 0.8;
 
       // Target reticle
-      ctx.strokeStyle = `rgba(255, 0, 0, ${pulse})`;
+      ctx.strokeStyle = withAlpha(colors.accentDanger, pulse);
       ctx.lineWidth = 3;
 
       // Outer circle
@@ -2132,8 +2149,8 @@ export class Mortar extends DefenderUnit {
       ctx.stroke();
 
       // Target lock text
-      ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`;
-      ctx.font = "bold 14px Arial";
+      ctx.fillStyle = withAlpha(colors.accentDanger, pulse);
+      ctx.font = canvasFont(14, "bold");
       ctx.textAlign = "center";
       ctx.fillText("LOCKED", targetX, targetY - 60);
 
@@ -2160,7 +2177,7 @@ export class Mortar extends DefenderUnit {
 
       // Target circle on ground
       const progress = 1 - shell.timeRemaining / this.shellTravelTime;
-      ctx.strokeStyle = `rgba(255, 0, 0, ${0.5 + progress * 0.5})`;
+      ctx.strokeStyle = withAlpha(colors.accentDanger, 0.5 + progress * 0.5);
       ctx.lineWidth = 3;
       ctx.setLineDash([10, 5]);
       ctx.lineDashOffset = -Date.now() / 50;
@@ -2183,7 +2200,7 @@ export class Mortar extends DefenderUnit {
       ctx.stroke();
 
       // Impact zone preview
-      ctx.fillStyle = `rgba(255, 165, 0, ${0.1 + progress * 0.2})`;
+      ctx.fillStyle = withAlpha(decorative.orange, 0.1 + progress * 0.2);
       ctx.beginPath();
       ctx.arc(
         targetX,
@@ -2205,8 +2222,8 @@ export class Mortar extends DefenderUnit {
           shell.currentX,
           shell.currentY + trailLength * 10,
         );
-        gradient.addColorStop(0, "rgba(100, 100, 100, 0.8)");
-        gradient.addColorStop(1, "rgba(100, 100, 100, 0)");
+        gradient.addColorStop(0, withAlpha(colors.textMuted, 0.8));
+        gradient.addColorStop(1, withAlpha(colors.textMuted, 0));
 
         ctx.strokeStyle = gradient;
         ctx.lineWidth = 6;
@@ -2216,13 +2233,13 @@ export class Mortar extends DefenderUnit {
         ctx.stroke();
 
         // Shell body
-        ctx.fillStyle = "#222";
+        ctx.fillStyle = colors.surfaceSunken;
         ctx.beginPath();
         ctx.arc(shell.currentX, shell.currentY, 6, 0, Math.PI * 2);
         ctx.fill();
 
         // Shell tip
-        ctx.fillStyle = "#ff6600";
+        ctx.fillStyle = decorative.orange;
         ctx.beginPath();
         ctx.arc(shell.currentX, shell.currentY - 3, 3, 0, Math.PI * 2);
         ctx.fill();
@@ -2244,7 +2261,7 @@ export class FrostArcher extends DefenderUnit {
       cost: 35,
       width: 64,
       height: 64,
-      color: "lightblue",
+      color: colors.accentInfo,
       isRanged: true,
       level: cardData.level || 1,
       image: cardData.image,
@@ -2294,7 +2311,7 @@ export class FrostArcher extends DefenderUnit {
       target: target,
       damage: this.attackDamage,
       speed: 8,
-      color: "lightblue",
+      color: colors.accentInfo,
       trail: [],
       onHit: () => this.onProjectileHit(target),
     };
@@ -2336,9 +2353,9 @@ export class FrostArcher extends DefenderUnit {
           damage: 0,
           radius: 40,
           timer: 20,
-          color: "lightblue",
-          innerColor: "white",
-          particleColor: "rgba(173, 216, 230, 0.9)",
+          color: colors.accentInfo,
+          innerColor: colors.textPrimary,
+          particleColor: withAlpha(colors.accentInfo, 0.9),
           style: "freeze",
           type: "effect",
           source: "frost_archer",
@@ -2369,9 +2386,9 @@ export class FrostArcher extends DefenderUnit {
         damage: 0,
         radius: 100,
         timer: 30,
-        color: "lightblue",
-        innerColor: "white",
-        particleColor: "rgba(135, 206, 235, 0.9)",
+        color: colors.accentInfo,
+        innerColor: colors.textPrimary,
+        particleColor: withAlpha(colors.accentInfo, 0.9),
         style: "ice_shatter",
         type: "defender",
         source: "frost_archer",
@@ -2411,7 +2428,7 @@ export class FireBlast extends DefenderUnit {
       cost: 50,
       width: 60,
       height: 60,
-      color: "orangered",
+      color: decorative.orange,
       isRanged: false,
       level: cardData.level || 1,
       image: cardData.image,
@@ -2512,9 +2529,9 @@ export class FireBlast extends DefenderUnit {
         damage: 0,
         radius: 80,
         timer: 30, // Staggered timing
-        color: "orangered",
-        innerColor: "yellow",
-        particleColor: "rgba(255, 69, 0, 0.9)",
+        color: decorative.orange,
+        innerColor: colors.accentEnergy,
+        particleColor: withAlpha(decorative.orange, 0.9),
         style: "fireblast",
         type: "defender",
         source: "fireblast",
@@ -2577,9 +2594,9 @@ export class FireBlast extends DefenderUnit {
               damage: 0,
               radius: 40,
               timer: 15,
-              color: "darkred",
-              innerColor: "orange",
-              particleColor: "rgba(139, 0, 0, 0.6)",
+              color: colors.accentDanger,
+              innerColor: decorative.orange,
+              particleColor: withAlpha(colors.accentDanger, 0.6),
               style: "molten",
               type: "effect",
               source: "fireblast",
@@ -2608,7 +2625,7 @@ export class FireBlast extends DefenderUnit {
 
       // Glowing aura
       ctx.globalAlpha = 0.6 * chargeProgress;
-      ctx.fillStyle = "orangered";
+      ctx.fillStyle = decorative.orange;
       ctx.beginPath();
       ctx.arc(
         this.x + this.width / 2,
@@ -2626,7 +2643,7 @@ export class FireBlast extends DefenderUnit {
         const particleX = this.x + this.width / 2 + Math.cos(angle) * distance;
         const particleY = this.y + this.height / 2 + Math.sin(angle) * distance;
 
-        ctx.fillStyle = `rgba(255, ${100 + Math.random() * 155}, 0, ${chargeProgress})`;
+        ctx.fillStyle = withFlicker(decorative.orange, chargeProgress, 155);
         ctx.beginPath();
         ctx.arc(particleX, particleY, 4, 0, Math.PI * 2);
         ctx.fill();
@@ -2648,7 +2665,7 @@ export class IceBomb extends DefenderUnit {
       cost: 40,
       width: 50,
       height: 50,
-      color: "lightblue",
+      color: colors.accentInfo,
       isRanged: false,
       level: cardData.level || 1,
       image: cardData.image,
@@ -2745,9 +2762,9 @@ export class IceBomb extends DefenderUnit {
       damage: 0,
       radius: this.explosionRadius,
       timer: 40,
-      color: "lightblue",
-      innerColor: "white",
-      particleColor: "rgba(173, 216, 230, 0.9)",
+      color: colors.accentInfo,
+      innerColor: colors.textPrimary,
+      particleColor: withAlpha(colors.accentInfo, 0.9),
       style: "icebomb",
       type: "defender",
       source: "icebomb",
@@ -2767,9 +2784,9 @@ export class IceBomb extends DefenderUnit {
             damage: 0,
             radius: 50,
             timer: 20,
-            color: "white",
-            innerColor: "lightblue",
-            particleColor: "rgba(255, 255, 255, 0.8)",
+            color: colors.textPrimary,
+            innerColor: colors.accentInfo,
+            particleColor: withAlpha(colors.textPrimary, 0.8),
             style: "ice_shard",
             type: "effect",
             source: "icebomb",
@@ -2838,7 +2855,7 @@ export class IceBomb extends DefenderUnit {
         );
         ctx.rotate(angle);
 
-        ctx.fillStyle = "white";
+        ctx.fillStyle = colors.textPrimary;
         ctx.fillRect(-3, -10, 6, 20);
         ctx.fillRect(-10, -3, 20, 6);
 
@@ -2846,7 +2863,7 @@ export class IceBomb extends DefenderUnit {
       }
 
       // Frost aura
-      ctx.strokeStyle = `rgba(173, 216, 230, ${chargeProgress * 0.8})`;
+      ctx.strokeStyle = withAlpha(colors.accentInfo, chargeProgress * 0.8);
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(
