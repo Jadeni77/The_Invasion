@@ -21,7 +21,45 @@ import {
 } from "./Animation/AttackPlayback.js";
 import { frameDeltaMs, frameScale } from "./Animation/FrameTime.js";
 import { colors, decorative, withAlpha } from '../../style/tokens.js';
-import { ENEMY_NATIVE_PX } from './GameEngineBreakDown/InGameManagerHandlers/GridManager.js';
+
+/**
+ * Enemy frames are never cropped (AssetManifest.enemies carries no
+ * cropConfig - see GridManager.js's SPRITE_NATIVE_PX doc comment) and are
+ * not uniform or square across types: frame width varies from 64 to 100px
+ * while frame height is 64px for most types. A single shared constant can't
+ * describe that (a fixed constant either overflows a small-footprint enemy
+ * like Mini/Assassin, or squares off a wide native frame like Basic
+ * Zombie's 80x64 into a distorted 64x64). So this computes the integer
+ * scale from *this* enemy's own native frame size and applies it to width
+ * and height independently, preserving the frame's own aspect ratio instead
+ * of forcing a square.
+ *
+ * When the native frame doesn't fit inside the enemy's own footprint
+ * (`boxWidth`/`boxHeight`) at even 1x scale on some axis - Mini (32x32
+ * footprint, 64x64 native) and Assassin (50x32 footprint, 100x64 native)
+ * are the two current cases - there is no integer upscale that avoids
+ * overflowing the footprint, so this falls back to drawing directly at the
+ * footprint size (the behaviour every enemy had before this task), which
+ * never overflows by construction.
+ */
+export function fitNativeFrame(nativeWidth, nativeHeight, boxWidth, boxHeight) {
+  if (!nativeWidth || !nativeHeight) {
+    return { drawnWidth: boxWidth, drawnHeight: boxHeight, insetX: 0, insetY: 0 };
+  }
+  const fitScale = Math.min(boxWidth / nativeWidth, boxHeight / nativeHeight);
+  if (fitScale < 1) {
+    return { drawnWidth: boxWidth, drawnHeight: boxHeight, insetX: 0, insetY: 0 };
+  }
+  const scale = Math.floor(fitScale);
+  const drawnWidth = nativeWidth * scale;
+  const drawnHeight = nativeHeight * scale;
+  return {
+    drawnWidth,
+    drawnHeight,
+    insetX: Math.round((boxWidth - drawnWidth) / 2),
+    insetY: Math.round((boxHeight - drawnHeight) / 2),
+  };
+}
 
 export class Enemy {
   constructor(x, y, typeData = {}) {
@@ -422,16 +460,19 @@ export class Enemy {
       const frames = this.animationFrames[this.currentAnimation];
       if (frames && frames[this.animationFrame]) {
         try {
-          const scale = Math.max(1, Math.floor(this.width / ENEMY_NATIVE_PX));
-          const drawn = ENEMY_NATIVE_PX * scale;
-          const insetX = Math.round((this.width - drawn) / 2);
-          const insetY = Math.round((this.height - drawn) / 2);
+          const animConfig = this.animationConfig && this.animationConfig[this.currentAnimation];
+          const { drawnWidth, drawnHeight, insetX, insetY } = fitNativeFrame(
+            animConfig?.frameWidth,
+            animConfig?.frameHeight,
+            this.width,
+            this.height,
+          );
           ctx.drawImage(
               frames[this.animationFrame],
               this.x + insetX,
               this.y + insetY,
-              drawn,
-              drawn
+              drawnWidth,
+              drawnHeight
           );
         } catch (e) {
           console.error('Failed to draw frame:', e);

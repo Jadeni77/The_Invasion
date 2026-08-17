@@ -1,12 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import {
-  GridManager,
-  SPRITE_NATIVE_PX,
-  ENEMY_NATIVE_PX,
-  MIN_CELL_PX,
-} from '../GameEngineBreakDown/InGameManagerHandlers/GridManager.js';
+import { GridManager, SPRITE_NATIVE_PX } from '../GameEngineBreakDown/InGameManagerHandlers/GridManager.js';
 import { DefenderUnit } from '../DefenderUnits.js';
-import { Enemy } from '../EnemyUnits.js';
+import * as EnemyModule from '../EnemyUnits.js';
+import { Enemy, fitNativeFrame } from '../EnemyUnits.js';
+import { AssetManifest } from '../../../assets/AssetManifest.js';
 
 /** Every viewport the game realistically runs at, small to large. */
 const VIEWPORTS = [
@@ -20,9 +17,8 @@ const VIEWPORTS = [
  * GridManager and reads gridSize straight off it, without calling
  * initializeGrid(), is checking the constructor's placeholder default (60)
  * against nothing: 60 clears any minimum this task could plausibly set, at
- * every viewport, regardless of whether the fix under test exists. That
- * would be a sixth guard that doesn't guard, so every case below calls
- * initializeGrid() before making an assertion.
+ * every viewport, regardless of whether the fix under test exists. So every
+ * case below calls initializeGrid() before making an assertion.
  */
 function buildGrid(w, h, levelNumber = 1) {
   const grid = new GridManager(w, h, levelNumber);
@@ -30,37 +26,32 @@ function buildGrid(w, h, levelNumber = 1) {
   return grid;
 }
 
-describe('sprite scaling', () => {
-  it('derives MIN_CELL_PX from the larger of the two native sizes', () => {
-    // Rejects a MIN_CELL_PX that is hardcoded to one side's number (e.g. left
-    // at 48) instead of actually accounting for the other side.
-    expect(MIN_CELL_PX).toBe(Math.max(SPRITE_NATIVE_PX, ENEMY_NATIVE_PX));
-    expect(MIN_CELL_PX).toBeGreaterThanOrEqual(ENEMY_NATIVE_PX);
-    expect(MIN_CELL_PX).toBeGreaterThanOrEqual(SPRITE_NATIVE_PX);
-  });
-
-  it('never produces a cell smaller than the larger native sprite it must hold', () => {
-    // Rejects reverting the clamp to the old literal 40, or clamping only to
-    // SPRITE_NATIVE_PX (48) while leaving enemies (native 64) able to
-    // overflow a 48-63px cell.
+/**
+ * Only defenders are ever resized to the grid's cell size - `sizeUnitToGrid`
+ * (GameEngine.js) is called exclusively from `deployDefenderUnit`. Enemies
+ * keep a fixed, per-type footprint (their own declared width/height) that
+ * never varies with window size, so they cannot overflow a cell they are
+ * never placed into, and the grid minimum only needs to satisfy the
+ * defender side.
+ */
+describe('grid cell sizing (defenders)', () => {
+  it('never produces a cell smaller than the defender sprite', () => {
+    // Rejects reverting the clamp to the old literal 40.
     for (const [w, h] of VIEWPORTS) {
       const grid = buildGrid(w, h);
-      expect(grid.gridSize, `${w}x${h}`).toBeGreaterThanOrEqual(MIN_CELL_PX);
+      expect(grid.gridSize, `${w}x${h}`).toBeGreaterThanOrEqual(SPRITE_NATIVE_PX);
     }
   });
 
   it('raises the grid floor above the old 40px minimum', () => {
-    // Rejects an implementation that left the "minimum for playability"
-    // clamp at 40 (or renamed the constant but forgot to change the value).
     const tiny = buildGrid(100, 100, 6);
-    expect(tiny.gridSize).toBeGreaterThanOrEqual(MIN_CELL_PX);
+    expect(tiny.gridSize).toBeGreaterThanOrEqual(SPRITE_NATIVE_PX);
     expect(tiny.gridSize).not.toBe(40);
   });
 
   it('draws defenders at a whole-number scale at every viewport', () => {
-    // Rejects a fix that raises the floor but leaves SPRITE_NATIVE_PX unset,
-    // wrong, or larger than the actual grid floor, which would produce a 0x
-    // (or non-integer) defender scale at small viewports.
+    // Rejects SPRITE_NATIVE_PX being unset, wrong, or larger than the actual
+    // grid floor, which would produce a 0x (or non-integer) scale.
     for (const [w, h] of VIEWPORTS) {
       const grid = buildGrid(w, h);
       const scale = Math.floor(grid.gridSize / SPRITE_NATIVE_PX);
@@ -69,50 +60,43 @@ describe('sprite scaling', () => {
     }
   });
 
-  it('draws enemies at a whole-number scale at every viewport', () => {
-    // Rejects reusing the defender constant for enemies (48 does not divide
-    // evenly against the enemy floor the same way, and more importantly does
-    // not correspond to any real enemy asset dimension) or omitting
-    // ENEMY_NATIVE_PX entirely.
-    for (const [w, h] of VIEWPORTS) {
-      const grid = buildGrid(w, h);
-      const scale = Math.floor(grid.gridSize / ENEMY_NATIVE_PX);
-      expect(scale, `${w}x${h}`).toBeGreaterThanOrEqual(1);
-      expect(Number.isInteger(scale)).toBe(true);
-    }
-  });
-
-  it('centres both sides in their cell on whole pixels', () => {
+  it('centres defenders in their cell on whole pixels', () => {
     // Rejects an inset computed without rounding (fractional pixel offsets)
-    // or one that can go negative (drawn art bigger than the cell).
+    // or scale math that lets the drawn size exceed the cell.
     const grid = buildGrid(1920, 1080);
-    for (const nativePx of [SPRITE_NATIVE_PX, ENEMY_NATIVE_PX]) {
-      const scale = Math.floor(grid.gridSize / nativePx);
-      const drawn = nativePx * scale;
-      const offset = Math.round((grid.gridSize - drawn) / 2);
-      expect(Number.isInteger(offset)).toBe(true);
-      expect(offset).toBeGreaterThanOrEqual(0);
-    }
+    const scale = Math.floor(grid.gridSize / SPRITE_NATIVE_PX);
+    const drawn = SPRITE_NATIVE_PX * scale;
+    const offset = Math.round((grid.gridSize - drawn) / 2);
+    expect(Number.isInteger(offset)).toBe(true);
+    expect(offset).toBeGreaterThanOrEqual(0);
   });
 });
 
 /**
- * A minimal fake 2D context that records the exact arguments passed to
+ * A fake 2D context that records the exact arguments passed to
  * scale/translate/drawImage instead of painting anything, in the style of
- * the fake used in EnemyUnits.test.js. jsdom's canvas has no real transform
- * matrix, so replaying these recorded calls ourselves is the only way to see
- * where a draw() call actually asked the canvas to paint - and, critically,
- * it means this test checks what the code under test actually passed to
- * ctx.translate(), not an independent formula that assumes it did the right
- * thing. A hardcoded "correct" formula would keep passing even if the
- * production translate call regressed.
+ * the fake used in EnemyUnits.test.js (extended with every other canvas
+ * method the various Enemy subclasses' draw() methods call after the sprite
+ * itself - health bars, shield rings, spell auras, phase-indicator strokes -
+ * since this suite drives every real Enemy subclass end to end, not just
+ * the sprite-drawing branch). jsdom's canvas has no real transform matrix,
+ * so replaying the recorded scale()/translate() calls ourselves is the only
+ * way to see where a draw() call actually asked the canvas to paint - and,
+ * critically, it means this test checks what the code under test actually
+ * passed to ctx.translate(), not an independent formula that assumes it did
+ * the right thing. A hardcoded "correct" formula would keep passing even if
+ * the production translate call regressed.
  */
 function createRecordingContext() {
   const drawImageCalls = [];
   const transformCalls = [];
   const ctx = {
     fillStyle: '#000000',
+    strokeStyle: '#000000',
     font: '10px sans-serif',
+    textAlign: 'start',
+    globalAlpha: 1,
+    lineWidth: 1,
     save() {},
     restore() {},
     scale(sx, sy) {
@@ -121,8 +105,22 @@ function createRecordingContext() {
     translate(tx, ty) {
       transformCalls.push({ type: 'translate', tx, ty });
     },
+    beginPath() {},
+    arc() {},
+    fill() {},
+    stroke() {},
     fillRect() {},
+    strokeRect() {},
     fillText() {},
+    strokeText() {},
+    moveTo() {},
+    lineTo() {},
+    quadraticCurveTo() {},
+    clearRect() {},
+    createRadialGradient() { return { addColorStop() {} }; },
+    createLinearGradient() { return { addColorStop() {} }; },
+    measureText() { return { width: 10 }; },
+    setLineDash() {},
     drawImage(image, dx, dy, dWidth, dHeight) {
       drawImageCalls.push({ dx, dy, dWidth, dHeight });
     },
@@ -159,11 +157,11 @@ function drawnScreenRangeX(transformCalls, dx, dWidth) {
   return [Math.min(a, b), Math.max(a, b)];
 }
 
-describe('the horizontal flip still lands the sprite in its own cell', () => {
-  // gridSize never goes below MIN_CELL_PX (64) or above 80 in the real game;
-  // both parities are covered because centering an odd remainder needs
-  // Math.round, which is where a naive implementation could drift.
-  it.each([64, 65, 70, 71, 79, 80])('defender at gridSize=%i', (gridSize) => {
+describe('the horizontal flip still lands the defender sprite in its own cell', () => {
+  // gridSize never goes below SPRITE_NATIVE_PX (48) or above 80 in the real
+  // game; both parities are covered because centering an odd remainder
+  // needs Math.round, which is where a naive implementation could drift.
+  it.each([48, 49, 60, 61, 79, 80])('defender at gridSize=%i', (gridSize) => {
     // Rejects a translate built from the drawn/scaled width instead of the
     // full cell width - that mismatch shifts a flipped sprite outside its
     // cell by up to (cellWidth - nativeSize) pixels, ~16px worst case for a
@@ -182,18 +180,173 @@ describe('the horizontal flip still lands the sprite in its own cell', () => {
     expect(left).toBeGreaterThanOrEqual(x - 1);
     expect(right).toBeLessThanOrEqual(x + gridSize + 1);
   });
+});
 
-  it.each([64, 65, 70, 71, 79, 80])('enemy at gridSize=%i', (gridSize) => {
-    const x = 137;
-    const { ctx, drawImageCalls, transformCalls } = createRecordingContext();
-    const enemy = new Enemy(x, 50, { width: gridSize, height: gridSize });
+describe('fitNativeFrame (per-enemy scale, aspect preserved)', () => {
+  // Rejects the previous (broken) fix: a single shared constant squared into
+  // both dWidth and dHeight, which forces every non-square native frame into
+  // a square and forces a minimum drawn size regardless of the box.
+  it('scales up by an integer factor, per axis, when the native frame already fits', () => {
+    expect(fitNativeFrame(80, 64, 80, 64)).toEqual({ drawnWidth: 80, drawnHeight: 64, insetX: 0, insetY: 0 });
+  });
+
+  it('scales up by more than 1x without forcing a square when the box is a clean multiple', () => {
+    // Titan: 180x128 footprint, 90x64 native - a clean 2x on both axes.
+    expect(fitNativeFrame(90, 64, 180, 128)).toEqual({ drawnWidth: 180, drawnHeight: 128, insetX: 0, insetY: 0 });
+  });
+
+  it('falls back to the box size, never overflowing, when native does not fit at even 1x', () => {
+    // Mini: 32x32 footprint, 64x64 native. The old broken code forced a 64x64
+    // minimum here, overflowing the 32x32 footprint by 16px per side.
+    expect(fitNativeFrame(64, 64, 32, 32)).toEqual({ drawnWidth: 32, drawnHeight: 32, insetX: 0, insetY: 0 });
+    // Assassin: 50x32 footprint, 100x64 native (same 0.5x fallback, non-square).
+    expect(fitNativeFrame(100, 64, 50, 32)).toEqual({ drawnWidth: 50, drawnHeight: 32, insetX: 0, insetY: 0 });
+  });
+
+  it('falls back to the box size when the native dimensions are unknown', () => {
+    // Rejects a version that throws or draws at 0x0 when animationConfig
+    // hasn't loaded yet (e.g. BossEnemy, whose name has no AssetManifest entry).
+    expect(fitNativeFrame(undefined, undefined, 90, 64)).toEqual({ drawnWidth: 90, drawnHeight: 64, insetX: 0, insetY: 0 });
+  });
+
+  it('centers a non-square native frame inside a larger box on whole pixels', () => {
+    // scale = floor(min(100/80, 100/64)) = floor(1.25) = 1
+    expect(fitNativeFrame(80, 64, 100, 100)).toEqual({ drawnWidth: 80, drawnHeight: 64, insetX: 10, insetY: 18 });
+  });
+});
+
+describe('every enemy type stays within its own footprint and preserves native aspect', () => {
+  // Derived from the module's own exports, not a hand-written list - the
+  // exact defect the noRawCanvasColours.test.js file-list rewrite was for:
+  // a hand-picked list of "the enemies I checked" silently stops covering a
+  // type nobody thought to add.
+  const enemyClasses = Object.values(EnemyModule).filter(
+    (value) => typeof value === 'function' && value.prototype instanceof Enemy,
+  );
+
+  it('found more than a handful of enemy types', () => {
+    expect(enemyClasses.length).toBeGreaterThan(10);
+  });
+
+  it.each(enemyClasses.map((cls) => [cls.name, cls]))('%s never draws bigger than its own footprint', (_, EnemyClass) => {
+    const enemy = new EnemyClass(137, 50, null);
+    enemy.animationConfig = AssetManifest.enemies[enemy.name]?.config;
+    enemy.animationFrames = { [enemy.currentAnimation]: [{}] };
+
+    const { ctx, drawImageCalls } = createRecordingContext();
+    enemy.draw(ctx);
+
+    expect(drawImageCalls).toHaveLength(1);
+    const { dWidth, dHeight } = drawImageCalls[0];
+
+    // The overflow defect: a shared 64px floor drew Mini/Assassin 7-16px
+    // wider/taller than their own hitbox on every side.
+    expect(dWidth, enemy.name).toBeLessThanOrEqual(enemy.width);
+    expect(dHeight, enemy.name).toBeLessThanOrEqual(enemy.height);
+
+    // The squaring defect: when an integer upscale is actually used, its
+    // aspect ratio must match the native frame's, not a forced square.
+    const nativeConfig = enemy.animationConfig?.[enemy.currentAnimation];
+    if (nativeConfig) {
+      const fitScale = Math.min(enemy.width / nativeConfig.frameWidth, enemy.height / nativeConfig.frameHeight);
+      if (fitScale >= 1) {
+        const nativeAspect = nativeConfig.frameWidth / nativeConfig.frameHeight;
+        expect(dWidth / dHeight, enemy.name).toBeCloseTo(nativeAspect, 5);
+      }
+    }
+  });
+});
+
+describe('named cases (Mini/Assassin overflow, Tank Zombie distortion)', () => {
+  it('MiniEnemy (32x32 footprint, 64x64 native) draws at exactly its footprint - no overflow', () => {
+    const enemy = new EnemyModule.MiniEnemy(137, 50, null);
+    enemy.animationConfig = AssetManifest.enemies['Mini']?.config;
     enemy.animationFrames = { idle: [{}] };
+    const { ctx, drawImageCalls } = createRecordingContext();
+    enemy.draw(ctx);
+    const { dWidth, dHeight } = drawImageCalls[0];
+    expect(dWidth).toBe(32);
+    expect(dHeight).toBe(32);
+  });
+
+  it('AssassinEnemy (50x32 footprint, 100x64 native) draws at exactly its footprint - no overflow', () => {
+    const enemy = new EnemyModule.AssassinEnemy(137, 50, null);
+    enemy.animationConfig = AssetManifest.enemies['Assassin']?.config;
+    enemy.animationFrames = { idle: [{}] };
+    const { ctx, drawImageCalls } = createRecordingContext();
+    enemy.draw(ctx);
+    const { dWidth, dHeight } = drawImageCalls[0];
+    expect(dWidth).toBe(50);
+    expect(dHeight).toBe(32);
+  });
+
+  it('TankEnemy (90x64 footprint, 90x64 native) draws at exact native size - no distortion', () => {
+    const enemy = new EnemyModule.TankEnemy(137, 50, null);
+    enemy.animationConfig = AssetManifest.enemies['Tank Zombie']?.config;
+    enemy.animationFrames = { idle: [{}] };
+    const { ctx, drawImageCalls } = createRecordingContext();
+    enemy.draw(ctx);
+    const { dWidth, dHeight } = drawImageCalls[0];
+    // Previously (broken fix): scale = floor(90/64) = 1, drawn forced to 64x64.
+    expect(dWidth).toBe(90);
+    expect(dHeight).toBe(64);
+  });
+});
+
+describe('the horizontal flip still lands the enemy sprite in its own cell', () => {
+  it('BasicEnemy (Basic Zombie, non-square native, scale path, flips)', () => {
+    const x = 137;
+    const enemy = new EnemyModule.BasicEnemy(x, 50, null);
+    enemy.animationConfig = AssetManifest.enemies['Basic Zombie']?.config;
+    enemy.animationFrames = { idle: [{}] };
+    expect(enemy.shouldFlip).toBe(true);
+
+    const { ctx, drawImageCalls, transformCalls } = createRecordingContext();
     enemy.draw(ctx);
 
     expect(drawImageCalls).toHaveLength(1);
     const { dx, dWidth } = drawImageCalls[0];
     const [left, right] = drawnScreenRangeX(transformCalls, dx, dWidth);
     expect(left).toBeGreaterThanOrEqual(x - 1);
-    expect(right).toBeLessThanOrEqual(x + gridSize + 1);
+    expect(right).toBeLessThanOrEqual(x + enemy.width + 1);
+  });
+
+  it('MiniEnemy (fallback path, footprint smaller than native, flips)', () => {
+    const x = 137;
+    const enemy = new EnemyModule.MiniEnemy(x, 50, null);
+    enemy.animationConfig = AssetManifest.enemies['Mini']?.config;
+    enemy.animationFrames = { idle: [{}] };
+    expect(enemy.shouldFlip).toBe(true);
+
+    const { ctx, drawImageCalls, transformCalls } = createRecordingContext();
+    enemy.draw(ctx);
+
+    expect(drawImageCalls).toHaveLength(1);
+    const { dx, dWidth } = drawImageCalls[0];
+    const [left, right] = drawnScreenRangeX(transformCalls, dx, dWidth);
+    expect(left).toBeGreaterThanOrEqual(x - 1);
+    expect(right).toBeLessThanOrEqual(x + enemy.width + 1);
+  });
+
+  it('a non-trivial inset (native smaller than footprint on one axis) still lands inside the cell when flipped', () => {
+    // Models the Berserker-shaped mismatch (100x64 footprint vs 90x64 native,
+    // a real AssetManifest/typeData mismatch - see report) using the base
+    // Enemy class directly, since the real Berserker doesn't flip
+    // (excluded via shouldFlip) and so never exercises this combination.
+    const x = 137;
+    const { ctx, drawImageCalls, transformCalls } = createRecordingContext();
+    const enemy = new Enemy(x, 50, { width: 100, height: 64, name: 'Basic Zombie' });
+    enemy.animationConfig = { idle: { frameWidth: 90, frameHeight: 64 } };
+    enemy.animationFrames = { idle: [{}] };
+    expect(enemy.shouldFlip).toBe(true);
+
+    enemy.draw(ctx);
+
+    expect(drawImageCalls).toHaveLength(1);
+    const { dx, dWidth } = drawImageCalls[0];
+    expect(dWidth).toBe(90); // scale=1, non-trivial insetX = (100-90)/2 = 5
+    const [left, right] = drawnScreenRangeX(transformCalls, dx, dWidth);
+    expect(left).toBeGreaterThanOrEqual(x - 1);
+    expect(right).toBeLessThanOrEqual(x + 100 + 1);
   });
 });

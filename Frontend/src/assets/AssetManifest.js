@@ -771,7 +771,7 @@ export const AssetManifest = {
           frameWidth: 64,
           frameHeight: 64,
           fps: 16,
-          ropConfig: {
+          cropConfig: {
             enabled: true,
             cropWidth: 48, // Actual sprite size
             cropHeight: 48,
@@ -784,7 +784,7 @@ export const AssetManifest = {
           frameWidth: 64,
           frameHeight: 64,
           fps: 6,
-          ropConfig: {
+          cropConfig: {
             enabled: true,
             cropWidth: 48, // Actual sprite size
             cropHeight: 48,
@@ -798,7 +798,7 @@ export const AssetManifest = {
           frameHeight: 64,
           fps: 12,
           loop: false,
-          ropConfig: {
+          cropConfig: {
             enabled: true,
             cropWidth: 48, // Actual sprite size
             cropHeight: 48,
