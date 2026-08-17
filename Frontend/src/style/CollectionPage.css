@@ -7,6 +7,7 @@
     height: 100%;
     background-color: var(--colors-surface-base);
     color: var(--colors-text-primary);
+    font-family: var(--type-body);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -91,6 +92,7 @@
 
 .section-title {
     text-align: center;
+    font-family: var(--type-display);
     color: var(--colors-accent-danger);
     margin-bottom: 30px;
     font-size: 1.8rem;
@@ -179,6 +181,7 @@
 
 .collection-unit-name {
     margin: 0 0 15px 0;
+    font-family: var(--type-display);
     font-size: 1.3rem;
     text-align: center;
     color: var(--colors-accent-info);

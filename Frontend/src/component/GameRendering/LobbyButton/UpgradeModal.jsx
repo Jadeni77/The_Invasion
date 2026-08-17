@@ -140,7 +140,6 @@ function UpgradeModal() {
                       </button>
                     )}
                   </div>
-                )
               </div>
             );
           })}

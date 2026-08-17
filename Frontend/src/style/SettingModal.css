@@ -6,6 +6,7 @@
     width: 100%;
     height: 100%;
     background-color: color-mix(in srgb, var(--colors-edge-outline) 70%, transparent);
+    font-family: var(--type-body);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -97,6 +98,7 @@
 
 .section-header {
     margin: 0 0 20px 0;
+    font-family: var(--type-display);
     color: var(--colors-accent-info);
     font-size: 1.2rem;
     text-align: center;
