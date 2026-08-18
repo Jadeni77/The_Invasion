@@ -811,20 +811,46 @@
 }
 
 /* Mobile Responsive - Landscape Mode */
-@media (max-width: 768px) and (orientation: landscape) {
+/*
+ * A phone held sideways.
+ *
+ * Keyed on HEIGHT, not width. This block used to read
+ * `(max-width: 768px) and (orientation: landscape)` and therefore never fired on
+ * the devices it was written for: a modern phone in landscape is 844x390 or
+ * 932x430, so it fell through to the tablet rule below and was styled for a
+ * screen more than twice its height. Measured, that left the canvas 170px tall at
+ * 844x390 and 210px at 932x430 - one sliver of lane between a full-height top bar
+ * and a card tray sized for a tablet.
+ *
+ * `max-height: 500px` catches every phone in landscape and no tablet: an iPad in
+ * landscape is 1024x768, which is not short. It is also the same key the lobby
+ * uses for the same reason - in landscape the scarce thing is height.
+ */
+@media (max-height: 500px) and (orientation: landscape) {
   .game-board-container {
     height: 100vh;
     width: 100vw;
   }
 
+  /*
+   * 40 and 88, not 50 and 100. On a 390px-tall screen every pixel of chrome is a
+   * pixel of board, and the board is the game - the lanes are what has to be
+   * readable, not the score.
+   */
   .game-top-bar {
-    height: 50px;
-    padding: 5px 15px;
+    height: 40px;
+    /*
+     * The right padding clears the settings button, which is
+     * `position: absolute; right: 10px` and therefore sits ON TOP of whatever
+     * reaches the right edge. At this height the health readout does: "100%"
+     * rendered as "10(" with the gear over the rest of it.
+     */
+    padding: 2px 46px 2px 12px;
   }
 
   .game-bottom-bar {
-    height: 100px;
-    padding: 5px 10px;
+    height: 88px;
+    padding: 2px 8px;
   }
 
   .energy-container,
@@ -864,16 +890,37 @@
   }
 
   .card-slot-wrapper {
-    height: 85px;
+    height: 78px;
   }
 
+  /* 72, not 56: at 56 the name wrapped mid-word - "Shoo / ter" - and there is
+     no shortage of width in landscape, only of height. */
   .card-slot-wrapper .card-container {
-    width: 60px !important;
+    width: 72px !important;
+  }
+
+  .card-slot-wrapper .card-name {
+    font-size: 10px;
+  }
+
+  /* The wave banner is drawn over the lanes; at this height it must not become
+     the lanes. */
+  .wave-announcement {
+    font-size: 16px;
   }
 }
 
-/* Tablet Responsive */
-@media (min-width: 769px) and (max-width: 1024px) {
+/*
+ * Tablet Responsive.
+ *
+ * `min-height: 501px` is what keeps this off a phone held sideways. A landscape
+ * phone is 844-932px wide, which sits inside this width range, so both this block
+ * and the landscape block above matched - and this one comes later, so it won
+ * every property they share and the board was styled for a screen twice its
+ * height. The width range says "tablet-ish width"; the height says "actually a
+ * tablet".
+ */
+@media (min-width: 769px) and (max-width: 1024px) and (min-height: 501px) {
   .game-board-container {
     max-width: 100%;
   }
