@@ -207,3 +207,74 @@ describe("a drag never fires a node's or a chest's click", () => {
     expect(mockCollectTreasure).toHaveBeenCalledWith("chest-1");
   });
 });
+
+/**
+ * The opening-scroll effect used to key on `[playerData, mapZoom]` directly.
+ * `playerData` is a fresh object reference on most GameContext updates -
+ * including energy regenerating on a timer, one of 14 setPlayerData call
+ * sites - so keying on the object re-ran the effect, and re-centred the
+ * viewport on the next playable level, on every one of those updates: a
+ * player panning the map would get snapped back to wherever the map opened
+ * for reasons unrelated to level progress. The effect now keys on
+ * `nextPlayableLevelId(playerData)` (a level id, or null) computed at
+ * render time, so it only re-runs when that id actually changes.
+ */
+describe("the opening-scroll effect keys on the next level, not the playerData reference", () => {
+  beforeEach(() => {
+    mockPlayerData = {
+      name: "Commander",
+      rank: "Recruit",
+      resources: {
+        gold: 100, iron: 10, grain: 10, water: 10, gem: 5,
+        lobbyEnergy: 5, maxLobbyEnergy: 10, energyRechargeRate: 6,
+        lastEnergyRechargeTime: Date.now(),
+      },
+      cards: [],
+      completedLevels: [],
+      unlockedLevels: [1],
+      levelStars: [],
+      collectedTreasures: [],
+      revealedSecrets: [],
+    };
+    mockStartLevel = vi.fn();
+    mockCollectTreasure = vi.fn();
+  });
+
+  it("does not re-centre when playerData gets a new reference but the next playable level is unchanged", () => {
+    const { container, rerender } = render(<Lobby />);
+    const viewport = container.querySelector(".game-map-container");
+    expect(viewport).not.toBeNull();
+
+    // Simulate the player having panned away from wherever the map opened.
+    viewport.scrollLeft = 555;
+
+    // A new object, same unlock/completion state - exactly the shape an
+    // unrelated update (e.g. an energy tick) produces: a new playerData
+    // reference that does not change nextPlayableLevelId's answer.
+    mockPlayerData = {
+      ...mockPlayerData,
+      resources: { ...mockPlayerData.resources, gold: mockPlayerData.resources.gold + 1 },
+    };
+    rerender(<Lobby />);
+
+    expect(viewport.scrollLeft).toBe(555);
+  });
+
+  it("does re-centre once the next playable level actually changes", () => {
+    const { container, rerender } = render(<Lobby />);
+    const viewport = container.querySelector(".game-map-container");
+    viewport.scrollLeft = 555;
+
+    // Level 1 completed - nextPlayableLevelId now answers 2, not 1. The
+    // effect must still fire for this, or a finished level would leave the
+    // map pointed at a level the player has already cleared.
+    mockPlayerData = {
+      ...mockPlayerData,
+      unlockedLevels: [1, 2],
+      completedLevels: [1],
+    };
+    rerender(<Lobby />);
+
+    expect(viewport.scrollLeft).not.toBe(555);
+  });
+});

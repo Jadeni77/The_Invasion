@@ -123,18 +123,35 @@ const Lobby = () => {
     fn();
   };
 
+  // The level the map should open (and re-open) on. Computed every render -
+  // it's a cheap scan over ~21 nodes - but deliberately NOT what the effect
+  // below keys on: playerData is a fresh object reference on most context
+  // updates (14 setPlayerData call sites, including energy regenerating on a
+  // timer), and keying on the object would re-centre the viewport on every
+  // one of those, snapping the map back mid-pan for reasons that have
+  // nothing to do with level progress. Keying on the id itself means the
+  // effect only re-runs when the next playable level genuinely changes
+  // (finishing one) or zoom changes.
+  // Guarded: this now runs on every render (not deferred inside an effect
+  // like before), and playerData is undefined/incomplete during the initial
+  // load - the same case the early loading-screen return below already
+  // handles. getLevelStatus reads playerData.unlockedLevels directly (no
+  // top-level optional chaining on playerData itself), so an unguarded call
+  // here would throw during render on that first pass, before the loading
+  // check ever gets a chance to short-circuit anything.
+  const nextLevelId = playerData ? nextPlayableLevelId(playerData) : null;
+
   // Open the map centred on the level the player can actually play next.
-  // nextPlayableLevelId returns null once everything unlocked is finished;
-  // levelsMapData[0] (level 1) is the fallback so that player still sees a
-  // sensible view instead of a blank corner of the map.
+  // nextLevelId is null once everything unlocked is finished; levelsMapData[0]
+  // (level 1) is the fallback so the player still sees a sensible view
+  // instead of a blank corner of the map.
   useEffect(() => {
     const viewport = mapContainerRef.current;
     if (!viewport) return;
-    const targetId = nextPlayableLevelId(playerData);
-    const target = levelsMapData.find((level) => level.id === targetId) ?? levelsMapData[0];
+    const target = levelsMapData.find((level) => level.id === nextLevelId) ?? levelsMapData[0];
     if (!target) return;
     viewport.scrollLeft = target.x * mapZoom - viewport.clientWidth / 2;
-  }, [playerData, mapZoom]);
+  }, [nextLevelId, mapZoom]);
 
   useEffect(() => {
     if (unlockedDefender) {

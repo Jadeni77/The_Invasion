@@ -18,11 +18,6 @@
   width: 100%;
   height: 100%;
   background: var(--colors-surface-sunken);
-  /* Preserved from the pre-collapse rule: Lobby.jsx sets
-     transition: isDragging ? 'none' : undefined on this element while
-     panning, and `undefined` falls back to whatever CSS declares - drop
-     this and releasing a drag snaps instead of easing back. */
-  transition: transform 0.1s ease-out;
 }
 
 /* Darkens the terrain's edges so the eye settles on the route, not the map's
