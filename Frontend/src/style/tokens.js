@@ -40,6 +40,36 @@ export const decorative = {
   orange: '#ff7f00',
 };
 
+/**
+ * Terrain shades for the campaign map. A sibling of `colors`, not part of it:
+ * these are ground and scenery, not meaning-bearing, and nothing should reach
+ * for `terrain.ground3Mid` expecting it to signify anything.
+ */
+export const terrain = {
+  ground1Top: '#3c4a2c', ground1Mid: '#46552f', ground1Bot: '#39442a',
+  ground2Top: '#42392a', ground2Mid: '#544733', ground2Bot: '#3d3427',
+  ground3Top: '#3d3226', ground3Mid: '#4b3d2c', ground3Bot: '#352b20',
+  ground4Top: '#382a22', ground4Mid: '#46332a', ground4Bot: '#2f231d',
+  ground5Top: '#33221d', ground5Mid: '#472e25', ground5Bot: '#2a1b17',
+  ridgeFar:  '#2b3520', ridgeNear: '#232c1b', foreground: '#20281a',
+  vignette:  '#1a160f',
+  // The route's node states. A completed node's dominant fill (moss over a
+  // cleared path), the available node's inner highlight (paired with
+  // --colors-accent-energy for the outer ring - see Lobby.css
+  // .level-node.available), and the boss node's ember core (paired with
+  // --colors-accent-danger). Each was chosen so the text colour the state
+  // rule declares stays legible against it - see contrastRatio findings in
+  // task-3-report.md.
+  nodeDone:  '#2f4a2f', nodeOpen: '#ffe9a0', nodeBoss: '#ff9d52',
+  // Scenery fills for TerrainProp (see TerrainProps.jsx). Five hues cover
+  // all six prop kinds: propDark doubles as bark (tree/deadTree trunks) and
+  // rubble's shadow block, propStone doubles as rubble and grave. None of
+  // these borrow a `colors.*` accent - scenery is ground dressing, not a
+  // state signal, same reasoning as the ground shades above.
+  propDark:   '#2a2015', propLeaf: '#5a7a3f', propCloth: '#a9784f',
+  propStone:  '#8a8578', propEmber: '#ff7a3d',
+};
+
 export const space = {
   xs: '4px', sm: '8px', md: '12px', lg: '20px', xl: '32px',
 };
@@ -86,7 +116,7 @@ export const sweep = {
   angle: '0deg',
 };
 
-const GROUPS = { colors, decorative, space, radii, borders, shadows, type, sweep };
+const GROUPS = { colors, decorative, terrain, space, radii, borders, shadows, type, sweep };
 
 /** camelCase key in a group -> the kebab-case custom property name. */
 export function cssVariableName(groupName, key) {

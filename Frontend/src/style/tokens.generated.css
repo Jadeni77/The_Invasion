@@ -21,6 +21,34 @@
   --decorative-violet: #9370db;
   --decorative-indigo: #4b0082;
   --decorative-orange: #ff7f00;
+  /* terrain */
+  --terrain-ground1-top: #3c4a2c;
+  --terrain-ground1-mid: #46552f;
+  --terrain-ground1-bot: #39442a;
+  --terrain-ground2-top: #42392a;
+  --terrain-ground2-mid: #544733;
+  --terrain-ground2-bot: #3d3427;
+  --terrain-ground3-top: #3d3226;
+  --terrain-ground3-mid: #4b3d2c;
+  --terrain-ground3-bot: #352b20;
+  --terrain-ground4-top: #382a22;
+  --terrain-ground4-mid: #46332a;
+  --terrain-ground4-bot: #2f231d;
+  --terrain-ground5-top: #33221d;
+  --terrain-ground5-mid: #472e25;
+  --terrain-ground5-bot: #2a1b17;
+  --terrain-ridge-far: #2b3520;
+  --terrain-ridge-near: #232c1b;
+  --terrain-foreground: #20281a;
+  --terrain-vignette: #1a160f;
+  --terrain-node-done: #2f4a2f;
+  --terrain-node-open: #ffe9a0;
+  --terrain-node-boss: #ff9d52;
+  --terrain-prop-dark: #2a2015;
+  --terrain-prop-leaf: #5a7a3f;
+  --terrain-prop-cloth: #a9784f;
+  --terrain-prop-stone: #8a8578;
+  --terrain-prop-ember: #ff7a3d;
   /* space */
   --space-xs: 4px;
   --space-sm: 8px;

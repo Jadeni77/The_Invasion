@@ -161,7 +161,7 @@ describe("lobby settings button", () => {
 /**
  * One source for what a zone looks like.
  *
- * `Lobby.css` has carried five reviewed, tokenized zone rules since Task 3
+ * `Lobby.css` once carried five reviewed, tokenized zone-node rules
  * (`.mid-node { background: var(--colors-surface-raised) }` among them). The
  * first fix for the lobby's raw colour literals moved them onto tokens but
  * left them where they were - as inline styles in MapLayout's `zoneConfigs` -
@@ -170,12 +170,25 @@ describe("lobby settings button", () => {
  * bright orange on the first screen a player sees. Two sources that must
  * agree, which is what the token module exists to remove.
  *
+ * Those five zone-node rules are gone now, for an unrelated second reason:
+ * once every node also carries a state class (`.level-node.completed`/
+ * `.available`/`.locked`, specificity 0-2-0), a single-class zone rule like
+ * `.tutorial-node` (0-1-0) can never win the cascade for `background` -
+ * regardless of source order, on every node, since every node carries both
+ * classes at once. They had stopped being a second source of truth and
+ * become dead weight instead - so they were deleted rather than raised in
+ * specificity to compete with state. Zone identity now lives in the terrain
+ * the node sits on (`.zone-<key>` in Lobby.css, covered by
+ * TerrainLayers.test.jsx), not in the node itself, matching the approved
+ * mockup: state-coloured nodes only.
+ *
  * These tests live in this file because it is the one place that already
  * stands up a real Lobby render (see the mock at the top). They assert the
  * absence of the override *mechanism*, not just today's values: no inline
- * colour on any map element, and a stylesheet rule behind every zone. jsdom
- * has no layout engine, so what colour anything ends up is not checkable here
- * - only where that colour is allowed to come from.
+ * colour on any map element, and (now) no zone-node background lingering in
+ * the stylesheet to be that second source again. jsdom has no layout engine,
+ * so what colour anything ends up is not checkable here - only where that
+ * colour is, and is not, allowed to come from.
  */
 describe("zone colour has exactly one source", () => {
   const lobbyCss = readFileSync(
@@ -234,19 +247,30 @@ describe("zone colour has exactly one source", () => {
     }
   });
 
-  it("has a stylesheet rule for every zone's node class", () => {
-    // The other half: having removed the inline colour, every zone must
-    // actually be styled somewhere, or a zone silently renders with no hue
-    // and the map loses a distinction the config still claims to make.
-    // `.endless-portal` is exempt - the endless node is rendered by
-    // renderEndlessPortal with its own portal artwork, not as a level node.
-    for (const [zone, config] of Object.entries(zoneConfigs)) {
-      if (config.nodeClass === "endless-portal") continue;
-      const rule = new RegExp(`\\.${config.nodeClass}\\s*\\{[^}]*background`);
+  it("gives node colour to state, not to a zone class, so nothing dead lingers", () => {
+    // The inverse of what this test used to assert. A zone-node rule like
+    // `.tutorial-node { background: ... }` can never win the cascade against
+    // `.level-node.completed`/`.available`/`.locked` (two classes beat one,
+    // on every node, regardless of file order, since every node carries both
+    // at once) - so requiring one to exist was requiring dead code. Zone
+    // identity now belongs to the terrain, not the node.
+    //
+    // Pinned here rather than derived from `zoneConfigs`, deliberately:
+    // `zoneConfigs` dropped `nodeClass` for every real zone once nothing
+    // consumed it (see MapLayout.jsx). A first draft of this test derived
+    // its list from `config.nodeClass`, skipping any zone where it was
+    // falsy - that draft passed, but for the wrong reason: it had stopped
+    // checking anything at all for the five zones that mattered, and would
+    // have stayed green even with a zone-node background reintroduced.
+    // These five names are exactly the historical class names that must
+    // never carry a background again.
+    const deadZoneNodeClasses = ["tutorial-node", "early-node", "mid-node", "late-node", "endgame-node"];
+    for (const className of deadZoneNodeClasses) {
+      const rule = new RegExp(`\\.${className}\\s*\\{[^}]*background`);
       expect(
         rule.test(lobbyCss),
-        `Lobby.css has no background for .${config.nodeClass} (zone "${zone}")`,
-      ).toBe(true);
+        `.${className} declares a background - it can never render under a state class and should not exist`,
+      ).toBe(false);
     }
   });
 });

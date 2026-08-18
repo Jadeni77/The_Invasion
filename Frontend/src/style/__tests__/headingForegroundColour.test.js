@@ -193,14 +193,28 @@ function isCovered(rules, heading, ancestorStack) {
  * silently joining an ever-growing exemption list, the same discipline
  * contrastRatio.test.js's EXPECTED_OPT_OUTS applies to contrast opt-outs.
  *
- * `.loading-screen` (Lobby.jsx's "Loading Game Data..." state, shown only
- * before `playerData` first arrives) has no stylesheet rule at all - the
- * same class of bug as the one this module was written to catch, just
- * outside the five stylesheets this branch was scoped to fix. Left pinned,
- * not fixed, so this PR stays about the Card Upgrades modal; flagged here
- * for a follow-up.
+ * Was: ['component/GameRendering/Lobby.jsx:304 <h2>'] - `.loading-screen`
+ * (Lobby.jsx's "Loading Game Data..." state) still has no stylesheet rule of
+ * its own, but this module's own rule parser (`rulesOf` above) does not strip
+ * comments first, and its selector group `[^{}]+` happily swallows whatever
+ * comment text precedes a rule along with the real selector. Two of
+ * Lobby.css's three `.lobby-container` blocks were immediately preceded by a
+ * comment (`/* Lobby Container *\/`, `/* Lobby.css - Enhanced... *\/`), so
+ * their captured "selector" was the comment plus `.lobby-container` glued
+ * together - a string that never equals `.lobby-container` - and only the
+ * file's first block (the one with no preceding comment, and no `color`)
+ * was ever found. (Not `@keyframes`, despite what an earlier version of this
+ * comment claimed: stripping only comments from the pre-collapse file, with
+ * every `@keyframes` block left untouched, was enough to make the parser
+ * find all three blocks - verified directly against the pre-collapse
+ * source, not inferred.) Collapsing those three into the one required by
+ * lobbyCascade.test.js (task 1 of the lobby-campaign-map plan) removed the
+ * other two, so the sole remaining `.lobby-container` - which does declare
+ * `color: var(--colors-text-primary)` - is now the one this parser finds,
+ * and the `<h2>` inherits from it via the ancestor walk. Confirmed by hand:
+ * still true after the collapse, not a parser fluke.
  */
-const KNOWN_GAPS = ['component/GameRendering/Lobby.jsx:304 <h2>'];
+const KNOWN_GAPS = [];
 
 function labelFor(relPath, heading) {
   const cls = heading.ownClass ? `.${heading.ownClass}` : '';

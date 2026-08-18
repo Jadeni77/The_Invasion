@@ -1,43 +1,36 @@
 .lobby-container {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20px;
-  background-color: var(--colors-surface-base);
-  min-height: 100vh;
+  gap: var(--space-sm);
+  width: 100%;
+  height: 100vh;
+  padding: var(--space-md);
+  background: var(--colors-surface-base);
   font-family: var(--type-display);
+  color: var(--colors-text-primary);
+  box-sizing: border-box;
 }
 
 .game-map {
-  width: 80%;
-  max-width: 800px;
-  background-color: var(--colors-accent-success);
-  border-radius: 10px;
-  padding: 20px;
-  margin: 20px 0;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--colors-surface-sunken);
 }
 
-.level-node {
-  cursor: pointer;
-}
-
-.level-node.unlocked circle {
-  fill: var(--colors-accent-energy);
-  stroke: var(--colors-accent-energy);
-  stroke-width: 2;
-}
-
-.level-node.locked circle {
-  fill: var(--colors-surface-raised);
-  stroke: var(--colors-surface-sunken);
-  stroke-width: 2;
-}
-
-.level-node text {
-  fill: var(--colors-text-primary);
-  font-weight: bold;
-  font-size: 14px;
+/* Darkens the terrain's edges so the eye settles on the route, not the map's
+   own boundary. Sits above every zone's ground/ridge/fore (z-index 5) and
+   below the interactive layer (chests at 8, nodes at 10, the portal at 15),
+   so it never dims what the player can click. */
+.game-map::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
   pointer-events: none;
+  background: radial-gradient(130% 100% at 50% 45%, transparent 52%, var(--terrain-vignette) 100%);
 }
 
 .resource {
@@ -152,17 +145,21 @@
 }
 
 /* ---------- */
-/* Lobby Container */
-.lobby-container {
-  position: relative;
-  height: 100vh;
-  overflow: hidden;
-  background-image: url("/assets/lobby-bg.jpg");
-  background-size: cover;
-  background-position: center;
-  font-family: var(--type-display);
-  color: var(--colors-text-primary);
-  padding: 20px;
+/* The band holding the player bar, energy panel and resource pills in one
+   row. `flex: 0 0 auto` keeps it from growing at the map's expense - the
+   map (`.game-map-container`, `flex: 1 1 auto`) is what should absorb any
+   extra height, not this band. */
+.lobby-topband {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  padding: var(--space-sm) var(--space-md);
+  background: linear-gradient(180deg, var(--colors-surface-panel), var(--colors-surface-sunken));
+  border: var(--borders-outline) solid var(--colors-edge-outline);
+  border-radius: var(--radii-lg);
+  box-shadow: var(--shadows-drop), inset 0 1px 0 var(--colors-edge-highlight);
 }
 
 /* Top Menu Bar */
@@ -170,7 +167,6 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
   padding: 15px;
   background: color-mix(in srgb, var(--colors-edge-outline) 70%, transparent);
   border-radius: 12px;
@@ -227,7 +223,6 @@
 .resource-bar {
   display: flex;
   justify-content: space-around;
-  margin-bottom: 20px;
   padding: 10px;
   background: color-mix(in srgb, var(--colors-edge-outline) 60%, transparent);
   border-radius: 10px;
@@ -272,117 +267,59 @@
   justify-content: center;
 }
 
-/* Game Map */
+/*
+ * The map's viewport. Overflow lives here, not on `.lobby-container` - the
+ * map's real content (`.game-map`, sized to `mapSettings.mapWidth` in
+ * Lobby.jsx) is wider than this box, and `overflow-x: auto` is what turns
+ * that width into something a player can actually reach, instead of content
+ * silently clipped past the edge (which is how levels 15-17 went
+ * unreachable). `min-height: 0` matters on a flex child: without it, this
+ * box refuses to shrink below its content's height and pushes the page
+ * taller than the viewport, which is the same clipping bug from the other
+ * axis.
+ *
+ * The old boundary-glow pseudo-elements and `.boundary-right`/
+ * `.boundary-bottom` rules that used to live here belonged to a JS-computed
+ * drag-clamp (`mapBoundaries` in Lobby.jsx) that native scrolling replaces -
+ * there is no separate boundary to compute or draw any more, scrollLeft's
+ * own min/max already is one.
+ */
 .game-map-container {
   position: relative;
-  height: 60vh;
-  width: 100%;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--colors-surface-sunken) 70%, transparent);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: var(--borders-outline) solid var(--colors-edge-outline);
   border-radius: var(--radii-lg);
-  border: 3px solid var(--colors-surface-panel);
-  box-shadow: inset 0 0 20px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
+  box-shadow: inset 0 0 40px var(--terrain-vignette);
+  cursor: grab;
+  /* A pan gesture starts wherever the pointer happens to land - often a
+     level-name label or a star. Without this, that drag selects the text it
+     crosses instead of panning (the chest <img> side of the same problem is
+     `draggable={false}` in Lobby.jsx, since a native image drag isn't a text-
+     selection concern user-select can address). */
+  user-select: none;
 }
 
-.game-map {
-  position: absolute;
-  top: 0;
-  left: 0;
-  min-width: 2000px;
-  min-height: 2000px;
-  background-image: url("/assets/map-bg.png");
-  background-size: 200px;
-  transform-origin: top left;
+.game-map-container:active {
+  cursor: grabbing;
 }
 
-/* Boundary indicators */
-.game-map-container::before,
-.game-map-container::after {
-  content: "";
-  position: absolute;
-  z-index: 5;
-  background: color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
-  pointer-events: none;
-}
-
-.game-map-container::before {
-  /* Horizontal boundaries */
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 5px;
-  box-shadow: 0 -2px 5px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent);
-}
-
-.game-map-container::after {
-  /* Vertical boundaries */
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 5px;
-  box-shadow: -2px 0 5px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent);
-}
-
-/* Boundary indicators for opposite sides */
-.game-map-container .boundary-right {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 5px;
-  background: color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
-  box-shadow: 2px 0 5px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent);
-  pointer-events: none;
-  z-index: 5;
-}
-
-.game-map-container .boundary-bottom {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 5px;
-  background: color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
-  box-shadow: 0 2px 5px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent);
-  pointer-events: none;
-  z-index: 5;
-}
-
-.map-connection {
-  position: absolute;
-  height: 8px;
-  background: var(--colors-surface-raised);
-  border: 2px solid var(--colors-surface-panel);
-  border-radius: 4px;
-  box-shadow: 0 2px 5px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
-}
-
-.level-node {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-  background: url("/assets/level-node.png") center/contain no-repeat;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  transform: translate(-50%, -50%);
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--colors-edge-outline) 70%, transparent));
-}
-
-.level-node.locked {
-  filter: grayscale(100%) brightness(0.5)
-    drop-shadow(0 0 5px color-mix(in srgb, var(--colors-edge-outline) 70%, transparent));
-}
-
-.level-number {
-  font-family: var(--type-display);
-  font-size: 24px;
-  font-weight: bold;
-  color: var(--colors-accent-energy);
-  text-shadow: 2px 2px 0 var(--colors-edge-outline);
-  margin-top: 5px;
-}
+/*
+ * The pre-token `.map-connection` and `.level-number` rules that used to
+ * live here are gone, not merely edited: this file already declares both
+ * selectors again, correctly, in the "Map connections" and "Level interior"
+ * sections below, and the two copies were colliding - property-by-property,
+ * not rule-by-rule, since equal-specificity same-element selectors merge
+ * rather than one fully replacing the other. The surviving merge from this
+ * exact pair (`border`/`border-radius`/`box-shadow` from this rule,
+ * `height`/`background` from the later one) was what rendered the route as
+ * an opaque 7px panel bar instead of the thin gradient trail the later rule
+ * actually specifies - see final-review.md I5. lobbyCascade.test.js now
+ * asserts every selector in this file is declared at most once, with a
+ * dated, audited allowlist for the collisions this pass did not unwind.
+ */
 
 .level-pulse {
   position: absolute;
@@ -493,148 +430,219 @@
 
 /* Lobby.css - Enhanced for 20 levels and endless mode */
 
-.lobby-container {
-  position: relative;
-  width: 100%;
-  height: 100vh;
-  background: linear-gradient(135deg, var(--decorative-indigo) 0%, var(--decorative-violet) 100%);
-  overflow: hidden;
-}
-
-/* Game Map Container */
-.game-map-container {
-  position: relative;
-  width: 90%;
-  height: 60vh;
-  margin: 20px auto;
-  border: 3px solid var(--colors-surface-sunken);
-  border-radius: 10px;
-  overflow: hidden;
-  background: linear-gradient(to bottom, var(--colors-accent-info), var(--colors-accent-success));
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
-}
-
-.game-map {
-  position: absolute;
-  transition: transform 0.1s ease-out;
-  transform-origin: top left;
-}
-
 /* Zone backgrounds */
 .zone-background {
   position: absolute;
-  opacity: 0.1;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+/*
+ * The grain wash in each rule below is mixed from that same zone's own
+ * `--terrain-groundN-top`, not a semantic `--colors-accent-*` token: an
+ * accent used as page-scale ground is what flattened the map into a green
+ * rectangle in the first place (see the guard in noRawColours.test.js and the
+ * accent check in TerrainLayers.test.jsx). Grain still varies zone to zone
+ * because it is mixed from that zone's own hue, just without borrowing a
+ * token that means something else.
+ */
+.zone-tutorial {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground1-top) 5%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground1-top) 0%, var(--terrain-ground1-mid) 42%, var(--terrain-ground1-bot) 100%);
+}
+.zone-early {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground2-top) 5%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground2-top) 0%, var(--terrain-ground2-mid) 42%, var(--terrain-ground2-bot) 100%);
+}
+.zone-mid {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground3-top) 4%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground3-top) 0%, var(--terrain-ground3-mid) 42%, var(--terrain-ground3-bot) 100%);
+}
+.zone-late {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground4-top) 5%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground4-top) 0%, var(--terrain-ground4-mid) 42%, var(--terrain-ground4-bot) 100%);
+}
+.zone-endgame {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground5-top) 6%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground5-top) 0%, var(--terrain-ground5-mid) 42%, var(--terrain-ground5-bot) 100%);
+}
+
+/*
+ * Depth layers inside each zone backdrop - inline SVG, so their fills read
+ * token colours. Stacking (lowest first): the flat ground gradient above
+ * (.zone-background itself, z-index auto) < .zone-ridge (distant hills,
+ * z-index 1) < the mid-ground props Task 6 adds between the ridge and the
+ * foreground (reserved z-index 2-3) < .zone-fore (the nearest band, z-index
+ * 4) < .game-map::after's vignette (z-index 5, below every node) < the route
+ * (.map-connection, z-index 6 - above the ridge, props and the opaque
+ * foreground band it used to run under and get occluded by, still below
+ * everything a player can click) < the interactive layer (.treasure-chest
+ * z-index 8, .level-node z-index 10, .endless-portal z-index 15 - all
+ * pre-existing, untouched here). See lobbyZOrder.test.js for the test that
+ * pins this ordering.
+ */
+.zone-ridge {
+  position: absolute;
+  left: -2%;
+  right: -2%;
+  top: 0;
+  height: 44%;
+  z-index: 1;
+  opacity: 0.5;
   pointer-events: none;
 }
 
-.zone-tutorial {
-  background: var(--colors-accent-success);
-  left: 150px;
-  top: 350px;
-  width: 400px;
-  height: 200px;
-  border-radius: 20px;
+.zone-fore {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22%;
+  z-index: 4;
+  pointer-events: none;
 }
 
-.zone-early {
-  background: var(--colors-accent-info);
-  left: 550px;
-  top: 250px;
-  width: 600px;
-  height: 200px;
-  border-radius: 20px;
+/* Mid-ground scenery (TerrainProps.jsx). z-index 3 of the reserved 2-3 range
+   above: above .zone-ridge (1) so props read against the hills, below
+   .zone-fore (4) so the foreground band still frames them rather than
+   hiding them. Both rows (PROP_ROWS in TerrainProps.jsx) sit above the
+   bottom-22% .zone-fore band by construction, not by coincidence of these
+   numbers - see FOREGROUND_BAND_TOP and the test that pins the relationship. */
+.terrain-prop {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  transform: translate(-50%, 0);
+  z-index: 3;
+  pointer-events: none;
 }
 
-.zone-mid {
-  background: var(--colors-surface-raised);
-  left: 1150px;
-  top: 300px;
-  width: 750px;
-  height: 250px;
-  border-radius: 20px;
-}
-
-.zone-late {
-  background: var(--colors-accent-danger);
-  left: 1200px;
-  top: 100px;
-  width: 700px;
-  height: 200px;
-  border-radius: 20px;
-}
-
-.zone-endgame {
-  background: var(--decorative-violet);
-  left: 750px;
-  top: 50px;
-  width: 450px;
-  height: 200px;
-  border-radius: 20px;
+/* Distant props are smaller and fainter, so they sit in the ridgeline
+   rather than on top of it. */
+.terrain-prop.prop-far {
+  width: 17px;
+  height: 17px;
+  opacity: 0.45;
 }
 
 /* Level Nodes */
 .level-node {
   position: absolute;
-  width: 60px;
-  height: 60px;
+  width: 54px;
+  height: 54px;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 8px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
+  display: grid;
+  place-items: center;
+  font-family: var(--type-display);
+  font-size: var(--type-size-md);
   /* Was `border: 3px solid` with no colour, relying on an inline
      `borderColor` from MapLayout's config for every node - five hand-darkened
      per-zone shades. One shared cartoon outline instead, declared here so the
      node needs no inline colour at all. */
   border: var(--borders-outline) solid var(--colors-edge-outline);
+  cursor: pointer;
   z-index: 10;
 }
 
-.level-node.locked {
-  background: var(--colors-surface-raised) !important;
-  border-color: var(--colors-surface-sunken) !important;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
+/*
+ * Three states, three distinct treatments - not three shades of the same
+ * idea. `.completed` reads as a medal earned; `.available` is the only node
+ * carrying the energy accent, which is what answers "where do I click"
+ * without reading a single label; `.locked` drops both the glow and the
+ * gradient so it recedes instead of competing with the other two.
+ */
 .level-node.completed {
-  box-shadow: 0 0 20px color-mix(in srgb, var(--colors-accent-energy) 60%, transparent);
+  background: radial-gradient(circle at 35% 30%, var(--colors-surface-raised), var(--terrain-node-done));
+  color: var(--colors-text-primary);
+  box-shadow: var(--shadows-drop);
 }
 
-.level-node.unlocked:hover {
+.level-node.available {
+  background: radial-gradient(circle at 35% 30%, var(--terrain-node-open), var(--colors-accent-energy));
+  color: var(--colors-edge-outline);
+  box-shadow: var(--shadows-drop), 0 0 0 6px color-mix(in srgb, var(--colors-accent-energy) 16%, transparent);
+}
+
+.level-node.locked {
+  background: var(--colors-surface-sunken);
+  color: var(--colors-text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* No node ever carries an `.unlocked` class (renderLevelNode assigns exactly
+   one of locked/completed/available) - this used to read `.level-node.
+   unlocked:hover` and matched nothing, at the base commit and after this
+   branch moved it here unchanged. `:not(.locked)` is what the class list
+   actually produces: completed and available nodes both get hover feedback,
+   locked ones - `cursor: not-allowed` already - correctly don't. */
+.level-node:not(.locked):hover {
   transform: scale(1.1);
   box-shadow: 0 6px 12px color-mix(in srgb, var(--colors-edge-outline) 40%, transparent);
 }
 
-/* Zone-specific node styles */
-.tutorial-node {
-  background: var(--colors-accent-success);
+/*
+ * Zone-specific node styles used to live here (`.tutorial-node`,
+ * `.early-node`, `.mid-node`, `.late-node`, `.endgame-node`, each a single
+ * class carrying that zone's background). Every node also carries a state
+ * class - `.level-node.completed`/`.available`/`.locked`, two classes,
+ * specificity 0-2-0 - which structurally outranks a one-class zone rule
+ * (0-1-0) for the same `background` property, on every node, regardless of
+ * which rule comes first in the file. So the zone hue could never actually
+ * paint: these were dead weight, not a second source of truth to reconcile.
+ * Deleted rather than raised in specificity to compete with state, which
+ * would only have put zone tint back in the running against the colour this
+ * board depends on to read. Zone identity now lives entirely in the terrain
+ * the node sits on (`.zone-<key>`'s ground/ridge/foreground below); the node
+ * itself is state-coloured only, matching the approved mockup.
+ */
+
+/*
+ * Boss level indicator. A boss node that is merely a red circle is still a
+ * circle, so it gets its own size, its own border weight, and a dashed ring
+ * outside the node itself - shape and weight carry the "fortified position"
+ * read, not hue alone.
+ */
+.level-node.boss {
+  width: 66px;
+  height: 66px;
+  border-radius: var(--radii-lg);
+  border-width: var(--borders-heavy);
+  font-size: var(--type-size-lg);
+  background: radial-gradient(circle at 35% 30%, var(--terrain-node-boss), var(--colors-accent-danger));
+  color: var(--colors-edge-outline);
 }
 
-.early-node {
-  background: var(--colors-accent-info);
+/* A dashed ring, so a boss reads as a fortified position rather than a stop. */
+.level-node.boss::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: var(--borders-thin) dashed color-mix(in srgb, var(--colors-accent-danger) 45%, transparent);
+  border-radius: calc(var(--radii-lg) + 4px);
 }
 
-.mid-node {
-  background: var(--colors-surface-raised);
-}
-
-.late-node {
-  background: var(--colors-accent-danger);
-}
-
-.endgame-node {
-  background: var(--decorative-violet);
-}
-
-/* Boss level indicator */
-.level-node.boss-level {
-  width: 70px;
-  height: 70px;
-  border-width: 4px;
-  border-color: var(--colors-accent-energy) !important;
+.map-chest {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  filter: drop-shadow(0 2px 2px var(--colors-edge-outline));
+  /* Deliberately no pointer-events override here: this class sits on the
+     same element as `.treasure-chest`, which carries the onClick that calls
+     collectTreasure() (a real backend call), and `.treasure-chest` declares
+     no pointer-events of its own. Disabling the property on this rule would
+     therefore have been the only word on it and would silently make every
+     chest unclickable in a real browser, while every jsdom test kept
+     passing (see RouteAndNodes.test.jsx, "interactive elements keep their
+     hit target", for why only a CSS-level guard can catch that). */
 }
 
 .boss-indicator {
@@ -666,7 +674,6 @@
   font-family: var(--type-display);
   font-size: 20px;
   font-weight: bold;
-  color: var(--colors-text-primary);
   text-shadow: 1px 1px 2px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
@@ -677,9 +684,15 @@
   transform: translateX(-50%);
   font-size: 10px;
   white-space: nowrap;
-  color: var(--colors-surface-sunken);
+  /* Light on dark, not the reverse: this label sits below the node's own
+     circle (negative bottom offset), landing on whichever zone's terrain is
+     underneath, not on a controlled surface - see the terrain contrast
+     ratios in the fix report. A dark colour read fine on the old flat green
+     `.game-map` background but is close to unreadable on the ground this
+     branch introduced. */
+  color: var(--colors-text-primary);
   font-weight: bold;
-  text-shadow: 1px 1px 2px color-mix(in srgb, var(--colors-text-primary) 50%, transparent);
+  text-shadow: 1px 1px 2px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
 .level-pulse {
@@ -709,7 +722,9 @@
 }
 
 .star {
-  color: var(--colors-surface-sunken);
+  /* Same terrain-contrast reasoning as `.level-name` above: this sits below
+     the node, on the ground, not on a background this rule controls. */
+  color: var(--colors-text-primary);
   text-shadow: 0 1px 0 var(--colors-edge-outline);
   font-size: var(--type-size-md);
   line-height: 1;
@@ -854,6 +869,12 @@
   background: linear-gradient(90deg, transparent, var(--colors-text-muted), transparent);
   transform-origin: left center;
   opacity: 0.3;
+  /* Above the ridge (1), props (2-3), the opaque foreground band (4) and the
+     vignette (5) - the route used to declare no z-index at all, which put it
+     in the z-index:auto group, below every one of those. Still below the
+     interactive layer (chest 8, node 10, portal 15). See the stacking
+     comment above .zone-ridge. */
+  z-index: 6;
 }
 
 .map-connection.unlocked {

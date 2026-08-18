@@ -595,3 +595,68 @@ the role.
 
 Fix is small: primary actions and headings take `accent-energy`, and blue is kept for anything genuinely
 informational. Worth checking `CollectionPage` and `UpgradeModal` for the same error while there.
+
+---
+
+## 28. The repo-wide colour guard's named-colour list covers 27 of 147 names
+
+**Found:** 2026-08-17, during the lobby campaign-map work.
+**Severity:** low today, latent.
+**Scope: repo-wide, not one file.**
+
+`noRawColours.test.js` blocks raw colour literals by matching hex, the functional notations, and a list
+of CSS named colours. The hex and functional matching is sound — `#[0-9a-fA-F]{3,8}\b` spans all four
+valid hex lengths, alpha included. The named-colour list is the gap: it holds about 27 names against
+CSS's 147.
+
+These pass the guard today:
+
+`coral`, `crimson`, `indigo`, `khaki`, `salmon`, `turquoise`, `violet`, `tan`, `beige`, `chocolate`,
+`plum`, `orchid`, `hotpink`, `skyblue`, `steelblue`, `seagreen`, `royalblue`, `goldenrod` (only
+`darkgoldenrod` is listed), `tomato`.
+
+Nothing exploits this now. It matters because the list is copied into per-file guards as they are
+written — `TerrainProps.test.jsx` took it verbatim — so the gap propagates rather than staying in one
+place.
+
+**This is the fourteenth guard-scope finding in this project, and the fourteenth to fail on scope rather
+than on matching logic.** The pattern is exact enough to be a rule now: when a guard enumerates the
+things it forbids, it is wrong by default — the durable form asserts what is *allowed* and rejects
+everything else.
+
+Fix: either use the full 147-name list, or invert it — assert every colour-valued declaration is
+`var(--…)` and fail anything that is not, which needs no list at all.
+
+---
+
+## 29. Two guards ship with an enumerated escape hatch
+
+**Found:** 2026-08-18, adjudicated at the close of the lobby campaign-map branch.
+**Severity:** latent. Nothing exploits either today.
+
+Both guards added on that branch work, were proved by mutation, and each keeps one hole of the same
+shape.
+
+**The duplicate-selector guard flags a selector only as it crosses from one occurrence to more than
+one.** Eight pre-existing collisions sit in a dated `KNOWN_DUPLICATE_SELECTORS` allowlist. A *third*
+`.chest-glow` rule added tomorrow stays inside that allowlist and is never reported — the guard cannot
+distinguish "the two we accepted" from "the two we accepted plus a new one".
+Fix: store the accepted **count** per selector, not just the name, so any increase fails.
+
+**`lobbyZOrder.test.js` pins the eight documented layers by exact value and strict order.** A new layer
+inserted between two of them, carrying a z-index value not in `DOCUMENTED_STACK`, passes untouched — and
+an unclaimed value between two claimed ones is exactly how the route came to paint underneath the
+foreground band in the first place.
+Fix: assert the set of z-index values in the file **equals** the documented stack, rather than that each
+documented layer holds its value.
+
+The contrast guard's orphan-to-family pairing is a third instance, disclosed in its own report:
+`.player-name`, `.portal-label` and `.highest-wave` match no family and are silently skipped.
+
+**This is the sixteenth guard-scope finding in this project. Every one of the sixteen failed on scope;
+not one failed on matching logic.** The rule earned by now, stated once:
+
+> A guard that enumerates what it forbids — or what it forgives — is wrong by default. Assert what is
+> allowed and reject the complement, so the thing nobody thought of fails closed instead of open.
+
+Both fixes above are that inversion applied.
