@@ -19,9 +19,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act, waitFor } from '@testing-library/react';
 import { GameProvider, useGame } from '../GameContext.jsx';
 import { chestsData, chestDefenders, resourceRewardsOf } from '../../GameRendering/MapLayout.jsx';
+import { apiUrl } from '../../../config/api.js';
 
-const COLLECT_URL = 'http://localhost:8080/api/player/collect-treasure';
-const ME_URL = 'http://localhost:8080/api/player/me';
+// Derived from the same helper the app calls, so a base-URL change cannot make
+// these fail while the app is right.
+const COLLECT_URL = apiUrl('/api/player/collect-treasure');
+const ME_URL = apiUrl('/api/player/me');
 
 const ME_RESPONSE = {
   id: 'p1', sessionId: 's1', name: 'Commander', rank: 'Recruit',

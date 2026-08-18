@@ -27,7 +27,17 @@ vi.mock('../../../GameLogic (MVC)/GameContext.jsx', () => ({
 // markup rather than defender balance data, and matches the shape the
 // component actually checks (`upgradePreview &&` before rendering the stat
 // block at all).
-vi.mock('../../../GameLogic (MVC)/DefenderClassUtils.js', () => ({
+/*
+ * Partial mock via importOriginal, not a two-line replacement object.
+ *
+ * A mock that enumerates its exports silently removes every export it does not
+ * name, so the moment the real module gained MAX_DEFENDER_LEVEL this file broke
+ * with "No export is defined on the mock" - thrown mid-render, which surfaced as
+ * a stray ")" in the output and looked like a JSX bug rather than a mock gap.
+ * Only `getUpgradePreview` needs stubbing here; everything else should be real.
+ */
+vi.mock('../../../GameLogic (MVC)/DefenderClassUtils.js', async (importOriginal) => ({
+  ...(await importOriginal()),
   getUpgradePreview: () => null,
 }));
 

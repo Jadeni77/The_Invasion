@@ -3,6 +3,7 @@ import { useGame } from '../../GameLogic (MVC)/GameContext.jsx';
 import { SessionManager } from '../../GameLogic (MVC)/SessionManager.js';
 import '../../../style/AchievementPage.css';
 import GameBackdrop from "../TerrainBackdrop.jsx";
+import { apiUrl } from "../../../config/api.js";
 
 const ACHIEVEMENTS = {
   progression: [
@@ -242,7 +243,7 @@ const AchievementPage = () => {
     if (claiming) return;
     setClaiming(achievement.id);
     try {
-      const res = await fetch('http://localhost:8080/api/player/claim-achievement', {
+      const res = await fetch(apiUrl('/api/player/claim-achievement'), {
         method: 'POST',
         headers: SessionManager.authHeaders(),
         body: JSON.stringify({ achievementId: achievement.id, rewards: achievement.rewards }),

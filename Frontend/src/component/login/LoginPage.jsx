@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { apiUrl } from "../../config/api.js";
 
 const MODE_LOGIN = "login";
 const MODE_REGISTER = "register";
@@ -37,7 +38,7 @@ export default function LoginPage( { onLogin }) {
                 const body = mode === MODE_REGISTER
                     ? { email, password, displayName }
                     : { email, password };
-                const res = await fetch(`http://localhost:8080${endpoint}`, {
+                const res = await fetch(apiUrl(`${endpoint}`), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(body)
@@ -49,7 +50,7 @@ export default function LoginPage( { onLogin }) {
                 const data = await res.json();
                 onLogin(data.token, data.player);
             } else if (mode === MODE_FORGOT_REQUEST) {
-                const res = await fetch("http://localhost:8080/api/auth/forgot-password", {
+                const res = await fetch(apiUrl("/api/auth/forgot-password"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email })
@@ -61,7 +62,7 @@ export default function LoginPage( { onLogin }) {
                 setInfo("If that email is registered, a 6-digit code has been sent.");
                 setMode(MODE_FORGOT_RESET);
             } else if (mode === MODE_FORGOT_RESET) {
-                const res = await fetch("http://localhost:8080/api/auth/reset-password", {
+                const res = await fetch(apiUrl("/api/auth/reset-password"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email, code, newPassword })
