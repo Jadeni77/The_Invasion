@@ -454,6 +454,9 @@ const Lobby = () => {
                     className={`zone-background zone-${zone}`}
                     style={zoneBounds(zone)}
                 >
+                  {zoneConfigs[zone]?.label && (
+                      <span className="zone-label">{zoneConfigs[zone].label}</span>
+                  )}
                   <svg className="zone-ridge" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true">
                     <path d={RIDGE_FAR} fill="var(--terrain-ridge-far)" />
                     <path d={RIDGE_NEAR} fill="var(--terrain-ridge-near)" />
@@ -498,7 +501,16 @@ const Lobby = () => {
                         top: `${conn.y}px`,
                         left: `${conn.x}px`,
                         width: `${conn.length}px`,
-                        transform: `rotate(${conn.rotation}deg)`,
+                        /* `conn.x`/`conn.y` are the segment's MIDPOINT, so the
+                           bar has to be centred on that point - hence
+                           translate(-50%, -50%) and a centre transform-origin.
+                           Anchoring the bar's left edge there instead (which is
+                           what `transform-origin: left center` and a bare
+                           rotate did) started every segment half-way along its
+                           own route and ran it a full length past the target
+                           node. It was invisible only because the bar was 3px
+                           tall at opacity 0.3. */
+                        transform: `translate(-50%, -50%) rotate(${conn.rotation}deg)`,
                       }}
                   />
               );

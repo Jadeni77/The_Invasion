@@ -131,11 +131,17 @@ const SHAPES = {
   // Three overlapping tilted blocks, not a continuous jagged silhouette -
   // a single zigzag skyline reads as distant mountains, not debris. Discrete
   // rotated rectangles read as a collapsed, broken pile instead.
+  // A collapsed wall: a broad rubble base with a broken upright still standing
+  // and one slab fallen against it. Three free-floating tilted rectangles read
+  // as scattered paper at 70px, because nothing in them touched the ground or
+  // agreed on a light direction - these share a baseline and stack, so the pile
+  // has a bottom.
   rubble: (
     <>
-      <rect x="1" y="9" width="7" height="6" fill="var(--terrain-prop-stone)" transform="rotate(-10 4.5 12)" />
-      <rect x="6" y="11" width="6" height="5" fill="var(--terrain-prop-dark)" transform="rotate(7 9 13.5)" />
-      <rect x="9" y="7" width="6" height="8" fill="var(--terrain-prop-stone)" transform="rotate(-5 12 11)" />
+      <path d="M0,16 L2.5,12.5 L13.5,12.5 L16,16 Z" fill="var(--terrain-prop-dark)" />
+      <rect x="4" y="5" width="4.5" height="7.5" fill="var(--terrain-prop-stone)" />
+      <path d="M8.5,12.5 L8.5,8.5 L13,12.5 Z" fill="var(--terrain-prop-stone)" />
+      <rect x="4" y="5" width="4.5" height="1.6" fill="var(--terrain-prop-dark)" opacity="0.55" />
     </>
   ),
   // A flame over a dark log, not a bare flame. The lone leaf-shaped path this
