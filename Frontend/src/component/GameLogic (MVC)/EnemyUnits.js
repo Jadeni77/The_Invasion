@@ -426,11 +426,20 @@ export class Enemy {
     const cx = this.x + this.width / 2;
     const cy = this.y + this.height - 2;
 
+    /*
+     * 0.42 of the width, not 0.62.
+     *
+     * At 0.62 on a boss - whose width is already scaled 1.4x - the ellipse came
+     * out around 220px across on a Titan, far wider than the sprite standing on
+     * it, and read as a puddle the unit happened to be near rather than a marker
+     * attached to it. Judged from a play-test screenshot; there is no test that
+     * can see this.
+     */
     ctx.save();
-    ctx.globalAlpha = 0.18 + 0.14 * pulse;
+    ctx.globalAlpha = 0.16 + 0.12 * pulse;
     ctx.fillStyle = colors.accentEnergy;
     ctx.beginPath();
-    ctx.ellipse(cx, cy, this.width * 0.62, this.height * 0.16, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, this.width * 0.42, this.height * 0.13, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
