@@ -481,22 +481,6 @@
   filter: drop-shadow(0 0 10px color-mix(in srgb, var(--colors-accent-energy) 90%, transparent));
 }
 
-.chest-glow {
-  position: absolute;
-  width: 70px;
-  height: 70px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--colors-accent-energy) 50%, transparent) 0%,
-    transparent 70%
-  );
-  border-radius: 50%;
-  animation: glow 2s infinite alternate;
-}
-
 @keyframes glow {
   from {
     opacity: 0.3;
@@ -943,6 +927,15 @@
   color: var(--colors-text-primary);
   font-weight: bold;
   text-shadow: 1px 1px 2px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
+  /* Decoration, not a target. These hang OUTSIDE the circle on a negative
+     offset while being children of it, so they were part of the node's hover
+     area - and `:hover` scales the node, which pushes them further from the
+     cursor that is hovering them. Cursor on the label: hover starts, the label
+     moves away, hover ends, the label snaps back, hover starts. The node
+     visibly vibrated between two sizes for as long as the pointer rested
+     between the circle and its name. Taking them out of hit-testing removes the
+     moving target; the circle is what you click, and it only ever grows. */
+  pointer-events: none;
 }
 
 .level-pulse {
@@ -992,6 +985,15 @@
   justify-content: center;
   line-height: 1;
   white-space: nowrap;
+  /* Decoration, not a target. These hang OUTSIDE the circle on a negative
+     offset while being children of it, so they were part of the node's hover
+     area - and `:hover` scales the node, which pushes them further from the
+     cursor that is hovering them. Cursor on the label: hover starts, the label
+     moves away, hover ends, the label snaps back, hover starts. The node
+     visibly vibrated between two sizes for as long as the pointer rested
+     between the circle and its name. Taking them out of hit-testing removes the
+     moving target; the circle is what you click, and it only ever grows. */
+  pointer-events: none;
 }
 
 .star {
@@ -1237,6 +1239,21 @@
   50% { filter: drop-shadow(0 0 20px var(--colors-accent-energy)); }
 }
 
+/*
+ * The glow behind an uncollected chest. One rule now, not two.
+ *
+ * There were two `.chest-glow` rules that disagreed about how the element was
+ * positioned at all - one centred it with `top/left: 50%` and a translate, this
+ * one insets it by -10px - and NEITHER took itself out of hit-testing. The inset
+ * rule won, so a 60px glow sat on top of a 40px chest and swallowed every click:
+ * chests could not be collected, and `elementFromPoint` at a chest's centre
+ * returned `chest-glow`.
+ *
+ * Keeping the inset form also settles the hazard recorded against the old
+ * duplicate: `@keyframes chestGlow` animates `transform: scale()`, which would
+ * have wiped out the centring translate the other rule depended on. With insets
+ * there is no translate to lose.
+ */
 .chest-glow {
   position: absolute;
   top: -10px;
@@ -1246,6 +1263,7 @@
   border-radius: 50%;
   background: radial-gradient(circle, color-mix(in srgb, var(--colors-accent-energy) 60%, transparent), transparent);
   animation: chestGlow 1.5s infinite;
+  pointer-events: none;
 }
 
 @keyframes chestGlow {

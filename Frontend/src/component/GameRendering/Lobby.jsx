@@ -97,15 +97,27 @@ const Lobby = () => {
   const onMapPointerDown = (e) => {
     const viewport = mapContainerRef.current;
     if (!viewport) return;
+    // Deliberately NOT capturing the pointer here. Capturing on pointerdown
+    // retargets every later pointer event - including pointerup - to the
+    // viewport, and the browser then dispatches `click` against the capture
+    // target rather than the element under the cursor. The effect was that no
+    // level node and no chest could ever be clicked: their onClick never ran,
+    // because from the DOM's point of view the click happened on the map. See
+    // the capture in onMapPointerMove, which only fires once this is a drag.
     drag.current = { active: true, startX: e.clientX, startScroll: viewport.scrollLeft, moved: false };
-    viewport.setPointerCapture?.(e.pointerId);
   };
 
   const onMapPointerMove = (e) => {
     const viewport = mapContainerRef.current;
     if (!viewport || !drag.current.active) return;
     const delta = e.clientX - drag.current.startX;
-    if (Math.abs(delta) > DRAG_THRESHOLD_PX) drag.current.moved = true;
+    if (Math.abs(delta) > DRAG_THRESHOLD_PX && !drag.current.moved) {
+      drag.current.moved = true;
+      // Now that this is unambiguously a drag rather than a click, take the
+      // pointer so panning survives the cursor leaving the map. A click never
+      // reaches this branch, so a click is never retargeted.
+      viewport.setPointerCapture?.(e.pointerId);
+    }
     viewport.scrollLeft = drag.current.startScroll - delta;
   };
 
