@@ -249,39 +249,98 @@ function chestNearLevel(id, requiresLevel, rewards, dx, dy, extra) {
   return { id, x: node.x + dx, y: node.y + dy, rewards, requiresLevel, ...extra };
 }
 
-//TODO: set up defender unlock upon chest reward
-// Treasure chests with better rewards distribution. The 20 on-route chests
-// below sit at their connector's midpoint (see chestOnRoute above); the two
-// secret chests after them are deliberately off-route and keep their
-// hand-placed positions.
+/**
+ * The defenders a chest unlocks, as a list, whichever way its reward was
+ * written.
+ *
+ * `rewards.defender` was a single string per chest because there used to be a
+ * chest per level - twenty of them, so nine defenders fitted one to a chest
+ * with room to spare. Six landmark chests cannot carry nine defenders one at a
+ * time, and dropping three is not an option (they are real unlocks: Healer,
+ * Sniper, Mortar and the rest). So the field takes a string or an array, and
+ * everything that reads it goes through here rather than each caller
+ * remembering to handle both. Exported so GameContext and the chest tests share
+ * one definition of the shape instead of two that can disagree.
+ */
+export function chestDefenders(chest) {
+  const named = chest?.rewards?.defender;
+  if (!named) return [];
+  return Array.isArray(named) ? named : [named];
+}
+
+/**
+ * Treasure chests: **six landmarks along the route, not one per level.**
+ *
+ * There were twenty on-route chests, one on every connector. The approved
+ * mockup had three, placed as landmarks between nodes - one per level is
+ * wallpaper, and it is a large part of why the map read as cluttered: twenty
+ * near-identical 40px sprites competing with twenty-one nodes for the same
+ * eye.
+ *
+ * Six, spaced roughly evenly from x=295 to x=3715, one per terrain region plus
+ * a second through the long late stretch. Each still sits at its connector's
+ * midpoint via `chestOnRoute`, so moving a node moves its chest.
+ *
+ * **No reward was dropped in the cut.** The twenty chests' resources are
+ * consolidated onto these six and the arithmetic is asserted in
+ * ChestLandmarks.test.js against the totals the twenty carried: gold 3850,
+ * iron 350, grain 430, water 200, gem 588, and 5500 of `all` (which grants its
+ * amount to each of gold/iron/grain/water). All nine defenders survive too,
+ * which is what `defender` accepting a list is for - see chestDefenders above.
+ * The distribution is weighted late, so a landmark reads as worth reaching
+ * rather than as one of twenty identical pickups.
+ */
 export const chestsData = [
-  // Early game chests
-  chestOnRoute("chest-1", 1, 2, { gold: 100, gem: 1, defender: "E-Gen" }),
-  chestOnRoute("chest-2", 2, 3, { iron: 50, grain: 30, defender: "Barricade" }),
-  chestOnRoute("chest-3", 3, 4, { water: 50, gem: 2, defender: "Grenadier" }),
+  // Tutorial. Requires level 1, which is always unlocked, so the first
+  // landmark is reachable from a standing start.
+  chestOnRoute("chest-1", 1, 2, {
+    gold: 100,
+    gem: 1,
+    defender: ["E-Gen", "Barricade"],
+  }),
 
-  // Mid game chests
-  chestOnRoute("chest-4", 4, 5, { gold: 250, iron: 100, defender: "Healer" }),
-  chestOnRoute("chest-5", 5, 6, { gem: 5, grain: 100 }),
-  chestOnRoute("chest-6", 6, 7, { gold: 500, water: 150, defender: "Frost Archer" }),
+  // Early region.
+  chestOnRoute("chest-2", 5, 6, {
+    iron: 150,
+    grain: 130,
+    water: 50,
+    gem: 7,
+    defender: ["Grenadier", "Healer"],
+  }),
 
-  // Late game chests
-  chestOnRoute("chest-7", 7, 8, { gem: 10, iron: 200 }),
-  chestOnRoute("chest-8", 8, 9, { gold: 1000, grain: 300 }),
+  // Mid region.
+  chestOnRoute("chest-3", 8, 9, {
+    gold: 750,
+    iron: 200,
+    grain: 300,
+    water: 150,
+    gem: 30,
+    defender: "Frost Archer",
+  }),
 
-  // End game chests
-  chestOnRoute("chest-9", 9, 10, { gem: 20, gold: 2000 }),
-  chestOnRoute("chest-10", 10, 11, { gem: 50, all: 500, defender: "Sniper" }),
-  chestOnRoute("chest-11", 11, 12, { gem: 50, all: 500, defender: "Ice Bomb" }),
-  chestOnRoute("chest-12", 12, 13, { gem: 50, all: 500 }),
-  chestOnRoute("chest-13", 13, 14, { gem: 50, all: 500 }),
-  chestOnRoute("chest-14", 14, 15, { gem: 50, all: 500, defender: "Mortar" }),
-  chestOnRoute("chest-15", 15, 16, { gem: 50, all: 500 }),
-  chestOnRoute("chest-16", 16, 17, { gem: 50, all: 500, defender: "Fire Blast" }),
-  chestOnRoute("chest-17", 17, 18, { gem: 50, all: 500 }),
-  chestOnRoute("chest-18", 18, 19, { gem: 50, all: 500 }),
-  chestOnRoute("chest-19", 19, 20, { gem: 50, all: 500 }),
-  chestOnRoute("chest-20", 20, 999, { gem: 50, all: 500 }),
+  // The crossing into the late region.
+  chestOnRoute("chest-4", 12, 13, {
+    gold: 1000,
+    gem: 100,
+    all: 1500,
+    defender: ["Sniper", "Ice Bomb"],
+  }),
+
+  // Late region.
+  chestOnRoute("chest-5", 16, 17, {
+    gold: 1000,
+    gem: 200,
+    all: 2000,
+    defender: "Mortar",
+  }),
+
+  // Endgame, on the last climb to level 20.
+  chestOnRoute("chest-6", 19, 20, {
+    gold: 1000,
+    gem: 250,
+    all: 2000,
+    defender: "Fire Blast",
+  }),
 
   // Secret chests (hidden or require special conditions). Off-route by
   // design - the offsets below are what puts them beside the trail rather

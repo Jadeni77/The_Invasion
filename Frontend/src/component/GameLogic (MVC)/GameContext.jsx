@@ -8,7 +8,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { chestsData } from "../GameRendering/MapLayout.jsx";
+import { chestsData, chestDefenders } from "../GameRendering/MapLayout.jsx";
 import { SessionManager } from "./SessionManager.js";
 import LoginPage from "../login/LoginPage.jsx";
 import { FeedbackBus } from "./Feedback/FeedbackBus.js";
@@ -913,22 +913,26 @@ export const GameProvider = ({ children }) => {
         }
       });
 
+      // A chest may unlock more than one defender: the map's twenty
+      // one-per-level chests became six landmarks, and nine defenders do not
+      // fit six chests one at a time. chestDefenders normalises the string or
+      // list form so this loop is the only place that has to care.
       let newCards = [...prev.cards];
-      if (chest.rewards.defender) {
-        const defenderName = chest.rewards.defender;
+      for (const defenderName of chestDefenders(chest)) {
         const hasDefender = newCards.some((card) => card.name === defenderName);
+        if (hasDefender) continue;
 
-        if (!hasDefender) {
-          const newCardId = Math.max(...newCards.map((c) => c.id), 0) + 1;
-          newCards.push({
-            id: newCardId,
-            name: defenderName,
-            level: 1,
-            pieces: 0,
-            piecesNeeded: getPiecesNeeded(defenderName),
-            upgradeCost: getUpgradeCost(defenderName, 1),
-          });
-        }
+        // Recomputed per defender, not hoisted: two defenders from the same
+        // chest would otherwise both be handed the same id.
+        const newCardId = Math.max(...newCards.map((c) => c.id), 0) + 1;
+        newCards.push({
+          id: newCardId,
+          name: defenderName,
+          level: 1,
+          pieces: 0,
+          piecesNeeded: getPiecesNeeded(defenderName),
+          upgradeCost: getUpgradeCost(defenderName, 1),
+        });
       }
 
       // Mark chest as collected
@@ -945,14 +949,22 @@ export const GameProvider = ({ children }) => {
     });
 
     try {
+      // Accumulated, not assigned. A chest carrying both `gold` and `all`
+      // used to send whichever of the two `Object.entries` happened to reach
+      // last and silently drop the other - the local newResources path above
+      // has always added them together, so the two disagreed. No chest
+      // combined them while there was one per level, so the bug was latent;
+      // the consolidated landmarks do combine them.
       const backendRewards = {};
+      const credit = (resource, amount) => {
+        backendRewards[resource] = (backendRewards[resource] || 0) + amount;
+      };
       Object.entries(chest.rewards).forEach(([resource, amount]) => {
-        if (resource !== "defender" && resource !== "all") {
-          backendRewards[resource] = amount;
-        } else if (resource === "all") {
-          ["gold", "iron", "grain", "water"].forEach((res) => {
-            backendRewards[res] = amount;
-          });
+        if (resource === "defender") return;
+        if (resource === "all") {
+          ["gold", "iron", "grain", "water"].forEach((res) => credit(res, amount));
+        } else {
+          credit(resource, amount);
         }
       });
 
@@ -965,9 +977,12 @@ export const GameProvider = ({ children }) => {
         }),
       });
 
-      if (chest.rewards.defender) {
-        saveUnlockedDefender(chest.rewards.defender);
-        setUnlockedDefender(chest.rewards.defender);
+      // One POST per defender, so the backend contract stays one name per
+      // call; the notification gets the whole list and pluralises itself.
+      const unlocked = chestDefenders(chest);
+      if (unlocked.length > 0) {
+        for (const defenderName of unlocked) saveUnlockedDefender(defenderName);
+        setUnlockedDefender(unlocked);
       }
     } catch (error) {
       console.error("Failed to save collected treasure:", error);

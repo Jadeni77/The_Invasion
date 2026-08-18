@@ -156,6 +156,14 @@ const Lobby = () => {
     viewport.scrollLeft = target.x * mapZoom - viewport.clientWidth / 2;
   }, [nextLevelId, mapZoom]);
 
+  // The unlock notification's contents, always as a list. `collectTreasure`
+  // sends the defenders a chest unlocked, which is more than one for three of
+  // the six landmark chests; a plain string is still accepted because nothing
+  // stops a future caller sending one.
+  const notifiedDefenders = defenderNotification
+      ? (Array.isArray(defenderNotification) ? defenderNotification : [defenderNotification])
+      : [];
+
   useEffect(() => {
     if (unlockedDefender) {
       setDefenderNotification(unlockedDefender);
@@ -314,13 +322,18 @@ const Lobby = () => {
   return (
       <div className="lobby-container">
 
-        {/* Defender unlock notification */}
-        {defenderNotification && (
+        {/* Defender unlock notification. A chest can unlock more than one
+            defender now that the map's twenty one-per-level chests are six
+            landmarks (see chestsData), so this takes a list as well as a
+            single name - rendering an array directly would print
+            "SniperIce Bomb" with no separator, and the heading would be
+            wrong. */}
+        {notifiedDefenders.length > 0 && (
             <div className={`defender-notification ${notificationFading ? 'fade-out': ""}`}>
               <div className='notification-icon'>🎉</div>
               <div className="notification-content">
-                <h3>New Defender Unlocked!</h3>
-                <p className="defender-name">{defenderNotification}</p>
+                <h3>New Defender{notifiedDefenders.length > 1 ? 's' : ''} Unlocked!</h3>
+                <p className="defender-name">{notifiedDefenders.join(', ')}</p>
               </div>
             </div>
         )}
