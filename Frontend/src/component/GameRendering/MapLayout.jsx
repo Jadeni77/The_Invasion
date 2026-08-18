@@ -25,53 +25,87 @@ export const RAINBOW_STOPS = [
   decorative.violet,
 ];
 
-// Level nodes arranged in a serpentine pattern across the map
-export const levelsMapData = [
+/**
+ * Route geometry - the one thing on this map that everything else is
+ * positioned against.
+ *
+ * **`x` is not authored. It is derived from a stop's position in the route,
+ * below, and that is the fix.** The map shipped with hand-typed `x` values
+ * folded back on themselves: levels 1-12 ran left to right from 200 to 1850,
+ * then levels 13-20 ran back right to left from 1850 to 800, because
+ * `mapWidth` was 2200 - inherited from a mockup with 10 levels plus a portal -
+ * and 21 nodes do not fit in a width sized for 11. Every column from 650 to
+ * 1850 therefore held two levels, one from each leg: 9 and 16 landed 20px
+ * apart on a 58px node and rendered as a single doubled circle with both names
+ * stacked on it, the four route self-crossings were where one leg cut back
+ * across the other, and the terrain escalated backwards from level 13 because
+ * the second leg walked back down through zones the first leg had already
+ * climbed.
+ *
+ * One node per x column, x strictly increasing with route order, is what makes
+ * all of that structurally impossible rather than merely fixed: two nodes
+ * cannot share a column because a column is an array index, and two connectors
+ * cannot cross because their x-spans only ever touch at a shared node (see
+ * RouteGeometry.test.js, which asserts both rather than assuming them).
+ *
+ * `NODE_SPACING_X` is **the density the mockup was approved at**, and that is
+ * the whole reason for it.
+ *
+ * An earlier version of this comment claimed label collision forced it, which
+ * review measured and disproved: against the shipped woff2, the longest label
+ * ("Multiplication Crisis") is 127.2px, and the worst adjacent pair - levels 7
+ * and 8 - would not touch until the spacing closed to 104.8px. Labels alone
+ * would therefore tolerate roughly 150px. The corrected note is left here
+ * rather than deleted, because "the labels make me do it" is a much more
+ * comfortable argument than "the owner approved this density" and it would have
+ * been repeated by the next person to read the file. At 190px adjacent labels
+ * clear each other by ~63px, which is a consequence of the spacing, not its
+ * justification.
+ */
+const ROUTE_START_X = 200;
+const NODE_SPACING_X = 190;
+/** Breathing room past the last stop, so the portal isn't flush to the edge. */
+const ROUTE_END_PADDING = 200;
+
+/**
+ * The campaign's stops in route order, carrying everything except `x`.
+ *
+ * `y` is unchanged from the approved mockup's vertical amplitude - it swings
+ * across 90-510 of the 600px terrain, rising and falling with varied
+ * amplitude rather than as a regular zigzag. Only the horizontal fold was
+ * broken, so only `x` is being replaced.
+ */
+const routeStops = [
   // Tutorial Zone (Levels 1-3)
-  { id: 1, x: 200, y: 500, zone: "tutorial", name: "The Outbreak" },
-  { id: 2, x: 350, y: 380, zone: "tutorial", name: "Swift Danger" },
-  { id: 3, x: 500, y: 460, zone: "tutorial", name: "Explosive Encounter" },
+  { id: 1, y: 500, zone: "tutorial", name: "The Outbreak" },
+  { id: 2, y: 380, zone: "tutorial", name: "Swift Danger" },
+  { id: 3, y: 460, zone: "tutorial", name: "Explosive Encounter" },
 
   // Early Game Zone (Levels 4-7)
-  { id: 4, x: 650, y: 300, zone: "early", name: "Heavy Resistance" },
-  { id: 5, x: 800, y: 420, zone: "early", name: "Ranged Assault" },
-  { id: 6, x: 950, y: 260, zone: "early", name: "Shield Wall" },
-  { id: 7, x: 1100, y: 400, zone: "early", name: "Support Squadron" },
+  { id: 4, y: 300, zone: "early", name: "Heavy Resistance" },
+  { id: 5, y: 420, zone: "early", name: "Ranged Assault" },
+  { id: 6, y: 260, zone: "early", name: "Shield Wall" },
+  { id: 7, y: 400, zone: "early", name: "Support Squadron" },
 
   // Mid Game Zone (Levels 8-12)
-  { id: 8, x: 1250, y: 510, zone: "mid", name: "Multiplication Crisis" },
-  { id: 9, x: 1400, y: 320, zone: "mid", name: "Swarm Tactics" },
-  {
-    id: 10,
-    x: 1550,
-    y: 440,
-    zone: "mid",
-    name: "Electromagnetic Chaos",
-    isBoss: true,
-  },
-  { id: 11, x: 1700, y: 200, zone: "mid", name: "Blood Hunt" },
-  { id: 12, x: 1850, y: 380, zone: "mid", name: "Spectral Invasion" },
+  { id: 8, y: 510, zone: "mid", name: "Multiplication Crisis" },
+  { id: 9, y: 320, zone: "mid", name: "Swarm Tactics" },
+  { id: 10, y: 440, zone: "mid", name: "Electromagnetic Chaos", isBoss: true },
+  { id: 11, y: 200, zone: "mid", name: "Blood Hunt" },
+  { id: 12, y: 380, zone: "mid", name: "Spectral Invasion" },
 
-  // Late Game Zone (Levels 13-17) - Second row
-  { id: 13, x: 1850, y: 260, zone: "late", name: "Berserker Rage" },
-  { id: 14, x: 1700, y: 420, zone: "late", name: "Death's Army" },
-  { id: 15, x: 1550, y: 180, zone: "late", name: "Shadow Strike" },
-  { id: 16, x: 1400, y: 340, zone: "late", name: "Arcane Apocalypse" },
-  { id: 17, x: 1250, y: 140, zone: "late", name: "Total Chaos" },
+  // Late Game Zone (Levels 13-17)
+  { id: 13, y: 260, zone: "late", name: "Berserker Rage" },
+  { id: 14, y: 420, zone: "late", name: "Death's Army" },
+  { id: 15, y: 180, zone: "late", name: "Shadow Strike" },
+  { id: 16, y: 340, zone: "late", name: "Arcane Apocalypse" },
+  { id: 17, y: 140, zone: "late", name: "Total Chaos" },
 
-  // End Game Zone (Levels 18-20) - Third row ascent
-  {
-    id: 18,
-    x: 1100,
-    y: 300,
-    zone: "endgame",
-    name: "Titan's Wrath",
-    isBoss: true,
-  },
-  { id: 19, x: 950, y: 160, zone: "endgame", name: "Final Stand" },
+  // End Game Zone (Levels 18-20) - the final ascent
+  { id: 18, y: 300, zone: "endgame", name: "Titan's Wrath", isBoss: true },
+  { id: 19, y: 160, zone: "endgame", name: "Final Stand" },
   {
     id: 20,
-    x: 800,
     y: 90,
     zone: "endgame",
     name: "The Omega Wave",
@@ -82,7 +116,6 @@ export const levelsMapData = [
   // Endless Mode Portal - Unlocked after completing level 20
   {
     id: 999,
-    x: 650,
     y: 100,
     zone: "endless",
     name: "Endless Survival",
@@ -91,6 +124,22 @@ export const levelsMapData = [
     special: "portal", // Special visual indicator
   },
 ];
+
+/**
+ * The level nodes, each in its own x column.
+ *
+ * `x` is spread *last* deliberately: a stop that tried to carry its own `x`
+ * would be overwritten rather than honoured, so the column can only ever come
+ * from route order. That is what stops a hand-typed coordinate growing back
+ * here and re-folding the route.
+ */
+export const levelsMapData = routeStops.map((stop, index) => ({
+  ...stop,
+  x: ROUTE_START_X + index * NODE_SPACING_X,
+}));
+
+/** The last stop's column - the portal's, and what sizes the terrain. */
+const ROUTE_END_X = levelsMapData[levelsMapData.length - 1].x;
 
 /** A node's own position, looked up by id rather than copied. */
 function nodeById(id) {
@@ -147,7 +196,9 @@ export const connectionsData = [
   connectionBetween(10, 11),
   connectionBetween(11, 12),
 
-  // Transition to late game (vertical connection)
+  // Transition to late game. Was described here as "vertical" because the
+  // folded route doubled back in column 1850 and levels 12 and 13 shared it;
+  // it advances a column like every other connector now.
   connectionBetween(12, 13),
 
   // Late game connections
@@ -170,71 +221,178 @@ export const connectionsData = [
  * level it requires - derived the same way the connector itself now is,
  * rather than hand-typed as a second copy of the same fact.
  *
- * `xOverride` exists for exactly one chest, `chest-12`: the level 12-13
- * transition is a vertical connector, so a chest placed exactly on that
- * connector's own midpoint would sit on top of the line instead of beside
- * it. That 50px offset is a deliberate placement choice predating this
- * change, not drift, so it is preserved rather than derived away.
+ * This used to take an `xOverride`, used by exactly one chest (`chest-12`)
+ * because the old level 12-13 transition was a *vertical* connector - both
+ * legs of the folded route met in column 1850 - so a chest on that
+ * connector's own midpoint sat on top of the line rather than beside it. With
+ * the fold gone no connector is vertical (every one advances a full column in
+ * x), so the override has no remaining caller. It is removed rather than kept
+ * "in case": an unread parameter is the drift this file's other comments keep
+ * warning about, and a coordinate escape hatch on the one helper that exists
+ * to derive coordinates is exactly the hatch a future hand-typed position
+ * would come back through.
  */
-function chestOnRoute(id, fromId, toId, rewards, xOverride) {
+function chestOnRoute(id, fromId, toId, rewards) {
   const { x, y } = connectionBetween(fromId, toId);
-  return { id, x: xOverride ?? x, y, rewards, requiresLevel: fromId };
+  return { id, x, y, rewards, requiresLevel: fromId };
 }
 
-//TODO: set up defender unlock upon chest reward
-// Treasure chests with better rewards distribution. The 20 on-route chests
-// below sit at their connector's midpoint (see chestOnRoute above); the two
-// secret chests after them are deliberately off-route and keep their
-// hand-placed positions.
+/**
+ * A secret chest's position: off the route by design, but anchored to the node
+ * that unlocks it rather than to an absolute coordinate.
+ *
+ * Both secret chests used to hold hand-typed positions (1000,500) and
+ * (1400,100), chosen against the old 2200-wide folded map. Those numbers
+ * survived the fold as coordinates but not as *placements*: on the unfolded
+ * terrain x=1000 is beside level 5 and x=1400 beside level 7, nowhere near the
+ * levels 10 and 16 that reveal them. Deriving the offset from the required
+ * level's own node keeps them off-route (that is what the offsets are for)
+ * while keeping them next to the level they belong to, the same property
+ * `chestOnRoute` gives the on-route chests.
+ */
+function chestNearLevel(id, requiresLevel, rewards, dx, dy, extra) {
+  const node = nodeById(requiresLevel);
+  return { id, x: node.x + dx, y: node.y + dy, rewards, requiresLevel, ...extra };
+}
+
+/**
+ * The defenders a chest unlocks, as a list, whichever way its reward was
+ * written.
+ *
+ * `rewards.defender` was a single string per chest because there used to be a
+ * chest per level - twenty of them, so nine defenders fitted one to a chest
+ * with room to spare. Six landmark chests cannot carry nine defenders one at a
+ * time, and dropping three is not an option (they are real unlocks: Healer,
+ * Sniper, Mortar and the rest). So the field takes a string or an array, and
+ * everything that reads it goes through here rather than each caller
+ * remembering to handle both. Exported so GameContext and the chest tests share
+ * one definition of the shape instead of two that can disagree.
+ */
+export function chestDefenders(chest) {
+  const named = chest?.rewards?.defender;
+  if (!named) return [];
+  return Array.isArray(named) ? named : [named];
+}
+
+/**
+ * A chest's resource rewards, expanded to one accumulated amount per resource.
+ *
+ * `all: N` is shorthand for N of each of gold/iron/grain/water, and `defender`
+ * is not a resource. Both have to be resolved before a reward can be applied or
+ * reported, and **that resolution used to exist twice** in `collectTreasure`:
+ * once to credit the player locally, which accumulated, and once to build the
+ * backend payload, which *assigned*. So a chest carrying both `gold: 1000` and
+ * `all: 1500` credited the player 2500 gold and told the server 1500 - whichever
+ * of the two keys `Object.entries` reached last simply overwrote the other.
+ *
+ * No chest combined the two while there was one chest per level, so the
+ * disagreement was latent; three of the six consolidated landmarks combine them.
+ * The fix is not to correct the second copy - it is to have one copy. Both
+ * callers read this, so they cannot drift, and the arithmetic is unit-testable
+ * without standing up the provider.
+ */
+export function resourceRewardsOf(chest) {
+  const totals = {};
+  const credit = (resource, amount) => {
+    totals[resource] = (totals[resource] ?? 0) + amount;
+  };
+  for (const [resource, amount] of Object.entries(chest?.rewards ?? {})) {
+    if (resource === "defender") continue;
+    if (resource === "all") {
+      for (const res of ["gold", "iron", "grain", "water"]) credit(res, amount);
+    } else {
+      credit(resource, amount);
+    }
+  }
+  return totals;
+}
+
+/**
+ * Treasure chests: **six landmarks along the route, not one per level.**
+ *
+ * There were twenty on-route chests, one on every connector. The approved
+ * mockup had three, placed as landmarks between nodes - one per level is
+ * wallpaper, and it is a large part of why the map read as cluttered: twenty
+ * near-identical 40px sprites competing with twenty-one nodes for the same
+ * eye.
+ *
+ * Six, spaced roughly evenly from x=295 to x=3715, one per terrain region plus
+ * a second through the long late stretch. Each still sits at its connector's
+ * midpoint via `chestOnRoute`, so moving a node moves its chest.
+ *
+ * **No reward was dropped in the cut.** The twenty chests' resources are
+ * consolidated onto these six and the arithmetic is asserted in
+ * ChestLandmarks.test.js against the totals the twenty carried: gold 3850,
+ * iron 350, grain 430, water 200, gem 588, and 5500 of `all` (which grants its
+ * amount to each of gold/iron/grain/water). All nine defenders survive too,
+ * which is what `defender` accepting a list is for - see chestDefenders above.
+ * The distribution is weighted late, so a landmark reads as worth reaching
+ * rather than as one of twenty identical pickups.
+ */
 export const chestsData = [
-  // Early game chests
-  chestOnRoute("chest-1", 1, 2, { gold: 100, gem: 1, defender: "E-Gen" }),
-  chestOnRoute("chest-2", 2, 3, { iron: 50, grain: 30, defender: "Barricade" }),
-  chestOnRoute("chest-3", 3, 4, { water: 50, gem: 2, defender: "Grenadier" }),
+  // Tutorial. Requires level 1, which is always unlocked, so the first
+  // landmark is reachable from a standing start.
+  chestOnRoute("chest-1", 1, 2, {
+    gold: 100,
+    gem: 1,
+    defender: ["E-Gen", "Barricade"],
+  }),
 
-  // Mid game chests
-  chestOnRoute("chest-4", 4, 5, { gold: 250, iron: 100, defender: "Healer" }),
-  chestOnRoute("chest-5", 5, 6, { gem: 5, grain: 100 }),
-  chestOnRoute("chest-6", 6, 7, { gold: 500, water: 150, defender: "Frost Archer" }),
+  // Early region.
+  chestOnRoute("chest-2", 5, 6, {
+    iron: 150,
+    grain: 130,
+    water: 50,
+    gem: 7,
+    defender: ["Grenadier", "Healer"],
+  }),
 
-  // Late game chests
-  chestOnRoute("chest-7", 7, 8, { gem: 10, iron: 200 }),
-  chestOnRoute("chest-8", 8, 9, { gold: 1000, grain: 300 }),
+  // Mid region.
+  chestOnRoute("chest-3", 8, 9, {
+    gold: 750,
+    iron: 200,
+    grain: 300,
+    water: 150,
+    gem: 30,
+    defender: "Frost Archer",
+  }),
 
-  // End game chests
-  chestOnRoute("chest-9", 9, 10, { gem: 20, gold: 2000 }),
-  chestOnRoute("chest-10", 10, 11, { gem: 50, all: 500, defender: "Sniper" }),
-  chestOnRoute("chest-11", 11, 12, { gem: 50, all: 500, defender: "Ice Bomb" }),
-  chestOnRoute("chest-12", 12, 13, { gem: 50, all: 500 }, 1900),
-  chestOnRoute("chest-13", 13, 14, { gem: 50, all: 500 }),
-  chestOnRoute("chest-14", 14, 15, { gem: 50, all: 500, defender: "Mortar" }),
-  chestOnRoute("chest-15", 15, 16, { gem: 50, all: 500 }),
-  chestOnRoute("chest-16", 16, 17, { gem: 50, all: 500, defender: "Fire Blast" }),
-  chestOnRoute("chest-17", 17, 18, { gem: 50, all: 500 }),
-  chestOnRoute("chest-18", 18, 19, { gem: 50, all: 500 }),
-  chestOnRoute("chest-19", 19, 20, { gem: 50, all: 500 }),
-  chestOnRoute("chest-20", 20, 999, { gem: 50, all: 500 }),
+  // The crossing into the late region.
+  chestOnRoute("chest-4", 12, 13, {
+    gold: 1000,
+    gem: 100,
+    all: 1500,
+    defender: ["Sniper", "Ice Bomb"],
+  }),
 
-  // Secret chests (hidden or require special conditions) - off-route by
-  // design, so their position is authored directly, not derived.
-  {
-    id: "secret-1",
-    x: 1000,
-    y: 500,
-    rewards: { gem: 15, gold: 750 },
-    requiresLevel: 10,
+  // Late region.
+  chestOnRoute("chest-5", 16, 17, {
+    gold: 1000,
+    gem: 200,
+    all: 2000,
+    defender: "Mortar",
+  }),
+
+  // Endgame, on the last climb to level 20.
+  chestOnRoute("chest-6", 19, 20, {
+    gold: 1000,
+    gem: 250,
+    all: 2000,
+    defender: "Fire Blast",
+  }),
+
+  // Secret chests (hidden or require special conditions). Off-route by
+  // design - the offsets below are what puts them beside the trail rather
+  // than on it - but anchored to the node that reveals them, not to an
+  // absolute coordinate. See chestNearLevel above.
+  chestNearLevel("secret-1", 10, { gem: 15, gold: 750 }, -70, 90, {
     hidden: true,
     condition: "perfectWave", // No damage taken in wave
-  },
-  {
-    id: "secret-2",
-    x: 1400,
-    y: 100,
-    rewards: { gem: 25, iron: 500 },
-    requiresLevel: 16,
+  }),
+  chestNearLevel("secret-2", 16, { gem: 25, iron: 500 }, 80, 85, {
     hidden: true,
     condition: "speedRun", // Complete level under time limit
-  },
+  }),
 ];
 //TODO: set up defender unlock upon level
 export const levelDefenderReward = {
@@ -378,10 +536,88 @@ export const endlessPortalConfig = {
  * reads this file and assumes it does something.
  */
 export const mapSettings = {
-  mapWidth: 2200,
+  /**
+   * Derived from the route, not chosen for it. This was the literal 2200 that
+   * caused the fold: a width sized for the mockup's 10 levels plus a portal,
+   * asked to hold 21 nodes. Computing it from the last node's column means
+   * adding a level widens the terrain instead of squeezing the route into a
+   * box that no longer fits it - the two facts cannot drift apart, because
+   * there is only one of them.
+   */
+  mapWidth: ROUTE_END_X + ROUTE_END_PADDING,
   mapHeight: 600,
   defaultZoom: 1.0,
 };
+
+/**
+ * The terrain regions, in the order the route walks through them.
+ *
+ * **Derived from the route, not from `zoneConfigs`' key order.** Those two
+ * being separate lists is how the terrain came to escalate backwards: the
+ * ground was painted as five equal-width bands in `zoneConfigs` order while
+ * the route ran through the zones in its own order, and with the route folded
+ * the two disagreed from level 13 on - the return leg walked back down through
+ * regions the outbound leg had already climbed. Taking the order from the
+ * route's own first appearance of each zone means the bands cannot be in a
+ * different order from the levels standing on them, because it is the same
+ * order.
+ *
+ * `endless` is excluded: it is the portal at the far end, not a region, and
+ * has never painted a band (`.zone-endless` has no rule in Lobby.css).
+ */
+export const TERRAIN_ZONES = [
+  ...new Set(levelsMapData.filter((level) => level.zone !== "endless").map((level) => level.zone)),
+];
+
+/**
+ * Each region's horizontal span, sized to cover exactly the levels assigned to
+ * it, so a level always stands on its own zone's ground.
+ *
+ * Boundaries land halfway between the last node of one region and the first
+ * node of the next, which is what makes the containment exact rather than
+ * coincidental: every node sits strictly inside its own region's span with
+ * roughly half a column of ground to spare on the side facing its neighbour.
+ * Region widths therefore vary with how many levels a region holds (tutorial
+ * has 3, mid and late have 5) instead of every region being `mapWidth / 5`
+ * wide regardless of what stands on it - which happened to be nearly right
+ * once the route was unfolded, and is the kind of "nearly right by accident"
+ * this map has already been bitten by twice.
+ *
+ * The first region starts at 0 and the last runs to `mapWidth`, so the bands
+ * tile the whole terrain with no bare strip at either end. The portal's own
+ * column is past the last campaign level, so the portal stands on the endgame
+ * region's ground - deliberate: the endless run is where the endgame leads,
+ * and the alternative is the portal standing on the raw `.game-map` surface.
+ * ZoneTerrain.test.js asserts that placement explicitly rather than leaving it
+ * to be discovered.
+ */
+function terrainZoneSpans() {
+  const extremes = TERRAIN_ZONES.map((zone) => {
+    const columns = levelsMapData.filter((level) => level.zone === zone).map((level) => level.x);
+    return { zone, first: Math.min(...columns), last: Math.max(...columns) };
+  });
+
+  const spans = {};
+  extremes.forEach((region, index) => {
+    const before = extremes[index - 1];
+    const after = extremes[index + 1];
+    const left = before ? (before.last + region.first) / 2 : 0;
+    const right = after ? (region.last + after.first) / 2 : mapSettings.mapWidth;
+    spans[region.zone] = { left, width: right - left };
+  });
+  return spans;
+}
+
+export const zoneSpans = terrainZoneSpans();
+
+/** The region whose span contains `x`, or null past both ends of the terrain. */
+export function zoneAtX(x) {
+  for (const zone of TERRAIN_ZONES) {
+    const { left, width } = zoneSpans[zone];
+    if (x >= left && x < left + width) return zone;
+  }
+  return null;
+}
 
 // Achievement triggers for map progression
 export const mapAchievements = [

@@ -12,9 +12,10 @@ import {
   mapSettings,
   getLevelStatus,
   nextPlayableLevelId,
-  zoneConfigs
+  zoneConfigs,
+  zoneSpans
 } from "./MapLayout"; // New: Import map data from MapData.js
-import { TerrainProp, PROPS_BY_ZONE, PROP_ROWS } from "./TerrainProps.jsx";
+import { TerrainProp, propsForZone } from "./TerrainProps.jsx";
 import "../../style/Lobby.css"; // Correct path
 import "../../style/UpgradeModal.css"; // Correct path (if UpgradeModal.css is used by Lobby too)
 import CardSelectionModal from "./CardSelectionModal";
@@ -29,28 +30,29 @@ const RIDGE_NEAR = 'M0,175 L80,145 L160,168 L240,130 L320,160 L410,125 L500,158 
 const FOREGROUND = 'M0,55 Q70,28 150,48 T310,40 T470,52 T600,35 L600,100 L0,100Z';
 
 /**
- * Zones that actually carry ground, in the order the campaign progresses.
- * `endless` is the portal at the far end, not a region - it renders no band,
- * matching its historical absence (see the comment at the zone-backdrop map
- * below).
- */
-const TERRAIN_ZONES = Object.keys(zoneConfigs).filter((zone) => zone !== "endless");
-
-/**
- * Equal-width vertical bands across the map's full width, one per terrain
- * zone, left to right. Node positions (`levelsMapData`) weave a serpentine
- * path across these bands rather than sitting neatly inside them - the bands
- * give the ground its progression, the path is free to swing through it, the
- * same relationship the approved mockup uses between its flex regions and its
- * route line.
+ * A region's band, sized in MapLayout to cover exactly the levels assigned to
+ * it (`zoneSpans`), so a level always stands on its own zone's ground.
+ *
+ * This used to divide `mapSettings.mapWidth` into equal bands in
+ * `zoneConfigs` key order and left the route free to "weave" across them.
+ * That is how the terrain came to escalate backwards: with the route folded,
+ * levels 13-20 ran right to left back through regions the outbound leg had
+ * already climbed, so the ground under a level had no particular relationship
+ * to the level's own zone. Equal bands happen to be close to correct now that
+ * the route is unfolded, which is exactly why the span is derived from the
+ * levels instead - "close to correct by coincidence" is the state this map has
+ * already shipped in twice.
+ *
+ * Returns `display: none` for anything with no span, which is the endless
+ * portal: it is the far end of the route, not a region, and `.zone-endless`
+ * has never had a rule to paint.
  */
 function zoneBounds(zone) {
-  const index = TERRAIN_ZONES.indexOf(zone);
-  if (index === -1) return { display: "none" };
-  const bandWidth = mapSettings.mapWidth / TERRAIN_ZONES.length;
+  const span = zoneSpans[zone];
+  if (!span) return { display: "none" };
   return {
-    left: `${index * bandWidth}px`,
-    width: `${bandWidth}px`,
+    left: `${span.left}px`,
+    width: `${span.width}px`,
   };
 }
 
@@ -153,6 +155,14 @@ const Lobby = () => {
     if (!target) return;
     viewport.scrollLeft = target.x * mapZoom - viewport.clientWidth / 2;
   }, [nextLevelId, mapZoom]);
+
+  // The unlock notification's contents, always as a list. `collectTreasure`
+  // sends the defenders a chest unlocked, which is more than one for three of
+  // the six landmark chests; a plain string is still accepted because nothing
+  // stops a future caller sending one.
+  const notifiedDefenders = defenderNotification
+      ? (Array.isArray(defenderNotification) ? defenderNotification : [defenderNotification])
+      : [];
 
   useEffect(() => {
     if (unlockedDefender) {
@@ -312,13 +322,18 @@ const Lobby = () => {
   return (
       <div className="lobby-container">
 
-        {/* Defender unlock notification */}
-        {defenderNotification && (
+        {/* Defender unlock notification. A chest can unlock more than one
+            defender now that the map's twenty one-per-level chests are six
+            landmarks (see chestsData), so this takes a list as well as a
+            single name - rendering an array directly would print
+            "SniperIce Bomb" with no separator, and the heading would be
+            wrong. */}
+        {notifiedDefenders.length > 0 && (
             <div className={`defender-notification ${notificationFading ? 'fade-out': ""}`}>
               <div className='notification-icon'>🎉</div>
               <div className="notification-content">
-                <h3>New Defender Unlocked!</h3>
-                <p className="defender-name">{defenderNotification}</p>
+                <h3>New Defender{notifiedDefenders.length > 1 ? 's' : ''} Unlocked!</h3>
+                <p className="defender-name">{notifiedDefenders.join(', ')}</p>
               </div>
             </div>
         )}
@@ -446,21 +461,24 @@ const Lobby = () => {
                   <svg className="zone-fore" viewBox="0 0 600 100" preserveAspectRatio="none" aria-hidden="true">
                     <path d={FOREGROUND} fill="var(--terrain-foreground)" />
                   </svg>
-                  {/* Mid-ground scenery, positioned deterministically from
-                      the zone key and prop index (not random - a prop that
-                      moves on every render is distracting, and a test can't
-                      pin a random position). Both rows sit above
-                      `.zone-fore`'s bottom-22% band (PROP_ROWS, checked
-                      against FOREGROUND_BAND_TOP in TerrainProps.test.jsx)
-                      so neither row is painted over. */}
-                  {(PROPS_BY_ZONE[zone] ?? []).map((kind, i) => (
+                  {/* Mid-ground scenery. Count, kind, row and offsets all
+                      come from `propsForZone` (TerrainProps.jsx), which is
+                      given this region's own width so a wide region gets
+                      proportionally more scenery instead of the same two or
+                      three props stretched further apart. Deterministic, not
+                      random - a prop that moves on every render is
+                      distracting, and a test cannot pin a random position.
+                      Every row sits above `.zone-fore`'s bottom-22% band
+                      (FOREGROUND_BAND_TOP, asserted per emitted prop in
+                      TerrainProps.test.jsx), so nothing is painted over. */}
+                  {propsForZone(zone, zoneSpans[zone]?.width).map((prop) => (
                       <TerrainProp
-                          key={`${zone}-${kind}-${i}`}
-                          kind={kind}
-                          className={i % 2 === 0 ? 'prop-near' : 'prop-far'}
+                          key={prop.key}
+                          kind={prop.kind}
+                          className={prop.row === 'near' ? 'prop-near' : 'prop-far'}
                           style={{
-                            left: `${18 + i * 26}%`,
-                            bottom: i % 2 === 0 ? `${PROP_ROWS.near}%` : `${PROP_ROWS.far}%`,
+                            left: `${prop.left}%`,
+                            bottom: `${prop.bottom}%`,
                           }}
                       />
                   ))}

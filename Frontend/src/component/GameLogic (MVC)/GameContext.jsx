@@ -8,7 +8,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { chestsData } from "../GameRendering/MapLayout.jsx";
+import { chestsData, chestDefenders, resourceRewardsOf } from "../GameRendering/MapLayout.jsx";
 import { SessionManager } from "./SessionManager.js";
 import LoginPage from "../login/LoginPage.jsx";
 import { FeedbackBus } from "./Feedback/FeedbackBus.js";
@@ -896,39 +896,36 @@ export const GameProvider = ({ children }) => {
     setPlayerData((prev) => {
       if (!prev) return prev;
 
-      // Apply rewards
+      // Apply rewards. `all` expansion and the defender exclusion both live in
+      // resourceRewardsOf (MapLayout) rather than being resolved here, because
+      // the backend payload below needs the same answer and used to compute its
+      // own - see that helper's comment for the 1000-gold disagreement that
+      // caused.
       const newResources = { ...prev.resources };
-      Object.entries(chest.rewards).forEach(([resource, amount]) => {
-        if (resource === "defender") {
-          //handle separately
-          console.log("Chest With Defender");
-          return;
-        }
-        if (resource === "all") {
-          ["gold", "iron", "grain", "water"].forEach((res) => {
-            newResources[res] = (newResources[res] || 0) + amount;
-          });
-        } else {
-          newResources[resource] = (newResources[resource] || 0) + amount;
-        }
-      });
+      for (const [resource, amount] of Object.entries(resourceRewardsOf(chest))) {
+        newResources[resource] = (newResources[resource] || 0) + amount;
+      }
 
+      // A chest may unlock more than one defender: the map's twenty
+      // one-per-level chests became six landmarks, and nine defenders do not
+      // fit six chests one at a time. chestDefenders normalises the string or
+      // list form so this loop is the only place that has to care.
       let newCards = [...prev.cards];
-      if (chest.rewards.defender) {
-        const defenderName = chest.rewards.defender;
+      for (const defenderName of chestDefenders(chest)) {
         const hasDefender = newCards.some((card) => card.name === defenderName);
+        if (hasDefender) continue;
 
-        if (!hasDefender) {
-          const newCardId = Math.max(...newCards.map((c) => c.id), 0) + 1;
-          newCards.push({
-            id: newCardId,
-            name: defenderName,
-            level: 1,
-            pieces: 0,
-            piecesNeeded: getPiecesNeeded(defenderName),
-            upgradeCost: getUpgradeCost(defenderName, 1),
-          });
-        }
+        // Recomputed per defender, not hoisted: two defenders from the same
+        // chest would otherwise both be handed the same id.
+        const newCardId = Math.max(...newCards.map((c) => c.id), 0) + 1;
+        newCards.push({
+          id: newCardId,
+          name: defenderName,
+          level: 1,
+          pieces: 0,
+          piecesNeeded: getPiecesNeeded(defenderName),
+          upgradeCost: getUpgradeCost(defenderName, 1),
+        });
       }
 
       // Mark chest as collected
@@ -945,29 +942,25 @@ export const GameProvider = ({ children }) => {
     });
 
     try {
-      const backendRewards = {};
-      Object.entries(chest.rewards).forEach(([resource, amount]) => {
-        if (resource !== "defender" && resource !== "all") {
-          backendRewards[resource] = amount;
-        } else if (resource === "all") {
-          ["gold", "iron", "grain", "water"].forEach((res) => {
-            backendRewards[res] = amount;
-          });
-        }
-      });
-
+      // The same expansion the player was credited with above, not a second
+      // one computed here. The second copy assigned where the first
+      // accumulated, so a chest carrying both `gold` and `all` credited the
+      // player and told the server different numbers.
       await fetch(`http://localhost:8080/api/player/collect-treasure`, {
         method: "POST",
         headers: SessionManager.authHeaders(),
         body: JSON.stringify({
           chestId: chestId,
-          rewards: backendRewards,
+          rewards: resourceRewardsOf(chest),
         }),
       });
 
-      if (chest.rewards.defender) {
-        saveUnlockedDefender(chest.rewards.defender);
-        setUnlockedDefender(chest.rewards.defender);
+      // One POST per defender, so the backend contract stays one name per
+      // call; the notification gets the whole list and pluralises itself.
+      const unlocked = chestDefenders(chest);
+      if (unlocked.length > 0) {
+        for (const defenderName of unlocked) saveUnlockedDefender(defenderName);
+        setUnlockedDefender(unlocked);
       }
     } catch (error) {
       console.error("Failed to save collected treasure:", error);

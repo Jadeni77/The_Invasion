@@ -660,3 +660,38 @@ not one failed on matching logic.** The rule earned by now, stated once:
 > allowed and reject the complement, so the thing nobody thought of fails closed instead of open.
 
 Both fixes above are that inversion applied.
+
+---
+
+## 30. Lobby map follow-ups left after the legibility fix
+
+**Found:** 2026-08-18, closing `fix/lobby-map-legibility`. None blocks the branch.
+
+**a. Each region stretches the same ridgeline SVG across its own width.** The ridge is authored
+`viewBox="0 0 600 200"` and each zone spans 675–950px, so the silhouette scales up to 1.4× by a different
+factor per region and **the seams between regions do not line up.** Visible on screen. The fix is to the
+terrain SVG — author the ridge at the widest span and let narrower regions crop, or tile a fixed-width
+motif — not a one-liner, which is why it was deferred.
+
+**b. Props are 70px, the same order as a 54–66px node.** Nothing in the code makes that wrong; whether it
+reads as scenery or clutter needs eyes. Shrink the far row before the near row.
+
+**c. The `chestGlow` deferral is pinned only halfway.** `@keyframes chestGlow` animates `scale()` on
+`.chest-glow`, whose transform is a centring translate — the same defect fixed on nodes and chests. It was
+left alone because `.chest-glow`'s two rules disagree about how it is positioned at all, so restoring the
+translate would preserve an unresolved placement. An assertion pins that the animation still exists, so
+deleting it forces re-review. **It does not pin the precondition:** if `.chest-glow`'s duplicate rules are
+resolved independently, the assertion keeps passing while the bug goes live unnoticed. Pin the duplicate
+too, or fix both together.
+
+**d. Three test files still carry the `ruleBody` parenthesis bug.** `MapPanning.test.jsx:19-22`,
+`TopBand.test.jsx:16-18` and `RouteAndNodes.test.jsx:10-13` escape only `.` and `:` when building a
+selector regex, so a selector containing `:not(...)` would turn its parentheses into a capture group and
+the helper would **silently return an empty rule body for a rule that exists** — a passing test that
+checked nothing. Fixed in `NodeStates.test.jsx`; latent in the other three because none currently passes a
+paren-containing selector. Fix before one does.
+
+**e. The hover-centring guard's reach.** It catches elements centred by a bare single-class selector whose
+`:hover`/`:active`/`:focus` rule is a direct compound extension. It misses grouped/comma selectors,
+multi-class and descendant base selectors, centring done with margins or insets instead of `transform`,
+and hover states applied by a JS-toggled class rather than a real pseudo-class.

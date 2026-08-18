@@ -145,16 +145,32 @@
 }
 
 /* ---------- */
-/* The band holding the player bar, energy panel and resource pills in one
-   row. `flex: 0 0 auto` keeps it from growing at the map's expense - the
-   map (`.game-map-container`, `flex: 1 1 auto`) is what should absorb any
-   extra height, not this band. */
+/*
+ * The band holding the player bar, energy panel and resource pills in one
+ * row. `flex: 0 0 auto` keeps it from growing at the map's expense - the
+ * map (`.game-map-container`, `flex: 1 1 auto`) is what should absorb any
+ * extra height, not this band.
+ *
+ * `flex-wrap: nowrap`, not `wrap`. Wrapping is what undid the compaction this
+ * band exists for: at the owner's window width the three blocks did not fit
+ * on one line, so they wrapped into three stacked rows and the band became
+ * the three stacked blocks it replaced, with an extra border round them.
+ * `nowrap` plus `min-width: 0` on each block (below) makes them compress to
+ * fit instead - a block that cannot shrink is what forces a wrap, so the
+ * blocks are the half of this that has to change, not just the wrap value.
+ *
+ * `width: 100%` with border-box because `.lobby-container` is a column flex
+ * with `align-items: center`: without it the band is sized to its content and
+ * the three blocks have no definite width to distribute or shrink within.
+ */
 .lobby-topband {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
+  gap: var(--space-md);
+  flex-wrap: nowrap;
+  width: 100%;
+  box-sizing: border-box;
   padding: var(--space-sm) var(--space-md);
   background: linear-gradient(180deg, var(--colors-surface-panel), var(--colors-surface-sunken));
   border: var(--borders-outline) solid var(--colors-edge-outline);
@@ -162,16 +178,24 @@
   box-shadow: var(--shadows-drop), inset 0 1px 0 var(--colors-edge-highlight);
 }
 
-/* Top Menu Bar */
+/*
+ * Top Menu Bar - a block *inside* the band, so it carries no panel of its
+ * own.
+ *
+ * This used to declare its own background, border, border-radius and
+ * box-shadow, nested inside the band's background, border, border-radius and
+ * box-shadow: three boxes in a box, which is what the band read as. The band
+ * is the single surface now and each block is just a group of controls on it.
+ * The buttons inside keep their own chrome - they are controls, and a control
+ * that does not look pressable is a different bug.
+ */
 .top-menu-bar {
   display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
   justify-content: space-between;
   align-items: center;
-  padding: 15px;
-  background: color-mix(in srgb, var(--colors-edge-outline) 70%, transparent);
-  border-radius: 12px;
-  border: 2px solid var(--colors-surface-panel);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
+  gap: var(--space-md);
 }
 
 .player-info {
@@ -192,14 +216,18 @@
 
 .menu-buttons {
   display: flex;
-  gap: 15px;
+  gap: var(--space-sm);
 }
 
 .menu-button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px 15px;
+  /* Tightened from 10px 15px. The band only stays one row if what is in it
+     fits one row; four buttons at the old padding and gap were most of why it
+     did not. */
+  padding: var(--space-xs) var(--space-sm);
+  white-space: nowrap;
   background: var(--colors-surface-panel);
   border: var(--borders-outline) solid var(--colors-surface-raised);
   border-radius: 8px;
@@ -219,21 +247,23 @@
   margin-bottom: 5px;
 }
 
-/* Resource Bar */
+/* Resource Bar - the third block in the band, and like the other two it gives
+   up the panel it used to draw inside the band's panel. The pills inside keep
+   theirs: each is a readable chip for one resource, not a box round a box. */
 .resource-bar {
   display: flex;
-  justify-content: space-around;
-  padding: 10px;
-  background: color-mix(in srgb, var(--colors-edge-outline) 60%, transparent);
-  border-radius: 10px;
-  border: 1px solid var(--colors-surface-panel);
+  flex: 0 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 .resource-icon {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 15px;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  white-space: nowrap;
   background: color-mix(in srgb, var(--colors-surface-panel) 80%, transparent);
   border-radius: 20px;
   border: 1px solid var(--colors-surface-raised);
@@ -289,11 +319,64 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-x: auto;
-  overflow-y: hidden;
+  /*
+   * `auto`, not `hidden`. `.game-map` is a fixed 600px tall (mapHeight, set
+   * inline from MapLayout) while this box is whatever the column flex has left
+   * over, and the arithmetic does not always reach 600: the page's padding and
+   * gaps take 40px, the top band about 128px, and the upgrade button - in
+   * normal flow now rather than floating over the map - about 52px. So this box
+   * is roughly `100vh - 220px`, and the terrain only fits at a window height of
+   * about 820px or more.
+   *
+   * Under `hidden` the shortfall was simply cut off and unreachable: at 730px
+   * the bottom 90px of the map went missing, which is level 8's node and label
+   * (y=510, label to y≈573) and part of level 1's. `auto` makes the same
+   * shortfall reachable instead - the flex item still yields its height, but
+   * nothing gets silently lost. It costs nothing at 820px and above, where
+   * there is no overflow to scroll.
+   *
+   * No visible scrollbar (see `scrollbar-width` below) and no new gesture to
+   * learn: `touch-action` already permits vertical panning, which now reaches
+   * this box, and the drag handler and opening-scroll effect only ever write
+   * `scrollLeft`, so neither is affected.
+   */
+  overflow-y: auto;
   border: var(--borders-outline) solid var(--colors-edge-outline);
   border-radius: var(--radii-lg);
   box-shadow: inset 0 0 40px var(--terrain-vignette);
+  /* Drag is the primary way to pan, so the viewport says so before anything
+     is touched. Native scrolling stays underneath because it costs nothing and
+     genuinely helps trackpad users - it is just no longer the visible
+     affordance, which on a desktop mouse meant shift+wheel or hunting for a
+     scrollbar. */
   cursor: grab;
+  /*
+   * The real bug on a touchscreen. With `overflow-x: auto` and no
+   * `touch-action`, a horizontal drag has two things moving the map at once:
+   * the browser's own native scroll, which applies a *relative* delta to the
+   * current scrollLeft, and `onPointerMove`, which assigns an *absolute*
+   * scrollLeft computed from the position captured at pointerdown. Each is 1:1
+   * on its own, but in a frame where the native delta lands on top of the
+   * assignment the map moves twice the finger's travel, so the pan runs at up
+   * to double speed and stutters as the assignment re-anchors it.
+   *
+   * `touch-action` is an allow-list: only the behaviours named here are handed
+   * to the browser. Horizontal panning is not among them, so exactly one thing
+   * moves the map horizontally and one finger-width of travel is one
+   * finger-width of map.
+   *
+   * `pinch-zoom` is listed alongside `pan-y` because omitting it does not just
+   * block horizontal panning, it blocks pinch-zoom too - and on a map three
+   * screens wide, a phone user who cannot zoom out to see where they are has
+   * lost more than the double-speed pan cost them. Naming it restores zoom
+   * without giving horizontal panning back.
+   */
+  touch-action: pan-y pinch-zoom;
+  /* Hidden, not disabled: the element stays scrollable (wheel, trackpad,
+     keyboard, and the scrollLeft the drag handler and the opening-scroll
+     effect both write), it just stops advertising scrolling as the way to
+     move around when dragging is. */
+  scrollbar-width: none;
   /* A pan gesture starts wherever the pointer happens to land - often a
      level-name label or a star. Without this, that drag selects the text it
      crosses instead of panning (the chest <img> side of the same problem is
@@ -302,6 +385,14 @@
   user-select: none;
 }
 
+/* The WebKit half of `scrollbar-width: none`. Both are needed; neither
+   removes the element's ability to scroll. */
+.game-map-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* Fires on pointerdown and holds for the gesture, which is exactly the window
+   the drag handler is active for. */
 .game-map-container:active {
   cursor: grabbing;
 }
@@ -402,11 +493,29 @@
 }
 
 /* Upgrade Button */
+/*
+ * In normal flow, not floating over the map.
+ *
+ * This was `position: absolute; bottom: 20px; right: 20px; z-index: 100`,
+ * which pinned it over the bottom-right of the map - covering terrain, and
+ * looking like a bug rather than a control belonging to the page. It is the
+ * last child of `.lobby-container` (a column flex), so dropping the
+ * positioning puts it centred below the map, which is where it reads as part
+ * of the screen.
+ *
+ * The positioning was also leaking onto another screen. `.upgrade-button` is
+ * the class UpgradeModal.jsx puts on its per-card "Start Upgrade" button, and
+ * UpgradeModal.css declares only `:hover:not(.disabled)` and `.disabled` for
+ * it - no base rule - so every one of those buttons inherited this rule's
+ * absolute positioning and was pinned to the bottom-right corner of its
+ * nearest positioned ancestor instead of sitting inside its card. Removing
+ * the positioning here fixes both screens; the shared class name is
+ * pre-existing and left alone, since renaming it would touch markup Task 5 is
+ * told not to.
+ */
 .upgrade-button {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  padding: 15px 25px;
+  flex: 0 0 auto;
+  padding: var(--space-md) var(--space-lg);
   background: linear-gradient(to bottom, var(--colors-surface-panel), var(--colors-surface-sunken));
   border: 3px solid var(--colors-surface-raised);
   border-radius: 50px;
@@ -418,7 +527,6 @@
   align-items: center;
   gap: 10px;
   box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
-  z-index: 100;
   transition: all 0.2s;
 }
 
@@ -513,21 +621,31 @@
    .zone-fore (4) so the foreground band still frames them rather than
    hiding them. Both rows (PROP_ROWS in TerrainProps.jsx) sit above the
    bottom-22% .zone-fore band by construction, not by coincidence of these
-   numbers - see FOREGROUND_BAND_TOP and the test that pins the relationship. */
+   numbers - see FOREGROUND_BAND_TOP and the test that pins the relationship.
+
+   70px, not the 26px this shipped at. On terrain 600px tall, beside level
+   nodes 54-66px across, a 26px prop is a dirt speck: it occupied nothing, and
+   the criterion these exist to satisfy is "no dead space that neither route,
+   terrain, scenery nor framing occupies". Three of the six shapes gained a
+   second element to survive the enlargement - a shape that only reads because
+   it is small is not something to scale up as-is. See the comment above
+   SHAPES in TerrainProps.jsx. */
 .terrain-prop {
   position: absolute;
-  width: 26px;
-  height: 26px;
+  width: 70px;
+  height: 70px;
   transform: translate(-50%, 0);
   z-index: 3;
   pointer-events: none;
 }
 
 /* Distant props are smaller and fainter, so they sit in the ridgeline
-   rather than on top of it. */
+   rather than on top of it. Held at roughly two thirds of the near row, the
+   same ratio as the 26/17 pair it replaces - the depth cue is the ratio
+   between the rows, not either number on its own. */
 .terrain-prop.prop-far {
-  width: 17px;
-  height: 17px;
+  width: 45px;
+  height: 45px;
   opacity: 0.45;
 }
 
@@ -558,10 +676,54 @@
  * without reading a single label; `.locked` drops both the glow and the
  * gradient so it recedes instead of competing with the other two.
  */
+/*
+ * Completed reads as *cleared*, not as a slightly different dark circle.
+ *
+ * The three states were declared distinct and measured identical: completed was
+ * a surface-raised/moss gradient and locked a flat surface-sunken, both dark
+ * brown at a glance, so a player could not see their progress along the route
+ * without reading the numbers. The distinguishing marks are deliberately
+ * outside the node's fill - a success-coloured outline, a success ring, and the
+ * tick badge below - because the fill is what the level number sits on, and
+ * swapping it for accent-success drops that number from 5.53:1 to 2.48:1. The
+ * gradient is therefore unchanged; everything that makes this state legible is
+ * added around it.
+ */
 .level-node.completed {
   background: radial-gradient(circle at 35% 30%, var(--colors-surface-raised), var(--terrain-node-done));
   color: var(--colors-text-primary);
-  box-shadow: var(--shadows-drop);
+  border-color: var(--colors-accent-success);
+  box-shadow: var(--shadows-drop), 0 0 0 var(--borders-thin) color-mix(in srgb, var(--colors-accent-success) 45%, transparent);
+}
+
+/*
+ * The tick. Shape and glyph, so "cleared" survives being glanced at, being
+ * small, and being colour-blind - a ring alone is still just a ring.
+ *
+ * `::before`, not `::after`: `.level-node.boss::after` already exists at the
+ * same specificity, so a completed boss (levels 10, 18 and 20 can all be both)
+ * would have had the two rules fight over one pseudo-element and only the later
+ * one would render. Absolutely positioned so it stays out of the node's grid
+ * flow - an in-flow pseudo-element becomes a second grid item and shunts the
+ * level number off centre. Top-left, because `.boss-indicator` occupies the
+ * top-right.
+ */
+.level-node.completed::before {
+  content: '\2713';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--colors-accent-success);
+  color: var(--colors-edge-outline);
+  border: var(--borders-thin) solid var(--colors-edge-outline);
+  font-size: 13px;
+  font-weight: bold;
+  line-height: 1;
 }
 
 .level-node.available {
@@ -570,9 +732,16 @@
   box-shadow: var(--shadows-drop), 0 0 0 6px color-mix(in srgb, var(--colors-accent-energy) 16%, transparent);
 }
 
+/*
+ * Locked recedes: no ring, no shadow, and a border dimmed toward the ground so
+ * the node has no lit edge to catch the eye. The fill and text colours are
+ * unchanged (7.01:1) - it recedes by losing the treatments the other two states
+ * have, not by being faded, which would take its number down with it.
+ */
 .level-node.locked {
   background: var(--colors-surface-sunken);
   color: var(--colors-text-muted);
+  border-color: color-mix(in srgb, var(--colors-edge-outline) 55%, transparent);
   box-shadow: none;
   cursor: not-allowed;
 }
@@ -583,8 +752,15 @@
    branch moved it here unchanged. `:not(.locked)` is what the class list
    actually produces: completed and available nodes both get hover feedback,
    locked ones - `cursor: not-allowed` already - correctly don't. */
+/*
+ * The centring translate has to be restated. `transform` is one property, not a
+ * list that accumulates: `scale(1.1)` alone *replaces* `.level-node`'s
+ * `translate(-50%, -50%)`, so hovering a node un-centred it and it jumped 27px
+ * down and right (half of 54px; 33px on a 66px boss) before scaling. Every node
+ * on the map did this, on the screen the owner is about to judge.
+ */
 .level-node:not(.locked):hover {
-  transform: scale(1.1);
+  transform: translate(-50%, -50%) scale(1.1);
   box-shadow: 0 6px 12px color-mix(in srgb, var(--colors-edge-outline) 40%, transparent);
 }
 
@@ -677,9 +853,22 @@
   text-shadow: 1px 1px 2px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
+/*
+ * Pushed clear of the star row below the node. At `bottom: -20px` this box
+ * occupied roughly 10-20px below the node while `.stars` (`bottom: -15px`,
+ * 16px tall) occupied 1-15px, so on a completed level the two overlapped by
+ * about 5px and the stars sat on the level's own name. Nothing showed it,
+ * because no level was completed in the save the map was reviewed with.
+ * The two offsets are now stacked with a gap - see `.stars` below.
+ *
+ * The negative `bottom` is load-bearing beyond layout: contrastRatio.test.js
+ * uses a negative inset as the signal that a rule's text is painted over the
+ * zone terrain rather than over its own container, and that is how this rule
+ * gets measured against the ground at all.
+ */
 .level-name {
   position: absolute;
-  bottom: -20px;
+  bottom: -36px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 10px;
@@ -712,13 +901,36 @@
   100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
 }
 
-/* Stars display */
+/*
+ * Stars display - the row of three immediately below the node, above the
+ * level's name.
+ *
+ * `bottom: -18px` with a 16px line puts this row 2-18px below the node, and
+ * `.level-name` at `bottom: -36px` puts the name 24-36px below it: stacked with
+ * a 6px gap instead of overlapping, which they did at the previous -15/-20 pair.
+ *
+ * `left: 50%` with the centring translate because this box was horizontally
+ * unanchored: with `left` and `right` both auto it fell back to a static
+ * position inside a `display: grid; place-items: center` parent, which is not
+ * a reliable way to centre three stars whose row is wider than the 54px node.
+ *
+ * The negative `bottom` is what tells contrastRatio.test.js that `.star`'s
+ * colour is painted over the zone terrain - `.star` has no inset of its own, so
+ * the guard reads this wrapper's. Turning this into a positive `top` offset
+ * would silently drop `.star` from that guard entirely (no derivable
+ * background, so it is skipped rather than failed), which is why the row moved
+ * further below the node instead of above it.
+ */
 .stars {
   position: absolute;
-  bottom: -15px;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   gap: var(--space-xs);
   justify-content: center;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .star {
@@ -736,16 +948,27 @@
 }
 
 /* Endless Portal */
+/*
+ * Centred on the position Lobby.jsx gives it, the same way `.level-node` is -
+ * so the portal actually sits on the end of its own rainbow connector.
+ *
+ * This rule used to carry `left: 50%`, `margin-left: -120px` and
+ * `margin-top: -50px` from an era when the portal was placed by the
+ * stylesheet rather than from `levelsMapData`. The inline `left`/`top`
+ * Lobby.jsx writes beat `left: 50%`, but nothing overrode the two margins or
+ * the x-only translate, so the portal rendered 170px left of and 50px above
+ * its declared coordinate: its connector ran to a point in empty ground and
+ * the portal floated off the end of the route. `translate(-50%, -50%)`
+ * centres both axes on the real coordinate and there is no offset left to
+ * drift.
+ */
 .endless-portal {
   position: absolute;
   width: 100px;
   height: 100px;
   cursor: pointer;
   z-index: 15;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-left: -120px;
-  margin-top: -50px;
+  transform: translate(-50%, -50%);
 }
 
 .endless-portal.locked {
@@ -904,8 +1127,15 @@
   z-index: 8;
 }
 
+/* Same defect as `.level-node:not(.locked):hover` above, on the map's other
+   clickable thing: this is the later of the two rules for this selector (see
+   KNOWN_DUPLICATE_SELECTORS in lobbyCascade.test.js) so its `transform` wins
+   outright, and declaring only `scale(1.2)` dropped the `translate(-50%, -50%)`
+   the chest is centred by - a hovered chest jumped 20px down and right, away
+   from the cursor about to click it. The duplication itself is still on that
+   audited list; this fixes the visible half of it. */
 .treasure-chest:not(.collected):not(.locked-chest):hover {
-  transform: scale(1.2);
+  transform: translate(-50%, -50%) scale(1.2);
 }
 
 .treasure-chest.collected {
