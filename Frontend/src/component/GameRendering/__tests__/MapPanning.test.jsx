@@ -86,22 +86,28 @@ describe("overflow lives on the viewport, not the page", () => {
  * which is the other contributor - see the 1:1 test below.
  */
 describe("the map is dragged, and the drag moves it 1:1", () => {
-  it("gives horizontal gestures to the drag handler, and nothing else", () => {
-    // With `overflow-x: auto` and no touch-action, a horizontal drag has two
-    // things moving the map: native scroll applying a relative delta, and
-    // onPointerMove assigning an absolute scrollLeft from the pointerdown
-    // anchor. Each is 1:1 alone; in a frame where the native delta lands on
-    // top of the assignment the map moves twice the finger's travel.
+  it("gives BOTH axes to the drag handler, and nothing else", () => {
+    // With `overflow` and no touch-action, a drag has two things moving the map:
+    // native scroll applying a relative delta, and onPointerMove assigning an
+    // absolute scroll offset from the pointerdown anchor. Each is 1:1 alone; in a
+    // frame where the native delta lands on top of the assignment the map moves
+    // twice the finger's travel.
     //
-    // `touch-action` is an allow-list, so what matters is that no value
-    // permitting horizontal panning appears - asserted directly, because
-    // `pan-x`, `pan-left`/`pan-right` and `manipulation` would each hand
-    // horizontal panning back and reintroduce the doubling, and a test that
-    // only looked for the string "pan-y" would pass for `pan-x pan-y`.
+    // This used to require `pan-y`, because the handler moved only the horizontal
+    // axis and the browser was left to handle vertical. The handler now moves both
+    // (the terrain is taller than its frame on a phone), so `pan-y` would put the
+    // doubling back on the vertical axis instead of curing it.
+    //
+    // `touch-action` is an allow-list, so what matters is that NO value permitting
+    // a pan appears. Asserted term by term, because a test looking only for the
+    // presence of `pinch-zoom` would pass for `pan-x pinch-zoom`.
     const value = ruleBody(".game-map-container").match(/touch-action:\s*([^;]+);/)?.[1];
     expect(value, "no touch-action declared").toBeTruthy();
-    expect(value).toMatch(/\bpan-y\b/);
-    expect(value).not.toMatch(/\bpan-x\b|\bpan-left\b|\bpan-right\b|\bmanipulation\b|\bauto\b/);
+    expect(value).not.toMatch(/\bpan-x\b|\bpan-y\b|\bpan-left\b|\bpan-right\b|\bpan-up\b|\bpan-down\b/);
+    expect(value).not.toMatch(/\bmanipulation\b|\bauto\b/);
+    // Zoom is not panning, and losing it on a map three screens wide was a bug in
+    // its own right.
+    expect(value).toMatch(/\bpinch-zoom\b/);
   });
 
   it("still lets a phone pinch to zoom out on a map three screens wide", () => {
@@ -306,8 +312,8 @@ describe("a drag never fires a node's or a chest's click", () => {
    * The pan distance itself, which is the half of the double-speed bug that is
    * measurable here. jsdom has no native scrolling, so what this exercises is
    * the handler in isolation: a pointer that travels N px must move the map
-   * exactly N px, not some multiple of it. With `touch-action: pan-y` the
-   * handler is the only thing moving the map horizontally, so this arithmetic
+   * exactly N px, not some multiple of it. With `touch-action: pinch-zoom` the
+   * handler is the only thing moving the map on EITHER axis, so this arithmetic
    * is the whole of the gesture rather than one of two contributors.
    */
   it("moves the map exactly as far as the pointer travelled", () => {
@@ -324,6 +330,66 @@ describe("a drag never fires a node's or a chest's click", () => {
     expect(viewport.scrollLeft - before).toBe(300);
 
     fireEvent.pointerUp(viewport, { clientX: 500, pointerId: 1 });
+  });
+
+
+  /*
+   * The vertical half, and diagonals.
+   *
+   * The handler moved only `scrollLeft`, which was enough while the terrain always
+   * fitted its frame vertically. It does not: the terrain is 720px tall against a
+   * frame of about 575px on a phone held upright and 250px held sideways, so there
+   * is real vertical range and dragging could not reach it.
+   */
+  it("moves the map vertically by exactly what the pointer travelled", () => {
+    const { container } = render(<Lobby />);
+    const viewport = container.querySelector(".game-map-container");
+
+    viewport.scrollTop = 300;
+    const before = viewport.scrollTop;
+
+    fireEvent.pointerDown(viewport, { clientX: 400, clientY: 300, pointerId: 1 });
+    fireEvent.pointerMove(viewport, { clientX: 400, clientY: 180, pointerId: 1 });
+
+    // Dragged 120px up, so the map comes 120px down. Not 240.
+    expect(viewport.scrollTop - before).toBe(120);
+
+    fireEvent.pointerUp(viewport, { clientX: 400, clientY: 180, pointerId: 1 });
+  });
+
+  it("moves both axes at once on a diagonal drag", () => {
+    const { container } = render(<Lobby />);
+    const viewport = container.querySelector(".game-map-container");
+
+    viewport.scrollLeft = 1000;
+    viewport.scrollTop = 300;
+
+    fireEvent.pointerDown(viewport, { clientX: 800, clientY: 300, pointerId: 1 });
+    fireEvent.pointerMove(viewport, { clientX: 600, clientY: 220, pointerId: 1 });
+
+    expect(viewport.scrollLeft).toBe(1200);
+    expect(viewport.scrollTop).toBe(380);
+
+    fireEvent.pointerUp(viewport, { clientX: 600, clientY: 220, pointerId: 1 });
+  });
+
+  it("counts a straight-down drag as a drag, so it cannot launch a level", () => {
+    /*
+     * The threshold measured only the horizontal component, so a purely vertical
+     * gesture never set `moved` and the click it ended on fired - launching
+     * whatever level the finger came to rest on. Guarding the axis that the same
+     * change introduced.
+     */
+    const { container } = render(<Lobby />);
+    const viewport = container.querySelector(".game-map-container");
+
+    fireEvent.pointerDown(viewport, { clientX: 400, clientY: 300, pointerId: 1 });
+    fireEvent.pointerMove(viewport, { clientX: 400, clientY: 220, pointerId: 1 });
+    fireEvent.pointerUp(viewport, { clientX: 400, clientY: 220, pointerId: 1 });
+
+    const node = container.querySelector(".level-node.available");
+    fireEvent.click(node);
+    expect(mockStartLevel).not.toHaveBeenCalled();
   });
 
   it("tracks the pointer back and forth within one gesture, from the same anchor", () => {
