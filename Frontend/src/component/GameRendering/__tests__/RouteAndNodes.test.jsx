@@ -46,6 +46,31 @@ describe('node states', () => {
   });
 });
 
+describe('interactive elements keep their hit target', () => {
+  /*
+   * jsdom has no rendering/layout engine and does not honour `pointer-events`
+   * for synthetic events - `fireEvent.click(chestEl)` fires the React handler
+   * whether or not `pointer-events: none` is present on the element, so a
+   * render-level "can I click the chest" test would pass either way and
+   * cannot catch this class of bug. A draft of `.map-chest` set
+   * `pointer-events: none` on the same element that carries the chest's
+   * onClick (a real collectTreasure() call), which silently disables
+   * collection in a real browser while every jsdom test kept passing. Only a
+   * CSS-level assertion can catch it - do not "upgrade" this to a
+   * click/fireEvent test, it would look more thorough while testing nothing.
+   */
+  it.each([
+    '.map-chest',
+    '.level-node',
+    '.level-node.completed',
+    '.level-node.available',
+    '.level-node.locked',
+    '.level-node.boss',
+  ])('%s does not disable pointer events on a real click target', (selector) => {
+    expect(ruleBody(selector)).not.toMatch(/pointer-events:\s*none/);
+  });
+});
+
 describe('the route uses the full height', () => {
   const ys = levelsMapData.map((l) => l.y);
 

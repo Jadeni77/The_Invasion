@@ -639,7 +639,14 @@
   width: 22px;
   height: 22px;
   filter: drop-shadow(0 2px 2px var(--colors-edge-outline));
-  pointer-events: none;
+  /* Deliberately no pointer-events override here: this class sits on the
+     same element as `.treasure-chest`, which carries the onClick that calls
+     collectTreasure() (a real backend call), and `.treasure-chest` declares
+     no pointer-events of its own. Disabling the property on this rule would
+     therefore have been the only word on it and would silently make every
+     chest unclickable in a real browser, while every jsdom test kept
+     passing (see RouteAndNodes.test.jsx, "interactive elements keep their
+     hit target", for why only a CSS-level guard can catch that). */
 }
 
 .boss-indicator {
