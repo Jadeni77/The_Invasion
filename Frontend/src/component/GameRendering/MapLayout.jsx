@@ -64,6 +64,19 @@ export const RAINBOW_STOPS = [
  */
 const ROUTE_START_X = 200;
 const NODE_SPACING_X = 190;
+/*
+ * The terrain's height, and the factor that spreads the authored `y` values
+ * across it.
+ *
+ * The route's `y` values were authored against a 600px terrain, which left the
+ * map frame ~210px shorter than the space the lobby had for it - dead page below
+ * a bordered box. `Y_SCALE` is applied where `x` is, so raising MAP_HEIGHT moves
+ * every node, connector and chest together instead of leaving the route sitting
+ * in the top two-thirds of a taller frame.
+ */
+const AUTHORED_MAP_HEIGHT = 600;
+const MAP_HEIGHT = 720;
+const Y_SCALE = MAP_HEIGHT / AUTHORED_MAP_HEIGHT;
 /** Breathing room past the last stop, so the portal isn't flush to the edge. */
 const ROUTE_END_PADDING = 200;
 
@@ -136,6 +149,7 @@ const routeStops = [
 export const levelsMapData = routeStops.map((stop, index) => ({
   ...stop,
   x: ROUTE_START_X + index * NODE_SPACING_X,
+  y: Math.round(stop.y * Y_SCALE),
 }));
 
 /** The last stop's column - the portal's, and what sizes the terrain. */
@@ -442,11 +456,15 @@ export const levelDefenderReward = {
  * fixing here.
  */
 export const zoneConfigs = {
-  tutorial: {},
-  early: {},
-  mid: {},
-  late: {},
-  endgame: {},
+  // `label` is the region's name, painted faintly across its own span. The
+  // approved mockup carried these ("SETTLED GROUND", "THE ASHLANDS"); without
+  // them a region is a colour change with no reason attached, which is part of
+  // why the map read as a board rather than a place.
+  tutorial: { label: "Settled ground" },
+  early: { label: "The green line" },
+  mid: { label: "The ashlands" },
+  late: { label: "Scorched reach" },
+  endgame: { label: "The last stand" },
   endless: { nodeClass: "endless-portal", animation: "portal-swirl" },
 };
 
@@ -545,7 +563,7 @@ export const mapSettings = {
    * there is only one of them.
    */
   mapWidth: ROUTE_END_X + ROUTE_END_PADDING,
-  mapHeight: 600,
+  mapHeight: MAP_HEIGHT,
   defaultZoom: 1.0,
 };
 

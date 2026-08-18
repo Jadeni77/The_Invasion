@@ -316,8 +316,22 @@
  */
 .game-map-container {
   position: relative;
-  flex: 1 1 auto;
+  /* `0` grow, not `1`: the terrain is a fixed height, so a growing frame left
+     144px of empty ground below it inside the same border. Shrink stays at 1 so
+     a short window still makes the frame yield rather than push the page
+     taller, which is what `min-height: 0` and `overflow-y` are here for. */
+  flex: 0 1 auto;
   min-height: 0;
+  /* This box exists to CLIP the terrain and scroll it. Without an explicit
+     width it does the opposite: it grows to its content, so a 4200px terrain
+     made this box 4206px wide, `overflow-x` had nothing left to scroll, and
+     the *document* scrolled instead - which slid the top bar off the left edge
+     and put the level you were on somewhere off-screen. `min-width: 0` is the
+     load-bearing half: without it a flex item refuses to shrink below its
+     content. */
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   /*
    * `auto`, not `hidden`. `.game-map` is a fixed 600px tall (mapHeight, set
@@ -467,22 +481,6 @@
   filter: drop-shadow(0 0 10px color-mix(in srgb, var(--colors-accent-energy) 90%, transparent));
 }
 
-.chest-glow {
-  position: absolute;
-  width: 70px;
-  height: 70px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--colors-accent-energy) 50%, transparent) 0%,
-    transparent 70%
-  );
-  border-radius: 50%;
-  animation: glow 2s infinite alternate;
-}
-
 @keyframes glow {
   from {
     opacity: 0.3;
@@ -604,6 +602,53 @@
   z-index: 1;
   opacity: 0.5;
   pointer-events: none;
+  /* The ridge paths close along the bottom of their own viewBox, so this block
+     ended at exactly 44% with a straight horizontal edge - a hard line ruled
+     across every region at the same height, which is what made the terrain look
+     like two stacked rectangles instead of hills standing on ground. Fading the
+     last third out lets the hills sit into the ground. */
+  mask-image: linear-gradient(to bottom, var(--colors-edge-outline) 62%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, var(--colors-edge-outline) 62%, transparent 100%);
+}
+
+/* The region's name, set faintly into its own span. Not a heading - it is
+   scenery, and it must never compete with a level number for attention. */
+.zone-label {
+  position: absolute;
+  top: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  font-family: var(--type-display);
+  font-size: var(--type-size-sm);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--colors-text-muted);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* A soft seam between regions. Butting two different grounds together left a
+   hard vertical edge at every boundary; this bleeds one into the next over
+   ~120px so the ground changes character without announcing a border. The first
+   region has no seam to its left, so `:first-child` opts out. */
+.zone-background + .zone-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -60px;
+  width: 120px;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--terrain-vignette) 50%,
+    transparent 100%
+  );
+  opacity: 0.55;
 }
 
 .zone-fore {
@@ -652,8 +697,8 @@
 /* Level Nodes */
 .level-node {
   position: absolute;
-  width: 54px;
-  height: 54px;
+  width: 62px;
+  height: 62px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   display: grid;
@@ -882,6 +927,15 @@
   color: var(--colors-text-primary);
   font-weight: bold;
   text-shadow: 1px 1px 2px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
+  /* Decoration, not a target. These hang OUTSIDE the circle on a negative
+     offset while being children of it, so they were part of the node's hover
+     area - and `:hover` scales the node, which pushes them further from the
+     cursor that is hovering them. Cursor on the label: hover starts, the label
+     moves away, hover ends, the label snaps back, hover starts. The node
+     visibly vibrated between two sizes for as long as the pointer rested
+     between the circle and its name. Taking them out of hit-testing removes the
+     moving target; the circle is what you click, and it only ever grows. */
+  pointer-events: none;
 }
 
 .level-pulse {
@@ -931,6 +985,15 @@
   justify-content: center;
   line-height: 1;
   white-space: nowrap;
+  /* Decoration, not a target. These hang OUTSIDE the circle on a negative
+     offset while being children of it, so they were part of the node's hover
+     area - and `:hover` scales the node, which pushes them further from the
+     cursor that is hovering them. Cursor on the label: hover starts, the label
+     moves away, hover ends, the label snaps back, hover starts. The node
+     visibly vibrated between two sizes for as long as the pointer rested
+     between the circle and its name. Taking them out of hit-testing removes the
+     moving target; the circle is what you click, and it only ever grows. */
+  pointer-events: none;
 }
 
 .star {
@@ -1088,10 +1151,28 @@
 /* Map connections */
 .map-connection {
   position: absolute;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, var(--colors-text-muted), transparent);
-  transform-origin: left center;
-  opacity: 0.3;
+  /* A 3px bar at opacity 0.3, fading to transparent at both ends, was
+     effectively invisible against the terrain - the route read as a few faint
+     scratches rather than a path you walk. The approved mockup drew it as a
+     thick dark stroke with a dashed highlight along it, which is what these
+     two layers are: stud dots over a dark trail, with rounded ends so
+     consecutive segments meet cleanly at a node. */
+  height: 12px;
+  border-radius: 999px;
+  background-color: var(--colors-edge-outline);
+  background-image: radial-gradient(
+    circle,
+    var(--colors-edge-highlight) 2px,
+    transparent 2.5px
+  );
+  background-size: 17px 12px;
+  background-repeat: repeat-x;
+  background-position: center;
+  /* Centre, not `left center`: the inline transform centres the bar on the
+     segment's midpoint, so it must rotate about its own centre. See the note on
+     the transform in Lobby.jsx. */
+  transform-origin: center;
+  opacity: 0.72;
   /* Above the ridge (1), props (2-3), the opaque foreground band (4) and the
      vignette (5) - the route used to declare no z-index at all, which put it
      in the z-index:auto group, below every one of those. Still below the
@@ -1158,6 +1239,21 @@
   50% { filter: drop-shadow(0 0 20px var(--colors-accent-energy)); }
 }
 
+/*
+ * The glow behind an uncollected chest. One rule now, not two.
+ *
+ * There were two `.chest-glow` rules that disagreed about how the element was
+ * positioned at all - one centred it with `top/left: 50%` and a translate, this
+ * one insets it by -10px - and NEITHER took itself out of hit-testing. The inset
+ * rule won, so a 60px glow sat on top of a 40px chest and swallowed every click:
+ * chests could not be collected, and `elementFromPoint` at a chest's centre
+ * returned `chest-glow`.
+ *
+ * Keeping the inset form also settles the hazard recorded against the old
+ * duplicate: `@keyframes chestGlow` animates `transform: scale()`, which would
+ * have wiped out the centring translate the other rule depended on. With insets
+ * there is no translate to lose.
+ */
 .chest-glow {
   position: absolute;
   top: -10px;
@@ -1167,6 +1263,7 @@
   border-radius: 50%;
   background: radial-gradient(circle, color-mix(in srgb, var(--colors-accent-energy) 60%, transparent), transparent);
   animation: chestGlow 1.5s infinite;
+  pointer-events: none;
 }
 
 @keyframes chestGlow {
@@ -1292,56 +1389,96 @@
 }
 
 /* Defender Unlock Notification */
-.defender-notification {
+/*
+ * The reward panel, shown when a chest is opened.
+ *
+ * Was `.defender-notification`, built from `--decorative-indigo` and
+ * `--decorative-violet` - the two tokens the design doc calls explicitly
+ * non-semantic, and the same purple gradient that made the lobby look unchosen
+ * before this work started. It is a panel like every other panel now: the
+ * surface tokens, the shared cartoon outline, and gold for the thing the player
+ * came here to see.
+ */
+.reward-notification {
   position: fixed;
-  top: 100px;
+  /* Clear of the top band rather than on top of it. At 100px this covered the
+     energy panel's recharge line - and the band is the one thing on screen whose
+     numbers the player is checking against the reward being announced. */
+  top: 152px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, var(--decorative-indigo) 0%, var(--decorative-violet) 100%);
-  border-radius: var(--radii-lg);
-  padding: 20px 30px;
-  box-shadow: 0 10px 40px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   z-index: 1000;
   display: flex;
   align-items: center;
-  gap: 20px;
-  animation: slideDown 0.5s ease-out;
-  transition: opacity 0.5s ease-out;
+  gap: var(--space-md);
+  min-width: 280px;
+  padding: var(--space-md) var(--space-lg);
+  background: linear-gradient(180deg, var(--colors-surface-panel), var(--colors-surface-sunken));
+  border: var(--borders-outline) solid var(--colors-edge-outline);
+  border-radius: var(--radii-lg);
+  box-shadow: var(--shadows-drop), inset 0 1px 0 var(--colors-edge-highlight);
+  animation: slideDown 0.4s ease-out;
+  transition: opacity 0.9s ease-out, transform 0.9s ease-out;
+  /* Announces a reward; it is never the thing you click. Without this it can
+     cover a chest or a node while it fades. */
+  pointer-events: none;
 }
 
-.defender-notification.fade-out {
+.reward-notification.fade-out {
   opacity: 0;
-  transform: translateX(-50%) translateY(-20px);
+  transform: translateX(-50%) translateY(-16px);
 }
 
 .notification-icon {
   font-size: 40px;
-  animation: bounce 1s infinite;
-}
-
-.notification-content {
-  color: var(--colors-text-primary);
+  line-height: 1;
 }
 
 .notification-content h3 {
-  margin: 0 0 5px 0;
+  margin: 0 0 var(--space-xs);
   font-family: var(--type-display);
-  font-size: 18px;
-  font-weight: bold;
+  font-size: var(--type-size-md);
+  letter-spacing: 0.06em;
+  color: var(--colors-text-primary);
 }
 
-.notification-content .defender-name {
-  margin: 0 0 5px 0;
-  font-size: 24px;
-  font-weight: bold;
-  color: var(--colors-accent-energy);
-  text-shadow: 2px 2px 4px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
-}
-
-.notification-content .notification-hint {
+/* The resources gained, as the same chips the top band uses - a reward should
+   look like the currency it pays into. */
+.reward-resources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
   margin: 0;
-  font-size: 14px;
-  opacity: 0.9;
+  padding: 0;
+  list-style: none;
+}
+
+.reward-resource {
+  display: flex;
+  align-items: center;
+}
+
+.reward-defenders {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--space-sm) 0 0;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--colors-surface-raised);
+}
+
+.reward-defenders-label {
+  font-size: var(--type-size-sm);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--colors-text-muted);
+}
+
+.reward-notification .defender-name {
+  margin: 0;
+  font-family: var(--type-display);
+  font-size: var(--type-size-md);
+  color: var(--colors-accent-energy);
 }
 
 @keyframes slideDown {

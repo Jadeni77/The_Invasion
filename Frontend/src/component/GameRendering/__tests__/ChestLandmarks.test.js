@@ -15,7 +15,7 @@
  * unnoticed.
  */
 import { describe, it, expect } from 'vitest';
-import { chestsData, chestDefenders, connectionsData, levelsMapData, zoneAtX } from '../MapLayout.jsx';
+import { chestsData, chestDefenders, connectionsData, levelsMapData, mapSettings, zoneAtX } from '../MapLayout.jsx';
 
 /**
  * What the twenty one-per-level chests granted in total.
@@ -184,7 +184,9 @@ describe('chests still derive their position from the route', () => {
     for (const chest of chestsData) {
       expect(chest.x, `chest ${chest.id}`).toBeGreaterThan(0);
       expect(chest.y, `chest ${chest.id}`).toBeGreaterThan(0);
-      expect(chest.y, `chest ${chest.id}`).toBeLessThan(600);
+      // Derived, not restated: this read `600` and so failed the moment the
+      // terrain grew, even though every chest was still inside it.
+      expect(chest.y, `chest ${chest.id}`).toBeLessThan(mapSettings.mapHeight);
     }
   });
 });

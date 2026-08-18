@@ -112,6 +112,16 @@ export class FeedbackManager {
       }
     });
 
+    /**
+     * A chest opening in the lobby. One event, two sounds: unlocking a defender
+     * is rarer than gaining resources and gets the grander of the two, chosen
+     * here rather than by the caller so the lobby never has to know sound keys.
+     */
+    on('treasure:collected', ({ unlockedDefenders } = {}) => {
+      const key = unlockedDefenders?.length ? 'defenderUnlocked' : 'treasureCollected';
+      this.audio.playSfx(key, mixGainFor(key));
+    });
+
     on('energy:collected', () => this.audio.playSfx('energyCollected', mixGainFor('energyCollected')));
 
     on('deploy:rejected', () => this.audio.playSfx('deployRejected', mixGainFor('deployRejected')));

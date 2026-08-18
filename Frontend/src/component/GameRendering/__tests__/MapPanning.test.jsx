@@ -58,7 +58,10 @@ describe("overflow lives on the viewport, not the page", () => {
     // clipping bug from the other end. The map yields; its content stays
     // reachable.
     expect(ruleBody(".game-map-container")).toMatch(/min-height\s*:\s*0/);
-    expect(ruleBody(".game-map-container")).toMatch(/flex\s*:\s*1 1 auto/);
+    // What matters is that the frame *yields* - flex-shrink is 1 - not that it
+    // also grows. It must not grow: growing past the terrain left dead ground
+    // inside the border. So this pins the shrink and leaves grow free.
+    expect(ruleBody(".game-map-container")).toMatch(/flex\s*:\s*[01] 1 auto/);
   });
 
   it("keeps the vertical scrollbar hidden along with the horizontal one", () => {

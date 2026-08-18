@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import Lobby from '../Lobby.jsx';
-import { levelsMapData } from '../MapLayout.jsx';
+import { levelsMapData, mapSettings } from '../MapLayout.jsx';
 import { stripComments } from '../../../test/sourceFiles.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -254,7 +254,9 @@ describe('the star row and the level name do not overlap', () => {
     const lowest = Math.max(...levelsMapData.map((l) => l.y));
     const nameBottom = -offsetOf('.level-name');
     // Node half-height for the largest node (a 66px boss), plus the offset.
-    expect(lowest + 33 + nameBottom).toBeLessThan(600);
+    // Derived from the terrain rather than restating its height, which is
+    // what made this fail when the map grew to fill the frame.
+    expect(lowest + 33 + nameBottom).toBeLessThan(mapSettings.mapHeight);
   });
 });
 

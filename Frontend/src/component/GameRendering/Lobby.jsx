@@ -67,15 +67,15 @@ const Lobby = () => {
     openSettings,
     handleLogout,
     collectTreasure,
-      unlockedDefender,
-      setUnlockedDefender,
+    chestReward,
+    setChestReward,
   } = useGame();
   const [showCardSelection, setShowCardSelection] = useState(false);
   const [selectedLevelId, setSelectedLevelId] = useState(null);
   const [mapZoom, _setMapZoom] = useState(mapSettings.defaultZoom);
  // const [showEndlessOptions, setShowEndlessOptions] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
-  const [defenderNotification, setDefenderNotification] = useState(null)
+  const [rewardNotice, setRewardNotice] = useState(null)
   const [notificationFading, setNotificationFading] = useState(false)
 
   const mapContainerRef = useRef(null);
@@ -97,15 +97,27 @@ const Lobby = () => {
   const onMapPointerDown = (e) => {
     const viewport = mapContainerRef.current;
     if (!viewport) return;
+    // Deliberately NOT capturing the pointer here. Capturing on pointerdown
+    // retargets every later pointer event - including pointerup - to the
+    // viewport, and the browser then dispatches `click` against the capture
+    // target rather than the element under the cursor. The effect was that no
+    // level node and no chest could ever be clicked: their onClick never ran,
+    // because from the DOM's point of view the click happened on the map. See
+    // the capture in onMapPointerMove, which only fires once this is a drag.
     drag.current = { active: true, startX: e.clientX, startScroll: viewport.scrollLeft, moved: false };
-    viewport.setPointerCapture?.(e.pointerId);
   };
 
   const onMapPointerMove = (e) => {
     const viewport = mapContainerRef.current;
     if (!viewport || !drag.current.active) return;
     const delta = e.clientX - drag.current.startX;
-    if (Math.abs(delta) > DRAG_THRESHOLD_PX) drag.current.moved = true;
+    if (Math.abs(delta) > DRAG_THRESHOLD_PX && !drag.current.moved) {
+      drag.current.moved = true;
+      // Now that this is unambiguously a drag rather than a click, take the
+      // pointer so panning survives the cursor leaving the map. A click never
+      // reaches this branch, so a click is never retargeted.
+      viewport.setPointerCapture?.(e.pointerId);
+    }
     viewport.scrollLeft = drag.current.startScroll - delta;
   };
 
@@ -156,35 +168,45 @@ const Lobby = () => {
     viewport.scrollLeft = target.x * mapZoom - viewport.clientWidth / 2;
   }, [nextLevelId, mapZoom]);
 
-  // The unlock notification's contents, always as a list. `collectTreasure`
-  // sends the defenders a chest unlocked, which is more than one for three of
-  // the six landmark chests; a plain string is still accepted because nothing
-  // stops a future caller sending one.
-  const notifiedDefenders = defenderNotification
-      ? (Array.isArray(defenderNotification) ? defenderNotification : [defenderNotification])
-      : [];
+  /**
+   * What the reward panel shows, derived from the chest the player just opened.
+   *
+   * `defenders` is always a list: three of the six landmark chests unlock more
+   * than one, and rendering an array straight into JSX printed "SniperIce Bomb"
+   * with no separator. A bare string is still accepted, because nothing stops a
+   * future caller sending one.
+   *
+   * `resources` is the part that was missing entirely - the old notification
+   * mentioned defenders only, so opening a chest carrying 2000 gold announced
+   * nothing whatsoever.
+   */
+  const noticeResources = Object.entries(rewardNotice?.resources ?? {})
+      .filter(([, amount]) => amount > 0);
+  const noticeDefenders = (() => {
+    const raw = rewardNotice?.defenders;
+    if (!raw) return [];
+    return Array.isArray(raw) ? raw : [raw];
+  })();
+  const hasNotice = noticeResources.length > 0 || noticeDefenders.length > 0;
 
   useEffect(() => {
-    if (unlockedDefender) {
-      setDefenderNotification(unlockedDefender);
-      setNotificationFading(false)
+    if (!chestReward) return;
+    setRewardNotice(chestReward);
+    setNotificationFading(false);
 
-      //message fading out after 4 seconds
-      const fadeTimer = setTimeout(() => {
-        setNotificationFading(true)
-      }, 4000);
-
-      //remove message completely after 5 second
-      const removeTimer = setTimeout(() => {
-        setDefenderNotification(null);
-        setUnlockedDefender(null);
-      }, 5000);
-      return () => {
-        clearTimeout(fadeTimer);
-        clearTimeout(removeTimer);
-      }
-    }
-  }, [unlockedDefender, setUnlockedDefender]);
+    // Fades at 4s, gone at 5s. A defender unlock gets longer than a handful of
+    // gold, because there is more to read and it is the rarer event.
+    const holdMs = (chestReward.defenders?.length ?? 0) > 0 ? 5200 : 3600;
+    const fadeTimer = setTimeout(() => setNotificationFading(true), holdMs);
+    const removeTimer = setTimeout(() => {
+      setRewardNotice(null);
+      setChestReward(null);
+    }, holdMs + 1000);
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(removeTimer);
+    };
+  }, [chestReward, setChestReward]);
 
   // Handle treasure click
   const handleTreasureClick = (chestId) => {
@@ -322,18 +344,30 @@ const Lobby = () => {
   return (
       <div className="lobby-container">
 
-        {/* Defender unlock notification. A chest can unlock more than one
-            defender now that the map's twenty one-per-level chests are six
-            landmarks (see chestsData), so this takes a list as well as a
-            single name - rendering an array directly would print
-            "SniperIce Bomb" with no separator, and the heading would be
-            wrong. */}
-        {notifiedDefenders.length > 0 && (
-            <div className={`defender-notification ${notificationFading ? 'fade-out': ""}`}>
-              <div className='notification-icon'>🎉</div>
+        {/* What the chest actually gave you. Resources and defenders together:
+            listing only defenders meant most chests opened in silence. */}
+        {hasNotice && (
+            <div className={`reward-notification ${notificationFading ? 'fade-out' : ''}`} role="status">
+              <div className="notification-icon">🎉</div>
               <div className="notification-content">
-                <h3>New Defender{notifiedDefenders.length > 1 ? 's' : ''} Unlocked!</h3>
-                <p className="defender-name">{notifiedDefenders.join(', ')}</p>
+                <h3>Chest opened</h3>
+                {noticeResources.length > 0 && (
+                    <ul className="reward-resources">
+                      {noticeResources.map(([type, amount]) => (
+                          <li key={type} className="reward-resource">
+                            <ResourceIcon type={type} value={`+${amount}`} />
+                          </li>
+                      ))}
+                    </ul>
+                )}
+                {noticeDefenders.length > 0 && (
+                    <p className="reward-defenders">
+                      <span className="reward-defenders-label">
+                        New defender{noticeDefenders.length > 1 ? 's' : ''}
+                      </span>
+                      <span className="defender-name">{noticeDefenders.join(', ')}</span>
+                    </p>
+                )}
               </div>
             </div>
         )}
@@ -454,6 +488,9 @@ const Lobby = () => {
                     className={`zone-background zone-${zone}`}
                     style={zoneBounds(zone)}
                 >
+                  {zoneConfigs[zone]?.label && (
+                      <span className="zone-label">{zoneConfigs[zone].label}</span>
+                  )}
                   <svg className="zone-ridge" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true">
                     <path d={RIDGE_FAR} fill="var(--terrain-ridge-far)" />
                     <path d={RIDGE_NEAR} fill="var(--terrain-ridge-near)" />
@@ -498,7 +535,16 @@ const Lobby = () => {
                         top: `${conn.y}px`,
                         left: `${conn.x}px`,
                         width: `${conn.length}px`,
-                        transform: `rotate(${conn.rotation}deg)`,
+                        /* `conn.x`/`conn.y` are the segment's MIDPOINT, so the
+                           bar has to be centred on that point - hence
+                           translate(-50%, -50%) and a centre transform-origin.
+                           Anchoring the bar's left edge there instead (which is
+                           what `transform-origin: left center` and a bare
+                           rotate did) started every segment half-way along its
+                           own route and ran it a full length past the target
+                           node. It was invisible only because the bar was 3px
+                           tall at opacity 0.3. */
+                        transform: `translate(-50%, -50%) rotate(${conn.rotation}deg)`,
                       }}
                   />
               );
