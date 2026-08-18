@@ -170,6 +170,21 @@ const Lobby = () => {
     const target = levelsMapData.find((level) => level.id === nextLevelId) ?? levelsMapData[0];
     if (!target) return;
     viewport.scrollLeft = target.x * mapZoom - viewport.clientWidth / 2;
+
+    /*
+     * Vertically too, when the frame is shorter than the terrain.
+     *
+     * On a phone the frame is around 590px and the terrain is 720, so `scrollTop`
+     * staying at 0 opened the map on the empty upper third: the route runs from
+     * y 168 to y 612 and level 1 sits at y 600, entirely below the fold. The
+     * player's first sight of the campaign was sky. Harmless on a desktop, where
+     * the frame already fits the terrain and this clamps to 0.
+     */
+    const overflowY = viewport.scrollHeight - viewport.clientHeight;
+    if (overflowY > 0) {
+      const wanted = target.y * mapZoom - viewport.clientHeight / 2;
+      viewport.scrollTop = Math.max(0, Math.min(overflowY, wanted));
+    }
   }, [nextLevelId, mapZoom]);
 
   /**

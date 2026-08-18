@@ -1500,3 +1500,233 @@
     transform: translateY(-10px);
   }
 }
+
+/* ===========================================================================
+ * Responsive rules, and the measurements they come from.
+ *
+ * This stylesheet had no media query at all. Measured in a real browser
+ * (scripts/visual-check.mjs), the top band's content wants about 1290px to sit in
+ * one row, so the page overflowed horizontally at every width from 1280px down to
+ * 760px - not just on phones. At 390px the content measured 702px inside a 366px
+ * box, which is the overlap in the owner's screenshot: the player name on top of
+ * the energy readout, a menu button under a resource pill.
+ *
+ * Three stages rather than one breakpoint, because the band fails gradually:
+ *
+ *   <= 1300px  shed text. The five resource captions and the player rank are the
+ *              cheapest things to lose and buy back ~300px, keeping one row.
+ *   <= 1150px  wrap. Measured: shedding still left the band 51px over at 1100px
+ *              and 83px over at 1000px, so each block takes a row of its own.
+ *   <=  480px  the menu buttons take their own row too - at 390px the player name
+ *              and four buttons together still clipped "Settings".
+ *
+ * And one HEIGHT stage, which has to fight the width stages: a landscape phone is
+ * 844x390, wide enough to trigger wrapping and far too short to afford it.
+ *
+ * Landscape phones are handled by height, not width: the owner's expectation is
+ * that phone players turn the device sideways, which gives a wide but very short
+ * viewport where the band is the thing crowding the map out.
+ * =========================================================================== */
+
+/* Stage 1: shed text, keep one row. */
+@media (max-width: 1300px) {
+  .resource-label {
+    display: none;
+  }
+
+  .player-rank {
+    display: none;
+  }
+
+  .menu-button {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: 12px;
+  }
+
+  .resource-icon {
+    padding: var(--space-xs) var(--space-sm);
+    gap: var(--space-xs);
+  }
+}
+
+/* Stage 2: wrap. Measured - shedding text still left the band 51px over at
+   1100px and 83px over at 1000px, so this starts above them, not at 900. */
+@media (max-width: 1150px) {
+  .lobby-container {
+    padding: var(--space-sm);
+    gap: var(--space-xs);
+  }
+
+  .lobby-topband {
+    /* `nowrap` is correct where one row is achievable, and impossible here. */
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
+  }
+
+  /* A row each, so nothing can land on top of anything else. */
+  .top-menu-bar,
+  .resource-bar {
+    flex: 1 1 100%;
+    min-width: 0;
+    justify-content: space-between;
+  }
+
+  .player-name {
+    font-size: 15px;
+    text-shadow: 1px 1px 0 var(--colors-edge-outline);
+  }
+
+  .menu-buttons {
+    gap: var(--space-xs);
+  }
+
+  .resource-bar {
+    gap: 2px;
+  }
+
+  .resource-symbol {
+    font-size: 15px;
+  }
+
+  .resource-value {
+    font-size: 13px;
+  }
+
+  .zone-label {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+  }
+
+  .upgrade-button {
+    padding: 8px 18px;
+    font-size: 13px;
+  }
+}
+
+/* Stage 3: phones. */
+@media (max-width: 480px) {
+  .top-menu-bar {
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+
+  .player-info,
+  .menu-buttons {
+    flex: 1 1 100%;
+  }
+
+  .player-info {
+    text-align: left;
+  }
+
+  .menu-buttons {
+    justify-content: space-between;
+  }
+
+  .menu-button {
+    flex: 1 1 auto;
+    padding: 5px 4px;
+    font-size: 10px;
+  }
+}
+
+/*
+ * Short viewports - a phone turned sideways, which is how phone players are
+ * expected to hold it. Width is not the problem here; height is. The band and the
+ * upgrade button between them can leave under 200px for a 720px-tall terrain, so
+ * everything vertical gets tighter and the map keeps what is left.
+ */
+@media (max-height: 500px) {
+  .lobby-container {
+    padding: var(--space-xs);
+    gap: 4px;
+  }
+
+  /*
+   * One row, and let it scroll sideways if it must.
+   *
+   * A landscape phone is 844x390: wide enough that the width stages wrap the band
+   * into three rows, and so short that those rows took 180px of 390 - 46% of the
+   * screen - leaving 164px for a 720px terrain. Height is the scarce thing here,
+   * not width, so the wrap is undone and the band keeps to a single ~55px strip.
+   * Anything that does not fit is reachable by swiping the strip, which costs a
+   * gesture; wrapping cost a third of the map.
+   */
+  .lobby-topband {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 2px var(--space-sm);
+    gap: var(--space-xs);
+  }
+
+  .lobby-topband::-webkit-scrollbar {
+    display: none;
+  }
+
+  /*
+   * Undo the width stages' full-width rows, and pin EVERY child - the energy bar
+   * included.
+   *
+   * Leaving it out was worth 251px: with the band set to `nowrap` and the other
+   * children pinned, the energy bar was the only thing left that could shrink, so
+   * it collapsed to its 63px min-content width and its contents stacked into a
+   * tall column. The band came out TALLER than the wrap it replaced. Nothing in
+   * this strip may shrink; the strip scrolls instead.
+   */
+  .top-menu-bar,
+  .resource-bar,
+  .player-info,
+  .menu-buttons,
+  .lobby-topband .energy-bar {
+    flex: 0 0 auto;
+  }
+
+  .top-menu-bar {
+    flex-wrap: nowrap;
+  }
+
+  .player-name {
+    font-size: 13px;
+  }
+
+  .player-rank {
+    display: none;
+  }
+
+  .menu-button {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+
+  .resource-icon {
+    padding: 2px 6px;
+  }
+
+  .resource-label {
+    display: none;
+  }
+
+  /*
+   * The recharge caption and the "Energy" heading go.
+   *
+   * `.energy-rate` is the real class - a first pass guessed `.recharge-rate` and
+   * `.energy-recharge-rate`, neither of which exists, so the rule did nothing and
+   * the energy bar stayed the tallest thing in the strip at 99px. The lightning
+   * glyph and the 50/100 say what this is without a caption under it.
+   */
+  .lobby-topband .energy-rate,
+  .lobby-topband .energy-header .energy-text {
+    display: none;
+  }
+
+  .lobby-topband .energy-bar {
+    padding: 2px 6px;
+  }
+
+  .upgrade-button {
+    padding: 5px 14px;
+    font-size: 12px;
+  }
+}
