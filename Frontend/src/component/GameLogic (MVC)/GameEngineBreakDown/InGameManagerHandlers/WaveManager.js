@@ -1,4 +1,12 @@
 // WaveManager.js - Enhanced Wave System
+/**
+ * The floor on how often enemies may arrive, in milliseconds.
+ *
+ * 200ms is five a second, which is still frantic. The authored waves reach 40ms -
+ * twenty-five a second - which no arrangement of defenders can answer.
+ */
+const MIN_SPAWN_INTERVAL_MS = 200;
+
 export class WaveManager {
     constructor(levelConfig, spawnEnemyCallback, gameEngine) {
         this.config = levelConfig;
@@ -172,10 +180,42 @@ export class WaveManager {
         return 'Tank Zombie';
     }
 
+    /**
+     * How many enemies may be alive at once, and how fast they may arrive.
+     *
+     * `maxActiveEnemies` is authored for every level (1 at level 1 rising to 50 in
+     * endless) and, until now, was read by nothing at all - so nothing anywhere
+     * limited how many enemies could be on the board simultaneously.
+     *
+     * MIN_SPAWN_INTERVAL_MS is the other half. Twenty of the 138 authored waves
+     * ask for intervals below 200ms; level 18 descends to 60ms, level 19 floors at
+     * 60ms, and level 20 has a wave at 40ms - twenty-five enemies per second. That
+     * is not difficulty, it is a wall, and it is most of why the owner reported
+     * "it spawn so often". Clamping where the value is CONSUMED rather than editing
+     * twenty wave configs means a new config cannot reintroduce it.
+     */
+    activeEnemyCap() {
+        return this.config?.maxActiveEnemies ?? Infinity;
+    }
+
+    activeEnemyCount() {
+        const enemies = this.gameEngine?.enemies ?? [];
+        return enemies.reduce((n, enemy) => n + (enemy.isAlive ? 1 : 0), 0);
+    }
+
     spawnWaveEnemies(now, enemyCount, waveConfig) {
         // Check spawn conditions
         if (this.waveEnemiesSpawned >= waveConfig.enemyCount) return;
         if (now - this.lastSpawnTime < this.nextSpawnDelay) return;
+
+        /*
+         * Back-pressure. Without this the spawn gate only ever asked "has enough
+         * time passed", so a level whose waves ask for a 40ms interval put
+         * twenty-five enemies a second on the board no matter how many were
+         * already there. Holding rather than dropping: the wave still owes its
+         * full enemyCount, it just delivers them as the board clears.
+         */
+        if (this.activeEnemyCount() >= this.activeEnemyCap()) return;
 
         // Execute spawn pattern
         switch (waveConfig.spawnPattern) {
@@ -199,6 +239,13 @@ export class WaveManager {
         }
 
         this.lastSpawnTime = now;
+
+        /*
+         * Applied after the pattern, because each pattern sets nextSpawnDelay
+         * itself - some as a multiple of the authored interval. Clamping here is
+         * the one place all six patterns pass through.
+         */
+        this.nextSpawnDelay = Math.max(MIN_SPAWN_INTERVAL_MS, this.nextSpawnDelay);
     }
 
     spawnStandardPattern(waveConfig) {
