@@ -95,7 +95,7 @@ const Lobby = () => {
   // the pointer past DRAG_THRESHOLD_PX, `moved` stays true for the rest of
   // that gesture, and every onClick below checks it first and bails instead
   // of acting - a pan can never launch a level or collect a chest.
-  const drag = useRef({ active: false, startX: 0, startScroll: 0, moved: false });
+  const drag = useRef({ active: false, startX: 0, startY: 0, startScrollX: 0, startScrollY: 0, moved: false });
   const DRAG_THRESHOLD_PX = 5;
 
   const onMapPointerDown = (e) => {
@@ -108,21 +108,45 @@ const Lobby = () => {
     // level node and no chest could ever be clicked: their onClick never ran,
     // because from the DOM's point of view the click happened on the map. See
     // the capture in onMapPointerMove, which only fires once this is a drag.
-    drag.current = { active: true, startX: e.clientX, startScroll: viewport.scrollLeft, moved: false };
+    drag.current = {
+      active: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      startScrollX: viewport.scrollLeft,
+      startScrollY: viewport.scrollTop,
+      moved: false,
+    };
   };
 
   const onMapPointerMove = (e) => {
     const viewport = mapContainerRef.current;
     if (!viewport || !drag.current.active) return;
-    const delta = e.clientX - drag.current.startX;
-    if (Math.abs(delta) > DRAG_THRESHOLD_PX && !drag.current.moved) {
+    const deltaX = e.clientX - drag.current.startX;
+    const deltaY = e.clientY - drag.current.startY;
+
+    /*
+     * The threshold is the distance travelled, not the horizontal component.
+     * Measuring only X meant a straight-down drag never set `moved`, so releasing
+     * it launched whatever level it ended on - the drag guard was blind to exactly
+     * the gesture this change introduces.
+     */
+    if (Math.hypot(deltaX, deltaY) > DRAG_THRESHOLD_PX && !drag.current.moved) {
       drag.current.moved = true;
       // Now that this is unambiguously a drag rather than a click, take the
       // pointer so panning survives the cursor leaving the map. A click never
       // reaches this branch, so a click is never retargeted.
       viewport.setPointerCapture?.(e.pointerId);
     }
-    viewport.scrollLeft = drag.current.startScroll - delta;
+
+    /*
+     * Both axes. The terrain is 720px tall and the frame is often shorter - about
+     * 575px on a phone held upright, 250px held sideways - so there is real
+     * vertical range to reach, and dragging only moved the map along one of them.
+     * Each axis is an absolute assignment from its own pointerdown anchor, so a
+     * diagonal drag tracks the pointer rather than drifting.
+     */
+    viewport.scrollLeft = drag.current.startScrollX - deltaX;
+    viewport.scrollTop = drag.current.startScrollY - deltaY;
   };
 
   const onMapPointerUp = (e) => {

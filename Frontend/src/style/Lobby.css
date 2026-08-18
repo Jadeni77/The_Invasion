@@ -385,7 +385,18 @@
    * lost more than the double-speed pan cost them. Naming it restores zoom
    * without giving horizontal panning back.
    */
-  touch-action: pan-y pinch-zoom;
+  /*
+   * `pinch-zoom` only - the browser pans neither axis now.
+   *
+   * This was `pan-y pinch-zoom`, which was right while the handler moved the map
+   * horizontally and the browser was left to handle vertical. The handler now
+   * moves BOTH axes, so leaving `pan-y` would put two things on the vertical axis
+   * at once - native scroll applying a relative delta on top of the handler's
+   * absolute assignment - which is the double-speed pan that `pan-y` was
+   * introduced to cure on the horizontal axis. `pinch-zoom` stays so zoom is not
+   * lost, which was a deliberate fix of its own.
+   */
+  touch-action: pinch-zoom;
   /* Hidden, not disabled: the element stays scrollable (wheel, trackpad,
      keyboard, and the scrollLeft the drag handler and the opening-scroll
      effect both write), it just stops advertising scrolling as the way to
