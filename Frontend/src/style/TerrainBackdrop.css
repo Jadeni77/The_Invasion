@@ -1,0 +1,63 @@
+/*
+ * The painted backdrop behind the screens that are not the map.
+ *
+ * The settings, upgrade, achievement and collection screens each replace the
+ * lobby outright, so nothing of the game was behind them: two of them drew a flat
+ * `surface-base`, the other two a flat dark scrim. The owner's words were that
+ * they "seem like a separate island" and that they wanted "more sense of
+ * belonging to the game" rather than a blank page.
+ *
+ * This paints the same ground, hills and foreground band the campaign map is
+ * built from - from the same generator in TerrainBackdrop.jsx, not a lookalike -
+ * then darkens the whole thing so a panel stays comfortably readable on top.
+ */
+.game-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  /* Never a click target: it sits under panels that are. */
+  pointer-events: none;
+  background:
+    linear-gradient(
+      180deg,
+      var(--terrain-ground1-top) 0%,
+      var(--terrain-ground3-mid) 55%,
+      var(--terrain-ground5-bot) 100%
+    );
+}
+
+.game-backdrop-ridge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 62%;
+  /* Read at 0.62, not 0.5. The darkening pass below already takes a third of the
+     contrast out of these; at 0.5 the hills were present in the DOM and
+     invisible on screen, which is the same as not drawing them. */
+  opacity: 0.62;
+}
+
+.game-backdrop-fore {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 26%;
+}
+
+/*
+ * Two passes in one: a vignette that pulls the eye to the middle, and an overall
+ * darkening so body text on a panel is never competing with a hillside. Without
+ * the flat darkening the terrain is pretty and the panel is hard to read, which
+ * is a worse screen than the blank one it replaced.
+ */
+.game-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 100% at 50% 45%, transparent 45%, var(--terrain-vignette) 100%),
+    color-mix(in srgb, var(--colors-edge-outline) 34%, transparent);
+}

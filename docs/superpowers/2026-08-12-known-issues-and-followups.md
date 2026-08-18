@@ -762,3 +762,19 @@ resource bar's chip padding reaches the upgrade cost rows.
   2026-08-18; `POST /api/auth/login` returns a token and the player when the
   backend is built from current source. The 403 came from a stale running
   instance.
+
+---
+
+## 32. CollectionPage uses `accent-danger` as its primary accent
+
+**Found:** 2026-08-18, while adding the backdrop.
+**Severity:** low, cosmetic. Same family as issue 27.
+
+`COLLECTION`, the `DEFENDERS` heading, the active tab and "Back to Lobby" are all
+red (`accent-danger`), and unit names and "Special Abilities" are blue
+(`accent-info`). Red is the damage/danger accent and blue the informational one;
+gold is the primary. Nothing on this screen is dangerous or informational — it is
+a catalogue.
+
+The same role error as issue 27, on a different screen, and worth fixing in the
+same pass as the remaining accent audit rather than one screen at a time.
