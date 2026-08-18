@@ -25,53 +25,81 @@ export const RAINBOW_STOPS = [
   decorative.violet,
 ];
 
-// Level nodes arranged in a serpentine pattern across the map
-export const levelsMapData = [
+/**
+ * Route geometry - the one thing on this map that everything else is
+ * positioned against.
+ *
+ * **`x` is not authored. It is derived from a stop's position in the route,
+ * below, and that is the fix.** The map shipped with hand-typed `x` values
+ * folded back on themselves: levels 1-12 ran left to right from 200 to 1850,
+ * then levels 13-20 ran back right to left from 1850 to 800, because
+ * `mapWidth` was 2200 - inherited from a mockup with 10 levels plus a portal -
+ * and 21 nodes do not fit in a width sized for 11. Every column from 650 to
+ * 1850 therefore held two levels, one from each leg: 9 and 16 landed 20px
+ * apart on a 58px node and rendered as a single doubled circle with both names
+ * stacked on it, the four route self-crossings were where one leg cut back
+ * across the other, and the terrain escalated backwards from level 13 because
+ * the second leg walked back down through zones the first leg had already
+ * climbed.
+ *
+ * One node per x column, x strictly increasing with route order, is what makes
+ * all of that structurally impossible rather than merely fixed: two nodes
+ * cannot share a column because a column is an array index, and two connectors
+ * cannot cross because their x-spans only ever touch at a shared node (see
+ * RouteGeometry.test.js, which asserts both rather than assuming them).
+ *
+ * `NODE_SPACING_X` is the density the mockup was approved at, and it is not
+ * only an aesthetic number: `.level-name` is `white-space: nowrap` at 10px
+ * bold, and this route's longest names ("Multiplication Crisis",
+ * "Electromagnetic Chaos", 21 characters) measure roughly 115px. Two adjacent
+ * nodes each carrying a 21-character label need that much clearance plus a gap
+ * before the labels collide, which is what ruled out closing the map up to fit
+ * fewer screens.
+ */
+const ROUTE_START_X = 200;
+const NODE_SPACING_X = 190;
+/** Breathing room past the last stop, so the portal isn't flush to the edge. */
+const ROUTE_END_PADDING = 200;
+
+/**
+ * The campaign's stops in route order, carrying everything except `x`.
+ *
+ * `y` is unchanged from the approved mockup's vertical amplitude - it swings
+ * across 90-510 of the 600px terrain, rising and falling with varied
+ * amplitude rather than as a regular zigzag. Only the horizontal fold was
+ * broken, so only `x` is being replaced.
+ */
+const routeStops = [
   // Tutorial Zone (Levels 1-3)
-  { id: 1, x: 200, y: 500, zone: "tutorial", name: "The Outbreak" },
-  { id: 2, x: 350, y: 380, zone: "tutorial", name: "Swift Danger" },
-  { id: 3, x: 500, y: 460, zone: "tutorial", name: "Explosive Encounter" },
+  { id: 1, y: 500, zone: "tutorial", name: "The Outbreak" },
+  { id: 2, y: 380, zone: "tutorial", name: "Swift Danger" },
+  { id: 3, y: 460, zone: "tutorial", name: "Explosive Encounter" },
 
   // Early Game Zone (Levels 4-7)
-  { id: 4, x: 650, y: 300, zone: "early", name: "Heavy Resistance" },
-  { id: 5, x: 800, y: 420, zone: "early", name: "Ranged Assault" },
-  { id: 6, x: 950, y: 260, zone: "early", name: "Shield Wall" },
-  { id: 7, x: 1100, y: 400, zone: "early", name: "Support Squadron" },
+  { id: 4, y: 300, zone: "early", name: "Heavy Resistance" },
+  { id: 5, y: 420, zone: "early", name: "Ranged Assault" },
+  { id: 6, y: 260, zone: "early", name: "Shield Wall" },
+  { id: 7, y: 400, zone: "early", name: "Support Squadron" },
 
   // Mid Game Zone (Levels 8-12)
-  { id: 8, x: 1250, y: 510, zone: "mid", name: "Multiplication Crisis" },
-  { id: 9, x: 1400, y: 320, zone: "mid", name: "Swarm Tactics" },
-  {
-    id: 10,
-    x: 1550,
-    y: 440,
-    zone: "mid",
-    name: "Electromagnetic Chaos",
-    isBoss: true,
-  },
-  { id: 11, x: 1700, y: 200, zone: "mid", name: "Blood Hunt" },
-  { id: 12, x: 1850, y: 380, zone: "mid", name: "Spectral Invasion" },
+  { id: 8, y: 510, zone: "mid", name: "Multiplication Crisis" },
+  { id: 9, y: 320, zone: "mid", name: "Swarm Tactics" },
+  { id: 10, y: 440, zone: "mid", name: "Electromagnetic Chaos", isBoss: true },
+  { id: 11, y: 200, zone: "mid", name: "Blood Hunt" },
+  { id: 12, y: 380, zone: "mid", name: "Spectral Invasion" },
 
-  // Late Game Zone (Levels 13-17) - Second row
-  { id: 13, x: 1850, y: 260, zone: "late", name: "Berserker Rage" },
-  { id: 14, x: 1700, y: 420, zone: "late", name: "Death's Army" },
-  { id: 15, x: 1550, y: 180, zone: "late", name: "Shadow Strike" },
-  { id: 16, x: 1400, y: 340, zone: "late", name: "Arcane Apocalypse" },
-  { id: 17, x: 1250, y: 140, zone: "late", name: "Total Chaos" },
+  // Late Game Zone (Levels 13-17)
+  { id: 13, y: 260, zone: "late", name: "Berserker Rage" },
+  { id: 14, y: 420, zone: "late", name: "Death's Army" },
+  { id: 15, y: 180, zone: "late", name: "Shadow Strike" },
+  { id: 16, y: 340, zone: "late", name: "Arcane Apocalypse" },
+  { id: 17, y: 140, zone: "late", name: "Total Chaos" },
 
-  // End Game Zone (Levels 18-20) - Third row ascent
-  {
-    id: 18,
-    x: 1100,
-    y: 300,
-    zone: "endgame",
-    name: "Titan's Wrath",
-    isBoss: true,
-  },
-  { id: 19, x: 950, y: 160, zone: "endgame", name: "Final Stand" },
+  // End Game Zone (Levels 18-20) - the final ascent
+  { id: 18, y: 300, zone: "endgame", name: "Titan's Wrath", isBoss: true },
+  { id: 19, y: 160, zone: "endgame", name: "Final Stand" },
   {
     id: 20,
-    x: 800,
     y: 90,
     zone: "endgame",
     name: "The Omega Wave",
@@ -82,7 +110,6 @@ export const levelsMapData = [
   // Endless Mode Portal - Unlocked after completing level 20
   {
     id: 999,
-    x: 650,
     y: 100,
     zone: "endless",
     name: "Endless Survival",
@@ -91,6 +118,22 @@ export const levelsMapData = [
     special: "portal", // Special visual indicator
   },
 ];
+
+/**
+ * The level nodes, each in its own x column.
+ *
+ * `x` is spread *last* deliberately: a stop that tried to carry its own `x`
+ * would be overwritten rather than honoured, so the column can only ever come
+ * from route order. That is what stops a hand-typed coordinate growing back
+ * here and re-folding the route.
+ */
+export const levelsMapData = routeStops.map((stop, index) => ({
+  ...stop,
+  x: ROUTE_START_X + index * NODE_SPACING_X,
+}));
+
+/** The last stop's column - the portal's, and what sizes the terrain. */
+const ROUTE_END_X = levelsMapData[levelsMapData.length - 1].x;
 
 /** A node's own position, looked up by id rather than copied. */
 function nodeById(id) {
@@ -147,7 +190,9 @@ export const connectionsData = [
   connectionBetween(10, 11),
   connectionBetween(11, 12),
 
-  // Transition to late game (vertical connection)
+  // Transition to late game. Was described here as "vertical" because the
+  // folded route doubled back in column 1850 and levels 12 and 13 shared it;
+  // it advances a column like every other connector now.
   connectionBetween(12, 13),
 
   // Late game connections
@@ -170,15 +215,38 @@ export const connectionsData = [
  * level it requires - derived the same way the connector itself now is,
  * rather than hand-typed as a second copy of the same fact.
  *
- * `xOverride` exists for exactly one chest, `chest-12`: the level 12-13
- * transition is a vertical connector, so a chest placed exactly on that
- * connector's own midpoint would sit on top of the line instead of beside
- * it. That 50px offset is a deliberate placement choice predating this
- * change, not drift, so it is preserved rather than derived away.
+ * This used to take an `xOverride`, used by exactly one chest (`chest-12`)
+ * because the old level 12-13 transition was a *vertical* connector - both
+ * legs of the folded route met in column 1850 - so a chest on that
+ * connector's own midpoint sat on top of the line rather than beside it. With
+ * the fold gone no connector is vertical (every one advances a full column in
+ * x), so the override has no remaining caller. It is removed rather than kept
+ * "in case": an unread parameter is the drift this file's other comments keep
+ * warning about, and a coordinate escape hatch on the one helper that exists
+ * to derive coordinates is exactly the hatch a future hand-typed position
+ * would come back through.
  */
-function chestOnRoute(id, fromId, toId, rewards, xOverride) {
+function chestOnRoute(id, fromId, toId, rewards) {
   const { x, y } = connectionBetween(fromId, toId);
-  return { id, x: xOverride ?? x, y, rewards, requiresLevel: fromId };
+  return { id, x, y, rewards, requiresLevel: fromId };
+}
+
+/**
+ * A secret chest's position: off the route by design, but anchored to the node
+ * that unlocks it rather than to an absolute coordinate.
+ *
+ * Both secret chests used to hold hand-typed positions (1000,500) and
+ * (1400,100), chosen against the old 2200-wide folded map. Those numbers
+ * survived the fold as coordinates but not as *placements*: on the unfolded
+ * terrain x=1000 is beside level 5 and x=1400 beside level 7, nowhere near the
+ * levels 10 and 16 that reveal them. Deriving the offset from the required
+ * level's own node keeps them off-route (that is what the offsets are for)
+ * while keeping them next to the level they belong to, the same property
+ * `chestOnRoute` gives the on-route chests.
+ */
+function chestNearLevel(id, requiresLevel, rewards, dx, dy, extra) {
+  const node = nodeById(requiresLevel);
+  return { id, x: node.x + dx, y: node.y + dy, rewards, requiresLevel, ...extra };
 }
 
 //TODO: set up defender unlock upon chest reward
@@ -205,7 +273,7 @@ export const chestsData = [
   chestOnRoute("chest-9", 9, 10, { gem: 20, gold: 2000 }),
   chestOnRoute("chest-10", 10, 11, { gem: 50, all: 500, defender: "Sniper" }),
   chestOnRoute("chest-11", 11, 12, { gem: 50, all: 500, defender: "Ice Bomb" }),
-  chestOnRoute("chest-12", 12, 13, { gem: 50, all: 500 }, 1900),
+  chestOnRoute("chest-12", 12, 13, { gem: 50, all: 500 }),
   chestOnRoute("chest-13", 13, 14, { gem: 50, all: 500 }),
   chestOnRoute("chest-14", 14, 15, { gem: 50, all: 500, defender: "Mortar" }),
   chestOnRoute("chest-15", 15, 16, { gem: 50, all: 500 }),
@@ -215,26 +283,18 @@ export const chestsData = [
   chestOnRoute("chest-19", 19, 20, { gem: 50, all: 500 }),
   chestOnRoute("chest-20", 20, 999, { gem: 50, all: 500 }),
 
-  // Secret chests (hidden or require special conditions) - off-route by
-  // design, so their position is authored directly, not derived.
-  {
-    id: "secret-1",
-    x: 1000,
-    y: 500,
-    rewards: { gem: 15, gold: 750 },
-    requiresLevel: 10,
+  // Secret chests (hidden or require special conditions). Off-route by
+  // design - the offsets below are what puts them beside the trail rather
+  // than on it - but anchored to the node that reveals them, not to an
+  // absolute coordinate. See chestNearLevel above.
+  chestNearLevel("secret-1", 10, { gem: 15, gold: 750 }, -70, 90, {
     hidden: true,
     condition: "perfectWave", // No damage taken in wave
-  },
-  {
-    id: "secret-2",
-    x: 1400,
-    y: 100,
-    rewards: { gem: 25, iron: 500 },
-    requiresLevel: 16,
+  }),
+  chestNearLevel("secret-2", 16, { gem: 25, iron: 500 }, 80, 85, {
     hidden: true,
     condition: "speedRun", // Complete level under time limit
-  },
+  }),
 ];
 //TODO: set up defender unlock upon level
 export const levelDefenderReward = {
@@ -378,7 +438,15 @@ export const endlessPortalConfig = {
  * reads this file and assumes it does something.
  */
 export const mapSettings = {
-  mapWidth: 2200,
+  /**
+   * Derived from the route, not chosen for it. This was the literal 2200 that
+   * caused the fold: a width sized for the mockup's 10 levels plus a portal,
+   * asked to hold 21 nodes. Computing it from the last node's column means
+   * adding a level widens the terrain instead of squeezing the route into a
+   * box that no longer fits it - the two facts cannot drift apart, because
+   * there is only one of them.
+   */
+  mapWidth: ROUTE_END_X + ROUTE_END_PADDING,
   mapHeight: 600,
   defaultZoom: 1.0,
 };

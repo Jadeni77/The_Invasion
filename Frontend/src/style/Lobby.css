@@ -736,16 +736,27 @@
 }
 
 /* Endless Portal */
+/*
+ * Centred on the position Lobby.jsx gives it, the same way `.level-node` is -
+ * so the portal actually sits on the end of its own rainbow connector.
+ *
+ * This rule used to carry `left: 50%`, `margin-left: -120px` and
+ * `margin-top: -50px` from an era when the portal was placed by the
+ * stylesheet rather than from `levelsMapData`. The inline `left`/`top`
+ * Lobby.jsx writes beat `left: 50%`, but nothing overrode the two margins or
+ * the x-only translate, so the portal rendered 170px left of and 50px above
+ * its declared coordinate: its connector ran to a point in empty ground and
+ * the portal floated off the end of the route. `translate(-50%, -50%)`
+ * centres both axes on the real coordinate and there is no offset left to
+ * drift.
+ */
 .endless-portal {
   position: absolute;
   width: 100px;
   height: 100px;
   cursor: pointer;
   z-index: 15;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-left: -120px;
-  margin-top: -50px;
+  transform: translate(-50%, -50%);
 }
 
 .endless-portal.locked {
