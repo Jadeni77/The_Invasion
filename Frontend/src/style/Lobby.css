@@ -587,26 +587,21 @@
   box-shadow: 0 6px 12px color-mix(in srgb, var(--colors-edge-outline) 40%, transparent);
 }
 
-/* Zone-specific node styles */
-.tutorial-node {
-  background: var(--colors-accent-success);
-}
-
-.early-node {
-  background: var(--colors-accent-info);
-}
-
-.mid-node {
-  background: var(--colors-surface-raised);
-}
-
-.late-node {
-  background: var(--colors-accent-danger);
-}
-
-.endgame-node {
-  background: var(--decorative-violet);
-}
+/*
+ * Zone-specific node styles used to live here (`.tutorial-node`,
+ * `.early-node`, `.mid-node`, `.late-node`, `.endgame-node`, each a single
+ * class carrying that zone's background). Every node also carries a state
+ * class - `.level-node.completed`/`.available`/`.locked`, two classes,
+ * specificity 0-2-0 - which structurally outranks a one-class zone rule
+ * (0-1-0) for the same `background` property, on every node, regardless of
+ * which rule comes first in the file. So the zone hue could never actually
+ * paint: these were dead weight, not a second source of truth to reconcile.
+ * Deleted rather than raised in specificity to compete with state, which
+ * would only have put zone tint back in the running against the colour this
+ * board depends on to read. Zone identity now lives entirely in the terrain
+ * the node sits on (`.zone-<key>`'s ground/ridge/foreground below); the node
+ * itself is state-coloured only, matching the approved mockup.
+ */
 
 /*
  * Boss level indicator. A boss node that is merely a red circle is still a
