@@ -501,6 +501,29 @@
   pointer-events: none;
 }
 
+/* Mid-ground scenery (TerrainProps.jsx). z-index 3 of the reserved 2-3 range
+   above: above .zone-ridge (1) so props read against the hills, below
+   .zone-fore (4) so the foreground band still frames them rather than
+   hiding them. Both rows (PROP_ROWS in TerrainProps.jsx) sit above the
+   bottom-22% .zone-fore band by construction, not by coincidence of these
+   numbers - see FOREGROUND_BAND_TOP and the test that pins the relationship. */
+.terrain-prop {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  transform: translate(-50%, 0);
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* Distant props are smaller and fainter, so they sit in the ridgeline
+   rather than on top of it. */
+.terrain-prop.prop-far {
+  width: 17px;
+  height: 17px;
+  opacity: 0.45;
+}
+
 /* Level Nodes */
 .level-node {
   position: absolute;

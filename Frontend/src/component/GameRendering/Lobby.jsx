@@ -14,6 +14,7 @@ import {
   nextPlayableLevelId,
   zoneConfigs
 } from "./MapLayout"; // New: Import map data from MapData.js
+import { TerrainProp, PROPS_BY_ZONE, PROP_ROWS } from "./TerrainProps.jsx";
 import "../../style/Lobby.css"; // Correct path
 import "../../style/UpgradeModal.css"; // Correct path (if UpgradeModal.css is used by Lobby too)
 import CardSelectionModal from "./CardSelectionModal";
@@ -445,6 +446,24 @@ const Lobby = () => {
                   <svg className="zone-fore" viewBox="0 0 600 100" preserveAspectRatio="none" aria-hidden="true">
                     <path d={FOREGROUND} fill="var(--terrain-foreground)" />
                   </svg>
+                  {/* Mid-ground scenery, positioned deterministically from
+                      the zone key and prop index (not random - a prop that
+                      moves on every render is distracting, and a test can't
+                      pin a random position). Both rows sit above
+                      `.zone-fore`'s bottom-22% band (PROP_ROWS, checked
+                      against FOREGROUND_BAND_TOP in TerrainProps.test.jsx)
+                      so neither row is painted over. */}
+                  {(PROPS_BY_ZONE[zone] ?? []).map((kind, i) => (
+                      <TerrainProp
+                          key={`${zone}-${kind}-${i}`}
+                          kind={kind}
+                          className={i % 2 === 0 ? 'prop-near' : 'prop-far'}
+                          style={{
+                            left: `${18 + i * 26}%`,
+                            bottom: i % 2 === 0 ? `${PROP_ROWS.near}%` : `${PROP_ROWS.far}%`,
+                          }}
+                      />
+                  ))}
                 </div>
             ))}
 

@@ -61,6 +61,13 @@ export const terrain = {
   // rule declares stays legible against it - see contrastRatio findings in
   // task-3-report.md.
   nodeDone:  '#2f4a2f', nodeOpen: '#ffe9a0', nodeBoss: '#ff9d52',
+  // Scenery fills for TerrainProp (see TerrainProps.jsx). Five hues cover
+  // all six prop kinds: propDark doubles as bark (tree/deadTree trunks) and
+  // rubble's shadow block, propStone doubles as rubble and grave. None of
+  // these borrow a `colors.*` accent - scenery is ground dressing, not a
+  // state signal, same reasoning as the ground shades above.
+  propDark:   '#2a2015', propLeaf: '#5a7a3f', propCloth: '#a9784f',
+  propStone:  '#8a8578', propEmber: '#ff7a3d',
 };
 
 export const space = {

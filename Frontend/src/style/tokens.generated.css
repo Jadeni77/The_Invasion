@@ -44,6 +44,11 @@
   --terrain-node-done: #2f4a2f;
   --terrain-node-open: #ffe9a0;
   --terrain-node-boss: #ff9d52;
+  --terrain-prop-dark: #2a2015;
+  --terrain-prop-leaf: #5a7a3f;
+  --terrain-prop-cloth: #a9784f;
+  --terrain-prop-stone: #8a8578;
+  --terrain-prop-ember: #ff7a3d;
   /* space */
   --space-xs: 4px;
   --space-sm: 8px;
