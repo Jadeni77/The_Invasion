@@ -31,6 +31,46 @@ describe("overflow lives on the viewport, not the page", () => {
   });
 });
 
+/**
+ * Drag is the primary way to pan; native scrolling stays underneath.
+ *
+ * The owner asked for dragging over scrolling "unless scrolling is good for all
+ * users include phone and computer", and it is not: on a desktop with a mouse,
+ * horizontal scrolling means shift+wheel or grabbing a scrollbar. Pointer
+ * events cover mouse, touch and pen in one path. So drag leads, and scrolling
+ * stays because it costs nothing and helps trackpad users - it just stops being
+ * the visible affordance.
+ *
+ * The touch-action half of this is a source-text check and can only be one:
+ * jsdom implements no native scrolling, so the double-speed pan it fixes cannot
+ * be reproduced here. What jsdom *can* measure is the handler's own arithmetic,
+ * which is the other contributor - see the 1:1 test below.
+ */
+describe("the map is dragged, and the drag moves it 1:1", () => {
+  it("gives horizontal gestures to the drag handler, vertical ones to the page", () => {
+    // With `overflow-x: auto` and no touch-action, a horizontal drag has two
+    // things moving the map: native scroll applying a relative delta, and
+    // onPointerMove assigning an absolute scrollLeft from the pointerdown
+    // anchor. Each is 1:1 alone; in a frame where the native delta lands on
+    // top of the assignment the map moves twice the finger's travel.
+    expect(ruleBody(".game-map-container")).toMatch(/touch-action\s*:\s*pan-y/);
+  });
+
+  it("shows a grab cursor, and a grabbing one during the gesture", () => {
+    expect(ruleBody(".game-map-container")).toMatch(/cursor\s*:\s*grab/);
+    expect(ruleBody(".game-map-container:active")).toMatch(/cursor\s*:\s*grabbing/);
+  });
+
+  it("hides the scrollbar without making the element unscrollable", () => {
+    expect(ruleBody(".game-map-container")).toMatch(/scrollbar-width\s*:\s*none/);
+    expect(ruleBody(".game-map-container::-webkit-scrollbar")).toMatch(/display\s*:\s*none/);
+    // The element must still scroll - the drag handler, the opening-scroll
+    // effect and the trackpad all move it by writing scrollLeft.
+    expect(ruleBody(".game-map-container")).toMatch(/overflow-x\s*:\s*auto/);
+    expect(ruleBody(".game-map-container")).not.toMatch(/overflow-x\s*:\s*hidden/);
+  });
+});
+
 describe("nextPlayableLevelId", () => {
   it("is level 1 for a new player", () => {
     expect(nextPlayableLevelId({ unlockedLevels: [1], completedLevels: [] })).toBe(1);
@@ -205,6 +245,71 @@ describe("a drag never fires a node's or a chest's click", () => {
     fireEvent.click(chest);
 
     expect(mockCollectTreasure).toHaveBeenCalledWith("chest-1");
+  });
+
+  /*
+   * The pan distance itself, which is the half of the double-speed bug that is
+   * measurable here. jsdom has no native scrolling, so what this exercises is
+   * the handler in isolation: a pointer that travels N px must move the map
+   * exactly N px, not some multiple of it. With `touch-action: pan-y` the
+   * handler is the only thing moving the map horizontally, so this arithmetic
+   * is the whole of the gesture rather than one of two contributors.
+   */
+  it("moves the map exactly as far as the pointer travelled", () => {
+    const { container } = render(<Lobby />);
+    const viewport = container.querySelector(".game-map-container");
+
+    viewport.scrollLeft = 1000;
+    const before = viewport.scrollLeft;
+
+    fireEvent.pointerDown(viewport, { clientX: 800, pointerId: 1 });
+    fireEvent.pointerMove(viewport, { clientX: 500, pointerId: 1 });
+
+    // Dragged 300px left, so the map comes 300px right. Not 600.
+    expect(viewport.scrollLeft - before).toBe(300);
+
+    fireEvent.pointerUp(viewport, { clientX: 500, pointerId: 1 });
+  });
+
+  it("tracks the pointer back and forth within one gesture, from the same anchor", () => {
+    const { container } = render(<Lobby />);
+    const viewport = container.querySelector(".game-map-container");
+
+    viewport.scrollLeft = 1000;
+    fireEvent.pointerDown(viewport, { clientX: 800, pointerId: 1 });
+
+    fireEvent.pointerMove(viewport, { clientX: 700, pointerId: 1 });
+    expect(viewport.scrollLeft).toBe(1100);
+
+    // Back past the start of the gesture: the offset is always measured from
+    // the pointerdown anchor, so reversing returns to where it began rather
+    // than accumulating.
+    fireEvent.pointerMove(viewport, { clientX: 900, pointerId: 1 });
+    expect(viewport.scrollLeft).toBe(900);
+
+    fireEvent.pointerMove(viewport, { clientX: 800, pointerId: 1 });
+    expect(viewport.scrollLeft).toBe(1000);
+
+    fireEvent.pointerUp(viewport, { clientX: 800, pointerId: 1 });
+  });
+
+  it("does not move the map after the gesture ends", () => {
+    const { container } = render(<Lobby />);
+    const viewport = container.querySelector(".game-map-container");
+
+    fireEvent.pointerDown(viewport, { clientX: 800, pointerId: 1 });
+    fireEvent.pointerUp(viewport, { clientX: 800, pointerId: 1 });
+
+    viewport.scrollLeft = 1234;
+    fireEvent.pointerMove(viewport, { clientX: 300, pointerId: 1 });
+    expect(viewport.scrollLeft).toBe(1234);
+  });
+
+  it("keeps the 5px threshold that stops a click becoming a drag", () => {
+    // Pinned by value: the guard that stops a pan launching a level reads it,
+    // and a threshold of 0 would make every click a drag.
+    const jsx = readFileSync(join(HERE, "..", "Lobby.jsx"), "utf8");
+    expect(jsx).toMatch(/DRAG_THRESHOLD_PX\s*=\s*5\b/);
   });
 });
 

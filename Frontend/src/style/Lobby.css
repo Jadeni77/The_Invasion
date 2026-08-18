@@ -323,7 +323,32 @@
   border: var(--borders-outline) solid var(--colors-edge-outline);
   border-radius: var(--radii-lg);
   box-shadow: inset 0 0 40px var(--terrain-vignette);
+  /* Drag is the primary way to pan, so the viewport says so before anything
+     is touched. Native scrolling stays underneath because it costs nothing and
+     genuinely helps trackpad users - it is just no longer the visible
+     affordance, which on a desktop mouse meant shift+wheel or hunting for a
+     scrollbar. */
   cursor: grab;
+  /*
+   * The real bug on a touchscreen. With `overflow-x: auto` and no
+   * `touch-action`, a horizontal drag has two things moving the map at once:
+   * the browser's own native scroll, which applies a *relative* delta to the
+   * current scrollLeft, and `onPointerMove`, which assigns an *absolute*
+   * scrollLeft computed from the position captured at pointerdown. Each is 1:1
+   * on its own, but in a frame where the native delta lands on top of the
+   * assignment the map moves twice the finger's travel, so the pan runs at up
+   * to double speed and stutters as the assignment re-anchors it.
+   *
+   * `pan-y` gives horizontal gestures to the drag handler and leaves vertical
+   * ones to the page, so exactly one thing moves the map horizontally and one
+   * finger-width of travel is one finger-width of map.
+   */
+  touch-action: pan-y;
+  /* Hidden, not disabled: the element stays scrollable (wheel, trackpad,
+     keyboard, and the scrollLeft the drag handler and the opening-scroll
+     effect both write), it just stops advertising scrolling as the way to
+     move around when dragging is. */
+  scrollbar-width: none;
   /* A pan gesture starts wherever the pointer happens to land - often a
      level-name label or a star. Without this, that drag selects the text it
      crosses instead of panning (the chest <img> side of the same problem is
@@ -332,6 +357,14 @@
   user-select: none;
 }
 
+/* The WebKit half of `scrollbar-width: none`. Both are needed; neither
+   removes the element's ability to scroll. */
+.game-map-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* Fires on pointerdown and holds for the gesture, which is exactly the window
+   the drag handler is active for. */
 .game-map-container:active {
   cursor: grabbing;
 }
