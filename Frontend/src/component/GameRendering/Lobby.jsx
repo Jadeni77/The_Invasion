@@ -1,5 +1,5 @@
 // src/components/GameRendering/Lobby.jsx
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useGame } from "../GameLogic (MVC)/GameContext"; // Correct path
 import ResourceIcon from "./ResourceIcon"; // Correct path
 import EnergyBar from "./EnergyBar"; // Correct path
@@ -11,6 +11,7 @@ import {
   chestsData,
   mapSettings,
   getLevelStatus,
+  nextPlayableLevelId,
   zoneConfigs
 } from "./MapLayout"; // New: Import map data from MapData.js
 import "../../style/Lobby.css"; // Correct path
@@ -66,26 +67,74 @@ const Lobby = () => {
       unlockedDefender,
       setUnlockedDefender,
   } = useGame();
-  const [mapPosition, setMapPosition] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showCardSelection, setShowCardSelection] = useState(false);
   const [selectedLevelId, setSelectedLevelId] = useState(null);
   const [mapZoom, _setMapZoom] = useState(mapSettings.defaultZoom);
  // const [showEndlessOptions, setShowEndlessOptions] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
-  const [isMapReady, setIsMapReady] = useState(false); // Track if map is ready for interaction
   const [defenderNotification, setDefenderNotification] = useState(null)
   const [notificationFading, setNotificationFading] = useState(false)
 
-  const [mapBoundaries, setMapBoundaries] = useState({
-                                                       minX: 0,
-                                                       minY: 0,
-                                                       maxX: 0,
-                                                       maxY: 0,
-                                                     });
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null); // Ref for the inner game-map div
+
+  // Drag-to-pan state. A plain ref, not useState: every pointer move during a
+  // drag would otherwise trigger a re-render, and nothing here needs to be
+  // read back through render - onPointerMove writes scrollLeft on the DOM
+  // node directly. `moved` is the trap this interaction always has: without
+  // it, releasing a drag over a level node or chest fires that element's
+  // onClick (launching a level, or calling the real collectTreasure backend
+  // call) as if the player had clicked it standing still. Once a drag moves
+  // the pointer past DRAG_THRESHOLD_PX, `moved` stays true for the rest of
+  // that gesture, and every onClick below checks it first and bails instead
+  // of acting - a pan can never launch a level or collect a chest.
+  const drag = useRef({ active: false, startX: 0, startScroll: 0, moved: false });
+  const DRAG_THRESHOLD_PX = 5;
+
+  const onMapPointerDown = (e) => {
+    const viewport = mapContainerRef.current;
+    if (!viewport) return;
+    drag.current = { active: true, startX: e.clientX, startScroll: viewport.scrollLeft, moved: false };
+    viewport.setPointerCapture?.(e.pointerId);
+  };
+
+  const onMapPointerMove = (e) => {
+    const viewport = mapContainerRef.current;
+    if (!viewport || !drag.current.active) return;
+    const delta = e.clientX - drag.current.startX;
+    if (Math.abs(delta) > DRAG_THRESHOLD_PX) drag.current.moved = true;
+    viewport.scrollLeft = drag.current.startScroll - delta;
+  };
+
+  const onMapPointerUp = (e) => {
+    const viewport = mapContainerRef.current;
+    if (viewport?.hasPointerCapture?.(e.pointerId)) {
+      viewport.releasePointerCapture(e.pointerId);
+    }
+    drag.current.active = false;
+  };
+
+  // A drag must never fire the click it ends on top of. Wraps a click
+  // handler so it is a no-op for the one click that follows a drag past
+  // DRAG_THRESHOLD_PX - used on both level/portal nodes (which launch a
+  // level) and chests (which call the real collectTreasure backend call).
+  const guardClick = (fn) => () => {
+    if (drag.current.moved) return;
+    fn();
+  };
+
+  // Open the map centred on the level the player can actually play next.
+  // nextPlayableLevelId returns null once everything unlocked is finished;
+  // levelsMapData[0] (level 1) is the fallback so that player still sees a
+  // sensible view instead of a blank corner of the map.
+  useEffect(() => {
+    const viewport = mapContainerRef.current;
+    if (!viewport) return;
+    const targetId = nextPlayableLevelId(playerData);
+    const target = levelsMapData.find((level) => level.id === targetId) ?? levelsMapData[0];
+    if (!target) return;
+    viewport.scrollLeft = target.x * mapZoom - viewport.clientWidth / 2;
+  }, [playerData, mapZoom]);
 
   useEffect(() => {
     if (unlockedDefender) {
@@ -108,118 +157,6 @@ const Lobby = () => {
       }
     }
   }, [unlockedDefender, setUnlockedDefender]);
-
-  // Calculate map boundaries with proper initialization check
-  const calculateBoundaries = useCallback(() => {
-    if (!mapContainerRef.current || !mapRef.current) {
-      // Try again in a moment if refs aren't ready
-      setTimeout(() => {
-        if (mapContainerRef.current && mapRef.current) {
-          calculateBoundaries();
-        }
-      }, 100);
-      return;
-    }
-
-    const containerRect = mapContainerRef.current.getBoundingClientRect();
-    const mapWidth = mapSettings.mapWidth * mapZoom;
-    const mapHeight = mapSettings.mapHeight * mapZoom;
-
-    // Calculate boundaries that allow dragging
-    const newBoundaries = {
-      minX: Math.min(0, -(mapWidth - containerRect.width)),
-      minY: Math.min(0, -(mapHeight - containerRect.height)),
-      maxX: 0,
-      maxY: 0,
-    };
-
-    setMapBoundaries(newBoundaries);
-    setIsMapReady(true); // Map is ready for interaction
-  }, [mapZoom]);
-
-  // Initial setup and recalculation on zoom change
-  useEffect(() => {
-    // Use a small delay to ensure DOM is ready
-    const timer = setTimeout(() => {
-      calculateBoundaries();
-    }, 50);
-
-    window.addEventListener("resize", calculateBoundaries);
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("resize", calculateBoundaries);
-    };
-  }, [calculateBoundaries, mapZoom]);
-
-  // Force recalculation when component mounts
-  useEffect(() => {
-    // This ensures boundaries are calculated after the component is fully mounted
-    requestAnimationFrame(() => {
-      calculateBoundaries();
-    });
-  }, [calculateBoundaries]);
-
-  // Handle Map dragging (mouse events)
-  const handleMouseDown = (e) => {
-    if (!isMapReady) return; // Don't allow dragging if map isn't ready
-
-    e.preventDefault(); // Prevent text selection
-    setIsDragging(true);
-    setDragStart({
-                   x: e.clientX - mapPosition.x,
-                   y: e.clientY - mapPosition.y,
-                 });
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDragging || !isMapReady) return;
-
-    e.preventDefault();
-    const newX = e.clientX - dragStart.x;
-    const newY = e.clientY - dragStart.y;
-
-    setMapPosition({
-                     x: Math.max(mapBoundaries.minX, Math.min(mapBoundaries.maxX, newX)),
-                     y: Math.max(mapBoundaries.minY, Math.min(mapBoundaries.maxY, newY)),
-                   });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  // Handle touch screen for mobile user
-  const handleTouchStart = (e) => {
-    if (!isMapReady) return; // Don't allow dragging if map isn't ready
-
-    if (e.touches.length === 1) {
-      e.preventDefault();
-      setIsDragging(true);
-      setDragStart({
-                     x: e.touches[0].clientX - mapPosition.x,
-                     y: e.touches[0].clientY - mapPosition.y,
-                   });
-    }
-  };
-
-  const handleTouchMove = (e) => {
-    if (!isDragging || !isMapReady || e.touches.length !== 1) return;
-
-    e.preventDefault();
-    const newX = e.touches[0].clientX - dragStart.x;
-    const newY = e.touches[0].clientY - dragStart.y;
-
-    setMapPosition({
-                     x: Math.max(mapBoundaries.minX, Math.min(mapBoundaries.maxX, newX)),
-                     y: Math.max(mapBoundaries.minY, Math.min(mapBoundaries.maxY, newY)),
-                   });
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
-
 
   // Handle treasure click
   const handleTreasureClick = (chestId) => {
@@ -270,7 +207,7 @@ const Lobby = () => {
             key={`level-${level.id}`}
             className={`endless-portal ${status.locked ? 'locked' : 'unlocked'}`}
             style={{ top: `${level.y}px`, left: `${level.x}px` }}
-            onClick={() => !status.locked && handleLevelNodeClick(level.id)}
+            onClick={guardClick(() => !status.locked && handleLevelNodeClick(level.id))}
         >
           <div className="portal-animation">
             <div className="portal-ring ring-1"></div>
@@ -322,7 +259,7 @@ const Lobby = () => {
               top: `${level.y}px`,
               left: `${level.x}px`,
             }}
-            onClick={() => !status.locked && handleLevelNodeClick(level.id)}
+            onClick={guardClick(() => !status.locked && handleLevelNodeClick(level.id))}
             title={level.name}
         >
           <div className="level-number">{level.id}</div>
@@ -431,28 +368,23 @@ const Lobby = () => {
           <ResourceIcon type="gem" value={playerData.resources.gem} />
         </div>
 
-        {/* Game Map */}
+        {/* Game Map. Panning is native scrolling (scrollLeft), driven either
+            by the browser directly or by the pointer handlers below - there
+            is no JS-computed boundary to keep in sync with it any more. */}
         <div
             className="game-map-container"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+            onPointerDown={onMapPointerDown}
+            onPointerMove={onMapPointerMove}
+            onPointerUp={onMapPointerUp}
+            onPointerCancel={onMapPointerUp}
             ref={mapContainerRef}
-            style={{
-              cursor: isDragging ? "grabbing" : (isMapReady ? "grab" : "default"),
-              userSelect: "none" // Prevent text selection during drag
-            }}
         >
           <div
               className="game-map"
               ref={mapRef}
               style={{
-                transform: `translate(${mapPosition.x}px, ${mapPosition.y}px)`,
-                transition: isDragging ? 'none' : undefined, // Smooth transitions when not dragging
+                width: `${mapSettings.mapWidth * mapZoom}px`,
+                height: `${mapSettings.mapHeight * mapZoom}px`,
               }}
           >
             {/* Zone backgrounds */}
@@ -525,7 +457,7 @@ const Lobby = () => {
                           !canCollect ? "locked-chest" : ""
                       } ${chest.hidden ? "secret-chest" : ""}`}
                       style={{ top: `${chest.y}px`, left: `${chest.x}px` }}
-                      onClick={() => !isCollected && canCollect && handleTreasureClick(chest.id)}
+                      onClick={guardClick(() => !isCollected && canCollect && handleTreasureClick(chest.id))}
                   >
                     {isCollected ? (
                         <img src={OpenChest} alt="Open Chest" className="open-chest"/>

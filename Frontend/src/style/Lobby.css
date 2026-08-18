@@ -257,69 +257,37 @@
   justify-content: center;
 }
 
-/* Game Map */
+/*
+ * The map's viewport. Overflow lives here, not on `.lobby-container` - the
+ * map's real content (`.game-map`, sized to `mapSettings.mapWidth` in
+ * Lobby.jsx) is wider than this box, and `overflow-x: auto` is what turns
+ * that width into something a player can actually reach, instead of content
+ * silently clipped past the edge (which is how levels 15-17 went
+ * unreachable). `min-height: 0` matters on a flex child: without it, this
+ * box refuses to shrink below its content's height and pushes the page
+ * taller than the viewport, which is the same clipping bug from the other
+ * axis.
+ *
+ * The old boundary-glow pseudo-elements and `.boundary-right`/
+ * `.boundary-bottom` rules that used to live here belonged to a JS-computed
+ * drag-clamp (`mapBoundaries` in Lobby.jsx) that native scrolling replaces -
+ * there is no separate boundary to compute or draw any more, scrollLeft's
+ * own min/max already is one.
+ */
 .game-map-container {
   position: relative;
-  height: 60vh;
-  width: 100%;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--colors-surface-sunken) 70%, transparent);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: var(--borders-outline) solid var(--colors-edge-outline);
   border-radius: var(--radii-lg);
-  border: 3px solid var(--colors-surface-panel);
-  box-shadow: inset 0 0 20px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
+  box-shadow: inset 0 0 40px var(--terrain-vignette);
+  cursor: grab;
 }
 
-/* Boundary indicators */
-.game-map-container::before,
-.game-map-container::after {
-  content: "";
-  position: absolute;
-  z-index: 5;
-  background: color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
-  pointer-events: none;
-}
-
-.game-map-container::before {
-  /* Horizontal boundaries */
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 5px;
-  box-shadow: 0 -2px 5px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent);
-}
-
-.game-map-container::after {
-  /* Vertical boundaries */
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 5px;
-  box-shadow: -2px 0 5px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent);
-}
-
-/* Boundary indicators for opposite sides */
-.game-map-container .boundary-right {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 5px;
-  background: color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
-  box-shadow: 2px 0 5px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent);
-  pointer-events: none;
-  z-index: 5;
-}
-
-.game-map-container .boundary-bottom {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 5px;
-  background: color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
-  box-shadow: 0 2px 5px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent);
-  pointer-events: none;
-  z-index: 5;
+.game-map-container:active {
+  cursor: grabbing;
 }
 
 .map-connection {
@@ -448,19 +416,6 @@
 
 
 /* Lobby.css - Enhanced for 20 levels and endless mode */
-
-/* Game Map Container */
-.game-map-container {
-  position: relative;
-  width: 90%;
-  height: 60vh;
-  margin: 20px auto;
-  border: 3px solid var(--colors-surface-sunken);
-  border-radius: 10px;
-  overflow: hidden;
-  background: linear-gradient(to bottom, var(--colors-accent-info), var(--colors-accent-success));
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
-}
 
 /* Zone backgrounds */
 .zone-background {

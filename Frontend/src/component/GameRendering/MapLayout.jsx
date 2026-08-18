@@ -365,22 +365,22 @@ export const endlessPortalConfig = {
   },
 };
 
-// Map viewport and camera settings
+/**
+ * The map's own dimensions and default zoom - the only three fields here
+ * anything reads (`mapWidth`/`mapHeight` size `.game-map` and place its zone
+ * bands, `defaultZoom` seeds the zoom state in Lobby.jsx). This used to also
+ * carry `viewportWidth`, `viewportHeight`, `initialPosition`, `zoomLevels`,
+ * `scrollSpeed`, `edgePadding`, `autoCameraEnabled`, `cameraFollowPlayer` and
+ * `smoothScrollDuration` - a camera system for auto-scrolling and multi-level
+ * zoom that nothing in this codebase ever called. Removed rather than left
+ * "for later": a config value with no reader is not a design decision
+ * waiting to be used, it is drift waiting to be noticed by whoever next
+ * reads this file and assumes it does something.
+ */
 export const mapSettings = {
-  viewportWidth: 1920,
-  viewportHeight: 600,
   mapWidth: 2200,
   mapHeight: 600,
-  initialPosition: { x: 0, y: 0 },
-  zoomLevels: [0.75, 1.0, 1.25, 1.5],
   defaultZoom: 1.0,
-  scrollSpeed: 1.5,
-  edgePadding: 50,
-
-  // Auto-camera movement to show player progress
-  autoCameraEnabled: true,
-  cameraFollowPlayer: true,
-  smoothScrollDuration: 500,
 };
 
 // Achievement triggers for map progression
@@ -454,4 +454,17 @@ export function getLevelStatus(levelId, playerData) {
     stars: stars,
     available: isUnlocked && !isCompleted,
   };
+}
+
+/**
+ * The level the map should open on: the first unlocked one the player has not
+ * finished. Null when they have cleared everything currently unlocked, in
+ * which case the caller should fall back to its own default.
+ */
+export function nextPlayableLevelId(playerData) {
+  for (const level of levelsMapData) {
+    const status = getLevelStatus(level.id, playerData);
+    if (status.available) return level.id;
+  }
+  return null;
 }
