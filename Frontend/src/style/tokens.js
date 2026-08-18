@@ -53,6 +53,14 @@ export const terrain = {
   ground5Top: '#33221d', ground5Mid: '#472e25', ground5Bot: '#2a1b17',
   ridgeFar:  '#2b3520', ridgeNear: '#232c1b', foreground: '#20281a',
   vignette:  '#1a160f',
+  // The route's node states. A completed node's dominant fill (moss over a
+  // cleared path), the available node's inner highlight (paired with
+  // --colors-accent-energy for the outer ring - see Lobby.css
+  // .level-node.available), and the boss node's ember core (paired with
+  // --colors-accent-danger). Each was chosen so the text colour the state
+  // rule declares stays legible against it - see contrastRatio findings in
+  // task-3-report.md.
+  nodeDone:  '#2f4a2f', nodeOpen: '#ffe9a0', nodeBoss: '#ff9d52',
 };
 
 export const space = {

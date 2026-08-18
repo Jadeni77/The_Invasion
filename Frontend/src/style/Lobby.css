@@ -38,29 +38,6 @@
   background: radial-gradient(130% 100% at 50% 45%, transparent 52%, var(--terrain-vignette) 100%);
 }
 
-.level-node {
-  cursor: pointer;
-}
-
-.level-node.unlocked circle {
-  fill: var(--colors-accent-energy);
-  stroke: var(--colors-accent-energy);
-  stroke-width: 2;
-}
-
-.level-node.locked circle {
-  fill: var(--colors-surface-raised);
-  stroke: var(--colors-surface-sunken);
-  stroke-width: 2;
-}
-
-.level-node text {
-  fill: var(--colors-text-primary);
-  font-weight: bold;
-  font-size: 14px;
-  pointer-events: none;
-}
-
 .resource {
   display: flex;
   align-items: center;
@@ -354,23 +331,6 @@
   box-shadow: 0 2px 5px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
 }
 
-.level-node {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  transform: translate(-50%, -50%);
-  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--colors-edge-outline) 70%, transparent));
-}
-
-.level-node.locked {
-  filter: grayscale(100%) brightness(0.5)
-    drop-shadow(0 0 5px color-mix(in srgb, var(--colors-edge-outline) 70%, transparent));
-}
-
 .level-number {
   font-family: var(--type-display);
   font-size: 24px;
@@ -579,32 +539,47 @@
 /* Level Nodes */
 .level-node {
   position: absolute;
-  width: 60px;
-  height: 60px;
+  width: 54px;
+  height: 54px;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 8px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
+  display: grid;
+  place-items: center;
+  font-family: var(--type-display);
+  font-size: var(--type-size-md);
   /* Was `border: 3px solid` with no colour, relying on an inline
      `borderColor` from MapLayout's config for every node - five hand-darkened
      per-zone shades. One shared cartoon outline instead, declared here so the
      node needs no inline colour at all. */
   border: var(--borders-outline) solid var(--colors-edge-outline);
+  cursor: pointer;
   z-index: 10;
 }
 
-.level-node.locked {
-  background: var(--colors-surface-raised) !important;
-  border-color: var(--colors-surface-sunken) !important;
-  cursor: not-allowed;
-  opacity: 0.6;
+/*
+ * Three states, three distinct treatments - not three shades of the same
+ * idea. `.completed` reads as a medal earned; `.available` is the only node
+ * carrying the energy accent, which is what answers "where do I click"
+ * without reading a single label; `.locked` drops both the glow and the
+ * gradient so it recedes instead of competing with the other two.
+ */
+.level-node.completed {
+  background: radial-gradient(circle at 35% 30%, var(--colors-surface-raised), var(--terrain-node-done));
+  color: var(--colors-text-primary);
+  box-shadow: var(--shadows-drop);
 }
 
-.level-node.completed {
-  box-shadow: 0 0 20px color-mix(in srgb, var(--colors-accent-energy) 60%, transparent);
+.level-node.available {
+  background: radial-gradient(circle at 35% 30%, var(--terrain-node-open), var(--colors-accent-energy));
+  color: var(--colors-edge-outline);
+  box-shadow: var(--shadows-drop), 0 0 0 6px color-mix(in srgb, var(--colors-accent-energy) 16%, transparent);
+}
+
+.level-node.locked {
+  background: var(--colors-surface-sunken);
+  color: var(--colors-text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
 .level-node.unlocked:hover {
@@ -633,12 +608,38 @@
   background: var(--decorative-violet);
 }
 
-/* Boss level indicator */
-.level-node.boss-level {
-  width: 70px;
-  height: 70px;
-  border-width: 4px;
-  border-color: var(--colors-accent-energy) !important;
+/*
+ * Boss level indicator. A boss node that is merely a red circle is still a
+ * circle, so it gets its own size, its own border weight, and a dashed ring
+ * outside the node itself - shape and weight carry the "fortified position"
+ * read, not hue alone.
+ */
+.level-node.boss {
+  width: 66px;
+  height: 66px;
+  border-radius: var(--radii-lg);
+  border-width: var(--borders-heavy);
+  font-size: var(--type-size-lg);
+  background: radial-gradient(circle at 35% 30%, var(--terrain-node-boss), var(--colors-accent-danger));
+  color: var(--colors-edge-outline);
+}
+
+/* A dashed ring, so a boss reads as a fortified position rather than a stop. */
+.level-node.boss::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: var(--borders-thin) dashed color-mix(in srgb, var(--colors-accent-danger) 45%, transparent);
+  border-radius: calc(var(--radii-lg) + 4px);
+}
+
+.map-chest {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  filter: drop-shadow(0 2px 2px var(--colors-edge-outline));
+  pointer-events: none;
 }
 
 .boss-indicator {

@@ -294,20 +294,21 @@ const Lobby = () => {
   const renderLevelNode = (level) => {
     const status = getLevelStatus(level.id, playerData);
     const zone = zoneConfigs[level.zone];
+    // Exactly one of these three - never zero, never two - so the node's
+    // appearance always resolves to a single, unambiguous state.
+    const stateClass = status.locked ? 'locked' : status.completed ? 'completed' : 'available';
 
     return (
         <div
             key={`level-${level.id}`}
-            className={`level-node ${zone.nodeClass} ${status.locked ? 'locked' : ''} ${
-                status.completed ? 'completed' : ''
-            } ${level.isBoss ? 'boss-level' : ''} ${level.isFinal ? 'final-level' : ''}`}
+            className={`level-node ${zone.nodeClass} ${stateClass} ${level.isBoss ? 'boss' : ''} ${level.isFinal ? 'final-level' : ''}`}
             // Position only. Colour comes from Lobby.css - `.level-node` for
             // the shared outline, `.{zone}-node` for the zone hue, and
-            // `.level-node.locked` for the locked state, which is where the
-            // inline '#444' used to be. An inline colour here would beat all
-            // three, which is how a reviewed stylesheet choice
-            // (`.mid-node { background: var(--colors-surface-raised) }`) got
-            // silently overridden by an inline token of a different hue.
+            // `.level-node.locked`/`.completed`/`.available` for state. An
+            // inline colour here would beat all three, which is how a
+            // reviewed stylesheet choice (`.mid-node { background:
+            // var(--colors-surface-raised) }`) got silently overridden by an
+            // inline token of a different hue.
             style={{
               top: `${level.y}px`,
               left: `${level.x}px`,
@@ -511,7 +512,7 @@ const Lobby = () => {
               return (
                   <div
                       key={`chest-${chest.id}`}
-                      className={`treasure-chest ${isCollected ? "collected" : ""} ${
+                      className={`treasure-chest map-chest ${isCollected ? "collected" : ""} ${
                           !canCollect ? "locked-chest" : ""
                       } ${chest.hidden ? "secret-chest" : ""}`}
                       style={{ top: `${chest.y}px`, left: `${chest.x}px` }}

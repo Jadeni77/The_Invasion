@@ -41,6 +41,9 @@
   --terrain-ridge-near: #232c1b;
   --terrain-foreground: #20281a;
   --terrain-vignette: #1a160f;
+  --terrain-node-done: #2f4a2f;
+  --terrain-node-open: #ffe9a0;
+  --terrain-node-boss: #ff9d52;
   /* space */
   --space-xs: 4px;
   --space-sm: 8px;

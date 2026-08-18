@@ -29,50 +29,50 @@ export const RAINBOW_STOPS = [
 export const levelsMapData = [
   // Tutorial Zone (Levels 1-3)
   { id: 1, x: 200, y: 500, zone: "tutorial", name: "The Outbreak" },
-  { id: 2, x: 350, y: 450, zone: "tutorial", name: "Swift Danger" },
-  { id: 3, x: 500, y: 400, zone: "tutorial", name: "Explosive Encounter" },
+  { id: 2, x: 350, y: 380, zone: "tutorial", name: "Swift Danger" },
+  { id: 3, x: 500, y: 460, zone: "tutorial", name: "Explosive Encounter" },
 
   // Early Game Zone (Levels 4-7)
-  { id: 4, x: 650, y: 350, zone: "early", name: "Heavy Resistance" },
-  { id: 5, x: 800, y: 300, zone: "early", name: "Ranged Assault" },
-  { id: 6, x: 950, y: 350, zone: "early", name: "Shield Wall" },
+  { id: 4, x: 650, y: 300, zone: "early", name: "Heavy Resistance" },
+  { id: 5, x: 800, y: 420, zone: "early", name: "Ranged Assault" },
+  { id: 6, x: 950, y: 260, zone: "early", name: "Shield Wall" },
   { id: 7, x: 1100, y: 400, zone: "early", name: "Support Squadron" },
 
   // Mid Game Zone (Levels 8-12)
-  { id: 8, x: 1250, y: 450, zone: "mid", name: "Multiplication Crisis" },
-  { id: 9, x: 1400, y: 500, zone: "mid", name: "Swarm Tactics" },
+  { id: 8, x: 1250, y: 510, zone: "mid", name: "Multiplication Crisis" },
+  { id: 9, x: 1400, y: 320, zone: "mid", name: "Swarm Tactics" },
   {
     id: 10,
     x: 1550,
-    y: 450,
+    y: 440,
     zone: "mid",
     name: "Electromagnetic Chaos",
     isBoss: true,
   },
-  { id: 11, x: 1700, y: 400, zone: "mid", name: "Blood Hunt" },
-  { id: 12, x: 1850, y: 350, zone: "mid", name: "Spectral Invasion" },
+  { id: 11, x: 1700, y: 200, zone: "mid", name: "Blood Hunt" },
+  { id: 12, x: 1850, y: 380, zone: "mid", name: "Spectral Invasion" },
 
   // Late Game Zone (Levels 13-17) - Second row
-  { id: 13, x: 1850, y: 250, zone: "late", name: "Berserker Rage" },
-  { id: 14, x: 1700, y: 200, zone: "late", name: "Death's Army" },
-  { id: 15, x: 1550, y: 150, zone: "late", name: "Shadow Strike" },
-  { id: 16, x: 1400, y: 200, zone: "late", name: "Arcane Apocalypse" },
-  { id: 17, x: 1250, y: 250, zone: "late", name: "Total Chaos" },
+  { id: 13, x: 1850, y: 260, zone: "late", name: "Berserker Rage" },
+  { id: 14, x: 1700, y: 420, zone: "late", name: "Death's Army" },
+  { id: 15, x: 1550, y: 180, zone: "late", name: "Shadow Strike" },
+  { id: 16, x: 1400, y: 340, zone: "late", name: "Arcane Apocalypse" },
+  { id: 17, x: 1250, y: 140, zone: "late", name: "Total Chaos" },
 
   // End Game Zone (Levels 18-20) - Third row ascent
   {
     id: 18,
     x: 1100,
-    y: 200,
+    y: 300,
     zone: "endgame",
     name: "Titan's Wrath",
     isBoss: true,
   },
-  { id: 19, x: 950, y: 150, zone: "endgame", name: "Final Stand" },
+  { id: 19, x: 950, y: 160, zone: "endgame", name: "Final Stand" },
   {
     id: 20,
     x: 800,
-    y: 100,
+    y: 90,
     zone: "endgame",
     name: "The Omega Wave",
     isBoss: true,
@@ -83,7 +83,7 @@ export const levelsMapData = [
   {
     id: 999,
     x: 650,
-    y: 50,
+    y: 100,
     zone: "endless",
     name: "Endless Survival",
     isEndless: true,
