@@ -97,7 +97,13 @@ export const GameProvider = ({ children }) => {
 
   //endless mode tracking
   const [currentEndlessWave, setCurrentEndlessWave] = useState(0);
-  const [unlockedDefender, setUnlockedDefender] = useState(false);
+  /**
+   * The reward the player just collected, or null. Carries the resources AND the
+   * defenders, because the notification has to say what was actually gained -
+   * this used to hold only defender names, so a chest full of gold announced
+   * nothing at all.
+   */
+  const [chestReward, setChestReward] = useState(null);
 
   //authentication
   const [isAuthenticated, setIsAuthenticated] = useState(
@@ -941,6 +947,27 @@ export const GameProvider = ({ children }) => {
       };
     });
 
+    /*
+     * Tell the player what they got, and play it, BEFORE any network call.
+     *
+     * Both of these used to sit inside the try below, after `await fetch`. The
+     * rewards themselves are applied locally above, so when that fetch failed -
+     * backend down, connection refused, anything - the catch swallowed the
+     * error and the player silently received a card and a consumed chest with no
+     * notification and no sound. Reproduced with the backend stopped: the chest
+     * showed as collected, `.defender-notification` never entered the DOM.
+     *
+     * Persistence is allowed to fail and be retried. Feedback for something that
+     * has already happened locally is not conditional on the server agreeing.
+     */
+    const unlocked = chestDefenders(chest);
+    setChestReward({
+      chestId,
+      resources: resourceRewardsOf(chest),
+      defenders: unlocked,
+    });
+    feedbackRef.current?.bus?.emit('treasure:collected', { chestId, unlockedDefenders: unlocked });
+
     try {
       // The same expansion the player was credited with above, not a second
       // one computed here. The second copy assigned where the first
@@ -955,13 +982,8 @@ export const GameProvider = ({ children }) => {
         }),
       });
 
-      // One POST per defender, so the backend contract stays one name per
-      // call; the notification gets the whole list and pluralises itself.
-      const unlocked = chestDefenders(chest);
-      if (unlocked.length > 0) {
-        for (const defenderName of unlocked) saveUnlockedDefender(defenderName);
-        setUnlockedDefender(unlocked);
-      }
+      // One POST per defender, so the backend contract stays one name per call.
+      for (const defenderName of unlocked) saveUnlockedDefender(defenderName);
     } catch (error) {
       console.error("Failed to save collected treasure:", error);
     }
@@ -1022,8 +1044,8 @@ export const GameProvider = ({ children }) => {
     updateResource,
     addCollectedPieces,
     collectedCardPieces,
-    unlockedDefender,
-    setUnlockedDefender,
+    chestReward,
+    setChestReward,
     handleLogout,
     fetchPlayerData,
     feedback: feedbackRef.current,

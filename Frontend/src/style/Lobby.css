@@ -1389,56 +1389,96 @@
 }
 
 /* Defender Unlock Notification */
-.defender-notification {
+/*
+ * The reward panel, shown when a chest is opened.
+ *
+ * Was `.defender-notification`, built from `--decorative-indigo` and
+ * `--decorative-violet` - the two tokens the design doc calls explicitly
+ * non-semantic, and the same purple gradient that made the lobby look unchosen
+ * before this work started. It is a panel like every other panel now: the
+ * surface tokens, the shared cartoon outline, and gold for the thing the player
+ * came here to see.
+ */
+.reward-notification {
   position: fixed;
-  top: 100px;
+  /* Clear of the top band rather than on top of it. At 100px this covered the
+     energy panel's recharge line - and the band is the one thing on screen whose
+     numbers the player is checking against the reward being announced. */
+  top: 152px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, var(--decorative-indigo) 0%, var(--decorative-violet) 100%);
-  border-radius: var(--radii-lg);
-  padding: 20px 30px;
-  box-shadow: 0 10px 40px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   z-index: 1000;
   display: flex;
   align-items: center;
-  gap: 20px;
-  animation: slideDown 0.5s ease-out;
-  transition: opacity 0.5s ease-out;
+  gap: var(--space-md);
+  min-width: 280px;
+  padding: var(--space-md) var(--space-lg);
+  background: linear-gradient(180deg, var(--colors-surface-panel), var(--colors-surface-sunken));
+  border: var(--borders-outline) solid var(--colors-edge-outline);
+  border-radius: var(--radii-lg);
+  box-shadow: var(--shadows-drop), inset 0 1px 0 var(--colors-edge-highlight);
+  animation: slideDown 0.4s ease-out;
+  transition: opacity 0.9s ease-out, transform 0.9s ease-out;
+  /* Announces a reward; it is never the thing you click. Without this it can
+     cover a chest or a node while it fades. */
+  pointer-events: none;
 }
 
-.defender-notification.fade-out {
+.reward-notification.fade-out {
   opacity: 0;
-  transform: translateX(-50%) translateY(-20px);
+  transform: translateX(-50%) translateY(-16px);
 }
 
 .notification-icon {
   font-size: 40px;
-  animation: bounce 1s infinite;
-}
-
-.notification-content {
-  color: var(--colors-text-primary);
+  line-height: 1;
 }
 
 .notification-content h3 {
-  margin: 0 0 5px 0;
+  margin: 0 0 var(--space-xs);
   font-family: var(--type-display);
-  font-size: 18px;
-  font-weight: bold;
+  font-size: var(--type-size-md);
+  letter-spacing: 0.06em;
+  color: var(--colors-text-primary);
 }
 
-.notification-content .defender-name {
-  margin: 0 0 5px 0;
-  font-size: 24px;
-  font-weight: bold;
-  color: var(--colors-accent-energy);
-  text-shadow: 2px 2px 4px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
-}
-
-.notification-content .notification-hint {
+/* The resources gained, as the same chips the top band uses - a reward should
+   look like the currency it pays into. */
+.reward-resources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
   margin: 0;
-  font-size: 14px;
-  opacity: 0.9;
+  padding: 0;
+  list-style: none;
+}
+
+.reward-resource {
+  display: flex;
+  align-items: center;
+}
+
+.reward-defenders {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--space-sm) 0 0;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--colors-surface-raised);
+}
+
+.reward-defenders-label {
+  font-size: var(--type-size-sm);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--colors-text-muted);
+}
+
+.reward-notification .defender-name {
+  margin: 0;
+  font-family: var(--type-display);
+  font-size: var(--type-size-md);
+  color: var(--colors-accent-energy);
 }
 
 @keyframes slideDown {

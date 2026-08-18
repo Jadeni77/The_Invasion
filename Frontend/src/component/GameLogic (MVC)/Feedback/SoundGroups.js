@@ -128,6 +128,15 @@ const QUIET = 0.4;
  * individual sounds are chosen.
  */
 export const MIX_TIERS = {
+  /**
+   * Lobby rewards. MID, not LOUD: a chest is a good moment, not a board-wide
+   * event, and the lobby is quiet - nothing else is competing with it, so it
+   * does not need the headroom a boss death does. The defender fanfare shares
+   * the tier rather than being louder; it earns its weight from being longer
+   * and higher, not from volume.
+   */
+  treasureCollected: MID, defenderUnlocked: MID,
+
   // Unit sound keys, returned by soundKeyFor.
   projectile: QUIET, hit: QUIET,
   artillery: MID, magic: MID, fire: MID, heal: MID, melee: MID, summon: MID,

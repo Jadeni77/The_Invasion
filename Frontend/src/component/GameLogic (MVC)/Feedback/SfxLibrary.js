@@ -70,6 +70,40 @@ export const SFX = {
   bossDied:         { wave: 'sawtooth', freqStart: 880, freqEnd: 220, duration: 0.9,  gain: 0.6, noise: true  },
   // Collecting energy: bright rising ping.
   energyCollected:  { wave: 'sine',     freqStart: 880, freqEnd: 1320, duration: 0.15, gain: 0.35, noise: false },
+  /**
+   * Collecting a chest: a rising major arpeggio, C5-E5-G5-C6, with a short
+   * sparkle on the top note.
+   *
+   * Stepped notes rather than a slide, for the reason waveStarted was rebuilt
+   * that way - a glide reads as a machine, discrete notes read as a fanfare.
+   * The whole figure sits between 523Hz and 4.2kHz, so nothing here depends on
+   * bass a laptop cannot reproduce (see ON PITCH above).
+   */
+  treasureCollected: {
+    wave: 'sine', freqStart: 523, freqEnd: 659, duration: 0.12, gain: 0.30, noise: false,
+    layers: [
+      { offset: 0.10, wave: 'sine', freqStart: 659, freqEnd: 784, duration: 0.12, gain: 0.30, noise: false },
+      { offset: 0.20, wave: 'sine', freqStart: 784, freqEnd: 1047, duration: 0.26, gain: 0.34, noise: false },
+      // The shimmer on arrival. Bandpassed noise, quiet enough to be texture on
+      // the top note rather than a hiss of its own.
+      { offset: 0.20, wave: 'sine', freqStart: 2600, freqEnd: 4200, duration: 0.16, gain: 0.10, noise: true },
+    ],
+  },
+  /**
+   * Unlocking a defender: the same vocabulary made grander, because this is the
+   * rarer event and should not sound like picking up gold. Square instead of
+   * sine for a brassier fanfare body, four notes instead of three, and the top
+   * note (E6) held four times as long as the steps leading to it.
+   */
+  defenderUnlocked: {
+    wave: 'square', freqStart: 523, freqEnd: 523, duration: 0.13, gain: 0.30, noise: false,
+    layers: [
+      { offset: 0.13, wave: 'square', freqStart: 784, freqEnd: 784, duration: 0.13, gain: 0.32, noise: false },
+      { offset: 0.26, wave: 'square', freqStart: 1047, freqEnd: 1047, duration: 0.15, gain: 0.34, noise: false },
+      { offset: 0.42, wave: 'square', freqStart: 1319, freqEnd: 1319, duration: 0.44, gain: 0.36, noise: false },
+      { offset: 0.42, wave: 'sine', freqStart: 3000, freqEnd: 5000, duration: 0.30, gain: 0.12, noise: true },
+    ],
+  },
   // Rejected action: dull buzz.
   deployRejected:   { wave: 'square',   freqStart: 280, freqEnd: 240, duration: 0.14, gain: 0.25, noise: false },
   // Base hit: urgent alarm.

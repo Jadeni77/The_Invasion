@@ -528,8 +528,9 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
     expect(
       extraLayers,
       'waveStarted +1, bossWaveStarted +2, mortar +2, mortar-impact +2, '
-      + 'quake-impact +5, phase-change +2, defenderRemoved +1',
-    ).toBe(15);
+      + 'quake-impact +5, phase-change +2, defenderRemoved +1, '
+      + 'treasureCollected +3, defenderUnlocked +4',
+    ).toBe(22);
     expect(authoredLayers.length).toBe(Object.keys(ALL_TABLES).length + extraLayers);
   });
 
@@ -543,8 +544,8 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
     // served by SFX, not the voice table'), so merging them loses nothing.
     expect(layeredEntries.map(([id]) => id).sort())
       .toEqual([
-        'bossWaveStarted', 'defenderRemoved', 'mortar', 'mortar-impact', 'phase-change',
-        'quake-impact', 'waveStarted',
+        'bossWaveStarted', 'defenderRemoved', 'defenderUnlocked', 'mortar', 'mortar-impact',
+        'phase-change', 'quake-impact', 'treasureCollected', 'waveStarted',
       ]);
   });
 

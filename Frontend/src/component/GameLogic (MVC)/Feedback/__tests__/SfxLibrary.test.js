@@ -131,7 +131,9 @@ describe('layered recipes are well formed', () => {
   const layered = Object.entries(SFX).filter(([, recipe]) => recipe.layers);
 
   it('finds the layered game-event sounds, so the checks below are not vacuous', () => {
-    expect(layered.map(([id]) => id).sort()).toEqual(['bossWaveStarted', 'defenderRemoved', 'waveStarted']);
+    expect(layered.map(([id]) => id).sort()).toEqual([
+      'bossWaveStarted', 'defenderRemoved', 'defenderUnlocked', 'treasureCollected', 'waveStarted',
+    ]);
   });
 
   it.each(layered)('%s: every layer is a valid recipe with a sane offset', (id, recipe) => {
