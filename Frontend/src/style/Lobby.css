@@ -648,10 +648,54 @@
  * without reading a single label; `.locked` drops both the glow and the
  * gradient so it recedes instead of competing with the other two.
  */
+/*
+ * Completed reads as *cleared*, not as a slightly different dark circle.
+ *
+ * The three states were declared distinct and measured identical: completed was
+ * a surface-raised/moss gradient and locked a flat surface-sunken, both dark
+ * brown at a glance, so a player could not see their progress along the route
+ * without reading the numbers. The distinguishing marks are deliberately
+ * outside the node's fill - a success-coloured outline, a success ring, and the
+ * tick badge below - because the fill is what the level number sits on, and
+ * swapping it for accent-success drops that number from 5.53:1 to 2.48:1. The
+ * gradient is therefore unchanged; everything that makes this state legible is
+ * added around it.
+ */
 .level-node.completed {
   background: radial-gradient(circle at 35% 30%, var(--colors-surface-raised), var(--terrain-node-done));
   color: var(--colors-text-primary);
-  box-shadow: var(--shadows-drop);
+  border-color: var(--colors-accent-success);
+  box-shadow: var(--shadows-drop), 0 0 0 var(--borders-thin) color-mix(in srgb, var(--colors-accent-success) 45%, transparent);
+}
+
+/*
+ * The tick. Shape and glyph, so "cleared" survives being glanced at, being
+ * small, and being colour-blind - a ring alone is still just a ring.
+ *
+ * `::before`, not `::after`: `.level-node.boss::after` already exists at the
+ * same specificity, so a completed boss (levels 10, 18 and 20 can all be both)
+ * would have had the two rules fight over one pseudo-element and only the later
+ * one would render. Absolutely positioned so it stays out of the node's grid
+ * flow - an in-flow pseudo-element becomes a second grid item and shunts the
+ * level number off centre. Top-left, because `.boss-indicator` occupies the
+ * top-right.
+ */
+.level-node.completed::before {
+  content: '\2713';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--colors-accent-success);
+  color: var(--colors-edge-outline);
+  border: var(--borders-thin) solid var(--colors-edge-outline);
+  font-size: 13px;
+  font-weight: bold;
+  line-height: 1;
 }
 
 .level-node.available {
@@ -660,9 +704,16 @@
   box-shadow: var(--shadows-drop), 0 0 0 6px color-mix(in srgb, var(--colors-accent-energy) 16%, transparent);
 }
 
+/*
+ * Locked recedes: no ring, no shadow, and a border dimmed toward the ground so
+ * the node has no lit edge to catch the eye. The fill and text colours are
+ * unchanged (7.01:1) - it recedes by losing the treatments the other two states
+ * have, not by being faded, which would take its number down with it.
+ */
 .level-node.locked {
   background: var(--colors-surface-sunken);
   color: var(--colors-text-muted);
+  border-color: color-mix(in srgb, var(--colors-edge-outline) 55%, transparent);
   box-shadow: none;
   cursor: not-allowed;
 }
@@ -767,9 +818,22 @@
   text-shadow: 1px 1px 2px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
+/*
+ * Pushed clear of the star row below the node. At `bottom: -20px` this box
+ * occupied roughly 10-20px below the node while `.stars` (`bottom: -15px`,
+ * 16px tall) occupied 1-15px, so on a completed level the two overlapped by
+ * about 5px and the stars sat on the level's own name. Nothing showed it,
+ * because no level was completed in the save the map was reviewed with.
+ * The two offsets are now stacked with a gap - see `.stars` below.
+ *
+ * The negative `bottom` is load-bearing beyond layout: contrastRatio.test.js
+ * uses a negative inset as the signal that a rule's text is painted over the
+ * zone terrain rather than over its own container, and that is how this rule
+ * gets measured against the ground at all.
+ */
 .level-name {
   position: absolute;
-  bottom: -20px;
+  bottom: -36px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 10px;
@@ -802,13 +866,36 @@
   100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
 }
 
-/* Stars display */
+/*
+ * Stars display - the row of three immediately below the node, above the
+ * level's name.
+ *
+ * `bottom: -18px` with a 16px line puts this row 2-18px below the node, and
+ * `.level-name` at `bottom: -36px` puts the name 24-36px below it: stacked with
+ * a 6px gap instead of overlapping, which they did at the previous -15/-20 pair.
+ *
+ * `left: 50%` with the centring translate because this box was horizontally
+ * unanchored: with `left` and `right` both auto it fell back to a static
+ * position inside a `display: grid; place-items: center` parent, which is not
+ * a reliable way to centre three stars whose row is wider than the 54px node.
+ *
+ * The negative `bottom` is what tells contrastRatio.test.js that `.star`'s
+ * colour is painted over the zone terrain - `.star` has no inset of its own, so
+ * the guard reads this wrapper's. Turning this into a positive `top` offset
+ * would silently drop `.star` from that guard entirely (no derivable
+ * background, so it is skipped rather than failed), which is why the row moved
+ * further below the node instead of above it.
+ */
 .stars {
   position: absolute;
-  bottom: -15px;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   gap: var(--space-xs);
   justify-content: center;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .star {
