@@ -339,11 +339,18 @@
    * assignment the map moves twice the finger's travel, so the pan runs at up
    * to double speed and stutters as the assignment re-anchors it.
    *
-   * `pan-y` gives horizontal gestures to the drag handler and leaves vertical
-   * ones to the page, so exactly one thing moves the map horizontally and one
-   * finger-width of travel is one finger-width of map.
+   * `touch-action` is an allow-list: only the behaviours named here are handed
+   * to the browser. Horizontal panning is not among them, so exactly one thing
+   * moves the map horizontally and one finger-width of travel is one
+   * finger-width of map.
+   *
+   * `pinch-zoom` is listed alongside `pan-y` because omitting it does not just
+   * block horizontal panning, it blocks pinch-zoom too - and on a map three
+   * screens wide, a phone user who cannot zoom out to see where they are has
+   * lost more than the double-speed pan cost them. Naming it restores zoom
+   * without giving horizontal panning back.
    */
-  touch-action: pan-y;
+  touch-action: pan-y pinch-zoom;
   /* Hidden, not disabled: the element stays scrollable (wheel, trackpad,
      keyboard, and the scrollLeft the drag handler and the opening-scroll
      effect both write), it just stops advertising scrolling as the way to

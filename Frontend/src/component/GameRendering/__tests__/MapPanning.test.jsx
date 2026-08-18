@@ -47,13 +47,29 @@ describe("overflow lives on the viewport, not the page", () => {
  * which is the other contributor - see the 1:1 test below.
  */
 describe("the map is dragged, and the drag moves it 1:1", () => {
-  it("gives horizontal gestures to the drag handler, vertical ones to the page", () => {
+  it("gives horizontal gestures to the drag handler, and nothing else", () => {
     // With `overflow-x: auto` and no touch-action, a horizontal drag has two
     // things moving the map: native scroll applying a relative delta, and
     // onPointerMove assigning an absolute scrollLeft from the pointerdown
     // anchor. Each is 1:1 alone; in a frame where the native delta lands on
     // top of the assignment the map moves twice the finger's travel.
-    expect(ruleBody(".game-map-container")).toMatch(/touch-action\s*:\s*pan-y/);
+    //
+    // `touch-action` is an allow-list, so what matters is that no value
+    // permitting horizontal panning appears - asserted directly, because
+    // `pan-x`, `pan-left`/`pan-right` and `manipulation` would each hand
+    // horizontal panning back and reintroduce the doubling, and a test that
+    // only looked for the string "pan-y" would pass for `pan-x pan-y`.
+    const value = ruleBody(".game-map-container").match(/touch-action:\s*([^;]+);/)?.[1];
+    expect(value, "no touch-action declared").toBeTruthy();
+    expect(value).toMatch(/\bpan-y\b/);
+    expect(value).not.toMatch(/\bpan-x\b|\bpan-left\b|\bpan-right\b|\bmanipulation\b|\bauto\b/);
+  });
+
+  it("still lets a phone pinch to zoom out on a map three screens wide", () => {
+    // Omitting pinch-zoom from the allow-list blocks it as surely as it blocks
+    // horizontal panning. On a 4200px map that costs a phone user more than the
+    // doubling did.
+    expect(ruleBody(".game-map-container")).toMatch(/touch-action:[^;]*\bpinch-zoom\b/);
   });
 
   it("shows a grab cursor, and a grabbing one during the gesture", () => {
