@@ -319,7 +319,28 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-x: auto;
-  overflow-y: hidden;
+  /*
+   * `auto`, not `hidden`. `.game-map` is a fixed 600px tall (mapHeight, set
+   * inline from MapLayout) while this box is whatever the column flex has left
+   * over, and the arithmetic does not always reach 600: the page's padding and
+   * gaps take 40px, the top band about 128px, and the upgrade button - in
+   * normal flow now rather than floating over the map - about 52px. So this box
+   * is roughly `100vh - 220px`, and the terrain only fits at a window height of
+   * about 820px or more.
+   *
+   * Under `hidden` the shortfall was simply cut off and unreachable: at 730px
+   * the bottom 90px of the map went missing, which is level 8's node and label
+   * (y=510, label to y≈573) and part of level 1's. `auto` makes the same
+   * shortfall reachable instead - the flex item still yields its height, but
+   * nothing gets silently lost. It costs nothing at 820px and above, where
+   * there is no overflow to scroll.
+   *
+   * No visible scrollbar (see `scrollbar-width` below) and no new gesture to
+   * learn: `touch-action` already permits vertical panning, which now reaches
+   * this box, and the drag handler and opening-scroll effect only ever write
+   * `scrollLeft`, so neither is affected.
+   */
+  overflow-y: auto;
   border: var(--borders-outline) solid var(--colors-edge-outline);
   border-radius: var(--radii-lg);
   box-shadow: inset 0 0 40px var(--terrain-vignette);

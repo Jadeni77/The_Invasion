@@ -29,6 +29,42 @@ describe("overflow lives on the viewport, not the page", () => {
   it("scrolls the map viewport horizontally", () => {
     expect(ruleBody(".game-map-container")).toMatch(/overflow-x\s*:\s*auto/);
   });
+
+  /*
+   * The vertical axis has the same reachability problem the horizontal one had,
+   * just at short window heights rather than always. `.game-map` is a fixed
+   * 600px (mapHeight, set inline) and this box gets what the column flex has
+   * left: roughly `100vh - 220px` once the page padding and gaps (40px), the top
+   * band (~128px) and the upgrade button in normal flow (~52px) are taken. So
+   * the terrain fits at about 820px of window height and not below it - and
+   * under `overflow-y: hidden` the shortfall was cut off and unreachable. At
+   * 730px that is the bottom 90px: level 8's node and label, and part of
+   * level 1's.
+   *
+   * jsdom lays out nothing, so the threshold itself is arithmetic in the rule's
+   * comment, not something asserted here. What is assertable is the declaration
+   * that decides whether the shortfall is reachable at all.
+   */
+  it("does not clip the bottom of the terrain at short window heights", () => {
+    const body = ruleBody(".game-map-container");
+    expect(body).toMatch(/overflow-y\s*:\s*auto/);
+    expect(body).not.toMatch(/overflow-y\s*:\s*hidden/);
+  });
+
+  it("still lets the map yield height rather than pushing the page taller", () => {
+    // The other half of the same trade. Without `min-height: 0` a flex item
+    // refuses to shrink below its content, so a 600px map would push the
+    // container past 100vh and take the top band off-screen with it - the same
+    // clipping bug from the other end. The map yields; its content stays
+    // reachable.
+    expect(ruleBody(".game-map-container")).toMatch(/min-height\s*:\s*0/);
+    expect(ruleBody(".game-map-container")).toMatch(/flex\s*:\s*1 1 auto/);
+  });
+
+  it("keeps the vertical scrollbar hidden along with the horizontal one", () => {
+    expect(ruleBody(".game-map-container")).toMatch(/scrollbar-width\s*:\s*none/);
+    expect(ruleBody(".game-map-container::-webkit-scrollbar")).toMatch(/display\s*:\s*none/);
+  });
 });
 
 /**
