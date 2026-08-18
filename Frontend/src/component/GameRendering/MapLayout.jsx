@@ -269,6 +269,39 @@ export function chestDefenders(chest) {
 }
 
 /**
+ * A chest's resource rewards, expanded to one accumulated amount per resource.
+ *
+ * `all: N` is shorthand for N of each of gold/iron/grain/water, and `defender`
+ * is not a resource. Both have to be resolved before a reward can be applied or
+ * reported, and **that resolution used to exist twice** in `collectTreasure`:
+ * once to credit the player locally, which accumulated, and once to build the
+ * backend payload, which *assigned*. So a chest carrying both `gold: 1000` and
+ * `all: 1500` credited the player 2500 gold and told the server 1500 - whichever
+ * of the two keys `Object.entries` reached last simply overwrote the other.
+ *
+ * No chest combined the two while there was one chest per level, so the
+ * disagreement was latent; three of the six consolidated landmarks combine them.
+ * The fix is not to correct the second copy - it is to have one copy. Both
+ * callers read this, so they cannot drift, and the arithmetic is unit-testable
+ * without standing up the provider.
+ */
+export function resourceRewardsOf(chest) {
+  const totals = {};
+  const credit = (resource, amount) => {
+    totals[resource] = (totals[resource] ?? 0) + amount;
+  };
+  for (const [resource, amount] of Object.entries(chest?.rewards ?? {})) {
+    if (resource === "defender") continue;
+    if (resource === "all") {
+      for (const res of ["gold", "iron", "grain", "water"]) credit(res, amount);
+    } else {
+      credit(resource, amount);
+    }
+  }
+  return totals;
+}
+
+/**
  * Treasure chests: **six landmarks along the route, not one per level.**
  *
  * There were twenty on-route chests, one on every connector. The approved

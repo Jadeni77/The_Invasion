@@ -8,7 +8,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { chestsData, chestDefenders } from "../GameRendering/MapLayout.jsx";
+import { chestsData, chestDefenders, resourceRewardsOf } from "../GameRendering/MapLayout.jsx";
 import { SessionManager } from "./SessionManager.js";
 import LoginPage from "../login/LoginPage.jsx";
 import { FeedbackBus } from "./Feedback/FeedbackBus.js";
@@ -896,22 +896,15 @@ export const GameProvider = ({ children }) => {
     setPlayerData((prev) => {
       if (!prev) return prev;
 
-      // Apply rewards
+      // Apply rewards. `all` expansion and the defender exclusion both live in
+      // resourceRewardsOf (MapLayout) rather than being resolved here, because
+      // the backend payload below needs the same answer and used to compute its
+      // own - see that helper's comment for the 1000-gold disagreement that
+      // caused.
       const newResources = { ...prev.resources };
-      Object.entries(chest.rewards).forEach(([resource, amount]) => {
-        if (resource === "defender") {
-          //handle separately
-          console.log("Chest With Defender");
-          return;
-        }
-        if (resource === "all") {
-          ["gold", "iron", "grain", "water"].forEach((res) => {
-            newResources[res] = (newResources[res] || 0) + amount;
-          });
-        } else {
-          newResources[resource] = (newResources[resource] || 0) + amount;
-        }
-      });
+      for (const [resource, amount] of Object.entries(resourceRewardsOf(chest))) {
+        newResources[resource] = (newResources[resource] || 0) + amount;
+      }
 
       // A chest may unlock more than one defender: the map's twenty
       // one-per-level chests became six landmarks, and nine defenders do not
@@ -949,31 +942,16 @@ export const GameProvider = ({ children }) => {
     });
 
     try {
-      // Accumulated, not assigned. A chest carrying both `gold` and `all`
-      // used to send whichever of the two `Object.entries` happened to reach
-      // last and silently drop the other - the local newResources path above
-      // has always added them together, so the two disagreed. No chest
-      // combined them while there was one per level, so the bug was latent;
-      // the consolidated landmarks do combine them.
-      const backendRewards = {};
-      const credit = (resource, amount) => {
-        backendRewards[resource] = (backendRewards[resource] || 0) + amount;
-      };
-      Object.entries(chest.rewards).forEach(([resource, amount]) => {
-        if (resource === "defender") return;
-        if (resource === "all") {
-          ["gold", "iron", "grain", "water"].forEach((res) => credit(res, amount));
-        } else {
-          credit(resource, amount);
-        }
-      });
-
+      // The same expansion the player was credited with above, not a second
+      // one computed here. The second copy assigned where the first
+      // accumulated, so a chest carrying both `gold` and `all` credited the
+      // player and told the server different numbers.
       await fetch(`http://localhost:8080/api/player/collect-treasure`, {
         method: "POST",
         headers: SessionManager.authHeaders(),
         body: JSON.stringify({
           chestId: chestId,
-          rewards: backendRewards,
+          rewards: resourceRewardsOf(chest),
         }),
       });
 
