@@ -463,3 +463,14 @@
   position: relative;
   z-index: 1;
 }
+
+/* Shown in place of the upgrade button once a defender is at MAX_DEFENDER_LEVEL.
+   Gold, because reaching the ceiling is an accomplishment, not an error. */
+.upgrade-maxed {
+  margin: 10px 0 0;
+  text-align: center;
+  font-family: var(--type-display);
+  font-size: var(--type-size-sm);
+  letter-spacing: 0.08em;
+  color: var(--colors-accent-energy);
+}

@@ -19,6 +19,8 @@ import { FeedbackManager } from "./Feedback/FeedbackManager.js";
 import { loadSettings, subscribe } from "./Feedback/SettingsStore.js";
 import { SAMPLE_URLS, unknownSampleNames } from "./Feedback/UnitSamples.js";
 import { SOUND_KEYS } from "./Feedback/SoundGroups.js";
+import { apiUrl } from "../../config/api.js";
+import { MAX_DEFENDER_LEVEL } from "./DefenderClassUtils.js";
 
 export const GameContext = createContext();
 
@@ -201,13 +203,13 @@ export const GameProvider = ({ children }) => {
 
     //Save the result to backend
     try {
-      await fetch(`http://localhost:8080/api/player/complete-level`, {
+      await fetch(apiUrl(`/api/player/complete-level`), {
         method: "POST",
         headers: SessionManager.authHeaders(),
         body: JSON.stringify({ levelId: level, score: score, stars: stars }),
       });
 
-      await fetch(`http://localhost:8080/api/player/update-stats`, {
+      await fetch(apiUrl(`/api/player/update-stats`), {
         method: "POST",
         headers: SessionManager.authHeaders(),
         body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
@@ -218,7 +220,7 @@ export const GameProvider = ({ children }) => {
       if (baseDamageTaken === 0) specialUnlocks.push('untouchable');
       if (timeElapsed < 120000 && level !== 999) specialUnlocks.push('speed_demon');
       for (const id of specialUnlocks) {
-        await fetch(`http://localhost:8080/api/player/unlock-special-achievement`, {
+        await fetch(apiUrl(`/api/player/unlock-special-achievement`), {
           method: "POST",
           headers: SessionManager.authHeaders(),
           body: JSON.stringify({ achievementId: id }),
@@ -277,7 +279,7 @@ export const GameProvider = ({ children }) => {
         });
 
         try {
-          await fetch(`http://localhost:8080/api/player/update-resources`, {
+          await fetch(apiUrl(`/api/player/update-resources`), {
             method: "POST",
             headers: SessionManager.authHeaders(),
             body: JSON.stringify({
@@ -291,7 +293,7 @@ export const GameProvider = ({ children }) => {
             }),
           });
 
-          await fetch(`http://localhost:8080/api/player/endless-score`, {
+          await fetch(apiUrl(`/api/player/endless-score`), {
             method: "POST",
             headers: SessionManager.authHeaders(),
             body: JSON.stringify({
@@ -299,7 +301,7 @@ export const GameProvider = ({ children }) => {
             }),
           });
 
-          await fetch(`http://localhost:8080/api/player/update-stats`, {
+          await fetch(apiUrl(`/api/player/update-stats`), {
             method: "POST",
             headers: SessionManager.authHeaders(),
             body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
@@ -340,7 +342,7 @@ export const GameProvider = ({ children }) => {
         });
 
         try {
-          await fetch(`http://localhost:8080/api/player/update-resources`, {
+          await fetch(apiUrl(`/api/player/update-resources`), {
             method: "POST",
             headers: SessionManager.authHeaders(),
             body: JSON.stringify({
@@ -353,7 +355,7 @@ export const GameProvider = ({ children }) => {
               },
             }),
           });
-          await fetch(`http://localhost:8080/api/player/update-stats`, {
+          await fetch(apiUrl(`/api/player/update-stats`), {
             method: "POST",
             headers: SessionManager.authHeaders(),
             body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
@@ -388,7 +390,7 @@ export const GameProvider = ({ children }) => {
   // Backend API integration points
   const fetchPlayerData = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:8080/api/player/me`, {
+      const response = await fetch(apiUrl(`/api/player/me`), {
         method: "GET",
         headers: SessionManager.authHeaders(),
       });
@@ -651,6 +653,15 @@ export const GameProvider = ({ children }) => {
 
       const hasEnoughPieces = card.pieces >= card.piecesNeeded * card.level;
 
+      /*
+       * The ceiling. There was none: this function checked resources and pieces
+       * and nothing else, so a defender could be upgraded without limit - a level
+       * 100 Sniper that one-shots the campaign, with stats extrapolated far past
+       * the ability table that is supposed to define them. Five is where the design
+       * already stops (see MAX_DEFENDER_LEVEL).
+       */
+      if (card.level >= MAX_DEFENDER_LEVEL) return;
+
       if (canAfford && hasEnoughPieces) {
         Object.entries(card.upgradeCost).forEach(([resource, amount]) => {
           updateResource(resource, -amount);
@@ -715,7 +726,7 @@ export const GameProvider = ({ children }) => {
 
       if (levelCost > 0) {
         try {
-          await fetch(`http://localhost:8080/api/player/update-resources`, {
+          await fetch(apiUrl(`/api/player/update-resources`), {
             method: "POST",
             headers: SessionManager.authHeaders(),
             body: JSON.stringify({
@@ -797,7 +808,7 @@ export const GameProvider = ({ children }) => {
           }, {});
           //call backend for each card type
           for (const [cardName, count] of Object.entries(piecesMap)) {
-            await fetch(`http://localhost:8080/api/player/add-card-pieces`, {
+            await fetch(apiUrl(`/api/player/add-card-pieces`), {
               method: "POST",
               headers: SessionManager.authHeaders(),
               body: JSON.stringify({
@@ -973,7 +984,7 @@ export const GameProvider = ({ children }) => {
       // one computed here. The second copy assigned where the first
       // accumulated, so a chest carrying both `gold` and `all` credited the
       // player and told the server different numbers.
-      await fetch(`http://localhost:8080/api/player/collect-treasure`, {
+      await fetch(apiUrl(`/api/player/collect-treasure`), {
         method: "POST",
         headers: SessionManager.authHeaders(),
         body: JSON.stringify({
@@ -998,7 +1009,7 @@ export const GameProvider = ({ children }) => {
     if (!defenderName) return;
 
     try {
-      await fetch(`http://localhost:8080/api/player/unlock-defender`, {
+      await fetch(apiUrl(`/api/player/unlock-defender`), {
         method: "POST",
         headers: SessionManager.authHeaders(),
         body: JSON.stringify({ defenderName }),

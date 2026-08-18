@@ -409,6 +409,63 @@ export class Enemy {
     }
   }
 
+  /**
+   * A glow on the ground under a boss.
+   *
+   * Drawn after the sprite's `ctx.restore()`, so it is outside the horizontal
+   * flip a westward-facing enemy applies - an ellipse survives mirroring, but
+   * putting it inside the transform would mean anything asymmetric added here
+   * later renders backwards, which is a trap worth not laying.
+   *
+   * Pulsed off the wall clock rather than a per-enemy timer: the marker is
+   * decoration, it does not need to survive a pause, and every boss on screen
+   * pulsing in sympathy looks deliberate.
+   */
+  drawBossMarker(ctx) {
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 420);
+    const cx = this.x + this.width / 2;
+    const cy = this.y + this.height - 2;
+
+    ctx.save();
+    ctx.globalAlpha = 0.18 + 0.14 * pulse;
+    ctx.fillStyle = colors.accentEnergy;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, this.width * 0.62, this.height * 0.16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /**
+   * A boss's health bar: wider than the sprite, taller than the standard bar,
+   * outlined, and shown from full health rather than only once damaged.
+   *
+   * The standard bar appears only when `health < maxHealth`, which for a boss
+   * means the one enemy the player most needs to size up arrives with no bar at
+   * all. Gold rather than the usual green, so it reads as the same thing the wave
+   * banner just announced.
+   */
+  drawBossHealthBar(ctx) {
+    const pad = 8;
+    const barX = this.x - pad;
+    const barY = this.y - 16;
+    const barW = this.width + pad * 2;
+    const barH = 8;
+    const fraction = Math.max(0, Math.min(1, this.health / this.maxHealth));
+
+    ctx.save();
+    ctx.fillStyle = colors.edgeOutline;
+    ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+    ctx.fillStyle = colors.accentDanger;
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = colors.accentEnergy;
+    ctx.fillRect(barX, barY, barW * fraction, barH);
+
+    ctx.fillStyle = colors.textPrimary;
+    ctx.font = canvasFont(11, 'bold');
+    ctx.fillText(`${this.name}  ${this.health.toFixed(0)}/${this.maxHealth}`, barX, barY - 5);
+    ctx.restore();
+  }
+
   draw(ctx) {
     ctx.save();
 
@@ -457,6 +514,10 @@ export class Enemy {
 
     ctx.restore();
 
+    if (this.isAlive && this.isBoss) {
+      this.drawBossMarker(ctx);
+    }
+
     if (this.isAlive) {
       // Unit name text
       ctx.fillStyle = colors.edgeOutline;
@@ -468,13 +529,17 @@ export class Enemy {
       );
 
       // Health bar and value
-      if (this.health < this.maxHealth && getSettings().display.showHealthBars) {
-        ctx.fillStyle = colors.accentDanger;
-        ctx.fillRect(this.x, this.y - 10, this.width, 5);
-        ctx.fillStyle = colors.accentSuccess;
-        const healthWidth = (this.health / this.maxHealth) * this.width;
-        ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
-        ctx.fillText(this.health.toFixed(0), this.x + this.width / 2, this.y - 15);
+      if (getSettings().display.showHealthBars) {
+        if (this.isBoss) {
+          this.drawBossHealthBar(ctx);
+        } else if (this.health < this.maxHealth) {
+          ctx.fillStyle = colors.accentDanger;
+          ctx.fillRect(this.x, this.y - 10, this.width, 5);
+          ctx.fillStyle = colors.accentSuccess;
+          const healthWidth = (this.health / this.maxHealth) * this.width;
+          ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
+          ctx.fillText(this.health.toFixed(0), this.x + this.width / 2, this.y - 15);
+        }
       }
       this.drawNegativeEffect.drawAllEffect(ctx);
     }

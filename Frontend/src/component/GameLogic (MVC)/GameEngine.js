@@ -53,6 +53,16 @@ import { GameClock } from "./Feedback/GameClock.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
 import { colors, decorative, ensureDisplayFontLoaded, withAlpha } from '../../style/tokens.js';
 
+/**
+ * How much larger a boss is drawn than the same enemy type spawned normally.
+ *
+ * 1.4 rather than something bolder: lanes are `gridSize` (60px) and enemy sprites
+ * are already 32-128px tall, so the tall types overflow their lane before any
+ * boss scaling. 40% is unmistakable next to its own minions without making the
+ * overflow materially worse.
+ */
+const BOSS_SCALE = 1.4;
+
 export class GameEngine {
   constructor(
     updateEnergyCb,
@@ -361,6 +371,25 @@ export class GameEngine {
       enemy.maxHealth = Math.floor(enemy.maxHealth * 2.5);
       enemy.attackDamage = Math.floor(enemy.attackDamage * 2);
       enemy.bounty    = Math.floor(enemy.bounty    * 2);
+
+      /*
+       * And it has to LOOK like what it is.
+       *
+       * The four multipliers above have always been here, but `isBoss` reached
+       * nothing except the wave-announcement banner - so a level-10 boss was a
+       * Vampire drawn at exactly normal size, normal colour, with a normal health
+       * bar, carrying two and a half times the hidden health. The stats were real
+       * and invisible, which is why the fight read as an ordinary wave with a
+       * label on it.
+       *
+       * Scaling `width`/`height` is the cheapest strong signal and needs no draw
+       * code: every enemy draw path sizes its sprite from these two, and the row
+       * centring below runs afterwards, so a bigger boss still sits on its lane's
+       * centre line. It scales the hitbox with the sprite too, which is correct -
+       * a boss that looks bigger should be easier to hit, not deceptively narrow.
+       */
+      enemy.width  = Math.round(enemy.width  * BOSS_SCALE);
+      enemy.height = Math.round(enemy.height * BOSS_SCALE);
     }
 
     // Center the sprite vertically on the row so tall zombies (e.g. Titan)

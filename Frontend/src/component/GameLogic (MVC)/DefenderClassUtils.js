@@ -12,6 +12,18 @@ import {
   IceBomb,
 } from "./DefenderUnits";
 
+/**
+ * The highest level a defender can reach.
+ *
+ * Five, because that is where the design already stops: every defender's ability
+ * table in this file grants its last ability at level 5, and nothing anywhere
+ * describes a level 6. Upgrading had no ceiling at all - `startCardUpgrade`
+ * checked affordability and nothing else - so a Sniper could be taken to level 100
+ * and one-shot the campaign, with stats extrapolated past any table that defines
+ * them.
+ */
+export const MAX_DEFENDER_LEVEL = 5;
+
 export const defenderUnitClasses = {
   Shooter: BasicDefender,
   Healer: HealerDefender,
