@@ -1,18 +1,31 @@
 /* Energy Bar Styles */
+/*
+ * The energy block sits inside `.lobby-topband`, which draws the band's one
+ * surface, so this block draws none of its own. It used to carry a background,
+ * a 12px radius, a 2px border and a drop shadow *inside* the band's background,
+ * radius, border and shadow - one of the three boxes in a box that made the
+ * band read as the three stacked panels it replaced.
+ *
+ * `min-width: 0` and `flex: 1 1 auto` because the band is `nowrap` now: this is
+ * the widest of the three blocks, so it is the one that has to be able to
+ * compress rather than force a wrap. The progress bar inside is a percentage
+ * width, so it narrows with the block instead of clipping.
+ *
+ * This component renders only in the lobby band (Lobby.jsx is its one caller),
+ * so removing the panel does not strip chrome from some other screen.
+ */
 .energy-bar {
-  background: color-mix(in srgb, var(--colors-edge-outline) 60%, transparent);
-  border-radius: 12px;
-  padding: 15px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 var(--space-sm);
   margin: 0;
-  border: 2px solid var(--colors-surface-panel);
-  box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
 }
 
 .energy-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
 }
 
 .energy-icon {
@@ -29,8 +42,10 @@
 
 .energy-info {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
 }
 
 .energy-count {
@@ -49,12 +64,12 @@
 }
 
 .energy-progress-bar {
-  height: 20px;
+  height: 12px;
   background: color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   border-radius: 10px;
   overflow: hidden;
   position: relative;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-xs);
 }
 
 .energy-progress-fill {
@@ -95,9 +110,9 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .energy-bar {
-    padding: 10px;
+    padding: 0 var(--space-xs);
   }
-  
+
   .energy-icon {
     font-size: 24px;
   }

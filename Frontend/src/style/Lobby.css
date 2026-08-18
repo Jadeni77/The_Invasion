@@ -145,16 +145,32 @@
 }
 
 /* ---------- */
-/* The band holding the player bar, energy panel and resource pills in one
-   row. `flex: 0 0 auto` keeps it from growing at the map's expense - the
-   map (`.game-map-container`, `flex: 1 1 auto`) is what should absorb any
-   extra height, not this band. */
+/*
+ * The band holding the player bar, energy panel and resource pills in one
+ * row. `flex: 0 0 auto` keeps it from growing at the map's expense - the
+ * map (`.game-map-container`, `flex: 1 1 auto`) is what should absorb any
+ * extra height, not this band.
+ *
+ * `flex-wrap: nowrap`, not `wrap`. Wrapping is what undid the compaction this
+ * band exists for: at the owner's window width the three blocks did not fit
+ * on one line, so they wrapped into three stacked rows and the band became
+ * the three stacked blocks it replaced, with an extra border round them.
+ * `nowrap` plus `min-width: 0` on each block (below) makes them compress to
+ * fit instead - a block that cannot shrink is what forces a wrap, so the
+ * blocks are the half of this that has to change, not just the wrap value.
+ *
+ * `width: 100%` with border-box because `.lobby-container` is a column flex
+ * with `align-items: center`: without it the band is sized to its content and
+ * the three blocks have no definite width to distribute or shrink within.
+ */
 .lobby-topband {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
+  gap: var(--space-md);
+  flex-wrap: nowrap;
+  width: 100%;
+  box-sizing: border-box;
   padding: var(--space-sm) var(--space-md);
   background: linear-gradient(180deg, var(--colors-surface-panel), var(--colors-surface-sunken));
   border: var(--borders-outline) solid var(--colors-edge-outline);
@@ -162,16 +178,24 @@
   box-shadow: var(--shadows-drop), inset 0 1px 0 var(--colors-edge-highlight);
 }
 
-/* Top Menu Bar */
+/*
+ * Top Menu Bar - a block *inside* the band, so it carries no panel of its
+ * own.
+ *
+ * This used to declare its own background, border, border-radius and
+ * box-shadow, nested inside the band's background, border, border-radius and
+ * box-shadow: three boxes in a box, which is what the band read as. The band
+ * is the single surface now and each block is just a group of controls on it.
+ * The buttons inside keep their own chrome - they are controls, and a control
+ * that does not look pressable is a different bug.
+ */
 .top-menu-bar {
   display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
   justify-content: space-between;
   align-items: center;
-  padding: 15px;
-  background: color-mix(in srgb, var(--colors-edge-outline) 70%, transparent);
-  border-radius: 12px;
-  border: 2px solid var(--colors-surface-panel);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
+  gap: var(--space-md);
 }
 
 .player-info {
@@ -192,14 +216,18 @@
 
 .menu-buttons {
   display: flex;
-  gap: 15px;
+  gap: var(--space-sm);
 }
 
 .menu-button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px 15px;
+  /* Tightened from 10px 15px. The band only stays one row if what is in it
+     fits one row; four buttons at the old padding and gap were most of why it
+     did not. */
+  padding: var(--space-xs) var(--space-sm);
+  white-space: nowrap;
   background: var(--colors-surface-panel);
   border: var(--borders-outline) solid var(--colors-surface-raised);
   border-radius: 8px;
@@ -219,21 +247,23 @@
   margin-bottom: 5px;
 }
 
-/* Resource Bar */
+/* Resource Bar - the third block in the band, and like the other two it gives
+   up the panel it used to draw inside the band's panel. The pills inside keep
+   theirs: each is a readable chip for one resource, not a box round a box. */
 .resource-bar {
   display: flex;
-  justify-content: space-around;
-  padding: 10px;
-  background: color-mix(in srgb, var(--colors-edge-outline) 60%, transparent);
-  border-radius: 10px;
-  border: 1px solid var(--colors-surface-panel);
+  flex: 0 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 .resource-icon {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 15px;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  white-space: nowrap;
   background: color-mix(in srgb, var(--colors-surface-panel) 80%, transparent);
   border-radius: 20px;
   border: 1px solid var(--colors-surface-raised);
@@ -402,11 +432,29 @@
 }
 
 /* Upgrade Button */
+/*
+ * In normal flow, not floating over the map.
+ *
+ * This was `position: absolute; bottom: 20px; right: 20px; z-index: 100`,
+ * which pinned it over the bottom-right of the map - covering terrain, and
+ * looking like a bug rather than a control belonging to the page. It is the
+ * last child of `.lobby-container` (a column flex), so dropping the
+ * positioning puts it centred below the map, which is where it reads as part
+ * of the screen.
+ *
+ * The positioning was also leaking onto another screen. `.upgrade-button` is
+ * the class UpgradeModal.jsx puts on its per-card "Start Upgrade" button, and
+ * UpgradeModal.css declares only `:hover:not(.disabled)` and `.disabled` for
+ * it - no base rule - so every one of those buttons inherited this rule's
+ * absolute positioning and was pinned to the bottom-right corner of its
+ * nearest positioned ancestor instead of sitting inside its card. Removing
+ * the positioning here fixes both screens; the shared class name is
+ * pre-existing and left alone, since renaming it would touch markup Task 5 is
+ * told not to.
+ */
 .upgrade-button {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  padding: 15px 25px;
+  flex: 0 0 auto;
+  padding: var(--space-md) var(--space-lg);
   background: linear-gradient(to bottom, var(--colors-surface-panel), var(--colors-surface-sunken));
   border: 3px solid var(--colors-surface-raised);
   border-radius: 50px;
@@ -418,7 +466,6 @@
   align-items: center;
   gap: 10px;
   box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
-  z-index: 100;
   transition: all 0.2s;
 }
 
