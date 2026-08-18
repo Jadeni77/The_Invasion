@@ -513,21 +513,31 @@
    .zone-fore (4) so the foreground band still frames them rather than
    hiding them. Both rows (PROP_ROWS in TerrainProps.jsx) sit above the
    bottom-22% .zone-fore band by construction, not by coincidence of these
-   numbers - see FOREGROUND_BAND_TOP and the test that pins the relationship. */
+   numbers - see FOREGROUND_BAND_TOP and the test that pins the relationship.
+
+   70px, not the 26px this shipped at. On terrain 600px tall, beside level
+   nodes 54-66px across, a 26px prop is a dirt speck: it occupied nothing, and
+   the criterion these exist to satisfy is "no dead space that neither route,
+   terrain, scenery nor framing occupies". Three of the six shapes gained a
+   second element to survive the enlargement - a shape that only reads because
+   it is small is not something to scale up as-is. See the comment above
+   SHAPES in TerrainProps.jsx. */
 .terrain-prop {
   position: absolute;
-  width: 26px;
-  height: 26px;
+  width: 70px;
+  height: 70px;
   transform: translate(-50%, 0);
   z-index: 3;
   pointer-events: none;
 }
 
 /* Distant props are smaller and fainter, so they sit in the ridgeline
-   rather than on top of it. */
+   rather than on top of it. Held at roughly two thirds of the near row, the
+   same ratio as the 26/17 pair it replaces - the depth cue is the ratio
+   between the rows, not either number on its own. */
 .terrain-prop.prop-far {
-  width: 17px;
-  height: 17px;
+  width: 45px;
+  height: 45px;
   opacity: 0.45;
 }
 

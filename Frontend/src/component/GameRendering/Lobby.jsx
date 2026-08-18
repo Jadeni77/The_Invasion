@@ -15,7 +15,7 @@ import {
   zoneConfigs,
   zoneSpans
 } from "./MapLayout"; // New: Import map data from MapData.js
-import { TerrainProp, PROPS_BY_ZONE, PROP_ROWS } from "./TerrainProps.jsx";
+import { TerrainProp, propsForZone } from "./TerrainProps.jsx";
 import "../../style/Lobby.css"; // Correct path
 import "../../style/UpgradeModal.css"; // Correct path (if UpgradeModal.css is used by Lobby too)
 import CardSelectionModal from "./CardSelectionModal";
@@ -461,21 +461,24 @@ const Lobby = () => {
                   <svg className="zone-fore" viewBox="0 0 600 100" preserveAspectRatio="none" aria-hidden="true">
                     <path d={FOREGROUND} fill="var(--terrain-foreground)" />
                   </svg>
-                  {/* Mid-ground scenery, positioned deterministically from
-                      the zone key and prop index (not random - a prop that
-                      moves on every render is distracting, and a test can't
-                      pin a random position). Both rows sit above
-                      `.zone-fore`'s bottom-22% band (PROP_ROWS, checked
-                      against FOREGROUND_BAND_TOP in TerrainProps.test.jsx)
-                      so neither row is painted over. */}
-                  {(PROPS_BY_ZONE[zone] ?? []).map((kind, i) => (
+                  {/* Mid-ground scenery. Count, kind, row and offsets all
+                      come from `propsForZone` (TerrainProps.jsx), which is
+                      given this region's own width so a wide region gets
+                      proportionally more scenery instead of the same two or
+                      three props stretched further apart. Deterministic, not
+                      random - a prop that moves on every render is
+                      distracting, and a test cannot pin a random position.
+                      Every row sits above `.zone-fore`'s bottom-22% band
+                      (FOREGROUND_BAND_TOP, asserted per emitted prop in
+                      TerrainProps.test.jsx), so nothing is painted over. */}
+                  {propsForZone(zone, zoneSpans[zone]?.width).map((prop) => (
                       <TerrainProp
-                          key={`${zone}-${kind}-${i}`}
-                          kind={kind}
-                          className={i % 2 === 0 ? 'prop-near' : 'prop-far'}
+                          key={prop.key}
+                          kind={prop.kind}
+                          className={prop.row === 'near' ? 'prop-near' : 'prop-far'}
                           style={{
-                            left: `${18 + i * 26}%`,
-                            bottom: i % 2 === 0 ? `${PROP_ROWS.near}%` : `${PROP_ROWS.far}%`,
+                            left: `${prop.left}%`,
+                            bottom: `${prop.bottom}%`,
                           }}
                       />
                   ))}

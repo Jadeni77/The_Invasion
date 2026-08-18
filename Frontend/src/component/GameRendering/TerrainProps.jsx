@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- this module exports
-   PROP_KINDS/PROPS_BY_ZONE/FOREGROUND_BAND_TOP/PROP_ROWS alongside the
-   TerrainProp component, same shape as GameContext.jsx. */
+   PROP_KINDS/PROPS_BY_ZONE/FOREGROUND_BAND_TOP/PROP_ROWS/PROP_SPACING_PX and
+   propsForZone alongside the TerrainProp component, same shape as
+   GameContext.jsx. */
 /**
  * Scenery for the campaign map's regions. Inline SVG rather than emoji so
  * every prop takes its colour from the token layer - an emoji carries its own
@@ -23,14 +24,81 @@ export const PROPS_BY_ZONE = {
 export const FOREGROUND_BAND_TOP = 22;
 export const PROP_ROWS = { near: 30, far: 52 };
 
+/**
+ * Roughly how much horizontal ground one prop is meant to occupy, in map
+ * pixels.
+ *
+ * The count used to be "one prop per kind this zone names" - two or three per
+ * region, which was already thin on a 2200px map and is scenery-by-homeopathy
+ * on the 4200px one: five regions, thirteen props, at 26px each. The spec's
+ * second success criterion is "no dead space that neither route, terrain,
+ * scenery nor framing occupies", so the count is derived from how much ground
+ * there is to occupy instead of from how many kinds happen to be listed.
+ */
+export const PROP_SPACING_PX = 150;
+
+/**
+ * The props a region actually renders, positioned deterministically.
+ *
+ * Deterministic, not random: a prop that moves on every render is distracting,
+ * and a random position is not something a test can pin. The caller passes the
+ * region's own width (`zoneSpans` in MapLayout) rather than this module
+ * importing the map - scenery should not need to know about level data to know
+ * how much ground it has.
+ *
+ * Kind selection is deliberately decorrelated from the row. Cycling the kind
+ * list straight through while alternating near/far row makes every near prop
+ * the first kind and every far prop the second whenever a region names exactly
+ * two, which is four of the five regions - two tidy rows of one tree each,
+ * rather than scenery. The `floor(i / kinds.length)` term shifts the cycle so
+ * both kinds appear in both rows.
+ */
+export function propsForZone(zone, spanWidthPx = 0) {
+  const kinds = PROPS_BY_ZONE[zone] ?? [];
+  if (kinds.length === 0) return [];
+
+  const count = Math.max(kinds.length, Math.round(spanWidthPx / PROP_SPACING_PX));
+  const step = 100 / (count + 1);
+
+  return Array.from({ length: count }, (_, i) => {
+    const row = i % 2 === 0 ? 'near' : 'far';
+    return {
+      key: `${zone}-${i}`,
+      kind: kinds[(i + Math.floor(i / kinds.length)) % kinds.length],
+      row,
+      // Percentages of the region's own box, so a region keeps its scenery
+      // spread across itself whatever its width.
+      left: (i + 1) * step,
+      // A couple of points of deterministic stagger, so neither row reads as
+      // a ruled line. Only ever upward from the row's own offset, which keeps
+      // every prop clear of FOREGROUND_BAND_TOP by construction rather than
+      // by checking the arithmetic each time.
+      bottom: PROP_ROWS[row] + (i % 3) * 2,
+    };
+  });
+}
+
+/*
+ * Every shape below is drawn to read at the near row's 70px, not only at the
+ * 26px these were first sized for. That distinction matters: at 26px a single
+ * filled triangle is a convincing tree because it is barely more than a
+ * gesture, and at 70px the same triangle is a flat triangle. Three shapes
+ * gained a second element for exactly that reason (see each comment), which is
+ * the "fix the geometry" half of enlarging them rather than just scaling up
+ * something that was only ever legible because it was small.
+ */
 const SHAPES = {
-  // Pine silhouette: a wide triangle of foliage over a short trunk. Reads
-  // clearly even at the far row's 17px/0.45-opacity treatment because it's
-  // one filled shape rather than fine detail.
+  // Two-tier pine over a trunk. The upper tier's base (y=5.5) sits below the
+  // lower tier's apex (y=4), so the two same-coloured triangles merge into one
+  // silhouette with a step in its outline at each side - which is what reads
+  // as a conifer at 70px. A single triangle (what this was) reads as a
+  // triangle at that size, and the tiers cost nothing at the far row's 45px
+  // because the step is in the silhouette, not in fine interior detail.
   tree: (
     <>
-      <rect x="7" y="10" width="2" height="6" fill="var(--terrain-prop-dark)" />
-      <path d="M8,0 L14,10 L2,10Z" fill="var(--terrain-prop-leaf)" />
+      <rect x="7" y="11" width="2" height="5" fill="var(--terrain-prop-dark)" />
+      <path d="M8,0 L12,5.5 L4,5.5Z" fill="var(--terrain-prop-leaf)" />
+      <path d="M8,4 L14,11 L2,11Z" fill="var(--terrain-prop-leaf)" />
     </>
   ),
   // Bare trunk with asymmetric branches instead of foliage - the leafless
@@ -70,10 +138,27 @@ const SHAPES = {
       <rect x="9" y="7" width="6" height="8" fill="var(--terrain-prop-stone)" transform="rotate(-5 12 11)" />
     </>
   ),
-  fire: <path d="M8,3 Q11,9 8,16 Q5,9 8,3Z" fill="var(--terrain-prop-ember)" />,
+  // A flame over a dark log, not a bare flame. The lone leaf-shaped path this
+  // was reads as a flame at 26px and as an orange leaf at 70px; the log gives
+  // it a base to burn on and settles what it is. Ember over prop-dark, so the
+  // fire is the bright thing in the frame and the fuel recedes.
+  fire: (
+    <>
+      <path d="M8,1 Q12,8 8,14 Q4,8 8,1Z" fill="var(--terrain-prop-ember)" />
+      <rect x="3" y="13" width="10" height="2.5" fill="var(--terrain-prop-dark)" />
+    </>
+  ),
   // Classic rounded-top tombstone rather than a cross, so it isn't
-  // mistakable for a religious symbol.
-  grave: <path d="M4,16 L4,9 Q4,5 8,5 Q12,5 12,9 L12,16Z" fill="var(--terrain-prop-stone)" />,
+  // mistakable for a religious symbol. The turned earth at its foot and the
+  // inscription bar are what stop it reading as a plain rounded blob once it
+  // is 70px tall - both in prop-dark, so they read as recesses in the stone.
+  grave: (
+    <>
+      <path d="M4,15 L4,8 Q4,4 8,4 Q12,4 12,8 L12,15Z" fill="var(--terrain-prop-stone)" />
+      <rect x="2.5" y="14.5" width="11" height="1.5" fill="var(--terrain-prop-dark)" />
+      <rect x="6" y="8" width="4" height="1" fill="var(--terrain-prop-dark)" />
+    </>
+  ),
 };
 
 /** Kinds that actually have a rendered shape. Exported so a test can catch
