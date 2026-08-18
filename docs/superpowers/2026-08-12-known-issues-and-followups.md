@@ -626,3 +626,37 @@ everything else.
 
 Fix: either use the full 147-name list, or invert it — assert every colour-valued declaration is
 `var(--…)` and fail anything that is not, which needs no list at all.
+
+---
+
+## 29. Two guards ship with an enumerated escape hatch
+
+**Found:** 2026-08-18, adjudicated at the close of the lobby campaign-map branch.
+**Severity:** latent. Nothing exploits either today.
+
+Both guards added on that branch work, were proved by mutation, and each keeps one hole of the same
+shape.
+
+**The duplicate-selector guard flags a selector only as it crosses from one occurrence to more than
+one.** Eight pre-existing collisions sit in a dated `KNOWN_DUPLICATE_SELECTORS` allowlist. A *third*
+`.chest-glow` rule added tomorrow stays inside that allowlist and is never reported — the guard cannot
+distinguish "the two we accepted" from "the two we accepted plus a new one".
+Fix: store the accepted **count** per selector, not just the name, so any increase fails.
+
+**`lobbyZOrder.test.js` pins the eight documented layers by exact value and strict order.** A new layer
+inserted between two of them, carrying a z-index value not in `DOCUMENTED_STACK`, passes untouched — and
+an unclaimed value between two claimed ones is exactly how the route came to paint underneath the
+foreground band in the first place.
+Fix: assert the set of z-index values in the file **equals** the documented stack, rather than that each
+documented layer holds its value.
+
+The contrast guard's orphan-to-family pairing is a third instance, disclosed in its own report:
+`.player-name`, `.portal-label` and `.highest-wave` match no family and are silently skipped.
+
+**This is the sixteenth guard-scope finding in this project. Every one of the sixteen failed on scope;
+not one failed on matching logic.** The rule earned by now, stated once:
+
+> A guard that enumerates what it forbids — or what it forgives — is wrong by default. Assert what is
+> allowed and reject the complement, so the thing nobody thought of fails closed instead of open.
+
+Both fixes above are that inversion applied.
