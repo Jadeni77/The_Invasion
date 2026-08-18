@@ -76,6 +76,12 @@ const SHAPES = {
   grave: <path d="M4,16 L4,9 Q4,5 8,5 Q12,5 12,9 L12,16Z" fill="var(--terrain-prop-stone)" />,
 };
 
+/** Kinds that actually have a rendered shape. Exported so a test can catch
+ *  PROP_KINDS or a PROPS_BY_ZONE entry naming a kind SHAPES doesn't define -
+ *  without this, TerrainProp just returns null for it and the prop silently
+ *  never appears; nothing else would fail. */
+export const SHAPE_KINDS = Object.keys(SHAPES);
+
 export function TerrainProp({ kind, className = '', style }) {
   const shape = SHAPES[kind];
   if (!shape) return null;

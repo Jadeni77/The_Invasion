@@ -3,8 +3,9 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { render } from '@testing-library/react';
-import { PROPS_BY_ZONE, PROP_KINDS, PROP_ROWS, FOREGROUND_BAND_TOP, TerrainProp } from '../TerrainProps.jsx';
+import { PROPS_BY_ZONE, PROP_KINDS, PROP_ROWS, FOREGROUND_BAND_TOP, SHAPE_KINDS, TerrainProp } from '../TerrainProps.jsx';
 import { zoneConfigs } from '../MapLayout.jsx';
+import { stripComments } from '../../../test/sourceFiles.js';
 
 // dirname(fileURLToPath(import.meta.url)), not import.meta.dirname and not
 // `new URL('../TerrainProps.jsx', import.meta.url)`: Vite's import-analysis
@@ -13,6 +14,15 @@ import { zoneConfigs } from '../MapLayout.jsx';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const src = readFileSync(join(HERE, '..', 'TerrainProps.jsx'), 'utf8');
 const TERRAIN_ZONES = Object.keys(zoneConfigs).filter((z) => z !== 'endless');
+
+/** Same list `noRawColours.test.js` uses for the equivalent repo-wide check. */
+const CSS_NAMED_COLOURS = new Set([
+  'white', 'black', 'red', 'green', 'blue', 'gold', 'brown', 'gray', 'grey',
+  'orange', 'yellow', 'purple', 'pink', 'cyan', 'magenta', 'silver', 'navy',
+  'teal', 'olive', 'maroon', 'lime', 'aqua', 'fuchsia', 'darkgoldenrod',
+  'darkslategray', 'lightgray', 'lightgrey',
+]);
+const NAMED_ALLOWED = new Set(['transparent', 'currentcolor', 'inherit', 'initial', 'unset', 'none']);
 
 describe('terrain props', () => {
   it('gives every terrain zone at least two prop kinds', () => {
@@ -24,6 +34,22 @@ describe('terrain props', () => {
   it('names only kinds that exist', () => {
     for (const kinds of Object.values(PROPS_BY_ZONE)) {
       for (const kind of kinds) expect(PROP_KINDS).toContain(kind);
+    }
+  });
+
+  // PROP_KINDS and PROPS_BY_ZONE were only consistent with SHAPES by
+  // inspection - name a kind in either without a matching SHAPES entry and
+  // TerrainProp silently returns null for it (see the component below).
+  // Nothing else fails; the prop just never renders. This is the guard for
+  // that: every kind named anywhere must actually have a shape.
+  it('gives every named kind an actual SHAPES entry', () => {
+    for (const kind of PROP_KINDS) {
+      expect(SHAPE_KINDS, `PROP_KINDS names '${kind}' with no SHAPES entry`).toContain(kind);
+    }
+    for (const [zone, kinds] of Object.entries(PROPS_BY_ZONE)) {
+      for (const kind of kinds) {
+        expect(SHAPE_KINDS, `zone ${zone} names '${kind}' with no SHAPES entry`).toContain(kind);
+      }
     }
   });
 
@@ -43,6 +69,27 @@ describe('terrain props', () => {
       if (colour === 'none') continue;
       expect(colour, `raw colour ${colour}`).toMatch(/^var\(--/);
     }
+  });
+
+  // The check above only sees literal `fill="..."`/`stroke="..."` attributes
+  // in the source text - a raw hex reaching a prop through
+  // `style={{ fill: '#aabbcc' }}`, a CSS class, or any spelling other than
+  // those two attributes would sail through it unnoticed. This scans the
+  // whole file, comments stripped, for a colour literal in any form - hex,
+  // rgb()/rgba(), hsl()/hsla(), or a bare CSS colour name - so scope comes
+  // from what the file *is* (must contain no colour literal at all) rather
+  // than from how a colour happens to be written. Kept alongside the
+  // positive fill/stroke check above, not instead of it.
+  it('contains no colour literal in any form, however it is applied', () => {
+    const code = stripComments(src);
+    const found = [];
+    for (const m of code.matchAll(/#[0-9a-fA-F]{3,8}\b/g)) found.push(m[0]);
+    for (const m of code.matchAll(/\b(?:rgba?|hsla?)\([^)]*\)/gi)) found.push(m[0]);
+    for (const m of code.matchAll(/[a-z]+/gi)) {
+      const word = m[0].toLowerCase();
+      if (!NAMED_ALLOWED.has(word) && CSS_NAMED_COLOURS.has(word)) found.push(word);
+    }
+    expect(found, `TerrainProps.jsx has colour literal(s): ${found.join(', ')}`).toEqual([]);
   });
 
   it('varies props by zone rather than repeating one set', () => {
