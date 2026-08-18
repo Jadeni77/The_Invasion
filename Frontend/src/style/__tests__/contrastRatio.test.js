@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { basename, dirname, join } from 'node:path';
-import { relativeToSrc, stylesheetFiles } from '../../test/sourceFiles.js';
+import { relativeToSrc, stripComments, stylesheetFiles } from '../../test/sourceFiles.js';
 
 // Not `fileURLToPath(new URL('../', import.meta.url))`: Vite's import-analysis
 // plugin statically recognizes that exact `new URL(literal, import.meta.url)`
@@ -353,6 +353,135 @@ describe('WCAG contrast ratio for token-derived colour pairs', () => {
       unmeasured,
       `contrast-ok comments with no measured ratio in their reason: ${unmeasured.join(', ')}`,
     ).toEqual([]);
+  });
+
+  it.each(results.map((r) => [r.label, r]))('%s meets its WCAG threshold', (_label, r) => {
+    expect(
+      r.ratio,
+      `${r.label}: ${r.ratio.toFixed(2)}:1, needs ${r.threshold}:1`,
+    ).toBeGreaterThanOrEqual(r.threshold);
+  });
+});
+
+/**
+ * C1 and C2 shared one root cause the block above cannot see: a rule that
+ * declares `color` and no `background` of its own, painted over a surface a
+ * *different* rule controls. `.level-number` inherits from whichever
+ * `.level-node.<state>` rule matched its ancestor; `.level-name`/`.star` sit
+ * outside the node's own box (pushed there by a negative `bottom`) and paint
+ * over the zone terrain beside it instead. Neither pairing is written down
+ * anywhere in the CSS as a `.parent .child` selector, so the descendant-pair
+ * mechanism above - which matches CSS selector *text* - cannot find either
+ * one. Full cascade/box-layout resolution is out of scope (see the module
+ * docstring above and the fix report this guard shipped with); what follows
+ * is deliberately the smallest thing that closes the specific hole C1/C2
+ * exploited, scoped to Lobby.css, where it happened.
+ *
+ * The two backgrounds a Lobby.css child rule can actually be sitting on,
+ * both derived from the stylesheet's own content rather than named by hand:
+ *
+ * - a "state family": a base selector combined with modifier classes
+ *   (`.level-node.completed`/`.available`/`.locked`/`.boss` - discovered by
+ *   the compound-selector *shape* `.base.modifier`, not by knowing
+ *   "level-node" is a thing), for rules painted directly on their own
+ *   container; or
+ * - the zone terrain: every `.zone-<region>` ground rule, discovered by its
+ *   own gradient shape (`linear-gradient(180deg, ...)`), for rules pushed
+ *   outside their container's box.
+ *
+ * Which of the two applies to a given orphan rule is decided by one
+ * mechanical, CSS-native signal: does the rule (or a pluralised wrapper of
+ * the same name - `.star` inside `.stars`, the one convention this file
+ * actually uses for "item inside its group") declare a *negative*
+ * top/bottom/left/right? A negative inset is what pushes a child out of its
+ * positioned ancestor's padding box and onto whatever is rendered behind it -
+ * `.level-number` has none (it sits centred, in front of the node, via the
+ * parent's `place-items: center`); `.level-name` has its own (`bottom:
+ * -20px`); `.star` doesn't, but `.stars` - the wrapper every `.star` renders
+ * inside - does (`bottom: -15px`).
+ */
+describe('descendant text-colour rules whose background lives in a different rule (Lobby.css)', () => {
+  const lobbyCss = readStylesheet('style/Lobby.css');
+  // Comments stripped before parsing: `rulesOf`'s selector capture is
+  // `[^{}]+`, which is exactly as happy to swallow a preceding `/* ... */`
+  // block (no braces in it) as it is the real selector - so a rule
+  // immediately preceded by a comment (most rules in this file) captures
+  // "<comment text>\n.the-actual-selector" as its selector, and every regex
+  // below anchors on `^\.` to identify a plain class rule. Left unstripped,
+  // that silently dropped `.zone-tutorial` and `.level-node.completed` from
+  // this block's own detection - the same failure mode as the `rulesOf`
+  // caller above, just newly load-bearing here because this block matches
+  // selectors structurally instead of a hand-named list.
+  const lobbyRules = rulesOf(stripComments(lobbyCss));
+
+  function ruleFor(selector) {
+    return lobbyRules.find((r) => r.selector === selector);
+  }
+
+  function varTokensIn(value) {
+    return [...new Set([...value.matchAll(/var\((--[a-z0-9-]+)\)/g)].map((m) => TOKEN_HEX.get(m[1])).filter(Boolean))];
+  }
+
+  function hasNegativeInset(body) {
+    return /(?:^|[;{\s])(?:top|bottom|left|right):\s*-/.test(body);
+  }
+
+  /** Every `.zone-<region>` ground rule, found by its own gradient shape. */
+  const zoneGroundPalette = lobbyRules
+    .filter((r) => /^\.zone-[a-zA-Z0-9-]+$/.test(r.selector))
+    .map((r) => declaredValue(r.body, 'background(?:-color)?'))
+    .filter((v) => v && v.includes('linear-gradient(180deg'))
+    .flatMap(varTokensIn);
+
+  /** `.base.modifier` families with at least one member declaring a background. */
+  const families = new Map();
+  for (const rule of lobbyRules) {
+    const m = rule.selector.match(/^\.([a-zA-Z0-9-]+)\.[a-zA-Z0-9-]+$/);
+    if (!m) continue;
+    const bg = declaredValue(rule.body, 'background(?:-color)?');
+    if (!bg) continue;
+    const stops = varTokensIn(bg);
+    families.set(m[1], [...(families.get(m[1]) ?? []), ...stops]);
+  }
+
+  /** The one family sharing a hyphen-word with `name` - ambiguous or no match returns null. */
+  function familyPaletteFor(name) {
+    const words = name.split('-');
+    const hits = [...families.entries()].filter(([base]) => base.split('-').some((w) => words.includes(w)));
+    return hits.length === 1 ? hits[0][1] : null;
+  }
+
+  /** Plain, single-class rules with their own `color` and no `background` of their own. */
+  const orphanRules = lobbyRules.filter(
+    (r) =>
+      /^\.[a-zA-Z0-9-]+$/.test(r.selector) &&
+      declaredValue(r.body, 'color') &&
+      !declaredValue(r.body, 'background(?:-color)?'),
+  );
+
+  const results = [];
+  for (const rule of orphanRules) {
+    const name = rule.selector.slice(1);
+    const fg = resolveColour(declaredValue(rule.body, 'color'));
+    if (!fg) continue;
+    const threshold = isLargeText(rule.body) ? 3.0 : 4.5;
+    const plural = ruleFor(`.${name}s`);
+    const escapes = hasNegativeInset(rule.body) || (plural && hasNegativeInset(plural.body));
+    const palette = escapes ? zoneGroundPalette : familyPaletteFor(name);
+    if (!palette) continue; // no derivable background source for this rule - see "what this cannot see" below
+    for (const bgHex of palette) {
+      const ratio = contrastRatio(bgHex, fg.hex);
+      results.push({
+        label: `Lobby.css .${name} vs ${escapes ? 'zone terrain' : 'its state family'} stop ${bgHex}`,
+        ratio,
+        threshold,
+      });
+    }
+  }
+
+  it('found orphan rules and checked at least one pairing (guards against a vacuous run)', () => {
+    expect(orphanRules.length).toBeGreaterThan(0);
+    expect(results.length).toBeGreaterThan(10);
   });
 
   it.each(results.map((r) => [r.label, r]))('%s meets its WCAG threshold', (_label, r) => {

@@ -101,7 +101,10 @@ describe('terrain props', () => {
   // bottom 22% of every zone. If a row's offset ever gets nudged back down
   // to or below that line, this fails instead of the prop silently vanishing
   // behind the band.
-  it('keeps both prop rows clear of the foreground band', () => {
+  // A numeric-constant comparison, not a rendered-position check: nothing
+  // here measures where a prop actually lands, only that the two exported
+  // offset constants disagree in the right direction.
+  it('PROP_ROWS constants both sit numerically above FOREGROUND_BAND_TOP', () => {
     for (const [row, value] of Object.entries(PROP_ROWS)) {
       expect(value, `PROP_ROWS.${row}`).toBeGreaterThan(FOREGROUND_BAND_TOP);
     }

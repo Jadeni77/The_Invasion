@@ -20,12 +20,20 @@ describe('terrain', () => {
     }
   });
 
-  it('renders a ridgeline and a foreground band per region', () => {
+  // Source-text checks, not render checks: jsdom has no layout engine or
+  // rasteriser, so none of the tests below can see an actual ridgeline,
+  // band, or darkened vignette on screen - only what the source files say.
+  it('Lobby.jsx source references zone-ridge and zone-fore, once each overall', () => {
+    // `.toContain` proves the substring appears somewhere in the file, not
+    // once per region and not that either renders - see TERRAIN_ZONES.map
+    // above (Lobby.jsx maps one <svg className="zone-ridge"> /
+    // <svg className="zone-fore"> pair per zone at render time; this only
+    // confirms the JSX source that does that exists, not that it ran).
     expect(jsx).toContain('zone-ridge');
     expect(jsx).toContain('zone-fore');
   });
 
-  it('gives regions distinct ground, so progression is visible', () => {
+  it('the five zone ground rule bodies are textually distinct from each other', () => {
     const grounds = TERRAIN_ZONES.map((zone) => {
       const m = css.match(new RegExp(`\\.zone-${zone}\\s*\\{([^}]*)\\}`, 's'));
       return m ? m[1].replace(/\s+/g, '') : zone;
@@ -40,7 +48,7 @@ describe('terrain', () => {
     }
   });
 
-  it('darkens the vignette over the terrain rather than the page', () => {
+  it('Lobby.css declares .game-map::after (the vignette) as a radial-gradient', () => {
     expect(css).toMatch(/\.game-map::after\s*\{[^}]*radial-gradient/s);
   });
 });

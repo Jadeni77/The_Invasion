@@ -294,29 +294,32 @@
   border-radius: var(--radii-lg);
   box-shadow: inset 0 0 40px var(--terrain-vignette);
   cursor: grab;
+  /* A pan gesture starts wherever the pointer happens to land - often a
+     level-name label or a star. Without this, that drag selects the text it
+     crosses instead of panning (the chest <img> side of the same problem is
+     `draggable={false}` in Lobby.jsx, since a native image drag isn't a text-
+     selection concern user-select can address). */
+  user-select: none;
 }
 
 .game-map-container:active {
   cursor: grabbing;
 }
 
-.map-connection {
-  position: absolute;
-  height: 8px;
-  background: var(--colors-surface-raised);
-  border: 2px solid var(--colors-surface-panel);
-  border-radius: 4px;
-  box-shadow: 0 2px 5px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
-}
-
-.level-number {
-  font-family: var(--type-display);
-  font-size: 24px;
-  font-weight: bold;
-  color: var(--colors-accent-energy);
-  text-shadow: 2px 2px 0 var(--colors-edge-outline);
-  margin-top: 5px;
-}
+/*
+ * The pre-token `.map-connection` and `.level-number` rules that used to
+ * live here are gone, not merely edited: this file already declares both
+ * selectors again, correctly, in the "Map connections" and "Level interior"
+ * sections below, and the two copies were colliding - property-by-property,
+ * not rule-by-rule, since equal-specificity same-element selectors merge
+ * rather than one fully replacing the other. The surviving merge from this
+ * exact pair (`border`/`border-radius`/`box-shadow` from this rule,
+ * `height`/`background` from the later one) was what rendered the route as
+ * an opaque 7px panel bar instead of the thin gradient trail the later rule
+ * actually specifies - see final-review.md I5. lobbyCascade.test.js now
+ * asserts every selector in this file is declared at most once, with a
+ * dated, audited allowlist for the collisions this pass did not unwind.
+ */
 
 .level-pulse {
   position: absolute;
@@ -476,9 +479,13 @@
  * (.zone-background itself, z-index auto) < .zone-ridge (distant hills,
  * z-index 1) < the mid-ground props Task 6 adds between the ridge and the
  * foreground (reserved z-index 2-3) < .zone-fore (the nearest band, z-index
- * 4) < .game-map::after's vignette (z-index 5, below every node) < the
- * interactive layer (.treasure-chest z-index 8, .level-node z-index 10,
- * .endless-portal z-index 15 - all pre-existing, untouched here).
+ * 4) < .game-map::after's vignette (z-index 5, below every node) < the route
+ * (.map-connection, z-index 6 - above the ridge, props and the opaque
+ * foreground band it used to run under and get occluded by, still below
+ * everything a player can click) < the interactive layer (.treasure-chest
+ * z-index 8, .level-node z-index 10, .endless-portal z-index 15 - all
+ * pre-existing, untouched here). See lobbyZOrder.test.js for the test that
+ * pins this ordering.
  */
 .zone-ridge {
   position: absolute;
@@ -570,7 +577,13 @@
   cursor: not-allowed;
 }
 
-.level-node.unlocked:hover {
+/* No node ever carries an `.unlocked` class (renderLevelNode assigns exactly
+   one of locked/completed/available) - this used to read `.level-node.
+   unlocked:hover` and matched nothing, at the base commit and after this
+   branch moved it here unchanged. `:not(.locked)` is what the class list
+   actually produces: completed and available nodes both get hover feedback,
+   locked ones - `cursor: not-allowed` already - correctly don't. */
+.level-node:not(.locked):hover {
   transform: scale(1.1);
   box-shadow: 0 6px 12px color-mix(in srgb, var(--colors-edge-outline) 40%, transparent);
 }
@@ -661,7 +674,6 @@
   font-family: var(--type-display);
   font-size: 20px;
   font-weight: bold;
-  color: var(--colors-text-primary);
   text-shadow: 1px 1px 2px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
@@ -672,9 +684,15 @@
   transform: translateX(-50%);
   font-size: 10px;
   white-space: nowrap;
-  color: var(--colors-surface-sunken);
+  /* Light on dark, not the reverse: this label sits below the node's own
+     circle (negative bottom offset), landing on whichever zone's terrain is
+     underneath, not on a controlled surface - see the terrain contrast
+     ratios in the fix report. A dark colour read fine on the old flat green
+     `.game-map` background but is close to unreadable on the ground this
+     branch introduced. */
+  color: var(--colors-text-primary);
   font-weight: bold;
-  text-shadow: 1px 1px 2px color-mix(in srgb, var(--colors-text-primary) 50%, transparent);
+  text-shadow: 1px 1px 2px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
 .level-pulse {
@@ -704,7 +722,9 @@
 }
 
 .star {
-  color: var(--colors-surface-sunken);
+  /* Same terrain-contrast reasoning as `.level-name` above: this sits below
+     the node, on the ground, not on a background this rule controls. */
+  color: var(--colors-text-primary);
   text-shadow: 0 1px 0 var(--colors-edge-outline);
   font-size: var(--type-size-md);
   line-height: 1;
@@ -849,6 +869,12 @@
   background: linear-gradient(90deg, transparent, var(--colors-text-muted), transparent);
   transform-origin: left center;
   opacity: 0.3;
+  /* Above the ridge (1), props (2-3), the opaque foreground band (4) and the
+     vignette (5) - the route used to declare no z-index at all, which put it
+     in the z-index:auto group, below every one of those. Still below the
+     interactive layer (chest 8, node 10, portal 15). See the stacking
+     comment above .zone-ridge. */
+  z-index: 6;
 }
 
 .map-connection.unlocked {

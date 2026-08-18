@@ -13,11 +13,14 @@ function ruleBody(selector) {
 }
 
 describe('top chrome is one band', () => {
-  it('renders a single band container', () => {
+  // Source-text checks, not render checks: jsdom has no layout engine, so
+  // nothing here proves the band actually appears on screen as one row - see
+  // the two tests below for exactly what each does and does not verify.
+  it('Lobby.jsx source references the lobby-topband class', () => {
     expect(jsx).toContain('lobby-topband');
   });
 
-  it('lays the band out as a row', () => {
+  it('Lobby.css declares .lobby-topband as flex, not flex-direction: column', () => {
     const body = ruleBody('.lobby-topband');
     expect(body).toMatch(/display\s*:\s*flex/);
     expect(body).not.toMatch(/flex-direction\s*:\s*column/);

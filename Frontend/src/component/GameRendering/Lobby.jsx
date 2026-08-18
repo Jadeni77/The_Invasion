@@ -504,9 +504,9 @@ const Lobby = () => {
                       onClick={guardClick(() => !isCollected && canCollect && handleTreasureClick(chest.id))}
                   >
                     {isCollected ? (
-                        <img src={OpenChest} alt="Open Chest" className="open-chest"/>
+                        <img src={OpenChest} alt="Open Chest" className="open-chest" draggable={false} />
                     ) : (
-                         <img src={CloseChest} alt="Close Chest" className="close-chest"/>
+                         <img src={CloseChest} alt="Close Chest" className="close-chest" draggable={false} />
                      )}
                     {!isCollected && canCollect && <div className="chest-glow" />}
                   </div>
