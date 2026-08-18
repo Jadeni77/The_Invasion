@@ -451,6 +451,76 @@ export const mapSettings = {
   defaultZoom: 1.0,
 };
 
+/**
+ * The terrain regions, in the order the route walks through them.
+ *
+ * **Derived from the route, not from `zoneConfigs`' key order.** Those two
+ * being separate lists is how the terrain came to escalate backwards: the
+ * ground was painted as five equal-width bands in `zoneConfigs` order while
+ * the route ran through the zones in its own order, and with the route folded
+ * the two disagreed from level 13 on - the return leg walked back down through
+ * regions the outbound leg had already climbed. Taking the order from the
+ * route's own first appearance of each zone means the bands cannot be in a
+ * different order from the levels standing on them, because it is the same
+ * order.
+ *
+ * `endless` is excluded: it is the portal at the far end, not a region, and
+ * has never painted a band (`.zone-endless` has no rule in Lobby.css).
+ */
+export const TERRAIN_ZONES = [
+  ...new Set(levelsMapData.filter((level) => level.zone !== "endless").map((level) => level.zone)),
+];
+
+/**
+ * Each region's horizontal span, sized to cover exactly the levels assigned to
+ * it, so a level always stands on its own zone's ground.
+ *
+ * Boundaries land halfway between the last node of one region and the first
+ * node of the next, which is what makes the containment exact rather than
+ * coincidental: every node sits strictly inside its own region's span with
+ * roughly half a column of ground to spare on the side facing its neighbour.
+ * Region widths therefore vary with how many levels a region holds (tutorial
+ * has 3, mid and late have 5) instead of every region being `mapWidth / 5`
+ * wide regardless of what stands on it - which happened to be nearly right
+ * once the route was unfolded, and is the kind of "nearly right by accident"
+ * this map has already been bitten by twice.
+ *
+ * The first region starts at 0 and the last runs to `mapWidth`, so the bands
+ * tile the whole terrain with no bare strip at either end. The portal's own
+ * column is past the last campaign level, so the portal stands on the endgame
+ * region's ground - deliberate: the endless run is where the endgame leads,
+ * and the alternative is the portal standing on the raw `.game-map` surface.
+ * ZoneTerrain.test.js asserts that placement explicitly rather than leaving it
+ * to be discovered.
+ */
+function terrainZoneSpans() {
+  const extremes = TERRAIN_ZONES.map((zone) => {
+    const columns = levelsMapData.filter((level) => level.zone === zone).map((level) => level.x);
+    return { zone, first: Math.min(...columns), last: Math.max(...columns) };
+  });
+
+  const spans = {};
+  extremes.forEach((region, index) => {
+    const before = extremes[index - 1];
+    const after = extremes[index + 1];
+    const left = before ? (before.last + region.first) / 2 : 0;
+    const right = after ? (region.last + after.first) / 2 : mapSettings.mapWidth;
+    spans[region.zone] = { left, width: right - left };
+  });
+  return spans;
+}
+
+export const zoneSpans = terrainZoneSpans();
+
+/** The region whose span contains `x`, or null past both ends of the terrain. */
+export function zoneAtX(x) {
+  for (const zone of TERRAIN_ZONES) {
+    const { left, width } = zoneSpans[zone];
+    if (x >= left && x < left + width) return zone;
+  }
+  return null;
+}
+
 // Achievement triggers for map progression
 export const mapAchievements = [
   { id: "first_steps", trigger: "complete_level_1", reward: { gem: 5 } },

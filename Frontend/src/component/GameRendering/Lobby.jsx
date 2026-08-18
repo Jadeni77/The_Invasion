@@ -12,7 +12,8 @@ import {
   mapSettings,
   getLevelStatus,
   nextPlayableLevelId,
-  zoneConfigs
+  zoneConfigs,
+  zoneSpans
 } from "./MapLayout"; // New: Import map data from MapData.js
 import { TerrainProp, PROPS_BY_ZONE, PROP_ROWS } from "./TerrainProps.jsx";
 import "../../style/Lobby.css"; // Correct path
@@ -29,28 +30,29 @@ const RIDGE_NEAR = 'M0,175 L80,145 L160,168 L240,130 L320,160 L410,125 L500,158 
 const FOREGROUND = 'M0,55 Q70,28 150,48 T310,40 T470,52 T600,35 L600,100 L0,100Z';
 
 /**
- * Zones that actually carry ground, in the order the campaign progresses.
- * `endless` is the portal at the far end, not a region - it renders no band,
- * matching its historical absence (see the comment at the zone-backdrop map
- * below).
- */
-const TERRAIN_ZONES = Object.keys(zoneConfigs).filter((zone) => zone !== "endless");
-
-/**
- * Equal-width vertical bands across the map's full width, one per terrain
- * zone, left to right. Node positions (`levelsMapData`) weave a serpentine
- * path across these bands rather than sitting neatly inside them - the bands
- * give the ground its progression, the path is free to swing through it, the
- * same relationship the approved mockup uses between its flex regions and its
- * route line.
+ * A region's band, sized in MapLayout to cover exactly the levels assigned to
+ * it (`zoneSpans`), so a level always stands on its own zone's ground.
+ *
+ * This used to divide `mapSettings.mapWidth` into equal bands in
+ * `zoneConfigs` key order and left the route free to "weave" across them.
+ * That is how the terrain came to escalate backwards: with the route folded,
+ * levels 13-20 ran right to left back through regions the outbound leg had
+ * already climbed, so the ground under a level had no particular relationship
+ * to the level's own zone. Equal bands happen to be close to correct now that
+ * the route is unfolded, which is exactly why the span is derived from the
+ * levels instead - "close to correct by coincidence" is the state this map has
+ * already shipped in twice.
+ *
+ * Returns `display: none` for anything with no span, which is the endless
+ * portal: it is the far end of the route, not a region, and `.zone-endless`
+ * has never had a rule to paint.
  */
 function zoneBounds(zone) {
-  const index = TERRAIN_ZONES.indexOf(zone);
-  if (index === -1) return { display: "none" };
-  const bandWidth = mapSettings.mapWidth / TERRAIN_ZONES.length;
+  const span = zoneSpans[zone];
+  if (!span) return { display: "none" };
   return {
-    left: `${index * bandWidth}px`,
-    width: `${bandWidth}px`,
+    left: `${span.left}px`,
+    width: `${span.width}px`,
   };
 }
 
