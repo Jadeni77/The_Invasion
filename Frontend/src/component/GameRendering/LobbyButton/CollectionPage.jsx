@@ -4,6 +4,7 @@ import { useGame } from "../../GameLogic (MVC)/GameContext.jsx";
 import { useSpriteFrame } from "../../common/useSpriteFrame.js";
 import { calculateCardStats } from "../../GameLogic (MVC)/DefenderClassUtils.js";
 import "../../../style/CollectionPage.css";
+import GameBackdrop from "../TerrainBackdrop.jsx";
 
 const DEFENDERS = [
   {
@@ -350,6 +351,7 @@ const CollectionPage = () => {
 
   return (
     <div className="collection-page">
+            <GameBackdrop />
       <div className="collection-header">
         <h1>COLLECTION</h1>
         <button className="close-button" onClick={closeCollection}>

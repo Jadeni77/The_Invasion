@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useGame } from '../../GameLogic (MVC)/GameContext.jsx';
 import { SessionManager } from '../../GameLogic (MVC)/SessionManager.js';
 import '../../../style/AchievementPage.css';
+import GameBackdrop from "../TerrainBackdrop.jsx";
 
 const ACHIEVEMENTS = {
   progression: [
@@ -270,6 +271,7 @@ const AchievementPage = () => {
 
   return (
     <div className="achievement-page">
+            <GameBackdrop />
       <div className="achievement-header">
         <h1>ACHIEVEMENTS</h1>
         <button className="close-button" onClick={closeAchievements}>×</button>

@@ -7,6 +7,7 @@ import "../../../style/Lobby.css"; // Assuming some styles are shared
 import "../../../style/UpgradeModal.css"; // Correct path
 import { getUpgradePreview } from "../../GameLogic (MVC)/DefenderClassUtils.js";
 import Bow from "../../../Icons/Bow.png";
+import GameBackdrop from "../TerrainBackdrop.jsx";
 
 function UpgradeModal() {
   const { playerData, startCardUpgrade, closeUpgradeModal } =
@@ -34,6 +35,7 @@ function UpgradeModal() {
 
   return (
     <div className="upgrade-modal">
+            <GameBackdrop />
       <div className="modal-content">
         <button className="close-button" onClick={closeUpgradeModal}>
           &times;

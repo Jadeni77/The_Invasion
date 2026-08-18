@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useGame } from '../../GameLogic (MVC)/GameContext.jsx';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../GameLogic (MVC)/Feedback/SettingsStore.js';
 import '../../../style/SettingModal.css';
+import GameBackdrop from "../TerrainBackdrop.jsx";
 
 const SettingModal = () => {
     const { closeSettings } = useGame();
@@ -51,6 +52,7 @@ const SettingModal = () => {
 
     return (
         <div className="settings-modal-overlay">
+            <GameBackdrop />
             <div className="settings-modal">
                 <div className="settings-header">
                     <h2>SETTINGS</h2>
