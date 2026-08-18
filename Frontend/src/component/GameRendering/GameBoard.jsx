@@ -46,25 +46,44 @@ const GameBoard = () => {
 
   useMobileOrientation(gameState);
 
+  /*
+   * The playfield is a FIXED size, and CSS scales it to fit.
+   *
+   * It used to be sized in screen pixels - `canvas.width = container.clientWidth`
+   * - which made the game itself different on every device. Two consequences, both
+   * measured:
+   *
+   * Fairness. `defenseLineX` was `clientWidth * 0.9` and enemies spawn at x = -100,
+   * so a lane was 1396px long on a 1470px laptop and 451px on a 390px phone. The
+   * same wave gave a phone player under a third of the reaction time. That is not a
+   * difficulty setting anyone chose.
+   *
+   * Deployability. The grid is 9 columns that never shrink below the 48px sprite
+   * they hold, so it needs 432px plus margins. On a 390px canvas `initializeGrid`
+   * computed a NEGATIVE left offset (-11) and the grid ran from -11 to 421 inside a
+   * 390px canvas - the first column off the left edge, and the last two columns
+   * past `defenseLineX` at 351, behind the player's own base. Deploying was
+   * impossible in portrait and worked in landscape purely because the canvas got
+   * wider.
+   *
+   * With a constant logical size every device plays the same board, the grid always
+   * fits, and the only thing that varies is how large it appears. Clicks are mapped
+   * back through the scale factor below.
+   */
+  const LOGICAL_WIDTH = 1280;
+  const LOGICAL_HEIGHT = 720;
+
   // canvas sizing
   useEffect(() => {
     const resizeCanvas = () => {
       if (canvasRef.current) {
-        const container = canvasRef.current.parentElement;
-        canvasRef.current.width = container.clientWidth;
-        canvasRef.current.height = container.clientHeight - 60 - 250; // Account for top
-        // bar (60px) AND
-        // bottom bar (120)
+        canvasRef.current.width = LOGICAL_WIDTH;
+        canvasRef.current.height = LOGICAL_HEIGHT;
 
-        // Update game engine if exists
         if (gameEngineRef.current) {
-          gameEngineRef.current.canvasWidth = container.clientWidth;
-          gameEngineRef.current.canvasHeight =
-            container.clientHeight - 60 - 250; // Account
-          // for
-          // both
-          // bars
-          gameEngineRef.current.defenseLineX = container.clientWidth * 0.9;
+          gameEngineRef.current.canvasWidth = LOGICAL_WIDTH;
+          gameEngineRef.current.canvasHeight = LOGICAL_HEIGHT;
+          gameEngineRef.current.defenseLineX = LOGICAL_WIDTH * 0.9;
         }
       }
     };
@@ -235,13 +254,29 @@ const GameBoard = () => {
     setSelectedCard(null);
   };
 
+  /**
+   * Pointer position in PLAYFIELD coordinates.
+   *
+   * The canvas bitmap is a fixed 1280x720 and its CSS box is whatever fits the
+   * screen, so a click at the left edge of a 390px-wide box is x=0 in both, but a
+   * click in the middle is 195 in CSS pixels and 640 in the playfield. Without this
+   * ratio every deploy landed in the wrong column on any screen that was not
+   * exactly 1280 wide.
+   */
+  const toPlayfield = (event) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (event.clientX - rect.left) * (canvas.width / rect.width),
+      y: (event.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  };
+
   const handleCanvasMouseMove = (event) => {
     if (!gameEngineRef.current) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    const { x, y } = toPlayfield(event);
     gameEngineRef.current.setHoveredDefender(x, y);
   };
 
@@ -257,10 +292,7 @@ const GameBoard = () => {
       return;
     }
 
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    const { x, y } = toPlayfield(event);
 
     //try to remove defender if shovelmode active
     if (shovelMode) {
@@ -562,8 +594,8 @@ const GameBoard = () => {
       {/* Game Canvas */}
       <canvas
         ref={canvasRef}
-        width={800}
-        height={450}
+        width={LOGICAL_WIDTH}
+        height={LOGICAL_HEIGHT}
         onClick={handleCanvasClick}
         onMouseMove={handleCanvasMouseMove}
         onMouseLeave={handleCanvasMouseLeave}
