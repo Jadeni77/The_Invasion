@@ -73,10 +73,12 @@ const KNOWN_DUPLICATE_SELECTORS = [
   // drop-shadow(...)` survive uncontested - the chest is still centred and
   // glowing, just not from the rule someone would expect to find it in.
   '.treasure-chest',
-  // Same pair, `:hover` state: the later rule's `transform: scale(1.2)`
-  // drops the centring translate the earlier rule declared, so a hovered
-  // chest visibly shifts. Real, but not the route-occlusion class of bug
-  // `.map-connection` was, and not one of this pass's named fixes.
+  // Same pair, `:hover` state. The later rule's `transform` still wins
+  // outright, but it now restates `translate(-50%, -50%)` before its
+  // `scale(1.2)`, so the hovered chest no longer shifts 20px away from the
+  // cursor - see the rule's own comment in Lobby.css. The *duplication* is
+  // what remains audited here: two rules for one selector, where only the
+  // later one's transform and the earlier one's filter survive.
   '.treasure-chest:not(.collected):not(.locked-chest):hover',
   '.treasure-chest.collected',
   '.treasure-chest.locked-chest',

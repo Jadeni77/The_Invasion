@@ -34,8 +34,13 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // unstripped scan can match a selector inside prose instead of the rule.
 const css = stripComments(readFileSync(join(HERE, '..', '..', '..', 'style', 'Lobby.css'), 'utf8'));
 
+// Every regex metacharacter escaped, not just `.` and `:` - these selectors
+// contain `:not(...)`, whose parentheses would otherwise become a capture group
+// and make the pattern match a string that does not exist, returning '' for a
+// rule that is present. That is a guard reporting "no rule" instead of "wrong
+// rule", which is the failure mode worth avoiding in a file full of them.
 function ruleBody(selector) {
-  const escaped = selector.replace(/[.:]/g, (c) => `\\${c}`);
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const m = css.match(new RegExp(`(?:^|[},])\\s*${escaped}\\s*\\{([^}]*)\\}`, 's'));
   return m ? m[1] : '';
 }
@@ -250,5 +255,96 @@ describe('the star row and the level name do not overlap', () => {
     const nameBottom = -offsetOf('.level-name');
     // Node half-height for the largest node (a 66px boss), plus the offset.
     expect(lowest + 33 + nameBottom).toBeLessThan(600);
+  });
+});
+
+/**
+ * A state rule must not silently un-centre the thing it restyles.
+ *
+ * `transform` is one property, not a list that accumulates. Both of this map's
+ * clickable elements are centred on their coordinate with
+ * `translate(-50%, -50%)`, and both had a `:hover` rule declaring only a
+ * `scale(...)` - which *replaces* that translate rather than composing with it.
+ * A hovered node jumped 27px down and right (33px for a 66px boss) and a hovered
+ * chest 20px, in both cases away from the cursor about to click it. Both were
+ * pre-existing, and both were on the screen the owner was about to judge.
+ *
+ * Derived rather than listed: the base selectors come from reading which rules
+ * declare a centring translate, so an element centred that way in future is
+ * covered without anyone remembering to add it. Scoped to Lobby.css, where it
+ * happened; a rule that declares no `transform` at all is not implicated, since
+ * it inherits the base rule's.
+ */
+describe('a pseudo-class rule never drops a centring translate', () => {
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({
+    selector: m[1].trim(),
+    body: m[2],
+  }));
+
+  const CENTRING = /transform:\s*[^;]*translate\(\s*-50%/;
+
+  /** Base class selectors whose own rule centres the element with a translate. */
+  const centredBases = [
+    ...new Set(
+      rules
+        .filter((r) => /^\.[a-zA-Z0-9-]+$/.test(r.selector) && CENTRING.test(r.body))
+        .map((r) => r.selector),
+    ),
+  ];
+
+  it('finds centred elements to check (guards against a vacuous run)', () => {
+    expect(centredBases.length).toBeGreaterThan(3);
+    expect(centredBases).toContain('.level-node');
+    expect(centredBases).toContain('.treasure-chest');
+  });
+
+  it('restates the translate in every pseudo-class rule that sets a transform', () => {
+    const offenders = [];
+    for (const base of centredBases) {
+      for (const rule of rules) {
+        // A rule for this same base element carrying a pseudo-class or
+        // modifier - `.level-node:not(.locked):hover`, `.x.y:hover`, `.x:active`.
+        if (!rule.selector.startsWith(`${base}:`) && !rule.selector.startsWith(`${base}.`)) continue;
+        if (!/(?::hover|:active|:focus)/.test(rule.selector)) continue;
+        const declared = rule.body.match(/transform:\s*([^;]+);/);
+        if (!declared) continue; // inherits the base rule's transform - fine
+        if (!CENTRING.test(rule.body)) {
+          offenders.push(`${rule.selector} sets "transform: ${declared[1].trim()}"`);
+        }
+      }
+    }
+    expect(
+      offenders,
+      'transform replaces rather than accumulates, so these rules un-centre '
+        + `their element on hover: ${offenders.join('; ')}`,
+    ).toEqual([]);
+  });
+
+  it('names the two that were broken, so the fix is pinned and not merely absent', () => {
+    const nodeHover = ruleBody('.level-node:not(.locked):hover');
+    expect(nodeHover).toMatch(/transform:\s*translate\(-50%,\s*-50%\)\s*scale\(/);
+    // The later of the two rules for this selector is the one whose transform
+    // wins, and `ruleBody` returns the first - so assert over the whole file.
+    const chestHovers = [...css.matchAll(
+      /\.treasure-chest:not\(\.collected\):not\(\.locked-chest\):hover\s*\{([^}]*)\}/g,
+    )].map((m) => m[1]);
+    expect(chestHovers.length).toBeGreaterThan(0);
+    for (const body of chestHovers) {
+      if (!/transform:/.test(body)) continue;
+      expect(body).toMatch(/transform:\s*translate\(-50%,\s*-50%\)\s*scale\(/);
+    }
+  });
+
+  it('documents the one remaining case, which is animation rather than hover', () => {
+    // `@keyframes chestGlow` animates `transform: scale(...)` on `.chest-glow`,
+    // whose own transform is a centring translate from the earlier of that
+    // selector's two rules - so the glow shifts while it pulses. Left alone
+    // deliberately: `.chest-glow` is on lobbyCascade's audited duplicate list
+    // precisely because its two rules disagree about how it is positioned at
+    // all (the later one uses -10px insets), so "restore the translate" would
+    // be preserving a placement that is itself unresolved. Decoration, behind
+    // the chest, not clickable. Recorded here so it is a known deferral rather
+    // than an oversight, and asserted so this note cannot quietly go stale.
+    expect(css).toMatch(/@keyframes chestGlow\s*\{[^}]*scale\(/s);
   });
 });

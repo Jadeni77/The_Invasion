@@ -724,8 +724,15 @@
    branch moved it here unchanged. `:not(.locked)` is what the class list
    actually produces: completed and available nodes both get hover feedback,
    locked ones - `cursor: not-allowed` already - correctly don't. */
+/*
+ * The centring translate has to be restated. `transform` is one property, not a
+ * list that accumulates: `scale(1.1)` alone *replaces* `.level-node`'s
+ * `translate(-50%, -50%)`, so hovering a node un-centred it and it jumped 27px
+ * down and right (half of 54px; 33px on a 66px boss) before scaling. Every node
+ * on the map did this, on the screen the owner is about to judge.
+ */
 .level-node:not(.locked):hover {
-  transform: scale(1.1);
+  transform: translate(-50%, -50%) scale(1.1);
   box-shadow: 0 6px 12px color-mix(in srgb, var(--colors-edge-outline) 40%, transparent);
 }
 
@@ -1092,8 +1099,15 @@
   z-index: 8;
 }
 
+/* Same defect as `.level-node:not(.locked):hover` above, on the map's other
+   clickable thing: this is the later of the two rules for this selector (see
+   KNOWN_DUPLICATE_SELECTORS in lobbyCascade.test.js) so its `transform` wins
+   outright, and declaring only `scale(1.2)` dropped the `translate(-50%, -50%)`
+   the chest is centred by - a hovered chest jumped 20px down and right, away
+   from the cursor about to click it. The duplication itself is still on that
+   audited list; this fixes the visible half of it. */
 .treasure-chest:not(.collected):not(.locked-chest):hover {
-  transform: scale(1.2);
+  transform: translate(-50%, -50%) scale(1.2);
 }
 
 .treasure-chest.collected {
