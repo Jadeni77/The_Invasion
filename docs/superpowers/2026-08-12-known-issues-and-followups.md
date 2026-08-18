@@ -695,3 +695,70 @@ paren-containing selector. Fix before one does.
 `:hover`/`:active`/`:focus` rule is a direct compound extension. It misses grouped/comma selectors,
 multi-class and descendant base selectors, centring done with margins or insets instead of `transform`,
 and hover states applied by a JS-toggled class rather than a real pseudo-class.
+
+---
+
+## 31. Sixteen bare class selectors are declared in more than one stylesheet
+
+**Found:** 2026-08-18, while fixing the Settings screen.
+**Severity:** low individually, but this is the mechanism behind two shipped bugs.
+
+Every stylesheet in this app is bundled globally, so a bare `.thing` declared in
+two files is **one global class with two definitions**, and bundle order decides
+which wins. That is invisible in review: each file looks right on its own, and the
+damage lands on a different screen.
+
+It has already caused two visible bugs. `.close-button` was declared in four
+stylesheets; `UpgradeModal.css` set `position: absolute; top: 15px; right: 15px`,
+which won everywhere, so the **Settings dialog's X rendered in the viewport's
+top-right corner** instead of its own header. The same mechanism previously
+pinned UpgradeModal's per-card buttons to a corner via `.upgrade-button`.
+
+`.close-button` is now scoped to each screen's root. Sixteen remain:
+
+| Selector | Stylesheets |
+|---|---|
+| `.energy-icon` | Card, CardSelectionModal, EnergyBar, GameBoard |
+| `.resource-icon` | AllImage, GameBoard, Lobby |
+| `.progress-bar`, `.progress-fill`, `.progress-text` | AchievementPage, UpgradeModal |
+| `.resource-symbol`, `.resource-info`, `.resource-value`, `.resource-label` | AllImage, Lobby |
+| `.card-name`, `.card-cost` | Card, Lobby |
+| `.back-button` | AchievementPage, CollectionPage |
+| `.cancel-button` | CardSelectionModal, SettingModal |
+| `.deployment-indicator`, `.indicator-icon` | GameBoard, Lobby |
+| `.pieces-icon` | GameBoard, UpgradeModal |
+| `.action-buttons` | GameBoard, SettingModal |
+
+Some are genuinely shared components (`ResourceIcon` is one component used by
+several screens) and want **one** owning stylesheet rather than scoping. Others
+are coincidental name collisions and want scoping.
+
+`selectorOwnership.test.js` guards this. It stores the accepted **count** per
+selector, not just the name, so a third `.resource-icon` fails even though the
+selector is already listed — and it fails if a listed collision is fixed without
+updating the table.
+
+**Related, worth fixing at the same time:** `UpgradeModal.jsx:6` imports
+`Lobby.css` outright ("Assuming some styles are shared"), which is how the lobby
+resource bar's chip padding reaches the upgrade cost rows.
+
+---
+
+## Fixed since this document was written
+
+- **27 (Settings used the informational accent as its primary):** fixed
+  2026-08-18. `accent-info` 14 uses → 0; the heading, section titles, sliders,
+  percentages, selected quality button and Apply are `accent-energy`. Apply and
+  the active quality button take dark text on gold, which **retired two
+  `contrast-ok` opt-outs** that existed only because white-on-blue measured
+  2.61:1.
+- **30a (each region stretched the same ridge SVG):** fixed 2026-08-18. The
+  silhouettes are generated from **absolute map x** on a fixed peak pitch, with
+  each region's `viewBox` width equal to its rendered width, so the scale is 1:1
+  everywhere and a region's last hill and its neighbour's first are consecutive
+  points on one continuous range. Regions span 380–760px and were being stretched
+  0.63×–1.27×.
+- **The login 403 was a false alarm.** Recorded briefly as a blocker on
+  2026-08-18; `POST /api/auth/login` returns a token and the player when the
+  backend is built from current source. The 403 came from a stale running
+  instance.

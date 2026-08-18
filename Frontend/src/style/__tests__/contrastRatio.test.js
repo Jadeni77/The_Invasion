@@ -182,10 +182,8 @@ const EXPECTED_OPT_OUTS = [
   'GameBoard.css .quit-cancel-button',
   'Lobby.css .boss-indicator',
   'Lobby.css .zoom-controls button',
-  'SettingModal.css .quality-button.active',
   'SettingModal.css .toggle-button.active',
   'SettingModal.css .cancel-button',
-  'SettingModal.css .apply-button',
 ];
 
 function rulesOf(css) {

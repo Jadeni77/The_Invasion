@@ -1,3 +1,15 @@
+/*
+ * SETTINGS
+ *
+ * Recorded as known issue 27: this stylesheet used `accent-info` fourteen times
+ * and `accent-energy` not once, while every other screen in the game is
+ * gold-dominant - the heading, both section titles, every slider, the
+ * percentages, the selected quality button and Apply were all blue. That was a
+ * role error in the token conversion, not a bad token: blue is the
+ * informational accent (frost, information), gold is the primary one (energy,
+ * currency, stars, primary action). The screen's original colours were blue-ish
+ * and the conversion preserved the hue where it should have mapped the role.
+ */
 /* src/style/SettingsModal.css */
 .settings-modal-overlay {
     position: fixed;
@@ -59,12 +71,21 @@
 .settings-header h2 {
     margin: 0;
     font-family: var(--type-display);
-    color: var(--colors-accent-info);
+    color: var(--colors-accent-energy);
     font-size: 1.8rem;
     text-shadow: 2px 2px 4px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
 }
 
-.close-button {
+/*
+ * Scoped to its own screen. `.close-button` was declared bare in four
+ * stylesheets - AchievementPage, CollectionPage, SettingModal and UpgradeModal -
+ * and every stylesheet in this app is bundled globally, so all four competed and
+ * bundle order decided the winner. UpgradeModal's `position: absolute` was
+ * winning everywhere, which is why the Settings dialog's X rendered in the
+ * viewport's top-right corner instead of in its own header: absolute against the
+ * nearest positioned ancestor, and the overlay is `position: fixed`.
+ */
+.settings-modal .close-button {
     background: none;
     border: none;
     color: var(--colors-text-primary);
@@ -78,7 +99,7 @@
     justify-content: center;
 }
 
-.close-button:hover {
+.settings-modal .close-button:hover {
     color: var(--colors-accent-danger);
 }
 
@@ -99,7 +120,7 @@
 .section-header {
     margin: 0 0 20px 0;
     font-family: var(--type-display);
-    color: var(--colors-accent-info);
+    color: var(--colors-accent-energy);
     font-size: 1.2rem;
     text-align: center;
     letter-spacing: 2px;
@@ -151,21 +172,21 @@
     appearance: none;
     width: 20px;
     height: 20px;
-    background: var(--colors-accent-info);
+    background: var(--colors-accent-energy);
     cursor: pointer;
     border-radius: 50%;
     transition: all 0.3s;
 }
 
 .volume-slider::-webkit-slider-thumb:hover {
-    background: var(--colors-accent-info);
+    background: var(--colors-accent-energy);
     transform: scale(1.2);
 }
 
 .volume-slider::-moz-range-thumb {
     width: 20px;
     height: 20px;
-    background: var(--colors-accent-info);
+    background: var(--colors-accent-energy);
     cursor: pointer;
     border-radius: 50%;
     border: none;
@@ -174,7 +195,7 @@
 
 .volume-value {
     font-family: var(--type-display);
-    color: var(--colors-accent-info);
+    color: var(--colors-accent-energy);
     font-weight: bold;
     min-width: 45px;
     text-align: right;
@@ -203,12 +224,12 @@
 }
 
 .quality-button.active {
-    background-color: var(--colors-accent-info);
-    border-color: var(--colors-accent-info);
-    /* contrast-ok: 2.61:1, below 4.5:1 - see task-3-report.md, "Systemic
-       contrast opt-outs". */
-    color: var(--colors-text-primary);
-    box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-accent-info) 30%, transparent);
+    background-color: var(--colors-accent-energy);
+    border-color: var(--colors-accent-energy);
+    /* Dark on gold, not light. The blue this replaced needed a contrast opt-out
+       at 2.61:1; gold with the outline colour needs none. */
+    color: var(--colors-edge-outline);
+    box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
 }
 
 .toggle-button {
@@ -296,22 +317,22 @@
 
 .apply-button {
     padding: 10px 30px;
-    background-color: var(--colors-accent-info);
+    background-color: var(--colors-accent-energy);
     border: var(--borders-outline) solid var(--colors-edge-outline);
     border-radius: 20px;
     box-shadow: var(--shadows-drop);
-    /* contrast-ok: 2.61:1, below 4.5:1 - see task-3-report.md, "Systemic
-       contrast opt-outs". */
-    color: var(--colors-text-primary);
+    /* Dark on gold, as above - the opt-out this carried was a symptom of the
+       wrong accent, not of the text colour. */
+    color: var(--colors-edge-outline);
     cursor: pointer;
     transition: all 0.3s;
     font-weight: bold;
 }
 
 .apply-button:hover {
-    background-color: var(--colors-accent-info);
+    background-color: var(--colors-accent-energy);
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-accent-info) 30%, transparent);
+    box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
 }
 
 /* Scrollbar styling */
@@ -325,12 +346,12 @@
 }
 
 .settings-content::-webkit-scrollbar-thumb {
-    background: var(--colors-accent-info);
+    background: var(--colors-surface-raised);
     border-radius: 4px;
 }
 
 .settings-content::-webkit-scrollbar-thumb:hover {
-    background: var(--colors-accent-info);
+    background: var(--colors-edge-highlight);
 }
 
 /* Responsive adjustments */
