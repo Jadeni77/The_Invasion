@@ -2348,8 +2348,23 @@ export class TitanEnemy extends Enemy {
           this.y + this.height / 2 - (defender.y + defender.height / 2)
       );
       if (distance <= 1500) {
+        /*
+         * 120 authored frames (~2s), not 300 (~5s).
+         *
+         * This reaches every defender within 1500px, which the loop's own radius
+         * makes the whole board - CombatManager skips combat for a disabled
+         * defender, so the player's entire line stops firing. At 5 seconds, twice
+         * per Titan (thresholds at 66% and 33% health), that is ten seconds of
+         * total silence with no counterplay, and the owner reported it as the
+         * Shooter's attack being "not consistent" rather than as a stun, because
+         * nothing on screen explains it.
+         *
+         * For comparison the EMP - the unit built to do this - stuns for 180
+         * frames within 120px. A board-wide version should be shorter than a
+         * targeted one, not longer.
+         */
         defender.disabled = true;
-        defender.disabledDuration = 300; //5sec
+        defender.disabledDuration = 120;
         defender.takeDamage(40);
       }
 
