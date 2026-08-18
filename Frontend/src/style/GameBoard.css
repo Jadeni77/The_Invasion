@@ -140,9 +140,23 @@
 }
 
 /* Game Canvas */
+/*
+ * The playfield is a fixed 1280x720 bitmap (see LOGICAL_WIDTH in GameBoard.jsx);
+ * this scales it to fit without distorting it.
+ *
+ * `width: 100%` with `flex: 1` stretched the element to whatever box it was in,
+ * which was harmless while the bitmap was resized to match - and would now squash
+ * a 16:9 board into a phone's shape. `aspect-ratio` with both maxima keeps the
+ * board square-on and letterboxes the leftover, which is the honest trade: the
+ * board is the same board everywhere, just smaller.
+ */
 .game-canvas {
-  width: 100%;
-  flex: 1;
+  aspect-ratio: 16 / 9;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  margin: auto;
   background: var(--colors-surface-base);
   display: block;
 }
