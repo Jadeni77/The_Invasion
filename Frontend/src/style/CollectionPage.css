@@ -35,7 +35,16 @@
     text-shadow: 2px 2px 4px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
-.close-button {
+/*
+ * Scoped to its own screen. `.close-button` was declared bare in four
+ * stylesheets - AchievementPage, CollectionPage, SettingModal and UpgradeModal -
+ * and every stylesheet in this app is bundled globally, so all four competed and
+ * bundle order decided the winner. UpgradeModal's `position: absolute` was
+ * winning everywhere, which is why the Settings dialog's X rendered in the
+ * viewport's top-right corner instead of in its own header: absolute against the
+ * nearest positioned ancestor, and the overlay is `position: fixed`.
+ */
+.collection-page .close-button {
     background: none;
     border: none;
     color: var(--colors-text-primary);
@@ -44,7 +53,7 @@
     transition: color 0.3s;
 }
 
-.close-button:hover {
+.collection-page .close-button:hover {
     color: var(--colors-accent-danger);
 }
 

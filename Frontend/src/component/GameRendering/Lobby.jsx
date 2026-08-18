@@ -23,11 +23,75 @@ import CloseChest from "../../Icons/CloseChest.png";
 import OpenChest from "../../Icons/OpenChest.png";
 
 /** Distant hills. Fills the upper third, which was dead space before. */
-const RIDGE_FAR = 'M0,150 L60,110 L120,135 L190,80 L260,120 L330,70 L400,115 L470,85 L540,125 L600,100 L600,200 L0,200Z';
-/** Nearer hills, drawn over RIDGE_FAR so the two read as depth. */
-const RIDGE_NEAR = 'M0,175 L80,145 L160,168 L240,130 L320,160 L410,125 L500,158 L600,138 L600,200 L0,200Z';
-/** Foreground lip. Frames the bottom; nearest, so darkest. */
-const FOREGROUND = 'M0,55 Q70,28 150,48 T310,40 T470,52 T600,35 L600,100 L0,100Z';
+/*
+ * The terrain silhouettes, generated per region from ABSOLUTE map x.
+ *
+ * These were three fixed paths on a `viewBox="0 0 600 200"` with
+ * `preserveAspectRatio="none"`, one instance per region. Regions are not the same
+ * width - they span 380px to 760px - so the same hills were stretched anywhere
+ * from 0.63x to 1.27x, a two-fold difference between the narrowest and the
+ * widest. Hills changed size from region to region, and because each instance
+ * restarted the pattern at its own left edge, the silhouette did not line up
+ * across a boundary either.
+ *
+ * Generating from absolute x fixes both at once: the peaks sit on a fixed pitch
+ * in map coordinates, so every hill is the same width everywhere, and a region's
+ * last peak and its neighbour's first are consecutive points on one continuous
+ * range. Each region's viewBox width equals its rendered width, so the scale is
+ * exactly 1:1 and nothing is stretched.
+ */
+
+/** Peak spacing in map px. Fixed, so hill width never depends on region width. */
+const RIDGE_PITCH = 95;
+const RIDGE_HEIGHT = 200;
+
+/**
+ * A silhouette across [left, left + width], as a closed path in LOCAL
+ * coordinates. `phase` offsets the alternating heights so the far and near
+ * ranges do not peak in the same places.
+ */
+function silhouette(left, width, { pitch, crest, trough, phase = 0, baseline = RIDGE_HEIGHT }) {
+  // Start one pitch before the region and end one after, so a partial hill at
+  // either edge is drawn rather than clipped into a vertical wall.
+  const first = Math.floor(left / pitch) - 1;
+  const last = Math.ceil((left + width) / pitch) + 1;
+
+  const local = (k) => k * pitch - left;
+  const heightAt = (k) => ((k + phase) % 2 === 0 ? crest : trough);
+
+  /*
+   * Quadratic curves, not straight lines: each peak is the CONTROL point and the
+   * midpoints between peaks are the on-curve anchors, which is what makes these
+   * roll rather than zig-zag. A first pass drew `L` segments between peaks and
+   * the foreground band came out looking like a folded strip of paper.
+   */
+  const midX = (k) => (local(k) + local(k + 1)) / 2;
+  const midY = (k) => (heightAt(k) + heightAt(k + 1)) / 2;
+
+  let d = `M${midX(first).toFixed(1)},${midY(first).toFixed(1)}`;
+  for (let k = first + 1; k <= last - 1; k++) {
+    d += ` Q${local(k).toFixed(1)},${heightAt(k)} ${midX(k).toFixed(1)},${midY(k).toFixed(1)}`;
+  }
+
+  const startX = midX(first).toFixed(1);
+  const endX = midX(last - 1).toFixed(1);
+  return `${d} L${endX},${baseline} L${startX},${baseline}Z`;
+}
+
+const ridgeFarPath = (left, width) =>
+    silhouette(left, width, { pitch: RIDGE_PITCH, crest: 70, trough: 130, phase: 0 });
+
+/** Nearer hills, drawn over the far range so the two read as depth. */
+const ridgeNearPath = (left, width) =>
+    silhouette(left, width, { pitch: RIDGE_PITCH * 1.35, crest: 122, trough: 168, phase: 1 });
+
+/** The foreground band, on its own shorter viewBox. */
+const FOREGROUND_HEIGHT = 100;
+const foregroundPath = (left, width) =>
+    silhouette(left, width, {
+      pitch: RIDGE_PITCH * 1.9, crest: 30, trough: 58, phase: 0, baseline: FOREGROUND_HEIGHT,
+    });
+
 
 /**
  * A region's band, sized in MapLayout to cover exactly the levels assigned to
@@ -491,12 +555,31 @@ const Lobby = () => {
                   {zoneConfigs[zone]?.label && (
                       <span className="zone-label">{zoneConfigs[zone].label}</span>
                   )}
-                  <svg className="zone-ridge" viewBox="0 0 600 200" preserveAspectRatio="none" aria-hidden="true">
-                    <path d={RIDGE_FAR} fill="var(--terrain-ridge-far)" />
-                    <path d={RIDGE_NEAR} fill="var(--terrain-ridge-near)" />
+                  <svg
+                      className="zone-ridge"
+                      viewBox={`0 0 ${zoneSpans[zone]?.width ?? 600} ${RIDGE_HEIGHT}`}
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                  >
+                    <path
+                        d={ridgeFarPath(zoneSpans[zone]?.left ?? 0, zoneSpans[zone]?.width ?? 600)}
+                        fill="var(--terrain-ridge-far)"
+                    />
+                    <path
+                        d={ridgeNearPath(zoneSpans[zone]?.left ?? 0, zoneSpans[zone]?.width ?? 600)}
+                        fill="var(--terrain-ridge-near)"
+                    />
                   </svg>
-                  <svg className="zone-fore" viewBox="0 0 600 100" preserveAspectRatio="none" aria-hidden="true">
-                    <path d={FOREGROUND} fill="var(--terrain-foreground)" />
+                  <svg
+                      className="zone-fore"
+                      viewBox={`0 0 ${zoneSpans[zone]?.width ?? 600} ${FOREGROUND_HEIGHT}`}
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                  >
+                    <path
+                        d={foregroundPath(zoneSpans[zone]?.left ?? 0, zoneSpans[zone]?.width ?? 600)}
+                        fill="var(--terrain-foreground)"
+                    />
                   </svg>
                   {/* Mid-ground scenery. Count, kind, row and offsets all
                       come from `propsForZone` (TerrainProps.jsx), which is
