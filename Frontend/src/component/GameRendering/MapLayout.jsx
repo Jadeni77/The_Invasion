@@ -48,13 +48,19 @@ export const RAINBOW_STOPS = [
  * cannot cross because their x-spans only ever touch at a shared node (see
  * RouteGeometry.test.js, which asserts both rather than assuming them).
  *
- * `NODE_SPACING_X` is the density the mockup was approved at, and it is not
- * only an aesthetic number: `.level-name` is `white-space: nowrap` at 10px
- * bold, and this route's longest names ("Multiplication Crisis",
- * "Electromagnetic Chaos", 21 characters) measure roughly 115px. Two adjacent
- * nodes each carrying a 21-character label need that much clearance plus a gap
- * before the labels collide, which is what ruled out closing the map up to fit
- * fewer screens.
+ * `NODE_SPACING_X` is **the density the mockup was approved at**, and that is
+ * the whole reason for it.
+ *
+ * An earlier version of this comment claimed label collision forced it, which
+ * review measured and disproved: against the shipped woff2, the longest label
+ * ("Multiplication Crisis") is 127.2px, and the worst adjacent pair - levels 7
+ * and 8 - would not touch until the spacing closed to 104.8px. Labels alone
+ * would therefore tolerate roughly 150px. The corrected note is left here
+ * rather than deleted, because "the labels make me do it" is a much more
+ * comfortable argument than "the owner approved this density" and it would have
+ * been repeated by the next person to read the file. At 190px adjacent labels
+ * clear each other by ~63px, which is a consequence of the spacing, not its
+ * justification.
  */
 const ROUTE_START_X = 200;
 const NODE_SPACING_X = 190;
