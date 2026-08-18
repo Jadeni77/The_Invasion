@@ -60,15 +60,14 @@ const SHAPES = {
       />
     </>
   ),
-  // A jagged broken-stone silhouette plus crack lines, rather than two plain
-  // rectangles which read as steps or blocks instead of debris.
+  // Three overlapping tilted blocks, not a continuous jagged silhouette -
+  // a single zigzag skyline reads as distant mountains, not debris. Discrete
+  // rotated rectangles read as a collapsed, broken pile instead.
   rubble: (
     <>
-      <path
-        d="M1,16 L3,10 L6,12 L8,8 L11,11 L13,9 L15,16Z"
-        fill="var(--terrain-prop-stone)"
-      />
-      <path d="M4,16 L5,13 M9,16 L10,12" stroke="var(--terrain-prop-dark)" strokeWidth="1" fill="none" />
+      <rect x="1" y="9" width="7" height="6" fill="var(--terrain-prop-stone)" transform="rotate(-10 4.5 12)" />
+      <rect x="6" y="11" width="6" height="5" fill="var(--terrain-prop-dark)" transform="rotate(7 9 13.5)" />
+      <rect x="9" y="7" width="6" height="8" fill="var(--terrain-prop-stone)" transform="rotate(-5 12 11)" />
     </>
   ),
   fire: <path d="M8,3 Q11,9 8,16 Q5,9 8,3Z" fill="var(--terrain-prop-ember)" />,
