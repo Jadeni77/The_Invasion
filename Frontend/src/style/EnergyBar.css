@@ -3,7 +3,7 @@
   background: color-mix(in srgb, var(--colors-edge-outline) 60%, transparent);
   border-radius: 12px;
   padding: 15px;
-  margin: 15px 0;
+  margin: 0;
   border: 2px solid var(--colors-surface-panel);
   box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
 }

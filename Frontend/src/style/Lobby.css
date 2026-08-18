@@ -145,12 +145,28 @@
 }
 
 /* ---------- */
+/* The band holding the player bar, energy panel and resource pills in one
+   row. `flex: 0 0 auto` keeps it from growing at the map's expense - the
+   map (`.game-map-container`, `flex: 1 1 auto`) is what should absorb any
+   extra height, not this band. */
+.lobby-topband {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  padding: var(--space-sm) var(--space-md);
+  background: linear-gradient(180deg, var(--colors-surface-panel), var(--colors-surface-sunken));
+  border: var(--borders-outline) solid var(--colors-edge-outline);
+  border-radius: var(--radii-lg);
+  box-shadow: var(--shadows-drop), inset 0 1px 0 var(--colors-edge-highlight);
+}
+
 /* Top Menu Bar */
 .top-menu-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
   padding: 15px;
   background: color-mix(in srgb, var(--colors-edge-outline) 70%, transparent);
   border-radius: 12px;
@@ -207,7 +223,6 @@
 .resource-bar {
   display: flex;
   justify-content: space-around;
-  margin-bottom: 20px;
   padding: 10px;
   background: color-mix(in srgb, var(--colors-edge-outline) 60%, transparent);
   border-radius: 10px;

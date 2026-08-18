@@ -322,67 +322,75 @@ const Lobby = () => {
             </div>
         )}
 
-        {/* Top menu bar */}
-        <div className="top-menu-bar">
-          <div className="player-info">
-            <div className="player-name">{playerData.name}</div>
-            <div className="player-rank">{playerData.rank}</div>{" "}
+        {/* Top chrome: player identity, menu buttons, energy and resources
+            used to be three stacked blocks eating roughly a third of the
+            screen before the map began. They share one row now, in one
+            band, so the map - the screen's actual subject - gets that
+            height back. Wrapper only: none of the three blocks below have
+            had their markup or class names changed. */}
+        <div className="lobby-topband">
+          {/* Top menu bar */}
+          <div className="top-menu-bar">
+            <div className="player-info">
+              <div className="player-name">{playerData.name}</div>
+              <div className="player-rank">{playerData.rank}</div>{" "}
+            </div>
+
+            <div className="menu-buttons">
+              <button className="menu-button collection" onClick={openCollection}>
+                <i className="icon-collection" />
+                <span>Collection</span>
+              </button>
+              <button className="menu-button achievement" onClick={openAchievements}>
+                <i className="icon-achievement" />
+                <span>Achievement</span>
+              </button>
+              {/*
+                These two buttons carried the same `icon-setting` glyph, with
+                the destructive one (log out, ending the session) sitting
+                immediately left of the benign one. Icons are the only thing a
+                player scanning this bar reads; two identical ones made ending
+                the session a coin flip. The button *classes* are left alone -
+                `settings` on the logout button is a pre-existing mislabel, and
+                renaming it would touch Lobby.css for no visual gain - but the
+                icons are now distinct in both directions: the gear belongs to
+                Settings, and logout says logout.
+
+                Note for whoever adds the artwork: no stylesheet in this repo
+                defines `icon-*` yet, so every one of these <i> elements is
+                currently empty and nothing is drawn. The duplication was
+                therefore latent rather than on screen - but it is the markup a
+                real icon set will be hung on, and it had the wrong name on it.
+              */}
+              <button className="menu-button settings" onClick={handleLogout}>
+                <i className="icon-logout" />
+                <span>Logout</span>
+              </button>
+              <button className="menu-button open-settings" onClick={openSettings}>
+                <i className="icon-gear" />
+                <span>Settings</span>
+              </button>
+            </div>
           </div>
 
-          <div className="menu-buttons">
-            <button className="menu-button collection" onClick={openCollection}>
-              <i className="icon-collection" />
-              <span>Collection</span>
-            </button>
-            <button className="menu-button achievement" onClick={openAchievements}>
-              <i className="icon-achievement" />
-              <span>Achievement</span>
-            </button>
-            {/*
-              These two buttons carried the same `icon-setting` glyph, with
-              the destructive one (log out, ending the session) sitting
-              immediately left of the benign one. Icons are the only thing a
-              player scanning this bar reads; two identical ones made ending
-              the session a coin flip. The button *classes* are left alone -
-              `settings` on the logout button is a pre-existing mislabel, and
-              renaming it would touch Lobby.css for no visual gain - but the
-              icons are now distinct in both directions: the gear belongs to
-              Settings, and logout says logout.
+          {/* Energy Bar */}
+          {playerData.resources && (
+              <EnergyBar
+                  current={playerData.resources.lobbyEnergy}
+                  max={playerData.resources.maxLobbyEnergy}
+                  rechargeRate={playerData.resources.energyRechargeRate}
+                  lastRechargeTime={playerData.resources.lastEnergyRechargeTime}
+              />
+          )}
 
-              Note for whoever adds the artwork: no stylesheet in this repo
-              defines `icon-*` yet, so every one of these <i> elements is
-              currently empty and nothing is drawn. The duplication was
-              therefore latent rather than on screen - but it is the markup a
-              real icon set will be hung on, and it had the wrong name on it.
-            */}
-            <button className="menu-button settings" onClick={handleLogout}>
-              <i className="icon-logout" />
-              <span>Logout</span>
-            </button>
-            <button className="menu-button open-settings" onClick={openSettings}>
-              <i className="icon-gear" />
-              <span>Settings</span>
-            </button>
+          {/* Resources Bar */}
+          <div className="resource-bar">
+            <ResourceIcon type="gold" value={playerData.resources.gold} />
+            <ResourceIcon type="iron" value={playerData.resources.iron} />
+            <ResourceIcon type="grain" value={playerData.resources.grain} />
+            <ResourceIcon type="water" value={playerData.resources.water} />
+            <ResourceIcon type="gem" value={playerData.resources.gem} />
           </div>
-        </div>
-
-        {/* Energy Bar */}
-        {playerData.resources && (
-            <EnergyBar
-                current={playerData.resources.lobbyEnergy}
-                max={playerData.resources.maxLobbyEnergy}
-                rechargeRate={playerData.resources.energyRechargeRate}
-                lastRechargeTime={playerData.resources.lastEnergyRechargeTime}
-            />
-        )}
-
-        {/* Resources Bar */}
-        <div className="resource-bar">
-          <ResourceIcon type="gold" value={playerData.resources.gold} />
-          <ResourceIcon type="iron" value={playerData.resources.iron} />
-          <ResourceIcon type="grain" value={playerData.resources.grain} />
-          <ResourceIcon type="water" value={playerData.resources.water} />
-          <ResourceIcon type="gem" value={playerData.resources.gem} />
         </div>
 
         {/* Game Map. Panning is native scrolling (scrollLeft), driven either
