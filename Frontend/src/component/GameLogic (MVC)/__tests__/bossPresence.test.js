@@ -140,3 +140,65 @@ describe('a boss is drawn as a boss', () => {
     vi.doUnmock('../Feedback/SettingsStore.js');
   });
 });
+
+/**
+ * The Titan's phase readout.
+ *
+ * The phase was drawn two ways: as a `strokeRect` around the whole sprite,
+ * coloured by phase, which read as a debug bounding box (the owner took it for an
+ * attack-range overlay and wanted it gone, and scaling bosses up made it worse);
+ * and as `P{n}` text at `y - 15`, which is exactly where the standard health bar
+ * writes its value - so the phase and the health number were drawn over each other
+ * for every Titan in the game. The boss bar made that collision obvious; it did
+ * not create it.
+ */
+describe('the Titan phase readout', () => {
+  it('draws no bounding box around the sprite', async () => {
+    const { TitanEnemy } = await import('../EnemyUnits.js');
+    const ctx = recordingCtx();
+    const titan = new TitanEnemy(100, 100, null);
+    titan.isAlive = true;
+    titan.animationFrames = null;
+    titan.drawNegativeEffect = { drawAllEffect: () => {} };
+    titan.draw(ctx);
+
+    const boxes = named(ctx, 'strokeRect').filter(
+      (c) => Math.abs(c.args[2] - (titan.width + 4)) < 1,
+    );
+    expect(boxes, 'the phase box is a debug artifact, not a game signal').toEqual([]);
+  });
+
+  it('keeps the phase clear of where the health value is written', async () => {
+    const { TitanEnemy } = await import('../EnemyUnits.js');
+    const ctx = recordingCtx();
+    const titan = new TitanEnemy(100, 100, null);
+    titan.isAlive = true;
+    titan.isBoss = false;
+    titan.animationFrames = null;
+    titan.drawNegativeEffect = { drawAllEffect: () => {} };
+    titan.draw(ctx);
+
+    const phase = named(ctx, 'fillText').find((c) => String(c.args[0]).startsWith('P'));
+    expect(phase, 'a plain Titan still shows its phase').toBeDefined();
+    // The standard bar writes its value at y - 15; anything at that exact y
+    // overlaps it.
+    expect(phase.args[2]).toBeLessThan(titan.y - 15);
+  });
+
+  it('folds the phase into the bar for a boss instead of printing it twice', async () => {
+    const { TitanEnemy } = await import('../EnemyUnits.js');
+    const ctx = recordingCtx();
+    const titan = new TitanEnemy(100, 100, null);
+    titan.isAlive = true;
+    titan.isBoss = true;
+    titan.animationFrames = null;
+    titan.drawNegativeEffect = { drawAllEffect: () => {} };
+    titan.draw(ctx);
+
+    const texts = named(ctx, 'fillText').map((c) => String(c.args[0]));
+    const barLabel = texts.find((t) => t.includes('/'));
+    expect(barLabel, 'the boss bar names the phase').toMatch(/P\d/);
+    // And not a second, free-floating copy.
+    expect(texts.filter((t) => /^P\d$/.test(t))).toEqual([]);
+  });
+});

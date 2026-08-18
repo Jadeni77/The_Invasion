@@ -445,6 +445,17 @@ export class Enemy {
   }
 
   /**
+   * What the boss health bar writes above itself.
+   *
+   * Overridable so a unit carrying extra state - the Titan's phase, say - can put
+   * it INSIDE the bar rather than stacking another row of text above the sprite,
+   * where it collides with the bar it is trying to sit near.
+   */
+  bossBarLabel() {
+    return `${this.name}  ${this.health.toFixed(0)}/${this.maxHealth}`;
+  }
+
+  /**
    * A boss's health bar: wider than the sprite, taller than the standard bar,
    * outlined, and shown from full health rather than only once damaged.
    *
@@ -471,7 +482,7 @@ export class Enemy {
 
     ctx.fillStyle = colors.textPrimary;
     ctx.font = canvasFont(11, 'bold');
-    ctx.fillText(`${this.name}  ${this.health.toFixed(0)}/${this.maxHealth}`, barX, barY - 5);
+    ctx.fillText(this.bossBarLabel(), barX, barY - 5);
     ctx.restore();
   }
 
@@ -2473,11 +2484,15 @@ export class TitanEnemy extends Enemy {
   draw(ctx) {
     super.draw(ctx);
 
-    // Phase indicator
+    /*
+     * The phase used to be shown as a strokeRect around the whole sprite,
+     * coloured by phase. It read as a debug bounding box rather than a game
+     * signal - the owner's words on seeing it were that it looked like an attack
+     * range they wanted removed - and it got worse once bosses were scaled up,
+     * because the box scaled with them. The phase is carried by the text below
+     * (and, for a boss, inside the health bar), which is enough.
+     */
     ctx.save();
-    ctx.strokeStyle = this.phase === 3 ? colors.accentDanger : this.phase === 2 ? decorative.orange : colors.textMuted;
-    ctx.lineWidth = 3;
-    ctx.strokeRect(this.x - 2, this.y - 2, this.width + 4, this.height + 4);
 
     // Ground pound charge indicator
     if (this.isGroundPounding) {
@@ -2502,11 +2517,27 @@ export class TitanEnemy extends Enemy {
       ctx.fillStyle = colors.edgeHighlight;
       ctx.fillRect(this.x + this.width - 10, this.y, 8, 8);
     }
-    // Phase indicator text
-    ctx.fillStyle = this.phase === 3 ? colors.accentDanger : this.phase === 2 ? decorative.orange : colors.textPrimary;
-    ctx.font = canvasFont(12, "bold");
-    ctx.textAlign = "center";
-    ctx.fillText(`P${this.phase}`, this.x + this.width / 2, this.y - 15);
+    /*
+     * The phase readout.
+     *
+     * For a boss it is already in the health bar (see bossBarLabel below), so
+     * drawing it again here would print it twice. For a plain Titan it goes ABOVE
+     * the standard bar's value text rather than on top of it: that value is drawn
+     * at `y - 15`, which is exactly where this used to sit, so "P1" and the health
+     * number were rendered over each other for every Titan in the game - a
+     * collision the wider boss bar made obvious but did not create.
+     */
+    if (!this.isBoss) {
+      ctx.fillStyle = this.phase === 3 ? colors.accentDanger : this.phase === 2 ? decorative.orange : colors.textPrimary;
+      ctx.font = canvasFont(12, "bold");
+      ctx.textAlign = "center";
+      ctx.fillText(`P${this.phase}`, this.x + this.width / 2, this.y - 26);
+    }
+  }
+
+  /** The Titan's phase belongs in the bar, not in a second row above it. */
+  bossBarLabel() {
+    return `${this.name}  P${this.phase}  ${this.health.toFixed(0)}/${this.maxHealth}`;
   }
 }
 
