@@ -7,6 +7,7 @@ import Gold from "../../Icons/Gold.png";
 import Iron from "../../Icons/Iron.png";
 import { useMobileOrientation } from "./UseMobileOrientation.js";
 import { useCardCooldowns } from "./useCardCooldowns.js";
+import { useLeaveWarning } from "./useLeaveWarning.js";
 
 const GameBoard = () => {
   const canvasRef = useRef(null);
@@ -30,6 +31,7 @@ const GameBoard = () => {
     addCollectedPieces,
     collectedCardPieces,
     currentEndlessWave,
+    energyCostOf,
     feedback,
   } = useGame();
 
@@ -48,6 +50,11 @@ const GameBoard = () => {
   const [cardCooldown, setCardCooldown] = useCardCooldowns(showQuitDialog);
 
   useMobileOrientation(gameState);
+
+  /* A level in progress cannot be resumed, and the energy is already spent -
+     so a refresh is worth one confirmation. Once it is over, there is nothing
+     left to lose and the prompt would only be in the way. */
+  useLeaveWarning(gameState === "inGame" && !gameOver);
 
   /* The playfield is a FIXED size, and CSS scales it to fit. */
   const LOGICAL_WIDTH = 1280;
@@ -630,9 +637,26 @@ const GameBoard = () => {
         <div className="quit-dialog-overlay">
           <div className="quit-dialog">
             <h3>Return to Lobby?</h3>
-            <p>
-              Warning: Quitting will remove all resources gain from this level!
-            </p>
+            {/* The cost stated plainly. The old copy mentioned the level's
+                resources and said nothing about the energy already spent to
+                start it, which is the part the player cannot get back. */}
+            {selectedLevel === 999 ? (
+              <p>
+                Your run to <b>wave {currentEndlessWave}</b> will be banked, with
+                everything it earned.
+              </p>
+            ) : (
+              <>
+                <p>
+                  This level pays nothing if you leave: no gold, no resources, no
+                  stars, and no defender.
+                </p>
+                <p className="quit-dialog-cost">
+                  The <b>{energyCostOf(selectedLevel)} ⚡</b> it cost to start is
+                  already spent, and starting again will cost that much more.
+                </p>
+              </>
+            )}
             <div className="quit-dialog-buttons">
               <button
                 className="quit-confirm-button"
