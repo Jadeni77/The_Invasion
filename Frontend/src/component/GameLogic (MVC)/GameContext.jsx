@@ -29,7 +29,7 @@ export const useGame = () => {
 };
 
 /* What one energy purchase costs and grants. */
-export const ENERGY_PACK = { amount: 25, gold: 150 };
+export const ENERGY_PACK = { amount: 10, gold: 150 };
 
 export const GameProvider = ({ children }) => {
   const gameEngineRef = useRef(null); // Ref to hold the GameEngine instance
@@ -104,6 +104,12 @@ export const GameProvider = ({ children }) => {
   const [currentEndlessWave, setCurrentEndlessWave] = useState(0);
   /* The reward the player just collected, or null. */
   const [chestReward, setChestReward] = useState(null);
+
+  /**
+   * Something the player needs to be told, shown in-game rather than by the
+   * browser. `kind` is 'energy' when the shortfall is buyable, 'locked' otherwise.
+   */
+  const [gateNotice, setGateNotice] = useState(null);
 
   //authentication
   const [isAuthenticated, setIsAuthenticated] = useState(
@@ -745,9 +751,11 @@ export const GameProvider = ({ children }) => {
           playerData.completedLevels?.includes(10) ||
           playerData.totalStars >= 50;
         if (!isUnlocked) {
-          alert(
-            "Complete Level 20 or collect 50 stars to unlock Endless Mode!",
-          );
+          setGateNotice({
+            kind: "locked",
+            title: "Endless Mode is locked",
+            message: "Complete Level 20 or collect 50 stars to unlock it.",
+          });
           return;
         }
         setCurrentEndlessWave(0);
@@ -757,9 +765,15 @@ export const GameProvider = ({ children }) => {
       const currentEnergy = playerData.resources.lobbyEnergy;
 
       if (currentEnergy < levelCost) {
-        alert(
-          `Not enough energy! You need ${levelCost} energy to start this level.`,
-        );
+        // The chosen cards ride along so buying energy can start the level the
+        // player set up, rather than sending them back to pick a deck again.
+        setGateNotice({
+          kind: "energy",
+          levelId,
+          needed: levelCost,
+          have: currentEnergy,
+          selectedCards,
+        });
         return;
       }
 
@@ -1087,6 +1101,8 @@ export const GameProvider = ({ children }) => {
     collectedCardPieces,
     chestReward,
     setChestReward,
+    gateNotice,
+    setGateNotice,
     buyEnergy,
     canBuyEnergy,
     energyPack: ENERGY_PACK,

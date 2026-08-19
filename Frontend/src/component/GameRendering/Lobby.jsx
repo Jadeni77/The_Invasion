@@ -28,6 +28,7 @@ import "../../style/UpgradeModal.css"; // Correct path (if UpgradeModal.css is u
 import CardSelectionModal from "./CardSelectionModal";
 import CloseChest from "../../Icons/CloseChest.png";
 import OpenChest from "../../Icons/OpenChest.png";
+import GateNotice from "./GateNotice.jsx";
 
 /** Distant hills. Fills the upper third, which was dead space before. */
 
@@ -287,31 +288,12 @@ const Lobby = () => {
 
   const renderLevelNode = (level) => {
     const status = getLevelStatus(level.id, playerData);
-    // Exactly one of these three - never zero, never two - so the node's
-    // appearance always resolves to a single, unambiguous state.
     const stateClass = status.locked ? 'locked' : status.completed ? 'completed' : 'available';
 
     return (
         <div
             key={`level-${level.id}`}
-            // No zone class here any more. A node used to also carry
-            // `.{zone}-node` for a zone hue, but every node also carries a
-            // state class (`.completed`/`.available`/`.locked`, specificity
-            // 0-2-0), which structurally outranks a single-class zone rule
-            // (0-1-0) for the same property regardless of source order - so
-            // the zone hue could never actually paint. Rather than raise the
-            // zone rule's specificity to compete with state (which would
-            // put zone tint back in the running against the colour this
-            // board depends on), the dead zone-node rules were removed:
-            // zone identity now lives in the terrain the node sits on, not
-            // in the node itself.
             className={`level-node ${stateClass} ${level.isBoss ? 'boss' : ''} ${level.isFinal ? 'final-level' : ''}`}
-            // Position only. Colour comes from Lobby.css - `.level-node`
-            // for the shared outline and `.level-node.locked`/`.completed`/
-            // `.available` for state. An inline colour here would beat the
-            // stylesheet, which is how a reviewed choice got silently
-            // overridden before (see the state rules' history in
-            // Lobby.css).
             style={{
               top: `${level.y}px`,
               left: `${level.x}px`,
@@ -350,6 +332,8 @@ const Lobby = () => {
   // Render Lobby UI
   return (
       <div className="lobby-container">
+
+        <GateNotice />
 
         {/* What the chest actually gave you. Resources and defenders together:
             listing only defenders meant most chests opened in silence. */}
