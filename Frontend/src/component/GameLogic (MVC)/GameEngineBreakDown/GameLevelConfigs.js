@@ -11,6 +11,13 @@ export class GameLevelConfigs {
                                      "Exploder", "Skeleton Shooter", "Shielder", "Healer", "Splitter",
                                      "Mini", "Swarm Witch", "EMP", "Vampire", "Ghost",
                                      "Berserker", "Necromancer", "Assassin", "Mage", "Titan"];
+
+        /* The roster levels 1-3 draw on, and the one levels 4-10 add. Level 19
+           replays the campaign in order, so it needs both by name - every name
+           here has to be a key of GameEngine's enemyClasses. */
+        const basicEnemyTypes = ["Basic Zombie", "Fast Zombie", "Exploder"];
+        const midTierEnemyTypes = ["Tank Zombie", "Skeleton Shooter", "Shielder",
+                                   "Healer", "Splitter", "Mini", "Swarm Witch", "EMP"];
         // Tutorial Levels (1-3)
         this.gameEngine.levelConfigs.set(1, {
             levelNumber: 1,
@@ -1136,8 +1143,8 @@ export class GameLevelConfigs {
                 ...Array.from({ length: 15 }, (_, i) => ({
                     enemyCount: 16 + Math.floor(i / 3),
                     spawnInterval: Math.max(60, 300 - (i * 20)),
-                    enemyTypes: i < 5 ? ["Basic Enemies"] :
-                                i < 10 ? ["Mid Tier Enemies"] :
+                    enemyTypes: i < 5 ? basicEnemyTypes :
+                                i < 10 ? midTierEnemyTypes :
                                     ["Basic Zombie", "Fast Zombie", "Tank Zombie", "Exploder",
                                      "Skeleton Shooter", "Shielder", "Healer", "Splitter",
                                      "Mini", "Swarm Witch", "EMP", "Vampire", "Ghost",
