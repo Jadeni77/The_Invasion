@@ -6,6 +6,7 @@ import { calculateCardStats } from "../GameLogic (MVC)/DefenderClassUtils";
 import Gold from "../../Icons/Gold.png";
 import Iron from "../../Icons/Iron.png";
 import { useMobileOrientation } from "./UseMobileOrientation.js";
+import { useCardCooldowns } from "./useCardCooldowns.js";
 
 const GameBoard = () => {
   const canvasRef = useRef(null);
@@ -38,11 +39,13 @@ const GameBoard = () => {
 
   const [cardSlots, setCardSlots] = useState([]);
   const cardSlotsRef = useRef([]);
-  const [cardCooldown, setCardCooldown] = useState({});
 
   const [baseHealth, setBaseHealth] = useState(100);
   const [_resetTrigger, _setResetTrigger] = useState(0);
   const [showQuitDialog, setShowQuitDialog] = useState(false);
+
+  // Counts down on the clock, and holds while the quit dialog is up.
+  const [cardCooldown, setCardCooldown] = useCardCooldowns(showQuitDialog);
 
   useMobileOrientation(gameState);
 
@@ -103,21 +106,6 @@ const GameBoard = () => {
     }
   }, [selectedCardsForGame, playerData]);
 
-  //update cooldowns
-  useEffect(() => {
-    const cooldownInterval = setInterval(() => {
-      setCardCooldown((prev) => {
-        const updated = { ...prev };
-        Object.keys(updated).forEach((cardId) => {
-          if (updated[cardId] > 0 && !showQuitDialog) {
-            updated[cardId] = Math.max(0, updated[cardId] - 100); //deacrease by 100ms
-          }
-        });
-        return updated;
-      });
-    }, 100);
-    return () => clearInterval(cooldownInterval);
-  }, [showQuitDialog]);
 
   //TODO: Game Engine reinitialize itself causing the game to reset (the resetGame method is
   // called) Initialize game engine
