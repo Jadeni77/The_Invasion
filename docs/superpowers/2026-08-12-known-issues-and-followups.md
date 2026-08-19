@@ -745,6 +745,31 @@ resource bar's chip padding reaches the upgrade cost rows.
 ---
 
 ## Fixed since this document was written
+- **10 (Level 1 in a debug state):** fixed 2026-08-18. `initialEnergy` 10000 →
+  **100**; `totalEnemiesToSpawn` and `maxActiveEnemies` agree with the waves at
+  **11** and **3**; all three waves are Basic Zombies, so a Necromancer is no
+  longer the first enemy a new player meets.
+- **26, the enforcement half (`maxActiveEnemies` was never applied):** fixed
+  2026-08-18. `WaveManager.spawnWaveEnemies` returns early once
+  `activeEnemyCount() >= activeEnemyCap()`, so the board holds a level's own
+  cap regardless of how fast its intervals ask. **The interval data is
+  unchanged** — 73 waves still declare under 300ms and level 20 declares 40ms —
+  they simply no longer translate into 25 arrivals a second on screen. If a
+  play-test still reads as a flood, the intervals are the thing to cut.
+- **31 (sixteen bare class selectors in more than one stylesheet):** fixed
+  2026-08-18, PR #34. All seventeen resolved; `KNOWN_COLLISIONS` is empty and a
+  new entry in it is a regression.
+- **32 (CollectionPage used `accent-danger` as its primary accent):** fixed
+  2026-08-18, PR #37.
+- **Defender upgrades that never applied:** fixed 2026-08-19, PRs #43 and #44.
+  `applyLevelUpgrades` runs inside `super()`, so a subclass constructor
+  assigning the same property afterwards overwrote it — **seven of ten
+  defenders** had stats pinned to their level-1 value, including the Sniper's
+  crit chance and the Frost Archer's freeze. Each now scales from a
+  `static BASE` on its own class.
+- **Level 19 sent 98 of its 270 enemies:** fixed 2026-08-19, PR #41. Ten of
+  fifteen waves named `"Basic Enemies"` and `"Mid Tier Enemies"`, neither of
+  which is an enemy class, so they spawned nothing and cleared themselves.
 
 - **27 (Settings used the informational accent as its primary):** fixed
   2026-08-18. `accent-info` 14 uses → 0; the heading, section titles, sliders,
@@ -778,3 +803,20 @@ a catalogue.
 
 The same role error as issue 27, on a different screen, and worth fixing in the
 same pass as the remaining accent audit rather than one screen at a time.
+
+---
+
+## Settled by the owner, not defects
+
+- **The star economy (2026-08-19).** Stars are awarded per level and stored in
+  `levelStars` / `totalStars`, and nothing spends them — the only reader is the
+  endless-mode unlock (50 stars, an alternative to finishing level 10). The
+  owner's call: **stars stay a completion badge.** Three per level across twenty
+  levels is a 60-star display of how well the campaign was played, and that is
+  the whole of it. Not an open item.
+- **Mid-level refresh (2026-08-19).** No resume. A level in progress is
+  forfeit — the owner's reasoning: resuming mid-game is hard to do well. The
+  cost is stated instead, by the quit dialog and by a `beforeunload` prompt.
+  See PR #47.
+- **Session timeout (2026-08-19).** Left as it is. The owner: "the user will
+  remove browser when they dont want to see it".
