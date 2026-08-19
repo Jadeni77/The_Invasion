@@ -5,7 +5,7 @@ import ResourceIcon from "../ResourceIcon.jsx"; // Correct path
 import Card from "../../common/Card.jsx"; // Correct path
 import "../../../style/Lobby.css"; // Assuming some styles are shared
 import "../../../style/UpgradeModal.css"; // Correct path
-import { getUpgradePreview } from "../../GameLogic (MVC)/DefenderClassUtils.js";
+import { getUpgradePreview, calculateCardStats } from "../../GameLogic (MVC)/DefenderClassUtils.js";
 import Bow from "../../../Icons/Bow.png";
 import GameBackdrop from "../TerrainBackdrop.jsx";
 import { MAX_DEFENDER_LEVEL } from "../../GameLogic (MVC)/DefenderClassUtils.js";
@@ -60,13 +60,17 @@ function UpgradeModal() {
                 }`}
                 onClick={() => setSelectedCard(card)} // Only allow selection if not upgrading
               >
-                <Card card={card} />
+                {/* Stats first. A saved card carries no damage or health -
+                    those come from the unit class - and Card falls back to 0
+                    for anything missing, so the icon read 0 attack and 0
+                    health for every defender on this screen. */}
+                <Card card={calculateCardStats(card) ?? card} />
 
                   <div className="upgrade-info">
                     <h4>{atMaxLevel(card) ? `Level ${card.level} - maxed` : `Upgrade to Level ${card.level + 1}`}</h4>
 
                     {/* Show Stats Improvement */}
-                    {upgradePreview && (
+                    {!atMaxLevel(card) && upgradePreview && (
                       <div className="stat-improvements">
                         <div className="stat-change">
                           ⚔️ {upgradePreview.current.damage} →{" "}
@@ -89,7 +93,7 @@ function UpgradeModal() {
                     )}
 
                     {/* new ability */}
-                    {upgradePreview &&
+                    {!atMaxLevel(card) && upgradePreview &&
                       upgradePreview.upgradeInfo.newAbilities.length > 0 && (
                         <div className="new-abilities">
                           <span>🎯 New Abilities:</span>
@@ -103,6 +107,7 @@ function UpgradeModal() {
                         </div>
                       )}
 
+                    {!atMaxLevel(card) && (
                     <div className="resource-requirements">
                       {Object.entries(card.upgradeCost).map(
                         ([resource, amount]) => (
@@ -123,7 +128,10 @@ function UpgradeModal() {
                       )}
                     </div>
 
+                    )}
+
                     {/* Card Pieces Requirement Display */}
+                    {!atMaxLevel(card) && (
                     <div className="card-pieces-requirement">
                       <span className="pieces-icon">⬟</span>
                       <span className={`pieces-text ${
@@ -132,6 +140,7 @@ function UpgradeModal() {
                         Card Pieces: {card.pieces} / {card.piecesNeeded * card.level}
                       </span>
                     </div>
+                    )}
 
                     {/* Only show button if card is selected or if it's the one we're looking at */}
                     {selectedCard?.id === card.id && (
