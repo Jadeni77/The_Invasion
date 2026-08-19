@@ -56,6 +56,18 @@ import { colors, decorative, ensureDisplayFontLoaded, withAlpha } from '../../st
 /* How much larger a boss is drawn than the same enemy type spawned normally. */
 const BOSS_SCALE = 1.4;
 
+/*
+ * A boss's health, as a multiple of its type's and as a hard floor.
+ *
+ * The multiplier alone made a boss out of the enemy's own scale, so the small
+ * types stayed small: a boss Vampire is 90 base health, and no multiple worth
+ * applying to a Titan's 5000 leaves the Vampire standing long enough to read as
+ * a boss. The floor is what makes every boss a boss; the multiplier only still
+ * matters for the types that already clear it.
+ */
+const BOSS_MIN_HEALTH = 1500;
+const BOSS_HEALTH_SCALE = 2;
+
 /* The tallest a boss may be drawn, as a multiple of its lane's height. */
 const BOSS_MAX_LANE_HEIGHT = 2;
 
@@ -355,8 +367,11 @@ export class GameEngine {
 
     if (options.isBoss) {
       enemy.isBoss = true;
-      enemy.health    = Math.floor(enemy.health    * 2.5);
-      enemy.maxHealth = Math.floor(enemy.maxHealth * 2.5);
+      enemy.maxHealth = Math.max(
+        BOSS_MIN_HEALTH,
+        Math.floor(enemy.maxHealth * BOSS_HEALTH_SCALE),
+      );
+      enemy.health = enemy.maxHealth;
       enemy.attackDamage = Math.floor(enemy.attackDamage * 2);
       enemy.bounty    = Math.floor(enemy.bounty    * 2);
 
