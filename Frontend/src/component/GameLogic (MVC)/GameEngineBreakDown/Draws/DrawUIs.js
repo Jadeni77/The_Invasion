@@ -198,8 +198,11 @@ export class DrawUIs {
             const currentWave = waveManager.currentWave;
             const totalWaves = this.gameEngine.currentLevelConfig.waves;
 
+            /* Wave 0 is the prep time before the first wave, not a wave. The
+               countdown in the corner is already saying how long is left, so
+               this says what the pause is for. */
             ctx.fillText(
-                `Wave: ${currentWave}/${totalWaves}`,
+                currentWave === 0 ? 'Get Ready' : `Wave: ${currentWave}/${totalWaves}`,
                 this.gameEngine.canvasWidth / 2,
                 20
             );

@@ -287,26 +287,47 @@ describe('WaveManager', () => {
     });
 
     describe('reset', () => {
-        it('should reset all counters and start wave 1', () => {
+        it('should reset all counters and leave wave 1 not yet begun', () => {
             waveManager.currentWave = 5;
             waveManager.totalEnemiesKilled = 20;
             waveManager.allWavesComplete = true;
             waveManager.reset();
-            expect(waveManager.currentWave).toBe(1); // reset calls startNextWave
+            // Wave 0: the prep time before wave 1 is the only thing that can
+            // release it, and it is only consulted while currentWave is 0.
+            // reset() used to jump straight to 1, which made PREP_TIME_MS
+            // unreachable and left a hardcoded five-second delay in charge.
+            expect(waveManager.currentWave).toBe(0);
             expect(waveManager.totalEnemiesKilled).toBe(0);
             expect(waveManager.allWavesComplete).toBe(false);
-            expect(waveManager.waveActive).toBe(true);
+            expect(waveManager.waveActive).toBe(false);
         });
 
-        it('should announce wave 1 by default (genuine new-level start)', () => {
+        /*
+         * The claim the old announce flag existed to protect: no wave horn on
+         * top of the win or loss sting. It holds by construction now - reset
+         * starts no wave, so there is no announcement to suppress.
+         */
+        it('should announce nothing, so no horn lands on a win or loss sting', () => {
             waveManager.reset();
-            expect(mockGameEngine.showWaveAnnouncement).toHaveBeenCalledWith(1, undefined); // wave 1 is not a boss wave
+            expect(mockGameEngine.showWaveAnnouncement).not.toHaveBeenCalled();
         });
 
-        it('should not announce when announceWaveStart=false (end-of-level cleanup)', () => {
-            waveManager.reset(false);
-            expect(waveManager.currentWave).toBe(1); // wave state still advances
-            expect(mockGameEngine.showWaveAnnouncement).not.toHaveBeenCalled();
+        it('should announce wave 1 when the wave actually arrives', () => {
+            waveManager.reset();
+
+            waveManager.update(PREP_TIME_MS, 0, false);
+
+            expect(waveManager.currentWave).toBe(1);
+            expect(mockGameEngine.showWaveAnnouncement).toHaveBeenCalled();
+        });
+
+        it('should clear the wave clock, not just the counters', () => {
+            waveManager.lastWaveStartTime = 90_000;
+
+            waveManager.reset();
+
+            // Compared against a game clock that resets to zero alongside it.
+            expect(waveManager.lastWaveStartTime).toBe(0);
         });
     });
 
