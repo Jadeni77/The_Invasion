@@ -147,10 +147,8 @@ const KNOWN_PAIRS = [
 const EXPECTED_OPT_OUTS = [
   'CardSelectionModal.css .selection-indicator',
   'CardSelectionModal.css .confirm-button',
-  'CollectionPage.css .collection-tab.active',
   'CollectionPage.css .unit-sprite',
   'CollectionPage.css .collection-unit-status',
-  'CollectionPage.css .collection-page .back-button',
   'GameBoard.css .quit-confirm-button',
   'GameBoard.css .quit-cancel-button',
   'Lobby.css .boss-indicator',
