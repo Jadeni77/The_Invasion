@@ -458,6 +458,18 @@ export class BasicDefender extends DefenderUnit {
 }
 
 export class HealerDefender extends DefenderUnit {
+  /*
+   * Level-1 values for the stats this defender scales.
+   *
+   * Static, because `applyLevelUpgrades` is called from `super()` - it runs
+   * before the constructor body, so it cannot read a property the constructor
+   * has not assigned yet. Scaling `this.<stat>` there read undefined and wrote
+   * NaN, and the constructor then set the level-1 value over the top, pinning
+   * the stat there forever. A static field exists with the class itself, so the
+   * scaling has something real to read.
+   */
+  static BASE = { healingAmount: 10, healingRange: 100 };
+
   constructor(x, y, cardData) {
     const typeData = {
       name: "Healer",
@@ -476,15 +488,8 @@ export class HealerDefender extends DefenderUnit {
     super(x, y, typeData);
 
     //healer stats
-    this.healingAmount = 10;
     this.healingRate = 120;
-    this.healingRange = 100;
     this.healingCountdown = this.healingRate;
-
-    // How long the healing aura (see draw) glows after a heal. It used to pin
-    // isAttacking as well, holding the attack animation for 180 frames against
-    // a 120-frame heal cadence, so the 500ms heal sheet looped instead of
-    // playing once. The sheet now ends itself; this is only the visual effect.
     this.healAnimationDuration = 180;
     this.healAnimationTimer = 0;
     this.isHealing = false;
@@ -499,8 +504,8 @@ export class HealerDefender extends DefenderUnit {
     const level = this.level;
     const statMultiplier = 1 + (level - 1) * 0.2; // Healers get 20% increase per level
 
-    this.healingAmount = Math.floor(this.healingAmount * statMultiplier);
-    this.healingRange = Math.floor(this.healingRange * statMultiplier);
+    this.healingAmount = Math.floor(HealerDefender.BASE.healingAmount * statMultiplier);
+    this.healingRange = Math.floor(HealerDefender.BASE.healingRange * statMultiplier);
     this.health = Math.floor(this.health * statMultiplier);
     this.maxHealth = this.health;
     this.applySpecialAbilities();
@@ -762,6 +767,9 @@ export class HealerDefender extends DefenderUnit {
 }
 
 export class GrenadeDefender extends DefenderUnit {
+  /* Level-1 values this defender scales from. See HealerDefender.BASE. */
+  static BASE = { grenadeRadius: 60 };
+
   constructor(x, y, cardData) {
     const typeData = {
       name: "Grenadier",
@@ -779,7 +787,6 @@ export class GrenadeDefender extends DefenderUnit {
     };
     super(x, y, typeData);
 
-    this.grenadeRadius = 60;
     this.grenadeCountdown = this.fireRate;
 
     //Special Ability Fields
@@ -791,7 +798,7 @@ export class GrenadeDefender extends DefenderUnit {
 
     this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
     this.grenadeRadius = Math.floor(
-      this.grenadeRadius * (1 + (level - 1) * 0.1),
+      GrenadeDefender.BASE.grenadeRadius * (1 + (level - 1) * 0.1),
     ); // 10% radius increase
 
     this.applySpecialAbilities();
@@ -1375,7 +1382,6 @@ export class Sniper extends DefenderUnit {
     };
     super(x, y, typeDate);
 
-    this.critChance = 0.2;
     this.critMultiplier = 2.0;
     this.lastTargetId = null;
     this.laserDuration = 300; //show laser for 300ms
@@ -1406,7 +1412,9 @@ export class Sniper extends DefenderUnit {
 
     if (this.level >= 3) {
       this.hasPiercingShot = true;
-      this.critChance = 0.4;
+      // A floor, not an assignment: a flat 0.4 here undid the level
+      // scaling above, so levels 4 and 5 crit LESS than level 3 earned.
+      this.critChance = Math.max(this.critChance, 0.4);
     }
     if (this.level >= 5) {
       this.hasHeadshot = true;
@@ -1662,6 +1670,9 @@ export class Sniper extends DefenderUnit {
 }
 
 export class Mortar extends DefenderUnit {
+  /* Level-1 values this defender scales from. See HealerDefender.BASE. */
+  static BASE = { explosionRadius: 100 };
+
   constructor(x, y, cardData) {
     const typeData = {
       name: "Mortar",
@@ -1681,7 +1692,6 @@ export class Mortar extends DefenderUnit {
 
     // Mortar-specific properties
     this.minimumRange = 250; // Increased from 150
-    this.explosionRadius = 100; // Increased from 100
     this.shellTravelTime = 200; // 1.5 seconds for shell to land
     this.pendingShells = []; // Track shells in flight
 
@@ -1707,7 +1717,7 @@ export class Mortar extends DefenderUnit {
     this.health = Math.floor(this.health * statMultiplier);
     this.maxHealth = Math.floor(this.maxHealth * statMultiplier);
     this.explosionRadius = Math.floor(
-      this.explosionRadius * (1 + (level - 1) * 0.15),
+      Mortar.BASE.explosionRadius * (1 + (level - 1) * 0.15),
     ); // 15% radius increase
 
     this.applySpecialAbilities();
@@ -2413,6 +2423,14 @@ export function isConsumableSpell(unit) {
 }
 
 export class FireBlast extends DefenderUnit {
+  /*
+   * Level-1 burn. See HealerDefender.BASE. The scaling also read
+   * `this.burningDamage` - the base class's own zero, a different property
+   * from `burnDamage` - so it computed zero even before the constructor
+   * overwrote it with a flat 20.
+   */
+  static BASE = { burnDamage: 20 };
+
   constructor(x, y, cardData) {
     const typeData = {
       name: "Fire Blast",
@@ -2439,7 +2457,6 @@ export class FireBlast extends DefenderUnit {
     // Blast properties
     this.blastHeight = 120;
     this.burnDuration = 300; // 5 seconds of burn
-    this.burnDamage = 20;
   }
 
   applyLevelUpgrades() {
@@ -2447,7 +2464,7 @@ export class FireBlast extends DefenderUnit {
     const damageMultiplier = 1 + (level - 1) * 0.3; // 30% increase per level
 
     this.attackDamage = Math.floor(this.attackDamage * damageMultiplier);
-    this.burnDamage = Math.floor(this.burningDamage * (1 + (level - 1) * 0.2));
+    this.burnDamage = Math.floor(FireBlast.BASE.burnDamage * (1 + (level - 1) * 0.2));
     this.applySpecialAbilities();
   }
 
@@ -2650,6 +2667,9 @@ export class FireBlast extends DefenderUnit {
 }
 
 export class IceBomb extends DefenderUnit {
+  /* Level-1 values this defender scales from. See HealerDefender.BASE. */
+  static BASE = { explosionRadius: 200, freezeDuration: 300 };
+
   constructor(x, y, cardData) {
     const typeData = {
       name: "Ice Bomb",
@@ -2674,8 +2694,6 @@ export class IceBomb extends DefenderUnit {
     this.hasActivated = false;
 
     // Explosion properties
-    this.explosionRadius = 200;
-    this.freezeDuration = 300; // 5 seconds
   }
 
   applyLevelUpgrades() {
@@ -2684,10 +2702,10 @@ export class IceBomb extends DefenderUnit {
 
     this.attackDamage = Math.floor(this.attackDamage * damageMultiplier);
     this.explosionRadius = Math.floor(
-      this.explosionRadius * (1 + (level - 1) * 0.15),
+      IceBomb.BASE.explosionRadius * (1 + (level - 1) * 0.15),
     );
     this.freezeDuration = Math.floor(
-      this.freezeDuration * (1 + (level - 1) * 0.2),
+      IceBomb.BASE.freezeDuration * (1 + (level - 1) * 0.2),
     );
     this.applySpecialAbilities();
   }
