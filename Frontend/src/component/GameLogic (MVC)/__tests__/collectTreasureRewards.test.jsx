@@ -155,8 +155,11 @@ describe('a chest credits the same rewards locally and on the wire', () => {
     });
 
     const [payload] = collectCalls();
+    // `defender` and `cardPieces` are rewards but not resources - the same two
+    // keys resourceRewardsOf skips, which is why they never reach the wire.
+    const NOT_A_RESOURCE = ['defender', 'cardPieces'];
     for (const [res, amount] of Object.entries(plain.rewards)) {
-      if (res === 'defender') continue;
+      if (NOT_A_RESOURCE.includes(res)) continue;
       expect(payload.rewards[res]).toBe(amount);
     }
   });

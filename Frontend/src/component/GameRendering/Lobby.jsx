@@ -195,7 +195,13 @@ const Lobby = () => {
     if (!raw) return [];
     return Array.isArray(raw) ? raw : [raw];
   })();
-  const hasNotice = noticeResources.length > 0 || noticeDefenders.length > 0;
+  const noticePieces = Object.entries(rewardNotice?.cardPieces ?? {})
+      .filter(([, amount]) => amount > 0);
+  const hasNotice = noticeResources.length > 0 || noticeDefenders.length > 0
+      || noticePieces.length > 0;
+  /* The panel serves two sources now: a chest, and the level that just granted
+     a defender. Only the heading differs. */
+  const noticeTitle = rewardNotice?.source === 'level' ? 'Level cleared' : 'Chest opened';
 
   useEffect(() => {
     if (!chestReward) return;
@@ -341,12 +347,22 @@ const Lobby = () => {
             <div className={`reward-notification ${notificationFading ? 'fade-out' : ''}`} role="status">
               <div className="notification-icon">🎉</div>
               <div className="notification-content">
-                <h3>Chest opened</h3>
+                <h3>{noticeTitle}</h3>
                 {noticeResources.length > 0 && (
                     <ul className="reward-resources">
                       {noticeResources.map(([type, amount]) => (
                           <li key={type} className="reward-resource">
                             <ResourceIcon type={type} value={`+${amount}`} />
+                          </li>
+                      ))}
+                    </ul>
+                )}
+                {noticePieces.length > 0 && (
+                    <ul className="reward-pieces">
+                      {noticePieces.map(([name, amount]) => (
+                          <li key={name} className="reward-piece">
+                            <span className="reward-piece-name">{name}</span>
+                            <span className="reward-piece-count">+{amount} pieces</span>
                           </li>
                       ))}
                     </ul>

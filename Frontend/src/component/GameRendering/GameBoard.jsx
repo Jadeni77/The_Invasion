@@ -104,7 +104,7 @@ const GameBoard = () => {
       });
       setCardCooldown(initialCooldown);
     }
-  }, [selectedCardsForGame, playerData]);
+  }, [selectedCardsForGame, playerData, setCardCooldown]);
 
 
   //TODO: Game Engine reinitialize itself causing the game to reset (the resetGame method is

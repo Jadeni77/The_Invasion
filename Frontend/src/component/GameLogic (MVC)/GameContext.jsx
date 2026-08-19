@@ -8,7 +8,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { chestsData, chestDefenders, resourceRewardsOf } from "../GameRendering/MapLayout.jsx";
+import { chestsData, chestDefenders, resourceRewardsOf, chestCardPieces } from "../GameRendering/MapLayout.jsx";
 import { SessionManager } from "./SessionManager.js";
 import LoginPage from "../login/LoginPage.jsx";
 import { FeedbackBus } from "./Feedback/FeedbackBus.js";
@@ -21,6 +21,7 @@ import { SAMPLE_URLS, unknownSampleNames } from "./Feedback/UnitSamples.js";
 import { SOUND_KEYS } from "./Feedback/SoundGroups.js";
 import { apiUrl } from "../../config/api.js";
 import { MAX_DEFENDER_LEVEL } from "./DefenderClassUtils.js";
+import { defenderUnlockedBy, defendersEarnedBy } from "./LevelUnlocks.js";
 
 export const GameContext = createContext();
 
@@ -30,6 +31,85 @@ export const useGame = () => {
 
 /* What one energy purchase costs and grants. */
 export const ENERGY_PACK = { amount: 10, gold: 150 };
+
+const getUpgradeCost = (cardName, level) => {
+  const baseCosts = {
+    Shooter: { gold: 100, iron: 5, water: 3 },
+    Healer: { gold: 150, grain: 10, water: 5, gem: 1 },
+    Grenadier: { gold: 200, iron: 15, gem: 2 },
+    Barricade: { gold: 120, iron: 20, grain: 5 },
+    "E-Gen": { gold: 80, water: 10, grain: 20 },
+    Sniper: { gold: 400, water: 60, grain: 35, gem: 3 },
+    Mortar: { gold: 350, iron: 30, water: 20, gem: 1 },
+    "Frost Archer": { gold: 300, iron: 30, water: 20, gem: 2 },
+    "Fire Blast": { gold: 300, iron: 50, water: 30, gem: 2 },
+    "Ice Bomb": { gold: 300, iron: 30, water: 80, gem: 2 },
+  };
+  const base = baseCosts[cardName] || { gold: 100 };
+  const multiplier = Math.pow(1.5, level - 1);
+  const cost = {};
+  Object.entries(base).forEach(([resource, amount]) => {
+    cost[resource] = Math.floor(amount * multiplier);
+  });
+  return cost;
+};
+
+const getCardCost = (cardName) => {
+  const cost = {
+    Shooter: 20,
+    Healer: 30,
+    Grenadier: 60,
+    Barricade: 30,
+    "E-Gen": 25,
+    Sniper: 100,
+    Mortar: 120,
+    "Frost Archer": 35,
+    "Fire Blast": 50,
+    "Ice Bomb": 40,
+  };
+  return cost[cardName] || 15;
+};
+
+const getPiecesNeeded = (defenderName) => {
+  const piecesMap = {
+    Shooter: 10,
+    "E-Gen": 10,
+    Barricade: 10,
+    Grenadier: 10,
+    Healer: 10,
+    Mortar: 15,
+    "Frost Archer": 25,
+    "Ice Bomb": 25,
+    Sniper: 25,
+    "Fire Blast": 25,
+  };
+  return piecesMap[defenderName] || 10;
+};
+
+/**
+ * `cards` with `defenderName` added, or the same list if it is already owned.
+ *
+ * The one place a card is built. Winning a level and opening a chest both go
+ * through here, so the two cannot drift - and because it returns the list
+ * unchanged for a defender already held, replaying level 3 cannot hand out a
+ * second Grenadier.
+ *
+ * The id is computed from the list being built rather than from the player's
+ * saved cards, so two defenders granted in the same update cannot collide.
+ */
+export const withDefender = (cards, defenderName) => {
+  if (!defenderName) return cards;
+  if (cards.some((card) => card.name === defenderName)) return cards;
+
+  return [...cards, {
+    id: Math.max(...cards.map((c) => c.id), 0) + 1,
+    name: defenderName,
+    level: 1,
+    pieces: 0,
+    piecesNeeded: getPiecesNeeded(defenderName),
+    upgradeCost: getUpgradeCost(defenderName, 1),
+  }];
+};
 
 export const GameProvider = ({ children }) => {
   const gameEngineRef = useRef(null); // Ref to hold the GameEngine instance
@@ -91,6 +171,11 @@ export const GameProvider = ({ children }) => {
   const [playerData, setPlayerData] = useState(null);
   const playerDataRef = useRef(null);
 
+  /* Defenders already back-granted this session. fetchPlayerData runs on mount
+     and again after every win, so without this the same catch-up POST goes out
+     on each one until the server's copy catches up. */
+  const backGrantedRef = useRef(new Set());
+
   // In-game session specific states (managed by GameEngine, exposed via callbacks)
   const [inGameEnergy, setInGameEnergy] = useState(0);
   const [inGameScore, setInGameScore] = useState(0);
@@ -124,6 +209,7 @@ export const GameProvider = ({ children }) => {
   };
 
   const handleLogout = () => {
+    backGrantedRef.current.clear();
     SessionManager.clearSession();
     setPlayerData(null);
     setIsAuthenticated(false);
@@ -198,12 +284,30 @@ export const GameProvider = ({ children }) => {
           water: newWater,
           gem: newGem,
         },
+        // Credited here, before any request goes out, so a dead backend cannot
+        // swallow a defender the player has already been told they won.
+        cards: withDefender(prev.cards, defenderUnlockedBy(level)),
         unlockedLevels: newUnlockedLevels,
         completedLevels: newCompleteLevels,
         levelStars: newLevelStars,
         totalStars: newLevelStars.reduce((sum, s) => sum + s, 0),
       };
     });
+
+    /*
+     * Tell the player, on the same notice a chest uses. `playerDataRef` still
+     * holds the save as it was before this win, which is what makes "did they
+     * already have it" answerable - a replay of level 3 wins nothing and says
+     * nothing.
+     */
+    const wonDefender = defenderUnlockedBy(level);
+    const isNewDefender = Boolean(wonDefender)
+      && !(playerDataRef.current?.cards ?? []).some((card) => card.name === wonDefender);
+
+    if (isNewDefender) {
+      setChestReward({ source: "level", levelId: level, resources: {}, defenders: [wonDefender] });
+      feedbackRef.current?.bus?.emit("defender:unlocked", { defenderName: wonDefender });
+    }
 
     //Save the result to backend
     try {
@@ -218,6 +322,9 @@ export const GameProvider = ({ children }) => {
         headers: SessionManager.authHeaders(),
         body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
       });
+
+      // The same helper the chest path uses; no backend change needed.
+      if (isNewDefender) await saveUnlockedDefender(wonDefender);
 
       const specialUnlocks = [];
       if (defendersLost === 0) specialUnlocks.push('perfect_defense');
@@ -465,67 +572,35 @@ export const GameProvider = ({ children }) => {
         claimedAchievements: data.claimedAchievements || [],
         specialAchievements: data.specialAchievements || [],
       };
+
+      /*
+       * Hand over anything the player's cleared levels earned but never gave
+       * them. Defenders used to come from optional chests, so a save can hold
+       * levels 1-8 finished and none of the defenders those wins now grant -
+       * and the win handler only ever fires on a NEW win, so nothing else would
+       * ever settle it. Owned defenders are left alone, which makes this safe
+       * to run on every load rather than needing a one-time flag.
+       */
+      const earned = defendersEarnedBy(playerData.completedLevels);
+      const owed = earned.filter(
+        (name) => !playerData.cards.some((card) => card.name === name),
+      );
+      const toPersist = owed.filter((name) => !backGrantedRef.current.has(name));
+      for (const name of toPersist) backGrantedRef.current.add(name);
+      for (const name of owed) {
+        playerData.cards = withDefender(playerData.cards, name);
+      }
+
       setPlayerData(playerData);
+
+      // The player already has these on screen; a failed save retries next load.
+      for (const name of toPersist) await saveUnlockedDefender(name);
     } catch (e) {
       console.error("Fail to fetch data:", e);
       // Only fall back to defaults if there's no existing player data in memory
       setPlayerData((prev) => prev ?? getDefaultPlayerData());
     }
   }, []);
-
-  const getUpgradeCost = (cardName, level) => {
-    const baseCosts = {
-      Shooter: { gold: 100, iron: 5, water: 3 },
-      Healer: { gold: 150, grain: 10, water: 5, gem: 1 },
-      Grenadier: { gold: 200, iron: 15, gem: 2 },
-      Barricade: { gold: 120, iron: 20, grain: 5 },
-      "E-Gen": { gold: 80, water: 10, grain: 20 },
-      Sniper: { gold: 400, water: 60, grain: 35, gem: 3 },
-      Mortar: { gold: 350, iron: 30, water: 20, gem: 1 },
-      "Frost Archer": { gold: 300, iron: 30, water: 20, gem: 2 },
-      "Fire Blast": { gold: 300, iron: 50, water: 30, gem: 2 },
-      "Ice Bomb": { gold: 300, iron: 30, water: 80, gem: 2 },
-    };
-    const base = baseCosts[cardName] || { gold: 100 };
-    const multiplier = Math.pow(1.5, level - 1);
-    const cost = {};
-    Object.entries(base).forEach(([resource, amount]) => {
-      cost[resource] = Math.floor(amount * multiplier);
-    });
-    return cost;
-  };
-
-  const getCardCost = (cardName) => {
-    const cost = {
-      Shooter: 20,
-      Healer: 30,
-      Grenadier: 60,
-      Barricade: 30,
-      "E-Gen": 25,
-      Sniper: 100,
-      Mortar: 120,
-      "Frost Archer": 35,
-      "Fire Blast": 50,
-      "Ice Bomb": 40,
-    };
-    return cost[cardName] || 15;
-  };
-
-  const getPiecesNeeded = (defenderName) => {
-    const piecesMap = {
-      Shooter: 10,
-      "E-Gen": 10,
-      Barricade: 10,
-      Grenadier: 10,
-      Healer: 10,
-      Mortar: 15,
-      "Frost Archer": 25,
-      "Ice Bomb": 25,
-      Sniper: 25,
-      "Fire Blast": 25,
-    };
-    return piecesMap[defenderName] || 10;
-  };
 
   const getDefaultPlayerData = () => {
     return {
@@ -979,26 +1054,23 @@ export const GameProvider = ({ children }) => {
         newResources[resource] = (newResources[resource] || 0) + amount;
       }
 
-      // A chest may unlock more than one defender: the map's twenty
-      // one-per-level chests became six landmarks, and nine defenders do not
-      // fit six chests one at a time. chestDefenders normalises the string or
-      // list form so this loop is the only place that has to care.
-      let newCards = [...prev.cards];
+      // Defenders come from winning levels now; a chest that still names one
+      // is honoured rather than dropped on the floor.
+      let newCards = prev.cards;
       for (const defenderName of chestDefenders(chest)) {
-        const hasDefender = newCards.some((card) => card.name === defenderName);
-        if (hasDefender) continue;
+        newCards = withDefender(newCards, defenderName);
+      }
 
-        // Recomputed per defender, not hoisted: two defenders from the same
-        // chest would otherwise both be handed the same id.
-        const newCardId = Math.max(...newCards.map((c) => c.id), 0) + 1;
-        newCards.push({
-          id: newCardId,
-          name: defenderName,
-          level: 1,
-          pieces: 0,
-          piecesNeeded: getPiecesNeeded(defenderName),
-          upgradeCost: getUpgradeCost(defenderName, 1),
-        });
+      /* Pieces toward a defender the player already holds. Each chest names one
+         it is certain they own by the level that reveals it, so nothing is
+         credited to a card that is not there to receive it. */
+      const pieceGrants = chestCardPieces(chest);
+      if (Object.keys(pieceGrants).length > 0) {
+        newCards = newCards.map((card) => (
+          pieceGrants[card.name]
+            ? { ...card, pieces: (card.pieces || 0) + pieceGrants[card.name] }
+            : card
+        ));
       }
 
       // Mark chest as collected
@@ -1020,6 +1092,7 @@ export const GameProvider = ({ children }) => {
       chestId,
       resources: resourceRewardsOf(chest),
       defenders: unlocked,
+      cardPieces: chestCardPieces(chest),
     });
     feedbackRef.current?.bus?.emit('treasure:collected', { chestId, unlockedDefenders: unlocked });
 
@@ -1039,6 +1112,14 @@ export const GameProvider = ({ children }) => {
 
       // One POST per defender, so the backend contract stays one name per call.
       for (const defenderName of unlocked) saveUnlockedDefender(defenderName);
+
+      for (const [cardName, pieces] of Object.entries(chestCardPieces(chest))) {
+        await fetch(apiUrl(`/api/player/add-card-pieces`), {
+          method: "POST",
+          headers: SessionManager.authHeaders(),
+          body: JSON.stringify({ cardName, pieces }),
+        });
+      }
     } catch (error) {
       console.error("Failed to save collected treasure:", error);
     }

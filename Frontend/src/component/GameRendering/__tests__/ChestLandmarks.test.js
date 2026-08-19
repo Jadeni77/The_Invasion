@@ -1,6 +1,8 @@
 /* Chests as landmarks, and the arithmetic that proves the cut lost nothing. */
 import { describe, it, expect } from 'vitest';
-import { chestsData, chestDefenders, connectionsData, levelsMapData, mapSettings, zoneAtX } from '../MapLayout.jsx';
+import { chestsData, chestDefenders, chestCardPieces, connectionsData, levelsMapData, mapSettings, zoneAtX } from '../MapLayout.jsx';
+import { defenderUnitClasses } from '../../GameLogic (MVC)/DefenderClassUtils.js';
+import { defendersEarnedBy, STARTING_DEFENDER } from '../../GameLogic (MVC)/LevelUnlocks.js';
 
 /* What the twenty one-per-level chests granted in total. */
 const PRE_CUT_TOTALS = {
@@ -12,18 +14,6 @@ const PRE_CUT_TOTALS = {
   all: 5500,
 };
 
-/** Every defender the twenty chests unlocked, in the order they appeared. */
-const PRE_CUT_DEFENDERS = [
-  'E-Gen',
-  'Barricade',
-  'Grenadier',
-  'Healer',
-  'Frost Archer',
-  'Sniper',
-  'Ice Bomb',
-  'Mortar',
-  'Fire Blast',
-];
 
 const ON_ROUTE = chestsData.filter((chest) => !chest.hidden);
 const SECRET = chestsData.filter((chest) => chest.hidden);
@@ -89,16 +79,49 @@ describe('the cut consolidated the rewards instead of dropping them', () => {
     },
   );
 
-  it('unlocks every defender the twenty chests unlocked', () => {
+  /*
+   * Defenders moved onto level wins, so no chest grants one. That is the whole
+   * point of the move: a chest is optional, and a defender the campaign needs
+   * cannot be behind something a player can walk past.
+   */
+  it('grants no defender from any chest', () => {
     const unlocked = chestsData.flatMap((chest) => chestDefenders(chest));
-    for (const defender of PRE_CUT_DEFENDERS) {
-      expect(unlocked, `${defender} is no longer unlockable from any chest`).toContain(defender);
+    expect(unlocked, 'defenders come from winning levels - see LEVEL_UNLOCKS').toEqual([]);
+  });
+
+  it('gives card pieces in their place, so a chest is still worth the detour', () => {
+    const withPieces = chestsData.filter(
+      (chest) => Object.keys(chestCardPieces(chest)).length > 0,
+    );
+    expect(withPieces.length, 'every on-route chest should carry pieces').toBe(ON_ROUTE.length);
+  });
+
+  it('names only real defenders in its piece rewards', () => {
+    const named = chestsData.flatMap((chest) => Object.keys(chestCardPieces(chest)));
+    expect(named.length).toBeGreaterThan(0);
+    for (const name of named) {
+      expect(Object.keys(defenderUnitClasses), `${name} is not a defender`).toContain(name);
     }
   });
 
-  it('unlocks no defender twice, so no chest is a dead pickup', () => {
-    const unlocked = chestsData.flatMap((chest) => chestDefenders(chest));
-    expect(new Set(unlocked).size).toBe(unlocked.length);
+  /*
+   * Pieces credited to a defender the player does not own are lost, so each
+   * chest must name one its required level has already granted.
+   */
+  it('gives pieces only for a defender the chest\'s level has already granted', () => {
+    const owedBy = (levelId) => [
+      STARTING_DEFENDER,
+      ...defendersEarnedBy(Array.from({ length: levelId }, (_, i) => i + 1)),
+    ];
+
+    for (const chest of chestsData) {
+      for (const name of Object.keys(chestCardPieces(chest))) {
+        expect(
+          owedBy(chest.requiresLevel),
+          `chest ${chest.id} needs level ${chest.requiresLevel} but gives ${name} pieces`,
+        ).toContain(name);
+      }
+    }
   });
 
   it('weights the rewards later along the route', () => {
@@ -106,7 +129,7 @@ describe('the cut consolidated the rewards instead of dropping them', () => {
     // twenty chests' problem with a smaller n.
     const worth = (chest) =>
       Object.entries(chest.rewards)
-        .filter(([resource]) => resource !== 'defender')
+        .filter(([resource]) => resource !== 'defender' && resource !== 'cardPieces')
         .reduce((sum, [, amount]) => sum + amount, 0);
     const ordered = [...ON_ROUTE].sort((a, b) => a.x - b.x);
     expect(worth(ordered[ordered.length - 1])).toBeGreaterThan(worth(ordered[0]));
@@ -127,13 +150,9 @@ describe('a chest can carry more than one defender', () => {
     expect(chestDefenders(undefined)).toEqual([]);
   });
 
-  it('actually uses the list form, or the nine defenders did not fit', () => {
-    // Vacuity guard: nine defenders on six chests is only possible if some
-    // chest carries more than one. If this fails, either the chest count or
-    // the defender list changed and the consolidation needs rethinking.
-    const multi = chestsData.filter((chest) => chestDefenders(chest).length > 1);
-    expect(multi.length).toBeGreaterThan(0);
-  });
+  // The list form is no longer exercised by the map's own data - it is kept
+  // because chestDefenders still has to read whatever a chest declares, and a
+  // chest granting a defender again should work rather than crash.
 });
 
 describe('chests still derive their position from the route', () => {

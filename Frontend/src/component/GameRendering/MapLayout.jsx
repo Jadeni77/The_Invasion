@@ -189,6 +189,11 @@ export function chestDefenders(chest) {
   return Array.isArray(named) ? named : [named];
 }
 
+/* The card pieces a chest grants, as defender name -> count. */
+export function chestCardPieces(chest) {
+  return chest?.rewards?.cardPieces ?? {};
+}
+
 /* A chest's resource rewards, expanded to one accumulated amount per resource. */
 export function resourceRewardsOf(chest) {
   const totals = {};
@@ -196,7 +201,7 @@ export function resourceRewardsOf(chest) {
     totals[resource] = (totals[resource] ?? 0) + amount;
   };
   for (const [resource, amount] of Object.entries(chest?.rewards ?? {})) {
-    if (resource === "defender") continue;
+    if (resource === "defender" || resource === "cardPieces") continue;
     if (resource === "all") {
       for (const res of ["gold", "iron", "grain", "water"]) credit(res, amount);
     } else {
@@ -216,7 +221,7 @@ export const chestsData = [
   chestOnRoute("chest-1", 1, 2, {
     gold: 100,
     gem: 1,
-    defender: ["E-Gen", "Barricade"],
+    cardPieces: { Shooter: 5 },
   }),
 
   // Early region.
@@ -225,7 +230,7 @@ export const chestsData = [
     grain: 130,
     water: 50,
     gem: 7,
-    defender: ["Grenadier", "Healer"],
+    cardPieces: { Grenadier: 10 },
   }),
 
   // Mid region.
@@ -235,7 +240,7 @@ export const chestsData = [
     grain: 300,
     water: 150,
     gem: 30,
-    defender: "Frost Archer",
+    cardPieces: { Healer: 15 },
   }),
 
   // The crossing into the late region.
@@ -243,7 +248,7 @@ export const chestsData = [
     gold: 1000,
     gem: 100,
     all: 1500,
-    defender: ["Sniper", "Ice Bomb"],
+    cardPieces: { Sniper: 25 },
   }),
 
   // Late region.
@@ -251,7 +256,7 @@ export const chestsData = [
     gold: 1000,
     gem: 200,
     all: 2000,
-    defender: "Mortar",
+    cardPieces: { "Fire Blast": 30 },
   }),
 
   // Endgame, on the last climb to level 20.
@@ -259,7 +264,7 @@ export const chestsData = [
     gold: 1000,
     gem: 250,
     all: 2000,
-    defender: "Fire Blast",
+    cardPieces: { Mortar: 40 },
   }),
 
   // Secret chests (hidden or require special conditions). Off-route by
