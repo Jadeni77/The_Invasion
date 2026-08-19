@@ -2244,10 +2244,10 @@ export class FrostArcher extends DefenderUnit {
   constructor(x, y, cardData) {
     const typeData = {
       name: "Frost Archer",
-      damage: 2, // Increased from 80
+      damage: 2,
       health: 90,
       range: 250,
-      fireRate: 75,
+      fireRate: 18,
       cost: 35,
       width: 64,
       height: 64,
@@ -2259,8 +2259,11 @@ export class FrostArcher extends DefenderUnit {
     super(x, y, typeData);
 
     this.slowDuration = 120; //2// sec
-    this.freezeChance = 0.1; //10%
     this.freezeDuration = 60; //1 sec
+
+    /* freezeChance is NOT set here. super() runs applyLevelUpgrades, which
+       derives it from the level - assigning it afterwards is what pinned every
+       Frost Archer in the game at the level-1 chance, upgrades included. */
   }
 
   applyLevelUpgrades() {
@@ -2272,7 +2275,11 @@ export class FrostArcher extends DefenderUnit {
     this.maxHealth = this.health;
     this.range = Math.floor(this.range * statMultiplier);
 
-    this.freezeChance = Math.min(0.5, 0.1 + (level - 1) * 0.08); // Up to 50% freeze chance
+    /* The floor is the sprite sheet, not the balance: the attack sheet is nine
+       frames and the engine advances at most one a tick, so a cadence under
+       twelve ticks drops frames off the front of every shot. */
+    this.fireRate = Math.max(12, Math.round(this.fireRate / statMultiplier));
+    this.freezeChance = Math.min(0.05, 0.02 + (level - 1) * 0.01);
     this.applySpecialAbilities();
   }
 
