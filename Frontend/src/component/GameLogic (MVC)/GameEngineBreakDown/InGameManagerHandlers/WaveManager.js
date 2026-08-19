@@ -201,6 +201,12 @@ export class WaveManager {
          */
         if (this.activeEnemyCount() >= this.activeEnemyCap()) return;
 
+        /* Counted across the pattern, because the gap is per enemy and only
+           the pattern knows how many it spawned - rush rolls 3 to 5. Every
+           pattern increments this synchronously; the setTimeouts inside them
+           stagger the sprite, not the count. */
+        const spawnedBefore = this.waveEnemiesSpawned;
+
         // Execute spawn pattern
         switch (waveConfig.spawnPattern) {
             case 'rush':
@@ -225,11 +231,21 @@ export class WaveManager {
         this.lastSpawnTime = now;
 
         /*
-         * Applied after the pattern, because each pattern sets nextSpawnDelay
-         * itself - some as a multiple of the authored interval. Clamping here is
-         * the one place all six patterns pass through.
+         * `spawnInterval` is seconds per ENEMY, so a pattern that puts four on
+         * the board waits four of them before the next.
+         *
+         * Each pattern used to set this itself, by a factor that had nothing to
+         * do with what it spawned: rush put down 3-5 and waited x2, surround put
+         * down 3 and waited x1.5, formation put down 4 and waited x3. A wave
+         * declaring 2000ms therefore meant 2s, 3s, 4s, 6s or 10s depending on a
+         * pattern chosen elsewhere in the same config, and the authored number
+         * meant nothing on its own.
          */
-        this.nextSpawnDelay = Math.max(MIN_SPAWN_INTERVAL_MS, this.nextSpawnDelay);
+        const spawned = Math.max(1, this.waveEnemiesSpawned - spawnedBefore);
+        this.nextSpawnDelay = Math.max(
+            MIN_SPAWN_INTERVAL_MS,
+            waveConfig.spawnInterval * spawned,
+        );
     }
 
     spawnStandardPattern(waveConfig) {
@@ -237,7 +253,6 @@ export class WaveManager {
         this.spawnEnemy(enemyType);
         this.waveEnemiesSpawned++;
         this.enemiesSpawnedThisLevel++;
-        this.nextSpawnDelay = waveConfig.spawnInterval;
     }
 
     spawnRushPattern(waveConfig) {
@@ -257,7 +272,6 @@ export class WaveManager {
             this.waveEnemiesSpawned++;
             this.enemiesSpawnedThisLevel++;
         }
-        this.nextSpawnDelay = waveConfig.spawnInterval * 2;
     }
 
     spawnFormationPattern(waveConfig) {
@@ -279,7 +293,6 @@ export class WaveManager {
             this.waveEnemiesSpawned++;
             this.enemiesSpawnedThisLevel++;
         }
-        this.nextSpawnDelay = waveConfig.spawnInterval * 3;
     }
 
     spawnSurroundPattern(waveConfig) {
@@ -296,7 +309,6 @@ export class WaveManager {
             this.waveEnemiesSpawned++;
             this.enemiesSpawnedThisLevel++;
         }
-        this.nextSpawnDelay = waveConfig.spawnInterval * 1.5;
     }
 
     spawnBossPattern(waveConfig) {
@@ -316,7 +328,6 @@ export class WaveManager {
                 this.waveEnemiesSpawned++;
                 this.enemiesSpawnedThisLevel++;
             }
-            this.nextSpawnDelay = waveConfig.spawnInterval * 5;
         } else {
             // Continue spawning regular enemies after boss
             this.spawnStandardPattern(waveConfig);
@@ -341,7 +352,6 @@ export class WaveManager {
             this.enemiesSpawnedThisLevel++;
         });
 
-        this.nextSpawnDelay = waveConfig.spawnInterval * 1.5;
     }
 
     selectEnemyType(availableTypes) {
