@@ -52,6 +52,7 @@ import { GameLevelConfigs } from "./GameEngineBreakDown/GameLevelConfigs.js";
 import { GameClock } from "./Feedback/GameClock.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
 import { colors, decorative, ensureDisplayFontLoaded, withAlpha } from '../../style/tokens.js';
+import { MAX_DEFENDER_LEVEL } from './DefenderClassUtils.js';
 
 /* How much larger a boss is drawn than the same enemy type spawned normally. */
 const BOSS_SCALE = 1.4;
@@ -224,14 +225,23 @@ export class GameEngine {
   dropCardPieces(x, y) {
     if (this.gameOver) return;
 
-    const availableDefenderType = this.playerSelectedCards
-      .map((card) => card.name)
-      .filter((name) => name); //remove undefine/null
+    /*
+     * Only defenders that can still use a piece.
+     *
+     * The drop picked any card in the deck, maxed or not, and a maxed
+     * defender's pieces are dead on arrival - the upgrade screen has nothing
+     * to spend them on. A player who had finished upgrading a Shooter still
+     * watched Shooter pieces fall and still had to walk over them.
+     */
+    const upgradable = this.playerSelectedCards
+      .filter((card) => card?.name && (card.level ?? 1) < MAX_DEFENDER_LEVEL)
+      .map((card) => card.name);
 
-    const randomCard =
-      availableDefenderType[
-        Math.floor(Math.random() * availableDefenderType.length)
-      ];
+    // Every card in the deck is finished, so there is nothing a piece could
+    // be for. Dropping one anyway would only be litter.
+    if (upgradable.length === 0) return;
+
+    const randomCard = upgradable[Math.floor(Math.random() * upgradable.length)];
     this.cardPieceDrops.push(new CardPieceDrop(x, y, randomCard));
   }
 
