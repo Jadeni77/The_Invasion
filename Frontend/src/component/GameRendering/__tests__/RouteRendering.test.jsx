@@ -1,20 +1,4 @@
-/**
- * The route as it is actually PAINTED, not as it is computed.
- *
- * `RouteGeometry.test.js` proves the intended segments never cross, by building
- * them from `levelsMapData`'s node coordinates. It passed while the rendered
- * route was wrong, because the component positioned each bar by a different
- * formula than the test reconstructed: `connectionBetween` returns the segment's
- * MIDPOINT, and the JSX anchored the bar's left edge there with
- * `transform-origin: left center`. Every connector therefore began half-way
- * along its own segment and ran a full length past the node it was meant to
- * reach - diagonal bars stabbing through nodes and ending in mid-air.
- *
- * Nothing caught it. The data was right, the render was wrong, and no test read
- * what the render did with the data. jsdom cannot see the page, but it CAN read
- * the inline styles the component emitted and do the arithmetic those styles
- * imply - which is exactly the gap this file closes.
- */
+/* The route as it is actually PAINTED, not as it is computed. */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
@@ -30,16 +14,7 @@ const css = stripComments(readFileSync(join(HERE, '..', '..', '..', 'style', 'Lo
 
 let mockPlayerData;
 
-/*
- * Partial mock via importOriginal, not a replacement object.
- *
- * A mock that lists its exports silently drops every export it does not name, so
- * the module gaining one breaks this file with "No export is defined on the mock"
- * - thrown at import, nowhere near the cause. That has now happened twice: once
- * when DefenderClassUtils gained MAX_DEFENDER_LEVEL, and again when GameContext
- * gained ENERGY_PACK. Only `useGame` needs stubbing here; everything else should
- * be whatever the real module exports.
- */
+/* Partial mock via importOriginal, not a replacement object. */
 vi.mock('../../GameLogic (MVC)/GameContext', async (importOriginal) => ({
   ...(await importOriginal()),
 

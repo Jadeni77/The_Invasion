@@ -40,11 +40,9 @@ describe('SfxLibrary', () => {
 });
 
 describe('recipeLayers', () => {
-  /**
+  /*
    * The one expansion both AudioManager and the audibility checks read, so a
-   * layer the tests inspect is provably the same layer the player hears. A
-   * second, test-local expansion would be free to disagree with playback -
-   * which is the shape of bug that let an inaudible Mortar ship green.
+   * layer the tests inspect is provably the same layer the player hears.
    */
   const SINGLE = { wave: 'sine', freqStart: 440, freqEnd: 220, duration: 0.2, gain: 0.5, noise: false };
 
@@ -121,12 +119,7 @@ describe('recipeSpan', () => {
   });
 });
 
-/**
- * Every sound authored with the layering mechanism, wherever it lives. Derived
- * by walking the two recipe tables, so a layered sound added to either one is
- * covered the day it is written - a hand-maintained list is exactly what would
- * have let the 25-90Hz Mortar sit unchecked.
- */
+/* Every sound authored with the layering mechanism, wherever it lives. */
 describe('layered recipes are well formed', () => {
   const layered = Object.entries(SFX).filter(([, recipe]) => recipe.layers);
 
@@ -156,18 +149,7 @@ describe('layered recipes are well formed', () => {
   });
 });
 
-/**
- * The wave stings are ALERTS: they say "something is coming". The owner's
- * verdict on the old waveStarted - a 180->240Hz sawtooth drone with no
- * transient - was that it sounded like flatulence and made nothing feel
- * critical, which is a fair description of a slow rise on a buzzy wave at the
- * bottom of what a laptop reproduces.
- *
- * These assert the SHAPE that carries alert meaning - separated notes, a
- * stepped interval, a direction - not the exact pitches, so the sounds stay
- * tunable. Every note's pitch is pinned above the speaker floor by
- * UnitVoices.test.js's derived layer check.
- */
+/* The wave stings are ALERTS: they say "something is coming". */
 describe('the wave stings read as alerts', () => {
   const notesOf = (id) => recipeLayers(SFX[id]).sort((a, b) => a.offset - b.offset);
 

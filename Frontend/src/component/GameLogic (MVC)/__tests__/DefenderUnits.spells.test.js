@@ -8,12 +8,9 @@ import {
 } from '../DefenderUnits.js';
 import { setFrameDeltaMs } from '../Animation/FrameTime.js';
 
-/**
+/*
  * These tests drive unit.update() by hand, standing in for GameEngine's loop,
- * and count ticks. Movement and every countdown now advance by whatever real
- * time the engine says the frame covered (Animation/FrameTime.js), so the loop
- * is pinned to 60Hz here to give those tick counts the fixed meaning they
- * always assumed.
+ * and count ticks.
  */
 const FRAME_MS_60HZ = 1000 / 60;
 
@@ -96,15 +93,9 @@ describe('spell damage immunity', () => {
 });
 
 describe('healer resurrection targeting', () => {
-  /**
-   * A level-5 healer with resurrection unlocked, primed to act on the very next
-   * update().
-   *
-   * The healing and resurrection logic sits behind `this.healingCountdown--;
-   * if (this.healingCountdown <= 0)`, and a healer starts at healingCountdown =
-   * 120. Without priming it to 1, a single update() call decrements to 119 and
-   * never reaches the resurrection block at all - so every "does not resurrect"
-   * assertion would pass vacuously, proving nothing.
+  /*
+   * A level-5 healer with resurrection unlocked, primed to act on the very
+   * next update().
    */
   function createResurrectingHealer() {
     const healer = new HealerDefender(0, 0, { level: 5, image: null });

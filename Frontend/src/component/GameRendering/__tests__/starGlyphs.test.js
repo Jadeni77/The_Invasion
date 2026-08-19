@@ -3,39 +3,11 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { SRC_ROOT, read, relativeToSrc, sourceFiles } from '../../../test/sourceFiles.js';
 
-/**
- * `GameBoard.css` styles `.stars-value` with `font-family: var(--type-display)`
- * and `color: var(--colors-accent-energy)`, and both declarations did nothing,
- * because `GameBoard.jsx` rendered U+2B50 WHITE MEDIUM STAR into it.
- *
- * U+2B50 has `Emoji_Presentation=Yes`, so it is drawn by the platform
- * colour-emoji font: that font is not in the `--type-display` stack, and its
- * glyphs carry their own colour, so `color` is ignored too. Only `font-size`
- * and `line-height` survived. The results screen therefore looked exactly as
- * it did before this branch while the lobby's stars - already U+2605 BLACK
- * STAR, which defaults to text presentation - took the new gold treatment:
- * two screens, one element, visibly different, on the one element the spec
- * named in "Also in scope".
- *
- * Neither existing guard can see this. `contrastRatio.test.js` never reaches
- * `.stars-value` (no background pair to measure), and nothing anywhere
- * asserts that a CSS rule has a rendering effect at all - jsdom has no layout
- * engine and no rasteriser, so "does this declaration change a pixel" is not a
- * question any test in this repo can ask directly.
- *
- * What is checkable is the pairing that decides it: a class whose rule sets
- * `color` or `font-family`, holding a glyph that ignores both. So the claim
- * here is deliberately narrower than "no colour emoji anywhere" - this
- * codebase uses emoji as decoration in several places (achievement icons, a
- * party popper on the unlock notification) where being a colour emoji is the
- * point and no rule is trying to recolour them. A guard that failed on those
- * would be asserting something the spec never said, and the usual response to
- * a guard that cries wolf is to delete it.
- *
- * Both halves of the pairing are derived, not listed: the styled class names
- * come from reading every stylesheet, and the elements come from walking every
- * JS/JSX file under `src/`. A third screen that puts an emoji star into a
- * recoloured slot fails here without anyone remembering to add it.
+/*
+ * `GameBoard.css` styles `.stars-value` with `font-family:
+ * var(--type-display)` and `color: var(--colors-accent-energy)`, and both
+ * declarations did nothing, because `GameBoard.jsx` rendered U+2B50 WHITE
+ * MEDIUM STAR into it.
  */
 
 /** Star codepoints with Emoji_Presentation=Yes - drawn by the emoji font. */
@@ -63,12 +35,9 @@ function classesStyledAsText() {
   return styled;
 }
 
-/**
+/*
  * JSX elements written as `className=... > content <`, paired with the classes
- * named on them. Only an element's own immediately-following content is read,
- * which is what keeps a decorative emoji held in a data object (as
- * AchievementPage's achievement icons are) out of scope - it is not written
- * next to the class that renders it, and no rule recolours that slot.
+ * named on them.
  */
 function classedElements(src) {
   const elements = [];

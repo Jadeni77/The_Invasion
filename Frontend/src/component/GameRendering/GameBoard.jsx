@@ -46,30 +46,7 @@ const GameBoard = () => {
 
   useMobileOrientation(gameState);
 
-  /*
-   * The playfield is a FIXED size, and CSS scales it to fit.
-   *
-   * It used to be sized in screen pixels - `canvas.width = container.clientWidth`
-   * - which made the game itself different on every device. Two consequences, both
-   * measured:
-   *
-   * Fairness. `defenseLineX` was `clientWidth * 0.9` and enemies spawn at x = -100,
-   * so a lane was 1396px long on a 1470px laptop and 451px on a 390px phone. The
-   * same wave gave a phone player under a third of the reaction time. That is not a
-   * difficulty setting anyone chose.
-   *
-   * Deployability. The grid is 9 columns that never shrink below the 48px sprite
-   * they hold, so it needs 432px plus margins. On a 390px canvas `initializeGrid`
-   * computed a NEGATIVE left offset (-11) and the grid ran from -11 to 421 inside a
-   * 390px canvas - the first column off the left edge, and the last two columns
-   * past `defenseLineX` at 351, behind the player's own base. Deploying was
-   * impossible in portrait and worked in landscape purely because the canvas got
-   * wider.
-   *
-   * With a constant logical size every device plays the same board, the grid always
-   * fits, and the only thing that varies is how large it appears. Clicks are mapped
-   * back through the scale factor below.
-   */
+  /* The playfield is a FIXED size, and CSS scales it to fit. */
   const LOGICAL_WIDTH = 1280;
   const LOGICAL_HEIGHT = 720;
 
@@ -254,14 +231,11 @@ const GameBoard = () => {
     setSelectedCard(null);
   };
 
-  /**
-   * Pointer position in PLAYFIELD coordinates.
-   *
-   * The canvas bitmap is a fixed 1280x720 and its CSS box is whatever fits the
-   * screen, so a click at the left edge of a 390px-wide box is x=0 in both, but a
-   * click in the middle is 195 in CSS pixels and 640 in the playfield. Without this
-   * ratio every deploy landed in the wrong column on any screen that was not
-   * exactly 1280 wide.
+  /*
+   * Pointer position in PLAYFIELD coordinates. The canvas bitmap is a fixed
+   * 1280x720 and its CSS box is whatever fits the screen, so a click at the
+   * left edge of a 390px-wide box is x=0 in both, but a click in the middle is
+   * 195 in CSS pixels and 640 in the playfield.
    */
   const toPlayfield = (event) => {
     const canvas = canvasRef.current;
@@ -329,13 +303,7 @@ const GameBoard = () => {
     }
   };
 
-  /**
-   * How long a card is unavailable after being played.
-   *
-   * Roughly 200ms per point of energy cost, which is the curve the original four
-   * sit on. The default derives from cost so a defender added later and left out
-   * of the table still gets something proportionate.
-   */
+  /* How long a card is unavailable after being played. */
   const MS_PER_ENERGY = 200;
   const MIN_COOLDOWN_MS = 5000;
   const MAX_COOLDOWN_MS = 20000;
@@ -469,18 +437,7 @@ const GameBoard = () => {
             {gameWon && !isEndless && (
               <p>
                 Stars Earned:{" "}
-                {/*
-                  U+2605 BLACK STAR, not U+2B50 WHITE MEDIUM STAR. U+2B50 has
-                  Emoji_Presentation=Yes, so it renders from the platform
-                  colour-emoji font: it ignores .stars-value's font-family
-                  (that font is not in the --type-display stack) and ignores
-                  its `color` (emoji glyphs carry their own colour), leaving
-                  only font-size and line-height in effect. The results
-                  screen therefore looked exactly as it did pre-branch while
-                  the lobby's stars - already U+2605, in Lobby.jsx - took the
-                  new gold treatment. U+2605 defaults to text presentation,
-                  so the same CSS applies on both screens.
-                */}
+                {/* U+2605 BLACK STAR, not U+2B50 WHITE MEDIUM STAR. */}
                 <span className="stars-value">{"★".repeat(stars)}</span>
               </p>
             )}
@@ -559,17 +516,13 @@ const GameBoard = () => {
           >
             RETURN TO LOBBY
           </button>
-          {/* <button className="replay-button" onClick={() => {
-                        endGame("replay");
-                        setBaseHealth(100);
-                        setSelectedCard(null);
-                        setShovelMode(false);
-                        setCardCooldown(Object.fromEntries(cardSlots.map(c => [c.id, 0])));
-                        setResetTrigger(prev => prev + 1);
-                        setTimeout(() => selectedLevel && startLevel(selectedLevel), 100);
-                    }}>
-                        PLAY AGAIN
-                    </button> */}
+          {/*
+ * <button className="replay-button" onClick={() => { endGame("replay");
+ * setBaseHealth(100); setSelectedCard(null); setShovelMode(false);
+ * setCardCooldown(Object.fromEntries(cardSlots.map(c => [c.id, 0])));
+ * setResetTrigger(prev => prev + 1); setTimeout(() => selectedLevel &&
+ * startLevel(selectedLevel), 100); }}> PLAY AGAIN </button>
+ */}
         </div>
       </div>
     );
@@ -605,15 +558,7 @@ const GameBoard = () => {
         </div>
       </div>
 
-      {/*
-        Game Canvas, inside a frame that owns the leftover height.
-
-        The canvas cannot be a direct child of the column: `max-height: 100%` on a
-        flex item resolves against the CONTAINER's height, not the space left after
-        the bars, so at 1453px wide the 16:9 canvas computed 817px tall against 814
-        available and pushed the card tray off the bottom of the screen. The frame
-        is the flex item that shrinks; the canvas fits inside whatever it gets.
-      */}
+      {/* Game Canvas, inside a frame that owns the leftover height. */}
       <div className="game-canvas-frame">
       <canvas
         ref={canvasRef}
@@ -662,18 +607,11 @@ const GameBoard = () => {
                 />
 
                 {/*
-                  The numeral only. The recharge is shown twice more than it
-                  used to be: Card's .cooldown-sweep draws a conic wedge from
-                  12 o'clock over the same fraction, and there used to be a
-                  .cooldown-progress bottom-up rectangular fill here as well.
-                  A band and a wedge covering the same fraction of different
-                  areas overlap partially and disagree everywhere else - at
-                  50% the card was dark across its bottom half AND its left
-                  half, with a doubly-dark quadrant where the two met, which
-                  reads as a rendering artefact rather than an indicator. The
-                  sweep is the spec's requirement ("cooldown visible on the
-                  card"); the rectangle is what it replaces.
-                */}
+ * The numeral only. The recharge is shown twice more than it used to be:
+ * Card's .cooldown-sweep draws a conic wedge from 12 o'clock over the same
+ * fraction, and there used to be a .cooldown-progress bottom-up rectangular
+ * fill here as well.
+ */}
                 {cooldown > 0 && (
                   <div className="cooldown-overlay">
                     <div className="cooldown-text">

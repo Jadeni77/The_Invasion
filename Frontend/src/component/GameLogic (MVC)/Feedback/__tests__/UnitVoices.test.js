@@ -39,18 +39,11 @@ describe('voice recipes are valid', () => {
 });
 
 describe('sounds the spec promises are distinguishable actually differ', () => {
-  /**
+  /*
    * With no sample files committed, every sound in the game IS its synthesized
    * recipe, so a distinction that holds only in soundKeyFor is not audible on
    * its own: two keys can resolve correctly and still carry byte-identical
-   * recipes. The suite used to check only the key layer, and making
-   * death-small identical to death-medium (or mortar to artillery, or boss to
-   * death-medium, or summon to melee) left it green - so criteria 3 and 4
-   * could fail in play with every test passing.
-   *
-   * These pin the distinctions the spec's success criteria name, not all 105
-   * pairs: an arbitrary future regrouping of two sounds the spec never
-   * promised to separate should not have to fight the suite.
+   * recipes.
    */
   const SPEC_DISTINCTIONS = [
     // Criterion 3: Mortar, Sniper, Titan and Boss stay individually recognisable.
@@ -188,12 +181,9 @@ describe('resolveVoice', () => {
 });
 
 describe('resolveVoice carries layers through', () => {
-  /**
+  /*
    * resolveVoice builds its result field by field, so anything it does not
-   * name is DROPPED. A layered signature whose layers it forgot would resolve
-   * to its base layer alone - a Mortar reduced to its crack, with no body and
-   * no tail - and every existing test here would still pass, because they all
-   * read the top-level fields.
+   * name is DROPPED.
    */
   const LAYERED = {
     wave: 'square', freqStart: 800, freqEnd: 400, duration: 0.10, gain: 0.5, noise: true,
@@ -243,14 +233,7 @@ describe('resolveVoice carries layers through', () => {
 });
 
 describe('the Mortar sounds like artillery, not one burst', () => {
-  /**
-   * The owner asked for 天鹰火炮 / 玉米加农炮 - a launch, not a hiss. That shape
-   * is a sharp transient, a midrange body that drops in pitch, and a tail that
-   * decays after both. One source cannot be all three at once, which is the
-   * whole reason layering exists, so these assert the SHAPE rather than the
-   * exact numbers: retuning a gain should not have to fight the suite, but
-   * flattening the Mortar back to a single burst should.
-   */
+  /* The owner asked for 天鹰火炮 / 玉米加农炮 - a launch, not a hiss. */
   const mortar = () => resolveVoice(soundKeyFor('Mortar', 'fire'), 'fire');
 
   it('has a transient, a body and a tail', () => {
@@ -365,19 +348,12 @@ describe('resolveVoice has no caller-supplied fallback override', () => {
 });
 
 describe('resolveVoice against a real instance (production minification guard)', () => {
-  /**
+  /*
    * Every other test in this file derives the lookup key from a string
    * literal, which is exactly why 340 green tests were once compatible with
    * the feature being a complete no-op: esbuild's production minifier renames
    * classes (`Mortar` -> `Ef`), so `constructor.name` no longer matches, and
-   * every unit silently falls back to the generic sound. `keepNames: true` in
-   * vite.config.js is what prevents that renaming.
-   *
-   * Now that UNIT_VOICES is keyed by sound key rather than unit class name,
-   * the class-name lookup this guards against lives in soundKeyFor
-   * (SoundGroups.js), not in resolveVoice directly - so this test exercises
-   * the full production path (soundKeyFor then resolveVoice) against a REAL
-   * instance's constructor.name rather than a literal that can't drift.
+   * every unit silently falls back to the generic sound.
    */
   // The config key this test's premise rests on - vite.config.js's
   // `esbuild: { keepNames: true }` - is asserted in viteConfig.test.js, which
@@ -400,22 +376,9 @@ describe('resolveVoice against a real instance (production minification guard)',
   });
 });
 
-/**
+/*
  * Playtest fix, bug 2: the owner reported no enemy death sound and no Mortar
- * sound. Neither was missing - both were being rendered below the frequency a
- * laptop speaker reproduces.
- *
- * This matters far more for the death family and the big guns than for
- * anything else in the table, because they are the `noise: true` recipes.
- * AudioManager.createNoiseSource renders those as white noise through a
- * BANDPASS filter whose centre sweeps freqStart -> freqEnd, so the sweep is
- * not merely the fundamental - it is the entire spectrum of the sound. A tone
- * recipe pitched at 130Hz still speaks through its harmonics; a bandpassed
- * noise burst centred at 30Hz has nothing above the cutoff to be heard by.
- *
- * The floor below is written as a literal on purpose. Reading it out of
- * UnitVoices.js would make this test pass against whatever value the module
- * happened to hold, which is the failure mode that let 60Hz ship.
+ * sound.
  */
 describe('noise voices stay above what a laptop speaker reproduces', () => {
   const LAPTOP_SPEAKER_FLOOR_HZ = 200;
@@ -425,12 +388,9 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
     .filter(([, exported]) => typeof exported === 'function' && exported.prototype)
     .map(([name]) => name);
 
-  /**
+  /*
    * Every (sound key, variant) pair the game can actually reach, derived by
-   * running soundKeyFor over those exports. Checking the raw cross product of
-   * UNIT_VOICES x VARIANTS instead would flag combinations no unit produces -
-   * 'melee' played as a death, say - and force the table to satisfy a
-   * constraint the game never exercises.
+   * running soundKeyFor over those exports.
    */
   const reachable = [];
   for (const unitName of unitNames) {
@@ -476,43 +436,11 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
     expect(VARIANTS.death.freqScale).toBeGreaterThanOrEqual(0.75);
   });
 
-  /**
-   * The check that would have caught the original bug directly.
-   *
-   * The 25-90Hz Mortar and death family shipped because nothing asserted where
-   * a recipe's energy actually sat - the suite only checked that frequencies
-   * were positive and finite. Layering multiplies the exposure: a three-layer
-   * sound has three chances to put its weight under the speaker, and two of
-   * them are invisible to every existing check, which reads only the top-level
-   * fields.
-   *
-   * Derived by walking BOTH recipe tables and expanding through the same
-   * recipeLayers() AudioManager plays, so a layered sound added to either
-   * table is covered the day it is written, and the layers checked here are
-   * provably the layers rendered. The floor is a literal for the same reason
-   * the block above gives: reading it from the module under test would make
-   * the assertion true by construction.
-   */
+  /* The check that would have caught the original bug directly. */
   const ALL_TABLES = { ...SFX, ...UNIT_VOICES };
   const layeredEntries = Object.entries(ALL_TABLES).filter(([, recipe]) => recipe.layers);
 
-  /**
-   * EVERY authored recipe, layered or not, in both tables.
-   *
-   * This started scoped to layered recipes only, which left seven
-   * single-source sounds sitting at or below the rolloff - defenderPlaced,
-   * defenderDied, enemyDied, bossDied, deployRejected, levelLost and summon.
-   * They were inaudible on a laptop for exactly the reason the death sounds
-   * were, and the owner would have hit them one at a time, each looking like a
-   * fresh bug. The floor is a property of the whole sound set or it is not a
-   * floor.
-   *
-   * Checked against AUTHORED values. The resolved-after-variant-scaling case
-   * is a separate question and is covered by the reachable-pairs check above,
-   * which is careful to test only the (key, variant) combinations the game can
-   * actually produce - the raw cross product would demand that e.g. 'hit'
-   * survive death-variant scaling, which nothing ever asks it to do.
-   */
+  /* EVERY authored recipe, layered or not, in both tables. */
   const authoredLayers = Object.entries(ALL_TABLES)
     .flatMap(([id, recipe]) => recipeLayers(recipe).map((layer, index) => [
       recipeLayers(recipe).length > 1 ? `${id} layer ${index}` : id, layer,
@@ -603,20 +531,9 @@ describe('noise voices stay above what a laptop speaker reproduces', () => {
   });
 });
 
-/**
+/*
  * The Titan's two AoE abilities, which the owner playtested as "no audio for
  * the earthquake attack, no audio for the phase change".
- *
- * These assert the SHAPE the recipes are supposed to have - an impact whose
- * three layers land where the three waves land, and two abilities a player can
- * tell apart without looking - rather than the exact numbers, so retuning a
- * gain does not have to fight the suite while flattening the design does.
- *
- * A third ability sound used to live here too: a separate wind-up tone
- * ('charge' variant -> 'quake-charge') playing 500ms before the impact.
- * Dropped per the owner's ask ("can we only keep the earthquake sound without
- * the initial beep?") - the wind-up is silent now, so only the impact and the
- * phase change remain audible.
  */
 describe('the Titan abilities the owner could not hear', () => {
   /** performGroundPound's own schedule, which the impact recipe mirrors. */
@@ -693,13 +610,11 @@ describe('the Titan abilities the owner could not hear', () => {
   });
 
   it('keeps every layer above the laptop speaker floor as actually resolved', () => {
-    /**
+    /*
      * The derived reachable-pairs check earlier in this file cannot see these:
      * it walks Object.keys(VARIANTS), and impact/phase are deliberately NOT
      * declared there - they play at their authored level, which is what
-     * resolveVoice's fallback to VARIANTS.fire already does. So the resolved
-     * form of exactly these two sounds needs its own check, and the floor is
-     * a literal here for the same reason it is everywhere else in this file.
+     * resolveVoice's fallback to VARIANTS.fire already does.
      */
     const LAPTOP_SPEAKER_FLOOR_HZ = 200;
 
@@ -721,14 +636,11 @@ describe('the Titan abilities the owner could not hear', () => {
   });
 });
 
-/**
+/*
  * Task 2's rebuild: "a low, rumbling bass thud accompanied by a cracking,
  * stone-shattering echo" - the Clash of Clans earthquake feel, built without
  * any layer or recipe reaching below the 200Hz laptop-speaker floor (guarded
- * literally, and non-negotiably, by the block above). The rumble is built
- * from amplitude modulation (AudioManager.scheduleModulatedEnvelope) rather
- * than pitch, and the crack leads because it is the half of the brief that
- * actually reproduces on a small speaker.
+ * literally, and non-negotiably, by the block above).
  */
 describe('the ground pound rebuilt: crack, rumble and debris, not a bass note', () => {
   const impact = () => resolveVoice(soundKeyFor('TitanEnemy', 'impact'), 'impact');
@@ -790,13 +702,13 @@ describe('the ground pound rebuilt: crack, rumble and debris, not a bass note', 
   });
 });
 
-/**
- * resolveVoice must carry amplitude modulation through the same way it
- * carries `layers` through (see 'resolveVoice carries layers through'
- * above): scaleRecipe builds its result field by field, so a field it does
- * not explicitly forward is silently dropped, which would strip modulation
- * from the rumble the moment it passed through resolveVoice - exactly the
- * kind of bug that shipped the Mortar with no body layer.
+/*
+ * resolveVoice must carry amplitude modulation through the same way it carries
+ * `layers` through (see 'resolveVoice carries layers through' above):
+ * scaleRecipe builds its result field by field, so a field it does not
+ * explicitly forward is silently dropped, which would strip modulation from
+ * the rumble the moment it passed through resolveVoice - exactly the kind of
+ * bug that shipped the Mortar with no body layer.
  */
 describe('resolveVoice carries amplitude modulation through', () => {
   const MODULATED_LAYERED = {
@@ -833,14 +745,9 @@ describe('resolveVoice carries amplitude modulation through', () => {
   });
 });
 
-/**
+/*
  * The Mortar's shell landing: silent before this task (DefenderUnits.js's
- * createExplosion emitted nothing). Built from the same crack/body/tail
- * vocabulary as the Mortar's own launch and the Titan's quake-impact - the
- * only vocabulary in this file that reads as an explosion on a laptop speaker
- * - but distinct from both, so the two halves of one attack (launch, landing)
- * do not sound like the same sound twice, and so Eagle Artillery's sound stays
- * unmistakably its own rather than borrowing the earthquake's rumble.
+ * createExplosion emitted nothing).
  */
 describe('the Mortar\'s shell landing: the payoff half of its two sounds', () => {
   const landing = () => resolveVoice(soundKeyFor('Mortar', 'landing'), 'landing');

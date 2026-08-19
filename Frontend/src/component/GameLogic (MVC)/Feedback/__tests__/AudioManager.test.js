@@ -216,17 +216,9 @@ describe('noise timbre (bandpass filtering)', () => {
 });
 
 describe('layered recipes', () => {
-  /**
+  /*
    * A recipe may carry `layers`: further recipes, each with an `offset` in
-   * seconds from the trigger. AudioManager renders the base recipe and every
-   * layer, but the result is ONE sound - one voice against MAX_VOICES and one
-   * dedupe slot. Without that accounting a three-layer sound would triple the
-   * voice pressure and its layers would each burn a slot, so twelve of them
-   * would silence everything else in the game.
-   *
-   * The mechanism exists because a single source cannot be artillery:
-   * playRecipe renders either an oscillator or a bandpassed noise burst, never
-   * both, and a cannon needs a crack, a body and a tail sounding together.
+   * seconds from the trigger.
    */
   const LAYERED = {
     wave: 'square', freqStart: 800, freqEnd: 400, duration: 0.05, gain: 0.5, noise: false,
@@ -416,29 +408,7 @@ describe('layered recipes', () => {
   });
 });
 
-/**
- * The invariant that was silently false for 589 tests.
- *
- * `gain: 0.5` meant two different loudnesses depending on `noise`, a boolean
- * elsewhere in the same recipe. AudioManager renders a noise recipe through a
- * bandpass, which throws away everything outside a narrow band - about 97% of
- * white noise's power at a Q=1 midrange centre - while a tone recipe reaches
- * the envelope at full scale. Measured, that put the noise path ~14dB under
- * the tone path at identical authored gain.
- *
- * It explains three separate symptoms the owner reported as unrelated: the
- * original Mortar being inaudible, enemy deaths being inaudible, and the whole
- * death family sitting ~22dB under baseDamaged, Titan and Boss included. Every
- * one of those is a `noise: true` recipe.
- *
- * These tests model the rendered level from what AudioManager actually
- * schedules on the mock graph. The bandpass's noise power gain is obtained by
- * NUMERICALLY INTEGRATING |H(f)|^2 across the spectrum, which is a different
- * derivation from the closed-form equivalent-noise-bandwidth identity
- * noiseMakeupGain uses - so agreement between them is evidence, not a
- * tautology. A test that reused the production formula could only prove the
- * code equals itself.
- */
+/* The invariant that was silently false for 589 tests. */
 describe('authored gain means the same level on both render paths', () => {
   /** RMS of a full-scale oscillator, by shape. */
   const WAVE_RMS = {
@@ -447,11 +417,10 @@ describe('authored gain means the same level on both render paths', () => {
   /** RMS of the uniform [-1,1) buffer createNoiseSource fills. */
   const UNIFORM_NOISE_RMS = 1 / Math.sqrt(3);
 
-  /**
+  /*
    * The Q this model assumes, stated independently of the production constant
    * so that the model keeps working - and keeps failing honestly - even when
-   * the production side does not exist or is wrong. A separate test below
-   * pins production to this value.
+   * the production side does not exist or is wrong.
    */
   const ASSUMED_Q = 1;
 
@@ -487,7 +456,7 @@ describe('authored gain means the same level on both render paths', () => {
     return { ctx, made, audio };
   }
 
-  /**
+  /*
    * Peak output amplitude of a single-layer recipe, read off the graph
    * AudioManager built rather than assumed: the envelope's scheduled peak,
    * times every constant gain in the path (the makeup node, if any), times the
@@ -1059,14 +1028,11 @@ describe('playRecipe and playSample sharing state', () => {
   });
 });
 
-/**
+/*
  * Amplitude modulation: a layer's GAIN oscillating a few times a second reads
  * as low-frequency rumble even when its spectral energy sits well above the
  * 200Hz laptop-speaker floor (see UnitVoices.js's header and the quake-impact
- * rebuild). AudioManager has no LFO node - every envelope before this was
- * exactly one setValueAtTime plus one exponentialRampToValueAtTime - so this
- * is the repeated ramp pattern that expresses modulation with the two
- * primitives already in use, rather than a new kind of node.
+ * rebuild).
  */
 describe('amplitude-modulated layers (rumble)', () => {
   const MODULATED = {

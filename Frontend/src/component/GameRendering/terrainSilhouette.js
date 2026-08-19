@@ -1,22 +1,4 @@
-/**
- * The terrain silhouettes, generated from ABSOLUTE map x.
- *
- * Pure geometry, no JSX: the campaign map draws these per region and
- * TerrainBackdrop draws them full-screen behind the screens that are not the map,
- * so both get their hills from one place. A file that exports a component may not
- * also export helpers (react-refresh/only-export-components), which is the
- * immediate reason this is its own module - but it is the right split regardless.
- *
- * These used to be three fixed paths on a `viewBox="0 0 600 200"` with
- * `preserveAspectRatio="none"`, one instance per region. Regions are not the same
- * width - they span 380px to 760px - so the same hills were stretched anywhere
- * from 0.63x to 1.27x, and because each instance restarted the pattern at its own
- * left edge the silhouette did not line up across a boundary either.
- *
- * Generating from absolute x fixes both: peaks sit on a fixed pitch in map
- * coordinates, so every hill is the same width everywhere, and a region's last
- * peak and its neighbour's first are consecutive points on one continuous range.
- */
+/* The terrain silhouettes, generated from ABSOLUTE map x. */
 
 /** Peak spacing in map px. Fixed, so hill width never depends on region width. */
 const RIDGE_PITCH = 95;
@@ -37,10 +19,9 @@ function silhouette(left, width, { pitch, crest, trough, phase = 0, baseline = R
   const heightAt = (k) => ((k + phase) % 2 === 0 ? crest : trough);
 
   /*
-   * Quadratic curves, not straight lines: each peak is the CONTROL point and the
-   * midpoints between peaks are the on-curve anchors, which is what makes these
-   * roll rather than zig-zag. A first pass drew `L` segments between peaks and
-   * the foreground band came out looking like a folded strip of paper.
+   * Quadratic curves, not straight lines: each peak is the CONTROL point and
+   * the midpoints between peaks are the on-curve anchors, which is what makes
+   * these roll rather than zig-zag.
    */
   const midX = (k) => (local(k) + local(k + 1)) / 2;
   const midY = (k) => (heightAt(k) + heightAt(k + 1)) / 2;

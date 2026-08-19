@@ -98,14 +98,7 @@ export class DefenderUnit {
     }
   }
 
-  /**
-   * Advances the current sheet by the real time the frame covered.
-   *
-   * Defaults to the frame delta GameEngine published rather than to a nominal
-   * 60fps frame: the game loop is uncapped requestAnimationFrame, so on a 120Hz
-   * display a nominal frame is twice the time that actually passed and every
-   * sheet played at double speed against a real-time firing cadence.
-   */
+  /* Advances the current sheet by the real time the frame covered. */
   updateAnimation(deltaMs = frameDeltaMs()) {
     if (!this.animationConfig || !this.animationFrames) {
       // If no animation data, mark death as complete if dead
@@ -175,24 +168,12 @@ export class DefenderUnit {
     }
   }
 
-  /**
-   * The gap between two attacks, in milliseconds.
-   *
-   * Mirrors canAttack's cooldown deliberately: the attack animation is timed
-   * against this, and if the two ever disagree the animation drifts away from
-   * the shot it depicts. Units that act on a clock of their own - the Healer
-   * heals on healingRate, not fireRate - override this.
-   */
+  /* The gap between two attacks, in milliseconds. */
   attackCadenceMs() {
     return (this.fireRate * 1000) / 60;
   }
 
-  /**
-   * Restarts the attack sheet for an attack happening now.
-   *
-   * Called at the moment the unit acts, so the swing and the shot share one
-   * clock. It does not set isAttacking; the caller owns that flag.
-   */
+  /* Restarts the attack sheet for an attack happening now. */
   beginAttackAnimation() {
     this.animationFrame = 0;
     this.animationTimer = 0;
@@ -2416,11 +2397,9 @@ export class FrostArcher extends DefenderUnit {
   }
 }
 
-/**
- * True for one-shot consumables - Fire Blast and Ice Bomb - which fire once and
- * then remove themselves. Defender rules (resurrection, enemy targeting,
- * casualty counting) must not apply to them, because their "death" is a
- * successful cast rather than a loss.
+/*
+ * True for one-shot consumables - Fire Blast and Ice Bomb - which fire once
+ * and then remove themselves.
  */
 export function isConsumableSpell(unit) {
   return Boolean(unit?.isSpell);

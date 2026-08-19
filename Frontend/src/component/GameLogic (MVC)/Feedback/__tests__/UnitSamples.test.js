@@ -134,14 +134,11 @@ describe('the Titan ability variants (impact, phase)', () => {
 });
 
 describe('every variant soundKeyFor special-cases has a sample transform', () => {
-  /**
+  /*
    * Derived by reading SoundGroups.js itself rather than copying its branch
-   * list into a second, hand-written array here - which is exactly the kind
-   * of second list that drifted from the first and produced this bug in the
-   * first place (see this file's SAMPLE_VARIANTS header). Every guard found
-   * wanting on this branch failed on *scope* - which variants it checked -
-   * never on the matching logic once pointed at the right ones; this ties
-   * the scope to the real source instead of to anyone's memory of it.
+   * list into a second, hand-written array here - which is exactly the kind of
+   * second list that drifted from the first and produced this bug in the first
+   * place (see this file's SAMPLE_VARIANTS header).
    */
   const here = dirname(fileURLToPath(import.meta.url));
   const soundGroupsSource = stripComments(readFileSync(join(here, '..', 'SoundGroups.js'), 'utf8'));

@@ -9,38 +9,9 @@ import * as DefenderModule from '../../DefenderUnits.js';
 import * as EnemyModule from '../../EnemyUnits.js';
 import { stripComments } from '../../../../test/sourceFiles.js';
 
-/**
+/*
  * Enforces the owner's rule, verbatim: "I want the landing sound from eagle
- * artillery... All eagle artillery sound changes should belong to mortar, and
- * then the earthquake belong to titan only."
- *
- * The previous violation - quake-charge.wav holding EagleArtillery_Charge
- * content under the Titan's wind-up key - passed every OTHER guard in this
- * codebase (SOUND_KEYS, soundKeyFor, MIX_TIERS, UNIT_VOICES, SAMPLE_VARIANTS),
- * because none of them know or care which pack a sample's audio came from,
- * only which sound key its filename maps to. This is the guard that checks
- * provenance against real reachability instead of key-shape alone.
- *
- * Both sides are DERIVED from the real source rather than hand-written, per
- * this project's own finding that guards here have repeatedly failed on
- * SCOPE, not on matching logic:
- *   - which sample files exist, from the real glob-derived SAMPLE_URLS
- *     (UnitSamples.js reads the actual filesystem via import.meta.glob);
- *   - which real unit classes can reach a given sound key. This needs TWO
- *     mechanisms, because soundKeyFor itself works two different ways (see
- *     SoundGroups.js): a unit-SENSITIVE key like 'mortar' is reached only
- *     where the real FIRE_SIGNATURES/FIRE_GROUPS/DEATH_SIGNATURES tables say
- *     so, so probing soundKeyFor(unit, variant) across every real exported
- *     class answers the question directly. A unit-AGNOSTIC key - impact,
- *     phase and landing all resolve the SAME way no matter which unit is
- *     asked, by design (only one real unit's code ever supplies that variant
- *     in play) - cannot be answered by asking soundKeyFor at all; it
- *     is answered by finding, in FeedbackManager.js's own event-routing
- *     table, which EVENT maps to that variant, then searching the real
- *     DefenderUnits.js/EnemyUnits.js source for that literal event string.
- * Only the provenance VALUES (which pack a file was cut from) are necessarily
- * declared by hand, in SampleProvenance.js - that fact cannot be recovered
- * from the code, only from how the file was made.
+ * artillery...
  */
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -60,12 +31,12 @@ function classNamesFrom(unitModule) {
 
 const ALL_UNIT_CLASS_NAMES = [...classNamesFrom(DefenderModule), ...classNamesFrom(EnemyModule)];
 
-/**
- * Every variant name soundKeyFor branches on, derived from its own source
- * (the same technique UnitSamples.test.js's sample-transform guard uses),
- * plus 'fire' and 'death' - the two unit-sensitive variants every real unit
- * reaches through the module's default/death branches rather than a literal
- * `variant === 'fire'` check.
+/*
+ * Every variant name soundKeyFor branches on, derived from its own source (the
+ * same technique UnitSamples.test.js's sample-transform guard uses), plus
+ * 'fire' and 'death' - the two unit-sensitive variants every real unit reaches
+ * through the module's default/death branches rather than a literal `variant
+ * === 'fire'` check.
  */
 const soundGroupsSource = stripComments(readFileSync(join(here, '..', 'SoundGroups.js'), 'utf8'));
 function branchedVariants(source) {
@@ -73,12 +44,9 @@ function branchedVariants(source) {
 }
 const VARIANTS_TO_CHECK = [...new Set(['fire', 'death', ...branchedVariants(soundGroupsSource)])];
 
-/**
+/*
  * event -> variant, derived from FeedbackManager.js's own `on(event, ...)`
- * table. Block-scoped to the text between one `on(` call and the next, so an
- * event with no playUnitVoice call at all (e.g. defender:placed, which plays
- * a game-event sound instead) is not wrongly paired with a LATER handler's
- * call - a plain non-scoped regex does exactly that here.
+ * table.
  */
 function eventToVariantMap(source) {
   const starts = [...source.matchAll(/\bon\('([\w:]+)',/g)].map((m) => ({ event: m[1], index: m.index }));
@@ -98,11 +66,9 @@ const defenderUnitsSource = readFileSync(join(here, '../../DefenderUnits.js'), '
 const enemyUnitsSource = readFileSync(join(here, '../../EnemyUnits.js'), 'utf8');
 const EVENT_TO_VARIANT = eventToVariantMap(feedbackManagerSource);
 
-/**
+/*
  * Whether soundKeyFor resolves `variant` to the SAME key no matter which real
- * unit is asked. True for impact/phase/landing: soundKeyFor trusts its
- * caller for these (only one real unit's code ever supplies them in play);
- * false for fire/death/hit/melee, which vary by unit or bucket.
+ * unit is asked.
  */
 function isUnitAgnosticVariant(variant) {
   const keys = new Set(ALL_UNIT_CLASS_NAMES.map((name) => soundKeyFor(name, variant)));

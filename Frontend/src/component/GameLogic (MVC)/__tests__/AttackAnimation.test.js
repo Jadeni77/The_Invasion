@@ -7,33 +7,14 @@ import { defenderUnitClasses } from '../DefenderClassUtils.js';
 import { CombatManager } from '../GameEngineBreakDown/InGameManagerHandlers/CombatManager.js';
 import { AssetManifest } from '../../../assets/AssetManifest.js';
 
-/**
- * Playtest fix, bug 3: "the skeleton's attack sprite sheet only plays partway".
- *
- * The previous fix held the attack animation for a fixed
- * ATTACK_ANIMATION_LOCK_FRAMES = 20 (~333ms at 60fps). The Skeleton Shooter's
- * attack sheet is 10 frames at 10fps = 1000ms, so barely a third of it ever
- * reached the screen. Raising the constant is not available either: the sheet
- * at its authored speed is LONGER than the skeleton's 833ms firing cadence
- * (attackRate 50), so it would still be mid-swing when the next shot arrived
- * and would latch on permanently - the bug the lock was added to fix.
- *
- * The requirement the owner set is that every sheet plays in full, so playback
- * is derived from the cadence instead: one full pass per attack, over
- * min(authored sheet duration, cadence). Longer-than-cadence sheets compress to
- * fit; shorter ones keep their authored speed and hand back to idle rather than
- * being stretched into slow motion.
- *
- * Every test here reads its frame counts and fps from the real AssetManifest,
- * so it is measuring the sheets the game actually ships.
+/*
+ * Playtest fix, bug 3: "the skeleton's attack sprite sheet only plays
+ * partway".
  */
 
-/**
+/*
  * These tests drive unit.update() by hand, standing in for GameEngine's loop,
- * and count ticks. Animation advances by whatever real time the engine says the
- * frame covered (Animation/FrameTime.js), so the loop is pinned to 60Hz here to
- * give those tick counts a fixed meaning. Playback at other refresh rates is
- * what AnimationFrameDelta.test.js measures.
+ * and count ticks.
  */
 const FRAME_MS_60HZ = 1000 / 60;
 
@@ -222,11 +203,11 @@ describe('defender playback is no longer quantised by integer frame counting', (
 });
 
 describe('every defender that attacks plays its full sheet once, at every level', () => {
-  /**
-   * Derived, not listed. The manifest key is what AssetManifest is keyed by and
-   * defenderUnitClasses is the module's own map from it to the class, so a new
-   * defender is covered as soon as it is registered - the same reason bug 1's
-   * hand-written list let a silent unit through.
+  /*
+   * Derived, not listed. The manifest key is what AssetManifest is keyed by
+   * and defenderUnitClasses is the module's own map from it to the class, so a
+   * new defender is covered as soon as it is registered - the same reason bug
+   * 1's hand-written list let a silent unit through.
    */
   const attackingDefenders = Object.entries(defenderUnitClasses)
     .filter(([manifestName, DefenderClass]) => {

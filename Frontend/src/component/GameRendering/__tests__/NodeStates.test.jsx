@@ -1,23 +1,4 @@
-/**
- * The three node states, and the stars.
- *
- * The CSS declared three states and two of them measured identical: completed
- * was a surface-raised/moss gradient and locked a flat surface-sunken, both dark
- * brown at a glance. RouteAndNodes.test.jsx already asserts the three rule
- * bodies differ textually, which those two did - differing text is not the same
- * claim as differing appearance, and it passed the whole time the owner could
- * not tell them apart.
- *
- * Nothing here can see a rendered pixel; jsdom has no rasteriser, so whether
- * completed now reads as "cleared" at a glance is the owner's call. What is
- * checkable is that the states are distinguished by more than a fill - an
- * outline, a ring and a glyph, each of which survives being small and being
- * looked at by someone who cannot separate two browns.
- *
- * The stars half is a real render test, and it exists to answer one question the
- * screenshot could not: no stars appeared on the owner's map, and it mattered
- * whether that was absent data or a broken render.
- */
+/* The three node states, and the stars. */
 import React from 'react';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -47,16 +28,7 @@ function ruleBody(selector) {
 
 let mockPlayerData;
 
-/*
- * Partial mock via importOriginal, not a replacement object.
- *
- * A mock that lists its exports silently drops every export it does not name, so
- * the module gaining one breaks this file with "No export is defined on the mock"
- * - thrown at import, nowhere near the cause. That has now happened twice: once
- * when DefenderClassUtils gained MAX_DEFENDER_LEVEL, and again when GameContext
- * gained ENERGY_PACK. Only `useGame` needs stubbing here; everything else should
- * be whatever the real module exports.
- */
+/* Partial mock via importOriginal, not a replacement object. */
 vi.mock('../../GameLogic (MVC)/GameContext', async (importOriginal) => ({
   ...(await importOriginal()),
 
@@ -159,13 +131,7 @@ describe('stars on completed nodes', () => {
     mockPlayerData = playerWithProgress();
   });
 
-  /*
-   * The question the owner's screenshot raised: no stars anywhere. This
-   * distinguishes the two explanations. If the render were broken, this test
-   * would fail with star data present; it passes, so the absence on the owner's
-   * map is absent data - nothing completed in that save, and `.stars` only
-   * renders for a completed level.
-   */
+  /* The question the owner's screenshot raised: no stars anywhere. */
   it('renders stars once a level is completed and has star data', () => {
     const { container } = render(<Lobby />);
     const nodes = container.querySelectorAll('.level-node.completed');
@@ -214,15 +180,12 @@ describe('stars on completed nodes', () => {
   });
 });
 
-/**
+/*
  * The star row and the level name both hang below the node on negative
  * offsets, and they overlapped: `.stars` at `bottom: -15px` with a 16px line
  * occupied 1-15px below the node, `.level-name` at `bottom: -20px` occupied
- * about 10-20px, so on a completed level the stars sat on the level's own name.
- * Invisible in review because nothing was completed in that save.
- *
- * Arithmetic on the two declared offsets, which is as far as jsdom goes - it
- * applies no stylesheet and measures no boxes.
+ * about 10-20px, so on a completed level the stars sat on the level's own
+ * name.
  */
 describe('the star row and the level name do not overlap', () => {
   const STAR_LINE_PX = 16; // --type-size-md, line-height 1
@@ -272,23 +235,7 @@ describe('the star row and the level name do not overlap', () => {
   });
 });
 
-/**
- * A state rule must not silently un-centre the thing it restyles.
- *
- * `transform` is one property, not a list that accumulates. Both of this map's
- * clickable elements are centred on their coordinate with
- * `translate(-50%, -50%)`, and both had a `:hover` rule declaring only a
- * `scale(...)` - which *replaces* that translate rather than composing with it.
- * A hovered node jumped 27px down and right (33px for a 66px boss) and a hovered
- * chest 20px, in both cases away from the cursor about to click it. Both were
- * pre-existing, and both were on the screen the owner was about to judge.
- *
- * Derived rather than listed: the base selectors come from reading which rules
- * declare a centring translate, so an element centred that way in future is
- * covered without anyone remembering to add it. Scoped to Lobby.css, where it
- * happened; a rule that declares no `transform` at all is not implicated, since
- * it inherits the base rule's.
- */
+/* A state rule must not silently un-centre the thing it restyles. */
 describe('a pseudo-class rule never drops a centring translate', () => {
   const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({
     selector: m[1].trim(),

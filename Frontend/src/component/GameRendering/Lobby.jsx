@@ -33,23 +33,9 @@ import OpenChest from "../../Icons/OpenChest.png";
 
 
 
-/**
+/*
  * A region's band, sized in MapLayout to cover exactly the levels assigned to
  * it (`zoneSpans`), so a level always stands on its own zone's ground.
- *
- * This used to divide `mapSettings.mapWidth` into equal bands in
- * `zoneConfigs` key order and left the route free to "weave" across them.
- * That is how the terrain came to escalate backwards: with the route folded,
- * levels 13-20 ran right to left back through regions the outbound leg had
- * already climbed, so the ground under a level had no particular relationship
- * to the level's own zone. Equal bands happen to be close to correct now that
- * the route is unfolded, which is exactly why the span is derived from the
- * levels instead - "close to correct by coincidence" is the state this map has
- * already shipped in twice.
- *
- * Returns `display: none` for anything with no span, which is the endless
- * portal: it is the far end of the route, not a region, and `.zone-endless`
- * has never had a rule to paint.
  */
 function zoneBounds(zone) {
   const span = zoneSpans[zone];
@@ -124,12 +110,7 @@ const Lobby = () => {
     const deltaX = e.clientX - drag.current.startX;
     const deltaY = e.clientY - drag.current.startY;
 
-    /*
-     * The threshold is the distance travelled, not the horizontal component.
-     * Measuring only X meant a straight-down drag never set `moved`, so releasing
-     * it launched whatever level it ended on - the drag guard was blind to exactly
-     * the gesture this change introduces.
-     */
+    /* The threshold is the distance travelled, not the horizontal component. */
     if (Math.hypot(deltaX, deltaY) > DRAG_THRESHOLD_PX && !drag.current.moved) {
       drag.current.moved = true;
       // Now that this is unambiguously a drag rather than a click, take the
@@ -139,11 +120,10 @@ const Lobby = () => {
     }
 
     /*
-     * Both axes. The terrain is 720px tall and the frame is often shorter - about
-     * 575px on a phone held upright, 250px held sideways - so there is real
-     * vertical range to reach, and dragging only moved the map along one of them.
-     * Each axis is an absolute assignment from its own pointerdown anchor, so a
-     * diagonal drag tracks the pointer rather than drifting.
+     * Both axes. The terrain is 720px tall and the frame is often shorter -
+     * about 575px on a phone held upright, 250px held sideways - so there is
+     * real vertical range to reach, and dragging only moved the map along one
+     * of them.
      */
     viewport.scrollLeft = drag.current.startScrollX - deltaX;
     viewport.scrollTop = drag.current.startScrollY - deltaY;
@@ -195,15 +175,7 @@ const Lobby = () => {
     if (!target) return;
     viewport.scrollLeft = target.x * mapZoom - viewport.clientWidth / 2;
 
-    /*
-     * Vertically too, when the frame is shorter than the terrain.
-     *
-     * On a phone the frame is around 590px and the terrain is 720, so `scrollTop`
-     * staying at 0 opened the map on the empty upper third: the route runs from
-     * y 168 to y 612 and level 1 sits at y 600, entirely below the fold. The
-     * player's first sight of the campaign was sky. Harmless on a desktop, where
-     * the frame already fits the terrain and this clamps to 0.
-     */
+    /* Vertically too, when the frame is shorter than the terrain. */
     const overflowY = viewport.scrollHeight - viewport.clientHeight;
     if (overflowY > 0) {
       const wanted = target.y * mapZoom - viewport.clientHeight / 2;
@@ -211,17 +183,9 @@ const Lobby = () => {
     }
   }, [nextLevelId, mapZoom]);
 
-  /**
-   * What the reward panel shows, derived from the chest the player just opened.
-   *
-   * `defenders` is always a list: three of the six landmark chests unlock more
-   * than one, and rendering an array straight into JSX printed "SniperIce Bomb"
-   * with no separator. A bare string is still accepted, because nothing stops a
-   * future caller sending one.
-   *
-   * `resources` is the part that was missing entirely - the old notification
-   * mentioned defenders only, so opening a chest carrying 2000 gold announced
-   * nothing whatsoever.
+  /*
+   * What the reward panel shows, derived from the chest the player just
+   * opened.
    */
   const noticeResources = Object.entries(rewardNotice?.resources ?? {})
       .filter(([, amount]) => amount > 0);
@@ -415,12 +379,11 @@ const Lobby = () => {
             </div>
         )}
 
-        {/* Top chrome: player identity, menu buttons, energy and resources
-            used to be three stacked blocks eating roughly a third of the
-            screen before the map began. They share one row now, in one
-            band, so the map - the screen's actual subject - gets that
-            height back. Wrapper only: none of the three blocks below have
-            had their markup or class names changed. */}
+        {/*
+ * Top chrome: player identity, menu buttons, energy and resources used to be
+ * three stacked blocks eating roughly a third of the screen before the map
+ * began.
+ */}
         <div className="lobby-topband">
           {/* Top menu bar */}
           <div className="top-menu-bar">
@@ -439,22 +402,10 @@ const Lobby = () => {
                 <span>Achievement</span>
               </button>
               {/*
-                These two buttons carried the same `icon-setting` glyph, with
-                the destructive one (log out, ending the session) sitting
-                immediately left of the benign one. Icons are the only thing a
-                player scanning this bar reads; two identical ones made ending
-                the session a coin flip. The button *classes* are left alone -
-                `settings` on the logout button is a pre-existing mislabel, and
-                renaming it would touch Lobby.css for no visual gain - but the
-                icons are now distinct in both directions: the gear belongs to
-                Settings, and logout says logout.
-
-                Note for whoever adds the artwork: no stylesheet in this repo
-                defines `icon-*` yet, so every one of these <i> elements is
-                currently empty and nothing is drawn. The duplication was
-                therefore latent rather than on screen - but it is the markup a
-                real icon set will be hung on, and it had the wrong name on it.
-              */}
+ * These two buttons carried the same `icon-setting` glyph, with the
+ * destructive one (log out, ending the session) sitting immediately left of
+ * the benign one.
+ */}
               <button className="menu-button settings" onClick={handleLogout}>
                 <i className="icon-logout" />
                 <span>Logout</span>
@@ -507,24 +458,11 @@ const Lobby = () => {
           >
             {/* Zone backgrounds */}
             {/*
-              No inline colour at all - `zoneBounds` only ever returns
-              position (left/width, or `display: none` for the endless
-              portal), never a colour property, so it can't reintroduce the
-              override mechanism the comment below describes. Each backdrop's
-              wash is `.zone-<key>` in Lobby.css. This previously compared
-              `config.backgroundColor` against the sentinel string
-              '#rainbow-gradient' and, on a match, wrote a seven-hex gradient
-              inline - a second copy of the rainbow that no guard read and
-              that could not be retuned from the token layer. `.zone-endless`
-              deliberately has no rule and no bounds: it never had a box, so
-              that div has always rendered nothing.
-
-              Each region also carries a ridgeline (two SVG passes, far and
-              near) filling the upper third, and a foreground band framing
-              the bottom - the exact top-and-bottom dead space the owner
-              flagged on the first mockup. Both are inline SVG, not raster
-              images, so their fills take token colours via `var()`.
-            */}
+ * No inline colour at all - `zoneBounds` only ever returns position
+ * (left/width, or `display: none` for the endless portal), never a colour
+ * property, so it can't reintroduce the override mechanism the comment below
+ * describes.
+ */}
             {Object.keys(zoneConfigs).map((zone) => (
                 <div
                     key={`zone-${zone}`}
@@ -560,16 +498,12 @@ const Lobby = () => {
                         fill="var(--terrain-foreground)"
                     />
                   </svg>
-                  {/* Mid-ground scenery. Count, kind, row and offsets all
-                      come from `propsForZone` (TerrainProps.jsx), which is
-                      given this region's own width so a wide region gets
-                      proportionally more scenery instead of the same two or
-                      three props stretched further apart. Deterministic, not
-                      random - a prop that moves on every render is
-                      distracting, and a test cannot pin a random position.
-                      Every row sits above `.zone-fore`'s bottom-22% band
-                      (FOREGROUND_BAND_TOP, asserted per emitted prop in
-                      TerrainProps.test.jsx), so nothing is painted over. */}
+                  {/*
+ * Mid-ground scenery. Count, kind, row and offsets all come from
+ * `propsForZone` (TerrainProps.jsx), which is given this region's own width so
+ * a wide region gets proportionally more scenery instead of the same two or
+ * three props stretched further apart.
+ */}
                   {propsForZone(zone, zoneSpans[zone]?.width).map((prop) => (
                       <TerrainProp
                           key={prop.key}
@@ -597,15 +531,11 @@ const Lobby = () => {
                         top: `${conn.y}px`,
                         left: `${conn.x}px`,
                         width: `${conn.length}px`,
-                        /* `conn.x`/`conn.y` are the segment's MIDPOINT, so the
-                           bar has to be centred on that point - hence
-                           translate(-50%, -50%) and a centre transform-origin.
-                           Anchoring the bar's left edge there instead (which is
-                           what `transform-origin: left center` and a bare
-                           rotate did) started every segment half-way along its
-                           own route and ran it a full length past the target
-                           node. It was invisible only because the bar was 3px
-                           tall at opacity 0.3. */
+                        /*
+                         * `conn.x`/`conn.y` are the segment's MIDPOINT, so the
+                         * bar has to be centred on that point - hence
+                         * translate(-50%, -50%) and a centre transform-origin.
+                         */
                         transform: `translate(-50%, -50%) rotate(${conn.rotation}deg)`,
                       }}
                   />

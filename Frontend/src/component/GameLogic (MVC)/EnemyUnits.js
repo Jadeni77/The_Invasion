@@ -3,14 +3,11 @@
 
 
 /*
-TODO:
- 1.把wrapper的东西合并在每一个enemy class里面
- 2.AnimationManager可以留可以不留 （尽量保留
- 3.看看能不能把每一个subclass constructor里面的image parameter用上，目前image parameter
- 没有任何作用因为都是null value
- 4.DrawEntities.js, CombatManager.js (done revert), GameEngine, DefenderUnits.js, EnemyUnit.js
- 5.加油！
-*/
+ * TODO: 1.把wrapper的东西合并在每一个enemy class里面 2.AnimationManager可以留可以不留 （尽量保留
+ * 3.看看能不能把每一个subclass constructor里面的image parameter用上，目前image parameter
+ * 没有任何作用因为都是null value 4.DrawEntities.js, CombatManager.js (done revert),
+ * GameEngine, DefenderUnits.js, EnemyUnit.js 5.加油！
+ */
 
 import {DrawNegativeEffect} from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
@@ -129,14 +126,7 @@ export class Enemy {
     }
   }
 
-  /**
-   * Advances the current sheet by the real time the frame covered.
-   *
-   * Defaults to the frame delta GameEngine published rather than to a nominal
-   * 60fps frame: the game loop is uncapped requestAnimationFrame, so on a 120Hz
-   * display a nominal frame is twice the time that actually passed and every
-   * sheet played at double speed against a real-time firing cadence.
-   */
+  /* Advances the current sheet by the real time the frame covered. */
   updateAnimation(deltaMs = frameDeltaMs()) {
     if (!this.animationConfig || !this.animationFrames) {
       return;
@@ -202,26 +192,14 @@ export class Enemy {
     }
   }
 
-  /**
-   * The gap between two attacks, in milliseconds.
-   *
-   * Mirrors canAttack's cooldown deliberately: the attack animation is timed
-   * against this, and if the two ever disagree the animation drifts away from
-   * the shot it is supposed to depict.
-   */
+  /* The gap between two attacks, in milliseconds. */
   attackCadenceMs() {
     return (this.attackRate * 1000) / 60;
   }
 
-  /**
+  /*
    * Restarts the attack sheet for a shot that is leaving now, timed to fit
    * inside the firing cadence.
-   *
-   * Called by CombatManager at the moment the projectile is created, so the
-   * swing and the shot share one clock. It does NOT set isAttacking: the caller
-   * owns that flag, and keeping the two separate is what lets a melee enemy -
-   * which holds isAttacking for as long as it is in contact - stay out of this
-   * countdown entirely.
    */
   beginAttackAnimation() {
     this.animationFrame = 0;
@@ -276,28 +254,9 @@ export class Enemy {
     this.handleMovement();
   }
 
-  /**
+  /*
    * Runs down the attack animation a shot started, and drops out of the attack
    * state when the sheet has finished its one pass.
-   *
-   * The swing has to end on its own, or it latches on until the target leaves
-   * range and the animation runs continuously - and it has to survive past the
-   * frame it was started on, because GameEngine runs enemy.update() BEFORE
-   * updateEnemyCombat, so anything cleared in the same frame it was set would
-   * never be seen by determineAnimationState and the swing would never render.
-   * Counting the sheet's own duration down satisfies both, and unlike the fixed
-   * frame lock it replaces, it lasts exactly as long as there are frames to
-   * show.
-   *
-   * Lives here rather than in RangeEnemy because CombatManager starts the
-   * animation on ANY enemy taking its ranged branch - it keys on isRanged, and
-   * MageEnemy is kept out of that branch only by its canAttack() override.
-   * Anything a base-class rule can start, a base-class rule has to be able to
-   * end, or the next ranged enemy that does not extend RangeEnemy latches its
-   * attack animation on forever.
-   *
-   * A no-op for melee enemies: nothing starts their countdown, and their swing
-   * is driven by the damage tick in updateBehavior instead.
    */
   runDownAttackAnimation(deltaMs = frameDeltaMs()) {
     if (this.attackAnimationRemainingMs <= 0) return;
@@ -409,32 +368,13 @@ export class Enemy {
     }
   }
 
-  /**
-   * A glow on the ground under a boss.
-   *
-   * Drawn after the sprite's `ctx.restore()`, so it is outside the horizontal
-   * flip a westward-facing enemy applies - an ellipse survives mirroring, but
-   * putting it inside the transform would mean anything asymmetric added here
-   * later renders backwards, which is a trap worth not laying.
-   *
-   * Pulsed off the wall clock rather than a per-enemy timer: the marker is
-   * decoration, it does not need to survive a pause, and every boss on screen
-   * pulsing in sympathy looks deliberate.
-   */
+  /* A glow on the ground under a boss. */
   drawBossMarker(ctx) {
     const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 420);
     const cx = this.x + this.width / 2;
     const cy = this.y + this.height - 2;
 
-    /*
-     * 0.42 of the width, not 0.62.
-     *
-     * At 0.62 on a boss - whose width is already scaled 1.4x - the ellipse came
-     * out around 220px across on a Titan, far wider than the sprite standing on
-     * it, and read as a puddle the unit happened to be near rather than a marker
-     * attached to it. Judged from a play-test screenshot; there is no test that
-     * can see this.
-     */
+    /* 0.42 of the width, not 0.62. */
     ctx.save();
     ctx.globalAlpha = 0.16 + 0.12 * pulse;
     ctx.fillStyle = colors.accentEnergy;
@@ -444,35 +384,18 @@ export class Enemy {
     ctx.restore();
   }
 
-  /**
-   * What the boss health bar writes above itself.
-   *
-   * Overridable so a unit carrying extra state - the Titan's phase, say - can put
-   * it INSIDE the bar rather than stacking another row of text above the sprite,
-   * where it collides with the bar it is trying to sit near.
-   */
+  /* What the boss health bar writes above itself. */
   bossBarLabel() {
     return `${this.name}  ${this.health.toFixed(0)}/${this.maxHealth}`;
   }
 
-  /**
+  /*
    * A boss's health bar: wider than the sprite, taller than the standard bar,
    * outlined, and shown from full health rather than only once damaged.
-   *
-   * The standard bar appears only when `health < maxHealth`, which for a boss
-   * means the one enemy the player most needs to size up arrives with no bar at
-   * all. Gold rather than the usual green, so it reads as the same thing the wave
-   * banner just announced.
    */
   drawBossHealthBar(ctx) {
     const pad = 8;
-    /*
-     * Clamped to the board's left edge. Enemies spawn off-board at x = -100 and
-     * walk in, so a boss's bar - and the name and numbers written above it - sat
-     * at a negative x for the first seconds of the fight and was cut off by the
-     * canvas: the label read "2500" where it should read "Titan P1 12500/12500".
-     * The bar slides in with the boss once it is fully on the board.
-     */
+    /* Clamped to the board's left edge. */
     const barX = Math.max(2, this.x - pad);
     const barY = this.y - 16;
     const barW = this.width + pad * 2;
@@ -551,15 +474,6 @@ export class Enemy {
       /*
        * Everything text-shaped here is inside save/restore, and states its own
        * alignment.
-       *
-       * Neither used to be true, and the two compounded. The name was drawn at
-       * `this.x + 2` - the LEFT EDGE of the sprite's box - which for a 252px-wide
-       * boss Titan put it a long way from the unit it labels. And TitanEnemy's
-       * phase readout sets `textAlign = "center"` without restoring, so once any
-       * Titan had drawn, every later name in that frame AND the Titan's own on the
-       * next was centred on `x + 2` instead of left-aligned from it, shifting it
-       * further left again. Canvas state is global; leaving it modified is leaving
-       * a trap for whatever draws next.
        */
       ctx.save();
       ctx.textAlign = "center";
@@ -2374,21 +2288,7 @@ export class TitanEnemy extends Enemy {
           this.y + this.height / 2 - (defender.y + defender.height / 2)
       );
       if (distance <= 1500) {
-        /*
-         * 120 authored frames (~2s), not 300 (~5s).
-         *
-         * This reaches every defender within 1500px, which the loop's own radius
-         * makes the whole board - CombatManager skips combat for a disabled
-         * defender, so the player's entire line stops firing. At 5 seconds, twice
-         * per Titan (thresholds at 66% and 33% health), that is ten seconds of
-         * total silence with no counterplay, and the owner reported it as the
-         * Shooter's attack being "not consistent" rather than as a stun, because
-         * nothing on screen explains it.
-         *
-         * For comparison the EMP - the unit built to do this - stuns for 180
-         * frames within 120px. A board-wide version should be shorter than a
-         * targeted one, not longer.
-         */
+        /* 120 authored frames (~2s), not 300 (~5s). */
         defender.disabled = true;
         defender.disabledDuration = 120;
         defender.takeDamage(40);
@@ -2436,22 +2336,12 @@ export class TitanEnemy extends Enemy {
     const originalSpeed = this.speed;
     this.speed = 0;
 
-    /**
+    /*
      * The visible telegraph. AssetManifest.enemies.Titan declares an 11-frame
      * attack sheet at 5.5fps - 2000ms, matching the attackRate 120 cadence -
      * and until now nothing played it except melee contact, so the player's
-     * report was literally true: the defender died without the Titan attacking.
-     *
-     * Started through the cadence-derived playback from 01801f4 rather than
-     * through a timer of its own, so there is one attack-animation clock in
-     * this codebase and not two.
-     *
-     * isAttacking does two jobs here. determineAnimationState reads it to pick
-     * the sheet, and handleMovement reads it to stop - which is the standing
-     * still that `this.speed = 0` above cannot deliver on its own, because
-     * updateMovementSpeed recomputes speed from initialSpeed every frame and
-     * overwrites it before handleMovement ever sees the zero. updateBehavior
-     * re-asserts the flag for as long as the pound is running.
+     * report was literally true: the defender died without the Titan
+     * attacking.
      */
     this.isAttacking = true;
     this.beginAttackAnimation();
@@ -2527,11 +2417,7 @@ export class TitanEnemy extends Enemy {
 
     /*
      * The phase used to be shown as a strokeRect around the whole sprite,
-     * coloured by phase. It read as a debug bounding box rather than a game
-     * signal - the owner's words on seeing it were that it looked like an attack
-     * range they wanted removed - and it got worse once bosses were scaled up,
-     * because the box scaled with them. The phase is carried by the text below
-     * (and, for a boss, inside the health bar), which is enough.
+     * coloured by phase.
      */
     ctx.save();
 
@@ -2559,14 +2445,8 @@ export class TitanEnemy extends Enemy {
       ctx.fillRect(this.x + this.width - 10, this.y, 8, 8);
     }
     /*
-     * The phase readout.
-     *
-     * For a boss it is already in the health bar (see bossBarLabel below), so
-     * drawing it again here would print it twice. For a plain Titan it goes ABOVE
-     * the standard bar's value text rather than on top of it: that value is drawn
-     * at `y - 15`, which is exactly where this used to sit, so "P1" and the health
-     * number were rendered over each other for every Titan in the game - a
-     * collision the wider boss bar made obvious but did not create.
+     * The phase readout. For a boss it is already in the health bar (see
+     * bossBarLabel below), so drawing it again here would print it twice.
      */
     if (!this.isBoss) {
       ctx.save();

@@ -133,16 +133,7 @@ describe('terrain props', () => {
   });
 });
 
-/**
- * How much scenery a region gets, and where.
- *
- * The count used to be "one prop per kind this region names" - two or three
- * each, thirteen props across the whole map. On terrain 4200px wide that is not
- * scenery, and combined with a 26px prop size it satisfied the "no dead space"
- * criterion on paper only. None of these tests can see a rendered prop: jsdom
- * has no layout engine or rasteriser, so whether the ground now looks occupied
- * is the owner's call. What is checkable is the arithmetic that decides it.
- */
+/* How much scenery a region gets, and where. */
 describe('scenery covers the ground it is given', () => {
   const REGION_WIDTHS = TERRAIN_ZONES.map((zone) => [zone, zoneSpans[zone].width]);
 
@@ -240,15 +231,7 @@ describe('scenery covers the ground it is given', () => {
   });
 });
 
-/**
- * Prop size, read from the stylesheet that decides it.
- *
- * A source-text check, not a rendered one - jsdom applies no stylesheet and
- * measures nothing, so "does a 70px tree look like scenery" is the owner's
- * judgement. The number is still worth pinning: 26px on 600px-tall terrain
- * beside 54-66px level nodes is what made these read as dirt specks, and it is
- * a single declaration away from happening again.
- */
+/* Prop size, read from the stylesheet that decides it. */
 describe('props are sized to be seen', () => {
   const css = readFileSync(join(HERE, '..', '..', '..', 'style', 'Lobby.css'), 'utf8');
 

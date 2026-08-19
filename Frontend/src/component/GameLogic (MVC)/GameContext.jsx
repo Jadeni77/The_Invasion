@@ -28,12 +28,7 @@ export const useGame = () => {
   return useContext(GameContext);
 };
 
-/**
- * What one energy purchase costs and grants.
- *
- * Exported at module scope so a component that only displays the price does not
- * need the provider mounted to render.
- */
+/* What one energy purchase costs and grants. */
 export const ENERGY_PACK = { amount: 25, gold: 150 };
 
 export const GameProvider = ({ children }) => {
@@ -107,12 +102,7 @@ export const GameProvider = ({ children }) => {
 
   //endless mode tracking
   const [currentEndlessWave, setCurrentEndlessWave] = useState(0);
-  /**
-   * The reward the player just collected, or null. Carries the resources AND the
-   * defenders, because the notification has to say what was actually gained -
-   * this used to hold only defender names, so a chest full of gold announced
-   * nothing at all.
-   */
+  /* The reward the player just collected, or null. */
   const [chestReward, setChestReward] = useState(null);
 
   //authentication
@@ -662,11 +652,11 @@ export const GameProvider = ({ children }) => {
       const hasEnoughPieces = card.pieces >= card.piecesNeeded * card.level;
 
       /*
-       * The ceiling. There was none: this function checked resources and pieces
-       * and nothing else, so a defender could be upgraded without limit - a level
-       * 100 Sniper that one-shots the campaign, with stats extrapolated far past
-       * the ability table that is supposed to define them. Five is where the design
-       * already stops (see MAX_DEFENDER_LEVEL).
+       * The ceiling. There was none: this function checked resources and
+       * pieces and nothing else, so a defender could be upgraded without limit
+       * - a level 100 Sniper that one-shots the campaign, with stats
+       * extrapolated far past the ability table that is supposed to define
+       * them.
        */
       if (card.level >= MAX_DEFENDER_LEVEL) return;
 
@@ -699,12 +689,7 @@ export const GameProvider = ({ children }) => {
   );
 
   // Game State management
-  /**
-   * Buying energy instead of waiting for it.
-   *
-   * Priced in gold, which is also what upgrades cost, so the trade is "play again
-   * now" against "be stronger next time".
-   */
+  /* Buying energy instead of waiting for it. */
 
 
   const canBuyEnergy = () => {
@@ -1015,19 +1000,7 @@ export const GameProvider = ({ children }) => {
       };
     });
 
-    /*
-     * Tell the player what they got, and play it, BEFORE any network call.
-     *
-     * Both of these used to sit inside the try below, after `await fetch`. The
-     * rewards themselves are applied locally above, so when that fetch failed -
-     * backend down, connection refused, anything - the catch swallowed the
-     * error and the player silently received a card and a consumed chest with no
-     * notification and no sound. Reproduced with the backend stopped: the chest
-     * showed as collected, `.defender-notification` never entered the DOM.
-     *
-     * Persistence is allowed to fail and be retried. Feedback for something that
-     * has already happened locally is not conditional on the server agreeing.
-     */
+    /* Tell the player what they got, and play it, BEFORE any network call. */
     const unlocked = chestDefenders(chest);
     setChestReward({
       chestId,

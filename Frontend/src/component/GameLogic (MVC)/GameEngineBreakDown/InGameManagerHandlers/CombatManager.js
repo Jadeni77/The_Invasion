@@ -10,11 +10,9 @@ export class CombatManager {
         this.gameEngine = gameEngine;
     }
 
-    /**
-     * Defender in game logic to handle attack and create projectile in the actual engine.
-     * @param defenders the defender array given
-     * @param enemies the enemy array given
-     * @param now the current real time
+    /*
+     * Defender in game logic to handle attack and create projectile in the
+     * actual engine.
      */
     updateDefenderCombat(defenders, enemies, now) {
         for (const defender of defenders) {
@@ -62,11 +60,9 @@ export class CombatManager {
         }
     }
 
-    /**
-     * Enemy in game logic to handle attack and create projectile in the actual engine.
-     * @param defenders the defender array given
-     * @param enemies the enemy array given
-     * @param now the current real time
+    /*
+     * Enemy in game logic to handle attack and create projectile in the actual
+     * engine.
      */
     updateEnemyCombat(defenders, enemies, now) {
         for (const enemy of enemies) {
@@ -132,12 +128,7 @@ export class CombatManager {
         }
     }
 
-    /**
-     * Finds the closest valid target (enemies) for given defender.
-     * @param {DefenderUnit} defender - The defender unit looking for a target.
-     * @param enemies - The enemies units being look for
-     * @returns {Enemy|null} The closest enemy in range, or null if none found.
-     */
+    /* Finds the closest valid target (enemies) for given defender. */
     findTargetForDefender(defender, enemies) {
         let closestEnemy = null;
         let closestDistance = Infinity;
@@ -163,12 +154,7 @@ export class CombatManager {
         return closestEnemy;
     }
 
-    /**
-     * Find the closest valid target (defenders) for given enemy.
-     * @param enemy - The enemy unit looking for a target.
-     * @param defenders - The defender nits being look for
-     * @returns {null} The closest enemy in range, or null if none found.
-     */
+    /* Find the closest valid target (defenders) for given enemy. */
     findTargetForEnemy(enemy, defenders) {
         let closestDefender = null;
         let closestDistance = Infinity;

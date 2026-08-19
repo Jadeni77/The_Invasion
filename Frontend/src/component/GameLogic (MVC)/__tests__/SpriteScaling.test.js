@@ -12,14 +12,9 @@ const VIEWPORTS = [
   [1440, 900], [1920, 1080], [2560, 1440],
 ];
 
-/**
+/*
  * GridManager does not compute gridSize from the canvas size in its
- * constructor - only initializeGrid() does that. A test that builds a
- * GridManager and reads gridSize straight off it, without calling
- * initializeGrid(), is checking the constructor's placeholder default (60)
- * against nothing: 60 clears any minimum this task could plausibly set, at
- * every viewport, regardless of whether the fix under test exists. So every
- * case below calls initializeGrid() before making an assertion.
+ * constructor - only initializeGrid() does that.
  */
 function buildGrid(w, h, levelNumber = 1) {
   const grid = new GridManager(w, h, levelNumber);
@@ -27,13 +22,9 @@ function buildGrid(w, h, levelNumber = 1) {
   return grid;
 }
 
-/**
+/*
  * Only defenders are ever resized to the grid's cell size - `sizeUnitToGrid`
- * (GameEngine.js) is called exclusively from `deployDefenderUnit`. Enemies
- * keep a fixed, per-type footprint (their own declared width/height) that
- * never varies with window size, so they cannot overflow a cell they are
- * never placed into, and the grid minimum only needs to satisfy the
- * defender side.
+ * (GameEngine.js) is called exclusively from `deployDefenderUnit`.
  */
 describe('grid cell sizing (defenders)', () => {
   it('never produces a cell smaller than the defender sprite', () => {
@@ -73,20 +64,14 @@ describe('grid cell sizing (defenders)', () => {
   });
 });
 
-/**
+/*
  * A fake 2D context that records the exact arguments passed to
- * scale/translate/drawImage instead of painting anything, in the style of
- * the fake used in EnemyUnits.test.js (extended with every other canvas
- * method the various Enemy subclasses' draw() methods call after the sprite
- * itself - health bars, shield rings, spell auras, phase-indicator strokes -
- * since this suite drives every real Enemy subclass end to end, not just
- * the sprite-drawing branch). jsdom's canvas has no real transform matrix,
- * so replaying the recorded scale()/translate() calls ourselves is the only
- * way to see where a draw() call actually asked the canvas to paint - and,
- * critically, it means this test checks what the code under test actually
- * passed to ctx.translate(), not an independent formula that assumes it did
- * the right thing. A hardcoded "correct" formula would keep passing even if
- * the production translate call regressed.
+ * scale/translate/drawImage instead of painting anything, in the style of the
+ * fake used in EnemyUnits.test.js (extended with every other canvas method the
+ * various Enemy subclasses' draw() methods call after the sprite itself -
+ * health bars, shield rings, spell auras, phase-indicator strokes - since this
+ * suite drives every real Enemy subclass end to end, not just the
+ * sprite-drawing branch).
  */
 function createRecordingContext() {
   const drawImageCalls = [];
@@ -130,12 +115,11 @@ function createRecordingContext() {
   return { ctx, drawImageCalls, transformCalls };
 }
 
-/**
+/*
  * Replays a recorded sequence of scale()/translate() calls against a local
- * point, the way the canvas 2D spec actually composes them: each new
- * transform call is the innermost (applied closest to the point), and
- * earlier calls wrap around it, so replaying must walk the call list
- * newest-to-oldest.
+ * point, the way the canvas 2D spec actually composes them: each new transform
+ * call is the innermost (applied closest to the point), and earlier calls wrap
+ * around it, so replaying must walk the call list newest-to-oldest.
  */
 function applyRecordedTransforms(transformCalls, x, y) {
   let px = x;
@@ -383,17 +367,11 @@ describe('the horizontal flip still lands the enemy sprite in its own cell', () 
   });
 });
 
-/**
+/*
  * Ground truth for the clipping guard below, measured directly from the PNG
  * files (alpha>0, union across every frame of idle/attack/death) with a
  * one-off PIL script - not reproduced here, since nothing in this suite can
- * decode a PNG's pixels. jsdom's canvas has no image decoder and no pixel
- * buffer, so no test can see a sprite's actual content, only the numbers a
- * human measured once and wrote down. That measurement, not a computed
- * check, *is* the guard against a defender's crop window clipping real
- * pixel content - this is the literal form of "no test can see clipping."
- *
- * x/y are [min, maxExclusive) in local frame coordinates (0..64 per frame).
+ * decode a PNG's pixels.
  */
 const MEASURED_CONTENT_BBOX = {
   Shooter: { x: [16, 62], y: [20, 46] },

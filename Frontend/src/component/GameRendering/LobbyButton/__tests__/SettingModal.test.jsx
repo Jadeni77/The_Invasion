@@ -3,16 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import SettingModal from '../SettingModal.jsx';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../../GameLogic (MVC)/Feedback/SettingsStore.js';
 
-/*
- * Partial mock via importOriginal, not a replacement object.
- *
- * A mock that lists its exports silently drops every export it does not name, so
- * the module gaining one breaks this file with "No export is defined on the mock"
- * - thrown at import, nowhere near the cause. That has now happened twice: once
- * when DefenderClassUtils gained MAX_DEFENDER_LEVEL, and again when GameContext
- * gained ENERGY_PACK. Only `useGame` needs stubbing here; everything else should
- * be whatever the real module exports.
- */
+/* Partial mock via importOriginal, not a replacement object. */
 vi.mock('../../../GameLogic (MVC)/GameContext.jsx', async (importOriginal) => ({
   ...(await importOriginal()),
 

@@ -13,7 +13,7 @@ function rulesOf(text) {
 
 const rules = rulesOf(css);
 
-/**
+/*
  * The z-index the cascade actually assigns `selector`, last-declaration-wins
  * across every rule naming it (handles `.treasure-chest`, one of the file's
  * own known, audited duplicate selectors - see lobbyCascade.test.js - where
@@ -29,16 +29,10 @@ function zIndexOf(selector) {
   return value;
 }
 
-/**
+/*
  * This is the whole point of the test: I1 shipped because nothing pinned the
- * stack `Lobby.css:473-482` (the block comment above `.zone-ridge`)
- * documents in prose. `.map-connection` had no `z-index` at all - it painted
- * in the `z-index: auto` group, below every layer below - and the comment
- * describing the "established" order never even mentioned it. Deriving the
- * expected order from that same comment block (selector, documented z-index)
- * means a future layer added to the stack without updating both the CSS and
- * this list is caught here, not just left to be re-discovered by eye like
- * I1 was.
+ * stack `Lobby.css:473-482` (the block comment above `.zone-ridge`) documents
+ * in prose.
  */
 const DOCUMENTED_STACK = [
   ['.zone-ridge', 1],

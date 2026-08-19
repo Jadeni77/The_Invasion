@@ -1,26 +1,4 @@
-/**
- * What a chest actually credits, locally and on the wire.
- *
- * `collectTreasure` resolved a chest's rewards twice: once to credit the player
- * and once to build the POST body. The two resolutions disagreed. `all: N` is
- * shorthand for N of each of gold/iron/grain/water, and the local path
- * accumulated it onto any explicit amount for the same resource while the
- * payload path *assigned* - so for a chest carrying both `gold: 1000` and
- * `all: 1500`, whichever key `Object.entries` reached last overwrote the other
- * and the server was told 1500 gold while the player was credited 2500.
- *
- * The bug was latent while there was one chest per level (none combined the two
- * keys) and live as soon as twenty chests were consolidated into six, three of
- * which combine them. It was fixed by deleting the second resolution rather than
- * correcting it - both paths now read `resourceRewardsOf` - and this file is the
- * guard that was missing: reverting that helper to assignment fails here instead
- * of silently under-crediting gold with the whole suite green.
- *
- * The payload assertion goes through a mocked `fetch` on a real `GameProvider`,
- * not through the helper alone, because the helper being correct and the helper
- * being *wired to the request* are two different claims and only the second one
- * is the bug.
- */
+/* What a chest actually credits, locally and on the wire. */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, waitFor, act } from '@testing-library/react';

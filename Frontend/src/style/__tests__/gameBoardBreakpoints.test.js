@@ -1,25 +1,4 @@
-/**
- * Every real device size lands in exactly one gameboard layout.
- *
- * `GameBoard.css` had a block written for a phone held sideways, keyed
- * `(max-width: 768px) and (orientation: landscape)` - and it never fired on a
- * single device it was written for. A modern phone in landscape is 844x390 or
- * 932x430, both wider than 768, so they fell through to the tablet block
- * `(min-width: 769px) and (max-width: 1024px)` and were styled for a screen more
- * than twice their height. Measured in a real browser, that left the canvas 170px
- * tall at 844x390 and 210px at 932x430 - one sliver of lane between a full-height
- * top bar and a card tray sized for a tablet.
- *
- * Two things had to change: the landscape block is keyed on HEIGHT, which is what
- * is actually scarce when a phone is turned sideways, and the tablet block gained
- * `min-height: 501px` so it stops claiming those devices - both matched before,
- * and the tablet block came later in the file, so it won every property they
- * shared.
- *
- * This evaluates the stylesheet's own conditions against a table of real
- * viewports, so the failure mode it catches - a block that matches nothing, or two
- * blocks fighting - is visible without a browser.
- */
+/* Every real device size lands in exactly one gameboard layout. */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

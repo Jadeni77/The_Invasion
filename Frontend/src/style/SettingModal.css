@@ -1,14 +1,8 @@
 /*
- * SETTINGS
- *
- * Recorded as known issue 27: this stylesheet used `accent-info` fourteen times
- * and `accent-energy` not once, while every other screen in the game is
- * gold-dominant - the heading, both section titles, every slider, the
- * percentages, the selected quality button and Apply were all blue. That was a
- * role error in the token conversion, not a bad token: blue is the
- * informational accent (frost, information), gold is the primary one (energy,
- * currency, stars, primary action). The screen's original colours were blue-ish
- * and the conversion preserved the hue where it should have mapped the role.
+ * SETTINGS Recorded as known issue 27: this stylesheet used `accent-info`
+ * fourteen times and `accent-energy` not once, while every other screen in the
+ * game is gold-dominant - the heading, both section titles, every slider, the
+ * percentages, the selected quality button and Apply were all blue.
  */
 /* src/style/SettingsModal.css */
 .settings-modal-overlay {
@@ -80,12 +74,9 @@
 
 /*
  * Scoped to its own screen. `.close-button` was declared bare in four
- * stylesheets - AchievementPage, CollectionPage, SettingModal and UpgradeModal -
- * and every stylesheet in this app is bundled globally, so all four competed and
- * bundle order decided the winner. UpgradeModal's `position: absolute` was
- * winning everywhere, which is why the Settings dialog's X rendered in the
- * viewport's top-right corner instead of in its own header: absolute against the
- * nearest positioned ancestor, and the overlay is `position: fixed`.
+ * stylesheets - AchievementPage, CollectionPage, SettingModal and UpgradeModal
+ * - and every stylesheet in this app is bundled globally, so all four competed
+ * and bundle order decided the winner.
  */
 .settings-modal .close-button {
     background: none;
@@ -298,19 +289,8 @@
 }
 
 /*
- * Neutral, not danger - and this rule was dead until the selectors were scoped.
- *
- * `.cancel-button` was declared bare here and in CardSelectionModal.css, and that
- * one won globally, so Settings has been rendering its Cancel in CardSelection's
- * neutral styling for the whole life of the screen while this rule sat unused.
- * Scoping made it live, which is when it became visible that it asks for
- * `accent-danger`.
- *
- * Cancel discards unsaved changes - it is the SAFE action here, not the
- * destructive one, and red is the danger accent. The same role error as issues 27
- * and 32. Matching CardSelection's neutral treatment also retires the 3.48:1
- * contrast opt-out this carried, which existed only because the text was white on
- * red.
+ * Neutral, not danger - and this rule was dead until the selectors were
+ * scoped.
  */
 .settings-modal .cancel-button {
     padding: 10px 30px;
@@ -398,15 +378,8 @@
     }
 }
 
-/*
- * Everything that is not the backdrop sits above it.
- *
- * A first pass lifted named children (`.settings-modal`, `.achievement-header`)
- * and the achievement LIST stayed underneath, so the page rendered as a header
- * over an empty hillside. Naming the children means any child added later, or any
- * child nobody remembered, paints under an opaque backdrop. This inverts it: the
- * backdrop is the only thing allowed to be at the bottom.
- */
+/* Everything that is not the backdrop sits above it. Naming the children instead
+   leaves anything added later painting underneath an opaque backdrop. */
 .settings-modal-overlay > *:not(.game-backdrop) {
   position: relative;
   z-index: 1;

@@ -1,35 +1,14 @@
-/**
- * A bare single-class selector must be owned by one stylesheet.
- *
- * Every stylesheet in this app is bundled globally, so `.close-button` declared
- * in four files is not four local styles - it is one global class with four
- * competing definitions, and bundle order decides which wins. That is how the
- * Settings dialog's X came to render in the viewport's top-right corner instead
- * of its own header: `UpgradeModal.css` set `position: absolute` on
- * `.close-button`, it won everywhere, and absolute positioning resolved against
- * the overlay's `position: fixed`. The same mechanism put `UpgradeModal`'s
- * per-card buttons in a corner earlier in this project.
- *
- * A collision is invisible in review - each file looks correct on its own - and
- * it changes behaviour on another screen entirely. Hence a guard.
- *
- * Scope is derived from the stylesheet directory rather than a hand-written file
- * list, because twelve guards in this project have been found not to guard and
- * every one failed on scope.
- */
+/* A bare single-class selector must be owned by one stylesheet. */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { stylesheetFiles } from '../../test/sourceFiles.js';
 
-/**
+/*
  * Collisions that predate this guard. Each entry stores the number of
- * stylesheets that declare it, NOT just the name: a selector picking up a THIRD
- * declaration must fail even though it is already listed, which is the hole an
- * allowlist of bare names would leave open.
- *
- * These are recorded in docs/superpowers/2026-08-12-known-issues-and-followups.md
- * (issue 31). Shrink this table; do not add to it.
+ * stylesheets that declare it, NOT just the name: a selector picking up a
+ * THIRD declaration must fail even though it is already listed, which is the
+ * hole an allowlist of bare names would leave open.
  */
 const KNOWN_COLLISIONS = {
   // Empty, and it should stay that way.

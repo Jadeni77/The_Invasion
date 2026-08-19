@@ -12,13 +12,7 @@ function isClass(value) {
   return typeof value === 'function' && /^class\s/.test(Function.prototype.toString.call(value));
 }
 
-/**
- * Every concrete class name exported by one unit module.
- *
- * The isClass filter matters: DefenderUnits.js also exports the plain function
- * isConsumableSpell, which a bare `typeof === 'function'` check would count as
- * a unit and then demand a sound key for.
- */
+/* Every concrete class name exported by one unit module. */
 function classNamesFrom(unitModule) {
   return Object.keys(unitModule)
     .filter((name) => isClass(unitModule[name]))
@@ -275,20 +269,7 @@ describe('playSfx also gets a tier', () => {
 });
 
 describe('the Titan ability variants', () => {
-  /**
-   * The Titan's ground pound and phase transition were silent in play. They
-   * resolve by VARIANT rather than by unit, the way hit and melee do, because
-   * what the player needs to recognise is the ABILITY - a board-wide slam
-   * landing, a boss escalating - not which unit produced it.
-   *
-   * A third variant, 'charge', used to resolve here too (-> 'quake-charge'):
-   * a separate sound for the ground pound's 500ms wind-up. Dropped per the
-   * owner's ask ("can we only keep the earthquake sound without the initial
-   * beep?") - soundKeyFor no longer has a branch for it, so it now falls
-   * through to the generic firing branch like any other unrouted variant
-   * (see 'resolution safety' above), which is moot in practice because
-   * nothing emits the 'charge' variant any more.
-   */
+  /* The Titan's ground pound and phase transition were silent in play. */
   it.each([
     ['impact', 'quake-impact'],
     ['phase', 'phase-change'],
@@ -330,7 +311,7 @@ describe('the Titan ability variants', () => {
 });
 
 describe('the Mortar\'s shell landing', () => {
-  /**
+  /*
    * The owner's rule, verbatim: "Eagle Artillery should all belong to the
    * Mortar only, and the earthquake belongs to the Titan only." The landing
    * resolves by VARIANT rather than by unit, the same reasoning impact/phase

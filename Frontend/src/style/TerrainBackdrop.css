@@ -1,16 +1,4 @@
-/*
- * The painted backdrop behind the screens that are not the map.
- *
- * The settings, upgrade, achievement and collection screens each replace the
- * lobby outright, so nothing of the game was behind them: two of them drew a flat
- * `surface-base`, the other two a flat dark scrim. The owner's words were that
- * they "seem like a separate island" and that they wanted "more sense of
- * belonging to the game" rather than a blank page.
- *
- * This paints the same ground, hills and foreground band the campaign map is
- * built from - from the same generator in TerrainBackdrop.jsx, not a lookalike -
- * then darkens the whole thing so a panel stays comfortably readable on top.
- */
+/* The painted backdrop behind the screens that are not the map. */
 .game-backdrop {
   position: absolute;
   inset: 0;
@@ -48,10 +36,9 @@
 }
 
 /*
- * Two passes in one: a vignette that pulls the eye to the middle, and an overall
- * darkening so body text on a panel is never competing with a hillside. Without
- * the flat darkening the terrain is pretty and the panel is hard to read, which
- * is a worse screen than the blank one it replaced.
+ * Two passes in one: a vignette that pulls the eye to the middle, and an
+ * overall darkening so body text on a panel is never competing with a
+ * hillside.
  */
 .game-backdrop::after {
   content: '';

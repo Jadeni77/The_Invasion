@@ -39,16 +39,7 @@ function getSnapshot() {
   return mockGameState;
 }
 
-/*
- * Partial mock via importOriginal, not a replacement object.
- *
- * A mock that lists its exports silently drops every export it does not name, so
- * the module gaining one breaks this file with "No export is defined on the mock"
- * - thrown at import, nowhere near the cause. That has now happened twice: once
- * when DefenderClassUtils gained MAX_DEFENDER_LEVEL, and again when GameContext
- * gained ENERGY_PACK. Only `useGame` needs stubbing here; everything else should
- * be whatever the real module exports.
- */
+/* Partial mock via importOriginal, not a replacement object. */
 vi.mock('../../GameLogic (MVC)/GameContext', async (importOriginal) => ({
   ...(await importOriginal()),
 
@@ -170,38 +161,7 @@ describe("lobby settings button", () => {
   });
 });
 
-/**
- * One source for what a zone looks like.
- *
- * `Lobby.css` once carried five reviewed, tokenized zone-node rules
- * (`.mid-node { background: var(--colors-surface-raised) }` among them). The
- * first fix for the lobby's raw colour literals moved them onto tokens but
- * left them where they were - as inline styles in MapLayout's `zoneConfigs` -
- * and an inline style beats a stylesheet. Four zones coincidentally agreed;
- * `.mid-node` did not, so the reviewed earth tone was silently overridden by a
- * bright orange on the first screen a player sees. Two sources that must
- * agree, which is what the token module exists to remove.
- *
- * Those five zone-node rules are gone now, for an unrelated second reason:
- * once every node also carries a state class (`.level-node.completed`/
- * `.available`/`.locked`, specificity 0-2-0), a single-class zone rule like
- * `.tutorial-node` (0-1-0) can never win the cascade for `background` -
- * regardless of source order, on every node, since every node carries both
- * classes at once. They had stopped being a second source of truth and
- * become dead weight instead - so they were deleted rather than raised in
- * specificity to compete with state. Zone identity now lives in the terrain
- * the node sits on (`.zone-<key>` in Lobby.css, covered by
- * TerrainLayers.test.jsx), not in the node itself, matching the approved
- * mockup: state-coloured nodes only.
- *
- * These tests live in this file because it is the one place that already
- * stands up a real Lobby render (see the mock at the top). They assert the
- * absence of the override *mechanism*, not just today's values: no inline
- * colour on any map element, and (now) no zone-node background lingering in
- * the stylesheet to be that second source again. jsdom has no layout engine,
- * so what colour anything ends up is not checkable here - only where that
- * colour is, and is not, allowed to come from.
- */
+/* One source for what a zone looks like. */
 describe("zone colour has exactly one source", () => {
   const lobbyCss = readFileSync(
     join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "style", "Lobby.css"),

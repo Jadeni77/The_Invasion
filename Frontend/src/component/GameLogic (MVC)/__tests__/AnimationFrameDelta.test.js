@@ -8,23 +8,7 @@ import { attackAnimationDurationMs } from '../Animation/AttackPlayback.js';
 import { CombatManager } from '../GameEngineBreakDown/InGameManagerHandlers/CombatManager.js';
 import { AssetManifest } from '../../../assets/AssetManifest.js';
 
-/**
- * Playtest report: "the attacks are not consistent... idk if i am lagging or what."
- *
- * Combat is real-time - GameEngine.update() measures performance.now() and feeds
- * that delta to GameClock, which every cooldown reads. Sprite animation was not:
- * it was advanced by a hardcoded nominal 60fps frame, once per requestAnimationFrame
- * callback, and the loop is uncapped. On the reporter's 120Hz ProMotion display
- * that is two nominal frames of animation per real frame - every sheet played at
- * double speed while the shot it depicts kept its real-time cadence. A drop to
- * 30fps inverts it: half speed against an unchanged cadence. Either way the swing
- * and the shot drift apart, and the amount of drift depends on the refresh rate,
- * which is exactly why it read as "am I lagging?".
- *
- * These tests measure animation in WALL-CLOCK milliseconds at several frame rates,
- * so a sheet timed to a cadence has to take that cadence in real time no matter how
- * often the loop ticks.
- */
+/* Playtest report: "the attacks are not consistent... */
 
 /** The refresh rates worth caring about: ProMotion, standard, and a bad drop. */
 const FRAME_MS = {
@@ -46,14 +30,7 @@ function withManifestAnimations(unit, category, manifestName) {
   return unit;
 }
 
-/**
- * A GameEngine reduced to the frame loop.
- *
- * update() is the real prototype method - the thing under test is how it turns
- * elapsed real time into animation - with the subsystems it calls that have
- * nothing to do with animation timing stubbed out. The unit loops are kept, so a
- * frame really does run engine.update() -> unit.update() -> updateAnimation().
- */
+/* A GameEngine reduced to the frame loop. */
 function createFrameEngine() {
   const engine = {
     // State GameEngine.update() reads.
@@ -225,15 +202,7 @@ describe('an attack sheet takes the same wall-clock time at any refresh rate', (
 });
 
 describe('animation consumes exactly the time the gameplay clock does', () => {
-  /**
-   * A synthetic walk sheet, rather than a shipped one.
-   *
-   * Every move sheet in the manifest happens to loop in exactly 1000ms, which is
-   * also the clock's clamp, so their frame index aliases back to 0 and cannot
-   * tell "clamped to one second" apart from "did not advance". This one loops
-   * over three seconds, so its position is a direct readout of how much
-   * animation time was consumed.
-   */
+  /* A synthetic walk sheet, rather than a shipped one. */
   const PROBE_HOLD_MS = 100;
   const PROBE_CONFIG = {
     move: { frameCount: 30, frameWidth: 1, frameHeight: 1, fps: 1000 / PROBE_HOLD_MS },

@@ -13,25 +13,17 @@ import { FeedbackManager } from '../Feedback/FeedbackManager.js';
 import { AudioManager, DEDUPE_WINDOW_SECONDS } from '../Feedback/AudioManager.js';
 import { UNIT_VOICES } from '../Feedback/UnitVoices.js';
 
-/**
+/*
  * Task 4: enemy melee, spells and summons were silent, and the enemy attack
  * animation was driven by a frame countdown of its own while the projectile
  * was fired on CombatManager's time-based cooldown - two clocks that drift
  * apart immediately, so a skeleton's swing never lined up with its shot.
- *
- * Every emit below is placed at the site where the action actually happens,
- * because that is the only placement that survives the two ways enemies deal
- * damage: CombatManager calls enemy.attack() BOTH for a genuine melee strike
- * AND from a ranged projectile's onHit callback, so an emit inside the base
- * Enemy.attack() would announce a melee swing every time an arrow landed.
  */
 const CARD = { level: 1, image: null };
 
-/**
+/*
  * These tests drive unit.update() by hand, standing in for GameEngine's loop,
- * and count ticks. Animation and the attack countdown advance by whatever real
- * time the engine says the frame covered (Animation/FrameTime.js), so the loop
- * is pinned to 60Hz here to give those tick counts a fixed meaning.
+ * and count ticks.
  */
 const FRAME_MS_60HZ = 1000 / 60;
 
@@ -470,20 +462,11 @@ describe('enemy healing is audible', () => {
 });
 
 describe('how many melee sounds a real engine tick actually produces', () => {
-  /**
+  /*
    * These run the REAL GameEngine.updateEnemies() loop - the one that calls
    * enemy.update(this.defenders) and then combatManager.updateEnemyCombat(...)
    * - against real unit geometry, with the AudioContext clock advanced in step
    * with the game clock, and count the voices AudioManager actually starts.
-   *
-   * They replace a pair of tests that pinned AudioManager's dedupe MECHANISM
-   * against a hand-built engine stub and a frozen ctx.currentTime. Those tests
-   * were green for a claim they could not check: that the two melee emits
-   * always land in the same frame and therefore always collapse. The emits are
-   * gated by different conditions on different clocks (AABB overlap driven by
-   * a frame counter, versus centre distance gated by a wall-clock cooldown),
-   * so their phase offset is arbitrary, and the numbers below are what a real
-   * tick produces rather than what the mechanism permits.
    */
 
   /** The smallest AudioContext playRecipe can render into, counting voices. */
@@ -522,11 +505,9 @@ describe('how many melee sounds a real engine tick actually produces', () => {
 
   const FRAME_MS = 1000 / 60;
 
-  /**
+  /*
    * Walks one enemy into one Shooter on a real GameEngine and reports what was
-   * emitted and what was heard. The defender is given absurd health so the run
-   * covers many attack cycles, and defenseLineX is pushed far right so the
-   * enemy is never removed for reaching the base.
+   * emitted and what was heard.
    */
   function runApproach(EnemyClass, frames = 900) {
     const { ctx, audio, counts } = createFakeAudio();
@@ -596,16 +577,12 @@ describe('how many melee sounds a real engine tick actually produces', () => {
   }
 
   it('a real approach produces no swallowed feedback errors', () => {
-    /**
+    /*
      * The guard for a failure this suite demonstrated rather than caught: its
      * fake AudioContext was missing the bandpass Q, so every melee sound - a
      * `noise: true` recipe - threw inside AudioManager, FeedbackBus caught and
      * logged it, and all 38 tests stayed green while counting voices that were
-     * never built. Voice counts are taken at reserveVoiceSlot, which runs
-     * BEFORE the sources are created, so they cannot notice.
-     *
-     * Anything reaching console.error during a real approach means a handler
-     * threw, and that is never acceptable regardless of what the counts say.
+     * never built.
      */
     const run = runApproach(MiniEnemy);
 
@@ -674,11 +651,10 @@ describe('the attack animation follows the shot, not a countdown of its own', ()
     return { skeleton, defender };
   }
 
-  /**
+  /*
    * Attaches minimal animation data so setAnimation actually records a state -
    * it is a no-op on a unit with no frames, which is how the real units are
-   * built in these tests. This lets a test read the animation the player would
-   * see rather than only the isAttacking flag that feeds it.
+   * built in these tests.
    */
   function withAnimations(enemy) {
     enemy.animationFrames = { idle: ['idle'], move: ['move'], attack: ['attack'] };

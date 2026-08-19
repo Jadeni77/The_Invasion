@@ -90,13 +90,9 @@ describe('markDefenderDead', () => {
   });
 });
 
-/**
+/*
  * markDefenderDead is only reachable in production through the
- * `this.markDefenderDead(defender)` call site inside updateDefenders. Every
- * test above calls markDefenderDead directly, so deleting that call site
- * would leave all of them green while silently un-wiring the guard. This
- * test borrows updateDefenders itself onto a stub, the same way the tests
- * above borrow markDefenderDead, to close that gap.
+ * `this.markDefenderDead(defender)` call site inside updateDefenders.
  */
 function createUpdateDefendersStub(defenders) {
   return {

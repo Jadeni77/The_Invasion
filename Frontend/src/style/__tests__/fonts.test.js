@@ -44,21 +44,7 @@ describe('fonts', () => {
   });
 });
 
-/**
- * Lobby.css declared `font-family: "Pixel", sans-serif` twice. No "Pixel"
- * font ever existed anywhere in the repo - no file, no @font-face, no
- * import - so both declarations silently fell back to sans-serif for the
- * life of the project and nothing noticed, because nothing checked a
- * stylesheet's font-family value against the type tokens.
- *
- * The test above guards the opposite direction: every token family has a
- * face. It stays silent about a stylesheet that names a family the tokens
- * never declared, which is exactly the shape of the "Pixel" bug. This
- * block closes that gap by requiring every font-family declaration in a
- * consuming stylesheet to be a reference to a type token, not a literal
- * family name - so a new orphan font-family fails loudly instead of
- * quietly rendering as whatever the fallback happens to be.
- */
+/* Lobby.css declared `font-family: "Pixel", sans-serif` twice. */
 describe('stylesheets name only tokenized font families', () => {
   // Every stylesheet under `src/`, derived by walking (see
   // src/test/sourceFiles.js). The previous non-recursive
@@ -96,24 +82,7 @@ describe('stylesheets name only tokenized font families', () => {
   });
 });
 
-/**
- * The canvas half, which is where this guard was actually failing.
- *
- * `fonts.test.js` was written to stop the game claiming a font it does not
- * have - the "Pixel" bug - and it stopped that in `src/style/*.css` and
- * nowhere else. The battlefield set `ctx.font` at 28 sites in 7 files, every
- * one of them hardcoded to Arial, and no drawing file imported `type` from the
- * token module. So damage numbers, the wave timer, ENDLESS WAVE n, MILESTONE
- * WAVE n! and the boss banner rendered in Arial in the same frame as a DOM HUD
- * in Black Ops One - the same defect the guard exists to catch, in the half of
- * the game it never looked at.
- *
- * Scope is derived by walking the JS/JSX tree and keeping files that assign a
- * font (see src/test/sourceFiles.js), not by naming the `Draws/` directory:
- * four of the seven offending files (DefenderUnits.js, EnemyUnits.js and both
- * of Drops/) are not in `Draws/`, and a directory list would have missed them
- * exactly the way the colour guard's list missed GridManager.js.
- */
+/* The canvas half, which is where this guard was actually failing. */
 describe('canvas and inline typography come from the token layer', () => {
   const FONT_ASSIGNMENT = /\.font\s*=\s*([^;\n]+)/g;
   const INLINE_FAMILY = /fontFamily\s*:\s*([^,}\n]+)/g;

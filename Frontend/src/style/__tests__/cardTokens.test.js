@@ -145,18 +145,11 @@ describe('recharge is shown on the card itself, not beside it', () => {
   });
 });
 
-/**
+/*
  * One shaded region, not two. While a card recharged, the player saw a
- * bottom-up rectangular fill (`.cooldown-progress`, in GameBoard's overlay),
- * a conic wedge from 12 o'clock (`.cooldown-sweep`, on the card) and the
- * numeral, all driven from the same value. A band and a wedge covering the
- * same *fraction* of different areas agree only at 0% and 100%: at 50% the
- * card was dark across its bottom half and its left half at once, with a
- * doubly-dark quadrant where the two met, which reads as a rendering artefact
- * rather than as an indicator.
- *
- * The stacking-order question ("is the number still legible") was asked and
- * answered during the task; this is the question that was not.
+ * bottom-up rectangular fill (`.cooldown-progress`, in GameBoard's overlay), a
+ * conic wedge from 12 o'clock (`.cooldown-sweep`, on the card) and the
+ * numeral, all driven from the same value.
  */
 describe('a recharging card has one shaded indicator, not two geometries', () => {
   const gameBoardCss = readFileSync(join(styleDir, 'GameBoard.css'), 'utf8');

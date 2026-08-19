@@ -8,17 +8,11 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const css = readFileSync(join(HERE, '..', 'Lobby.css'), 'utf8');
 const cssNoComments = stripComments(css);
 
-/**
+/*
  * Every top-level rule opener in the file - `.foo {`, `@keyframes name {` -
  * derived from this file's own formatting: a top-level selector starts at
  * column 0, while everything nested under it (a keyframes percentage, a
- * declaration) is indented. That is what actually distinguishes "a rule" from
- * "a thing inside a rule" in this codebase, not a hand-picked list of
- * selectors to go look for - which is exactly how the previous version of
- * this guard, fixed at `.lobby-container`/`.game-map`, went blind to eight of
- * the ten real collisions in this same file (see final-review.md I5).
- * Comments are stripped first so a line like " * Depth layers..." inside a
- * block comment can never be mistaken for one.
+ * declaration) is indented.
  */
 function topLevelSelectors(text) {
   return [...text.matchAll(/^([^\s{}][^{}]*)\{/gm)].map((m) => m[1].trim());
@@ -39,18 +33,10 @@ function declarationsOf(selector) {
   return counts.get(selector) ?? 0;
 }
 
-/**
+/*
  * Selectors this file still declares more than once, dated at the point this
  * pass found and audited them (2026-08-18) rather than unwinding them, plus
- * the reason each is safe to leave alone for now. None is a media-query
- * override - this file has none - so there is no structural "different
- * context" excuse available; every one is a genuine same-context collision.
- * `.map-connection` and `.level-number` were on this same list until this
- * pass fixed them (the former was rendering the route as an opaque 7px bar -
- * see final-review.md I5 - the latter was C1's own broken colour, on a
- * selector that happened to be declared twice). Deleting an entry here means
- * its collision was resolved; a name showing up in the failure below that
- * ISN'T on this list is a new collision, not a known one.
+ * the reason each is safe to leave alone for now.
  */
 const KNOWN_DUPLICATE_SELECTORS = [
   // Three definitions of the same @keyframes name; last one wins for every

@@ -1,23 +1,4 @@
-/**
- * A level's starting budget grows with what it asks of the player.
- *
- * It did not. Level 1 gives 10000 energy - a sandbox, clearly deliberate - and
- * then every level from 2 to 7 gave exactly 120, which is six Shooters, while the
- * enemies climbed: level 3 introduces the Exploder (120 HP, 200 damage) and level 4
- * the Tank Zombie (1200 HP). The budget was flat while the demands were not.
- *
- * The arithmetic that made level 3 the wall the owner hit:
- *
- *   - 120 energy buys 6 Shooters at 20 each.
- *   - A Shooter deals 15 damage, so an Exploder takes 8 shots to kill.
- *   - An Exploder deals 200 damage and a Shooter has 120 HP, so every Exploder
- *     that lands removes a defender permanently.
- *   - Income was a 35% chance of 5 energy per kill - 1.75 expected - so a Shooter
- *     had to kill ELEVEN enemies to pay for itself.
- *
- * These tests pin the shape of the curve rather than any single number, because
- * the numbers want a play-test and the shape does not.
- */
+/* A level's starting budget grows with what it asks of the player. */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
