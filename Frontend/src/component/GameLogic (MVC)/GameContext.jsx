@@ -119,6 +119,84 @@ export const withDefender = (cards, defenderName) => {
   }];
 };
 
+/**
+ * The backend's player, in the shape the game reads.
+ *
+ * Two callers set playerData - a fresh login and a refetch - and they used to
+ * build it separately: one stored the raw entity, the other this transform. So
+ * the same player had two shapes depending on how they arrived, and the field
+ * that gave it away was the name. The entity calls it `displayName`; the game
+ * reads `name`; the transform copied `data.name`, which does not exist. Every
+ * player's name came out undefined and the lobby showed only the rank beneath
+ * it, which is why it looked fixed at "Novice Gardener".
+ */
+export function toPlayerData(data) {
+  return {
+    id: data.id,
+    sessionId: data.sessionId,
+    name: data.displayName ?? data.name,
+    rank: data.rank,
+    resources: {
+      gold: data.gold,
+      lobbyEnergy: data.lobbyEnergy,
+      maxLobbyEnergy: data.maxLobbyEnergy,
+      energyRechargeRate: 1,
+      lastEnergyRechargeTime: new Date(
+        data.lastEnergyRechargeTime,
+      ).getTime(),
+      iron: data.iron,
+      grain: data.grain,
+      water: data.water,
+      gem: data.gem,
+    },
+    cards: data.cards
+      ? data.cards.map((card) => ({
+          id: card.cardId,
+          name: card.name,
+          level: card.level,
+          pieces: card.pieces,
+          piecesNeeded: card.piecesNeeded,
+          upgradeCost: getUpgradeCost(card.name, card.level),
+          cost: getCardCost(card.name),
+        }))
+      : [
+          {
+            id: 1,
+            name: "Shooter",
+            level: 1,
+            pieces: 0,
+            piecesNeeded: 10,
+            cost: 20,
+            upgradeCost: { gold: 100, iron: 5, water: 3 },
+          },
+          {
+            id: 2,
+            name: "Grenadier",
+            level: 1,
+            pieces: 0,
+            piecesNeeded: 10,
+            cost: 20,
+            upgradeCost: { gold: 100, iron: 5, water: 3 },
+          },
+        ],
+    unlockedLevels: data.unlockedLevels || [1],
+    completedLevels: data.completedLevels || [],
+    levelStars: data.levelStars || Array(20).fill(0),
+    collectedTreasures: data.collectedTreasures || [],
+    revealedSecrets: [],
+    endlessHighScore: data.endlessHighScore || 0,
+    endlessStats: { totalWaves: 0, totalRuns: 0 },
+    totalStars: data.levelStars
+      ? data.levelStars.reduce((a, b) => a + b, 0)
+      : 0,
+    totalEnemiesKilled: data.totalEnemiesKilled || 0,
+    totalDefendersDeployed: data.totalDefendersDeployed || 0,
+    totalEnergyCollected: data.totalEnergyCollected || 0,
+    claimedAchievements: data.claimedAchievements || [],
+    specialAchievements: data.specialAchievements || [],
+  };
+}
+
 export const GameProvider = ({ children }) => {
   const gameEngineRef = useRef(null); // Ref to hold the GameEngine instance
 
@@ -212,7 +290,11 @@ export const GameProvider = ({ children }) => {
   const handleLogin = (token, player) => {
     SessionManager.setToken(token);
     SessionManager.setUser(player);
-    setPlayerData(player);
+    // Through the same transform as a refetch. Storing the raw entity here gave
+    // a freshly logged-in player a different shape from a returning one - no
+    // `resources`, no `name` - and the lobby sat on its loading screen until a
+    // refetch happened to fix it.
+    setPlayerData(toPlayerData(player));
     setIsAuthenticated(true);
   };
 
@@ -517,71 +599,7 @@ export const GameProvider = ({ children }) => {
       });
       const data = await response.json();
 
-      //transform backend to mathc frontend
-      const playerData = {
-        id: data.id,
-        sessionId: data.sessionId,
-        name: data.name,
-        rank: data.rank,
-        resources: {
-          gold: data.gold,
-          lobbyEnergy: data.lobbyEnergy,
-          maxLobbyEnergy: data.maxLobbyEnergy,
-          energyRechargeRate: 1,
-          lastEnergyRechargeTime: new Date(
-            data.lastEnergyRechargeTime,
-          ).getTime(),
-          iron: data.iron,
-          grain: data.grain,
-          water: data.water,
-          gem: data.gem,
-        },
-        cards: data.cards
-          ? data.cards.map((card) => ({
-              id: card.cardId,
-              name: card.name,
-              level: card.level,
-              pieces: card.pieces,
-              piecesNeeded: card.piecesNeeded,
-              upgradeCost: getUpgradeCost(card.name, card.level),
-              cost: getCardCost(card.name),
-            }))
-          : [
-              {
-                id: 1,
-                name: "Shooter",
-                level: 1,
-                pieces: 0,
-                piecesNeeded: 10,
-                cost: 20,
-                upgradeCost: { gold: 100, iron: 5, water: 3 },
-              },
-              {
-                id: 2,
-                name: "Grenadier",
-                level: 1,
-                pieces: 0,
-                piecesNeeded: 10,
-                cost: 20,
-                upgradeCost: { gold: 100, iron: 5, water: 3 },
-              },
-            ],
-        unlockedLevels: data.unlockedLevels || [1],
-        completedLevels: data.completedLevels || [],
-        levelStars: data.levelStars || Array(20).fill(0),
-        collectedTreasures: data.collectedTreasures || [],
-        revealedSecrets: [],
-        endlessHighScore: data.endlessHighScore || 0,
-        endlessStats: { totalWaves: 0, totalRuns: 0 },
-        totalStars: data.levelStars
-          ? data.levelStars.reduce((a, b) => a + b, 0)
-          : 0,
-        totalEnemiesKilled: data.totalEnemiesKilled || 0,
-        totalDefendersDeployed: data.totalDefendersDeployed || 0,
-        totalEnergyCollected: data.totalEnergyCollected || 0,
-        claimedAchievements: data.claimedAchievements || [],
-        specialAchievements: data.specialAchievements || [],
-      };
+      const playerData = toPlayerData(data);
 
       /*
        * Hand over anything the player's cleared levels earned but never gave
