@@ -97,12 +97,12 @@ describe('the defender roster', () => {
  * per unit. An entry here is a to-do, not an exemption.
  */
 const PINNED_BY_CONSTRUCTOR = {
-  Healer: ['healingAmount', 'healingRange'],
-  Grenadier: ['grenadeRadius'],
-  Sniper: ['critChance'],
-  Mortar: ['explosionRadius'],
-  'Fire Blast': ['burnDamage'],
-  'Ice Bomb': ['explosionRadius', 'freezeDuration'],
+  // Empty, and it should stay that way. All seven defenders that used to sit
+  // here now scale from a base constant declared beside their class, because
+  // applyLevelUpgrades runs inside super() and cannot read a value the subclass
+  // constructor has not assigned yet.
+  //
+  // A new entry here is a regression, not a to-do.
 };
 
 /** The level-derived stats of `label` that do not move between level 1 and 5. */
