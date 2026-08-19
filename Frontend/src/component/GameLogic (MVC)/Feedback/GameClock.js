@@ -1,11 +1,6 @@
-/**
- * Monotonic gameplay clock, advanced only while the game is actually running.
- *
- * Wave timing must not use Date.now(): update() is skipped while paused and
- * during hit-stop, so wall-clock time would keep running and produce a burst
- * of waves on resume.
- */
-const MAX_DELTA_MS = 1000;
+/* Monotonic gameplay clock, advanced only while the game is actually running. */
+/* The longest a single frame is allowed to count for. */
+export const MAX_DELTA_MS = 1000;
 
 export class GameClock {
   constructor() {

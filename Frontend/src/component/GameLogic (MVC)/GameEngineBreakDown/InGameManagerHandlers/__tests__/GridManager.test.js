@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { GridManager } from '../GridManager.js';
+import { GridManager, SPRITE_NATIVE_PX } from '../GridManager.js';
 
 describe('GridManager', () => {
     let grid;
@@ -45,6 +45,18 @@ describe('GridManager', () => {
         });
     });
 
+    describe('getColsForLevel', () => {
+        it('returns 9 columns regardless of level', () => {
+            // Rejects hardcoding the old literal 9 at each call site instead of
+            // reading it from one accessor - and rejects an accessor that
+            // (wrongly) varies columns by level the way getRowsForLevel does.
+            for (const level of [1, 2, 3, 4, 5, 6, 10]) {
+                const g = new GridManager(800, 600, level);
+                expect(g.getColsForLevel()).toBe(9);
+            }
+        });
+    });
+
     describe('initializeGrid', () => {
         it('should create a grid with 9 columns', () => {
             expect(grid.deploymentGrid[0].length).toBe(9);
@@ -79,10 +91,11 @@ describe('GridManager', () => {
             }
         });
 
-        it('should enforce minimum grid size of 40', () => {
+        it('should enforce a minimum grid size of SPRITE_NATIVE_PX', () => {
             const tinyGrid = new GridManager(100, 100, 6);
             tinyGrid.initializeGrid();
-            expect(tinyGrid.gridSize).toBeGreaterThanOrEqual(40);
+            expect(tinyGrid.gridSize).toBeGreaterThanOrEqual(SPRITE_NATIVE_PX);
+            expect(tinyGrid.gridSize).toBe(SPRITE_NATIVE_PX);
         });
 
         it('should cap grid size at 80', () => {

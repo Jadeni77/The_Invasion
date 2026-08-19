@@ -2,14 +2,27 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { Enemy, RangeEnemy, AssassinEnemy, BombEnemy } from '../EnemyUnits.js';
 import { FireBlast, BasicDefender } from '../DefenderUnits.js';
 import { DEFAULT_SETTINGS, saveSettings } from '../Feedback/SettingsStore.js';
+import { setFrameDeltaMs } from '../Animation/FrameTime.js';
+import { colors } from '../../../style/tokens.js';
+
+/*
+ * These tests drive unit.update() by hand, standing in for GameEngine's loop,
+ * and count ticks.
+ */
+const FRAME_MS_60HZ = 1000 / 60;
+
+beforeEach(() => {
+  setFrameDeltaMs(FRAME_MS_60HZ);
+});
 
 const CARD = { level: 1, image: null };
 
-/**
+/*
  * A minimal fake 2D context, in the style of the fake used in
  * GameEngineBreakDown/__tests__/canvasState.test.js, extended to record the
  * fillStyle in effect at each fillRect call so we can tell the health-bar
- * rects (red/lime) apart from the unit's own fallback-body rect.
+ * rects (accentDanger/accentSuccess) apart from the unit's own fallback-body
+ * rect.
  */
 function createRecordingContext() {
   const calls = [];
@@ -65,7 +78,7 @@ describe('Enemy.draw health bar respects showHealthBars', () => {
 
     enemy.draw(ctx);
 
-    const healthBarCalls = calls.filter((c) => c.fillStyle === 'red' || c.fillStyle === 'lime');
+    const healthBarCalls = calls.filter((c) => c.fillStyle === colors.accentDanger || c.fillStyle === colors.accentSuccess);
     expect(healthBarCalls.length).toBe(2);
   });
 
@@ -76,20 +89,14 @@ describe('Enemy.draw health bar respects showHealthBars', () => {
 
     enemy.draw(ctx);
 
-    const healthBarCalls = calls.filter((c) => c.fillStyle === 'red' || c.fillStyle === 'lime');
+    const healthBarCalls = calls.filter((c) => c.fillStyle === colors.accentDanger || c.fillStyle === colors.accentSuccess);
     expect(healthBarCalls.length).toBe(0);
   });
 });
 
-/**
+/*
  * Enemy targeting must ignore consumable spells (Fire Blast, Ice Bomb) so
- * enemies walk past them as though the cell were empty. This is enforced in
- * three independent places inside EnemyUnits.js:
- *  - the base Enemy.updateBehavior melee bounding-box search (Item 1)
- *  - Enemy.findClosestDefender, used by all ranged/special enemies (Item 2)
- *  - two subclasses that copy-paste their own target search instead of
- *    reusing the above: AssassinEnemy's critical-strike search and
- *    BombEnemy's self-destruct proximity check (Item 3)
+ * enemies walk past them as though the cell were empty.
  */
 describe('melee Enemy.updateBehavior ignores consumable spells (Item 1)', () => {
   function createMeleeEnemy() {
@@ -170,30 +177,34 @@ describe('Enemy.findClosestDefender ignores consumable spells (Item 2)', () => {
   });
 });
 
+/*
+ * Note on isAttacking: RangeEnemy.updateBehavior used to set it on every frame
+ * a defender was in range, which is what these tests originally asserted.
+ */
 describe('RangeEnemy.updateBehavior ignores consumable spells (Item 2, behavioural)', () => {
   function createRangedEnemy() {
     return new RangeEnemy(0, 0, null);
   }
 
-  it('does not enter its attacking state or stop moving when the only nearby unit is a spell', () => {
+  it('does not stop moving when the only nearby unit is a spell', () => {
     const enemy = createRangedEnemy();
     const spell = new FireBlast(50, 0, CARD); // well within the 150 attack range
 
     enemy.update([spell]);
 
-    expect(enemy.isAttacking).toBe(false);
     expect(enemy.isMoving).toBe(true);
     expect(enemy.x).toBeGreaterThan(0);
   });
 
-  it('does enter its attacking state against an ordinary defender in the same position', () => {
+  it('does stop to engage an ordinary defender in the same position', () => {
     const enemy = createRangedEnemy();
     const defender = new BasicDefender(50, 0, CARD);
+    const startingX = enemy.x;
 
     enemy.update([defender]);
 
-    expect(enemy.isAttacking).toBe(true);
     expect(enemy.isMoving).toBe(false);
+    expect(enemy.x).toBe(startingX);
   });
 });
 

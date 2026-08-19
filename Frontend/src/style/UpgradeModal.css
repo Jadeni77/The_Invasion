@@ -5,11 +5,19 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.8);
+  /* Opaque: see the note in SettingModal.css - the darkening is the
+     backdrop's job now. */
+  background: var(--colors-surface-base);
+  font-family: var(--type-body);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
+}
+
+.modal-content h2 {
+  font-family: var(--type-display);
+  color: var(--colors-text-primary);
 }
 
 .modal-content {
@@ -17,21 +25,33 @@
   max-width: 1200px;
   max-height: 90vh;
   overflow-y: auto;
-  background: #2c1e13;
-  border: 3px solid #8b6f4b;
-  border-radius: 15px;
+  background: var(--colors-surface-panel);
+  border: 3px solid var(--colors-surface-panel);
+  border-radius: var(--radii-lg);
   padding: 30px;
   position: relative;
-  box-shadow: 0 0 30px rgba(139, 111, 75, 0.5);
+  box-shadow: 0 0 30px color-mix(in srgb, var(--colors-surface-panel) 50%, transparent);
 }
 
-.close-button {
+/*
+ * Scoped to its own screen. `.close-button` was declared bare in four
+ * stylesheets - AchievementPage, CollectionPage, SettingModal and UpgradeModal
+ * - and every stylesheet in this app is bundled globally, so all four competed
+ * and bundle order decided the winner.
+ */
+.upgrade-modal .close-button {
   position: absolute;
   top: 15px;
   right: 15px;
-  background: #8b0000;
-  border: 2px solid #d4c0a1;
-  color: white;
+  background: var(--colors-accent-danger);
+  border: var(--borders-thin) solid var(--colors-surface-raised);
+  /*
+   * Ring drawn with box-shadow, not a wider border: this is a fixed 40x40px
+   * circle, and content-box sizing (no box-sizing: border-box is set anywhere
+   * in this project) means the 3px outline border rendered it at 46x46px.
+   */
+  box-shadow: var(--shadows-drop), 0 0 0 var(--borders-outline) var(--colors-edge-outline);
+  color: var(--colors-text-primary);
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -50,8 +70,8 @@
 }
 
 .upgrade-card {
-  background: rgba(65, 45, 25, 0.8);
-  border: 2px solid #8b6f4b;
+  background: color-mix(in srgb, var(--colors-surface-sunken) 80%, transparent);
+  border: 2px solid var(--colors-surface-panel);
   border-radius: 12px;
   padding: 20px;
   transition: all 0.3s;
@@ -62,14 +82,14 @@
 }
 
 .upgrade-card.selected {
-  border-color: #ffd700;
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+  border-color: var(--colors-accent-energy);
+  box-shadow: 0 0 15px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent);
   transform: translateY(-5px);
 }
 
 .upgrade-card.upgrading {
-  border-color: #4fc3f7;
-  box-shadow: 0 0 15px rgba(79, 195, 247, 0.5);
+  border-color: var(--colors-accent-info);
+  box-shadow: 0 0 15px color-mix(in srgb, var(--colors-accent-info) 50%, transparent);
 }
 
 .upgrade-card.locked {
@@ -80,7 +100,7 @@
 .upgrade-requirements {
   margin-top: 15px;
   padding-top: 15px;
-  border-top: 1px solid #8b6f4b;
+  border-top: 1px solid var(--colors-surface-panel);
 }
 
 .upgrade-card .card-container {
@@ -94,21 +114,22 @@
 }
 
 .upgrade-info h4 {
-  color: #ffd700;
+  font-family: var(--type-display);
+  color: var(--colors-accent-energy);
   text-align: center;
   margin-bottom: 15px;
   font-size: 18px;
 }
 
 .stat-improvements {
-  background: rgba(0, 0, 0, 0.3);
+  background: color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   border-radius: 8px;
   padding: 10px;
   margin-bottom: 15px;
 }
 
 .stat-change {
-  color: #d4c0a1;
+  color: var(--colors-text-muted);
   font-size: 14px;
   margin: 5px 0;
   display: flex;
@@ -121,27 +142,32 @@
 }
 
 .new-abilities {
-  background: rgba(255, 215, 0, 0.1);
-  border: 1px solid #ffd700;
+  background: color-mix(in srgb, var(--colors-accent-energy) 10%, transparent);
+  border: 1px solid var(--colors-accent-energy);
   border-radius: 8px;
   padding: 10px;
   margin-bottom: 15px;
 }
 
 .new-abilities > span {
-  color: #ffd700;
+  color: var(--colors-accent-energy);
   font-weight: bold;
   display: block;
   margin-bottom: 5px;
 }
 
 .ability-preview {
-  color: #d4c0a1;
+  color: var(--colors-text-muted);
   font-size: 13px;
   padding-left: 15px;
   margin: 3px 0;
 }
 
+/* Dead: nothing renders `.resource-costs`/`.resource-cost`. The upgrade costs
+   are `.resource-requirements`/`.resource-requirement` (see below). Kept only
+   because deleting unreferenced rules is not this change's job - but do not
+   edit these expecting the screen to change, which is exactly the mistake this
+   comment exists to prevent. */
 .resource-costs {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -156,48 +182,43 @@
 }
 
 .sufficient {
-  color: #7fff00;
+  color: var(--colors-accent-success);
 }
 
 .insufficient {
-  color: #ff6347;
+  color: var(--colors-accent-danger);
 }
 
 .upgrade-progress {
   margin-top: 15px;
-  background: rgba(0, 0, 0, 0.3);
+  background: color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   border-radius: 10px;
   overflow: hidden;
 }
 
-.progress-bar {
-  height: 20px;
-  background: linear-gradient(to right, #8b6f4b, #ffd700);
-  transition: width 0.5s;
-}
 
-.progress-text {
-  text-align: center;
-  padding: 5px;
-  font-weight: bold;
-  color: #ffd700;
-}
 
 .upgrade-action-button {
   margin-top: 15px;
   width: 100%;
   padding: 12px;
-  background: linear-gradient(to bottom, #5a3a20, #8b6f4b);
-  border: 2px solid #d4c0a1;
+  background: linear-gradient(to bottom, var(--colors-surface-sunken), var(--colors-surface-panel));
+  /* Border left at 2px, not bumped to borders-outline: this is width:100%
+     with no box-sizing: border-box in the project, so its rendered width
+     already exceeds its container by 2x the border width - a pre-existing
+     condition bumping the border further would only worsen. The ring
+     shadow adds the thick-outline identity without touching the box. */
+  border: 2px solid var(--colors-surface-raised);
   border-radius: 8px;
-  color: #ffd700;
+  box-shadow: var(--shadows-drop), 0 0 0 var(--borders-outline) var(--colors-surface-raised);
+  color: var(--colors-accent-energy);
   font-weight: bold;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .upgrade-action-button:hover:not(:disabled) {
-  background: linear-gradient(to bottom, #6b4b2e, #9c8065);
+  background: var(--colors-surface-raised);
   transform: translateY(-2px);
 }
 
@@ -208,31 +229,36 @@
 
 .upgrade-card {
   position: relative;
-  border: 2px solid #8b6f4b;
+  border: 2px solid var(--colors-surface-panel);
   border-radius: 10px;
   overflow: hidden;
   transition: all 0.3s;
-  background: rgba(65, 45, 25, 0.8);
+  background: color-mix(in srgb, var(--colors-surface-sunken) 80%, transparent);
 }
 
 .upgrade-card.selected {
-  border-color: #ffd700;
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+  border-color: var(--colors-accent-energy);
+  box-shadow: 0 0 15px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent);
   transform: translateY(-5px);
 }
 
 .upgrade-card.upgrading {
-  border-color: #4fc3f7;
-  box-shadow: 0 0 15px rgba(79, 195, 247, 0.5);
+  border-color: var(--colors-accent-info);
+  box-shadow: 0 0 15px color-mix(in srgb, var(--colors-accent-info) 50%, transparent);
 }
 
 .upgrade-info {
   padding: 15px;
 }
 
+/*
+ * Was `grid-template-columns: repeat(2, 1fr)`, which clipped every second
+ * cost: a 1fr column is half the card, and a chip plus its "9999/506" needs
+ * more than that.
+ */
 .resource-requirements {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin: 15px 0;
 }
@@ -241,17 +267,20 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  /* Wrap, never shrink - see the note on .resource-requirements above. */
+  flex: 0 0 auto;
+  white-space: nowrap;
   padding: 8px;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.3);
+  background: color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
 }
 
 .resource-requirement.met {
-  border-left: 3px solid #7fff00;
+  border-left: 3px solid var(--colors-accent-success);
 }
 
 .resource-requirement.unmet {
-  border-left: 3px solid #ff6347;
+  border-left: 3px solid var(--colors-accent-danger);
   opacity: 0.7;
 }
 
@@ -268,7 +297,7 @@
 }
 
 .resource-requirement span {
-  color: #d4c0a1;
+  color: var(--colors-text-muted);
   font-weight: bold;
 }
 
@@ -279,26 +308,26 @@
   justify-content: center;
   gap: 8px;
   padding: 8px;
-  background: rgba(0, 0, 0, 0.3);
+  background: color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   border-radius: 6px;
   margin-bottom: 10px;
   font-size: 14px;
 }
 
-.pieces-icon {
+.upgrade-modal .pieces-icon {
   font-size: 20px;
-  color: #9370DB;
+  color: var(--decorative-violet);
 }
 
 .pieces-text.met {
-  color: #7fff00;
-  border-left: 3px solid #7fff00;
+  color: var(--colors-accent-success);
+  border-left: 3px solid var(--colors-accent-success);
   padding-left: 8px;
 }
 
 .pieces-text.unmet {
-  color: #ff6347;
-  border-left: 3px solid #ff6347;
+  color: var(--colors-accent-danger);
+  border-left: 3px solid var(--colors-accent-danger);
   padding-left: 8px;
 }
 
@@ -308,12 +337,12 @@
   justify-content: center;
   gap: 8px;
   padding: 8px;
-  background: rgba(0, 0, 0, 0.3);
+  background: color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   border-radius: 6px;
   margin-bottom: 15px;
-  border-left: 3px solid #4fc3f7;
+  border-left: 3px solid var(--colors-accent-info);
   font-size: 14px;
-  color: #d4c0a1;
+  color: var(--colors-text-muted);
 }
 
 .worker-icon {
@@ -321,41 +350,23 @@
 }
 
 .upgrade-button:hover:not(.disabled) {
-  background: linear-gradient(to bottom, #6b4b2e, #9c8065);
+  background: var(--colors-surface-raised);
   transform: translateY(-2px);
 }
 
 .upgrade-button.disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  background: linear-gradient(to bottom, #3a2a10, #5a4b3e);
+  background: var(--colors-surface-sunken);
 }
 
 .upgrade-in-progress {
   padding: 15px;
-  background: rgba(0, 0, 0, 0.5);
+  background: color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
-.progress-text {
-  text-align: center;
-  margin-bottom: 10px;
-  color: #4fc3f7;
-  font-weight: bold;
-  font-size: 16px;
-}
 
-.progress-bar {
-  height: 10px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 5px;
-  overflow: hidden;
-}
 
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(to right, #8b6f4b, #4fc3f7);
-  transition: width 0.5s;
-}
 
 
 /* Scrollbar styling */
@@ -364,17 +375,17 @@
 }
 
 .modal-content::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.3);
+  background: color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   border-radius: 5px;
 }
 
 .modal-content::-webkit-scrollbar-thumb {
-  background: #8b6f4b;
+  background: var(--colors-surface-panel);
   border-radius: 5px;
 }
 
 .modal-content::-webkit-scrollbar-thumb:hover {
-  background: #a88b6b;
+  background: var(--colors-surface-raised);
 }
 
 /* Responsive adjustments */
@@ -390,10 +401,29 @@
   }
   
   .resource-requirements {
-    grid-template-columns: 1fr;
+    /* Was `grid-template-columns: 1fr` - meaningless now this is a flex row.
+       One cost per line is what a narrow card wants, so say that directly. */
+    flex-direction: column;
   }
   
   .upgrade-card .card-container {
     transform: scale(1);
   }
+}
+
+/* Everything that is not the backdrop sits above it. */
+.upgrade-modal > *:not(.game-backdrop) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Shown in place of the upgrade button once a defender is at MAX_DEFENDER_LEVEL.
+   Gold, because reaching the ceiling is an accomplishment, not an error. */
+.upgrade-maxed {
+  margin: 10px 0 0;
+  text-align: center;
+  font-family: var(--type-display);
+  font-size: var(--type-size-sm);
+  letter-spacing: 0.08em;
+  color: var(--colors-accent-energy);
 }

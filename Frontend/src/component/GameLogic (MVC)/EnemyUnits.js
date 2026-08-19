@@ -3,18 +3,29 @@
 
 
 /*
-TODO:
- 1.把wrapper的东西合并在每一个enemy class里面
- 2.AnimationManager可以留可以不留 （尽量保留
- 3.看看能不能把每一个subclass constructor里面的image parameter用上，目前image parameter
- 没有任何作用因为都是null value
- 4.DrawEntities.js, CombatManager.js (done revert), GameEngine, DefenderUnits.js, EnemyUnit.js
- 5.加油！
-*/
+ * TODO: 1.把wrapper的东西合并在每一个enemy class里面 2.AnimationManager可以留可以不留 （尽量保留
+ * 3.看看能不能把每一个subclass constructor里面的image parameter用上，目前image parameter
+ * 没有任何作用因为都是null value 4.DrawEntities.js, CombatManager.js (done revert),
+ * GameEngine, DefenderUnits.js, EnemyUnit.js 5.加油！
+ */
 
 import {DrawNegativeEffect} from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
 import { isConsumableSpell } from "./DefenderUnits.js";
+import {
+  attackAnimationDurationMs,
+  frameDurationMs,
+} from "./Animation/AttackPlayback.js";
+import { frameDeltaMs, frameScale } from "./Animation/FrameTime.js";
+import { canvasFont, colors, decorative, withAlpha } from '../../style/tokens.js';
+import { fitNativeFrame } from './Animation/SpriteFit.js';
+
+// Re-exported for callers/tests that import it from here (its original
+// home) rather than from Animation/SpriteFit.js directly - it moved there
+// so DefenderUnits.js could use the same logic without creating a circular
+// import (EnemyUnits.js already imports `isConsumableSpell` from
+// DefenderUnits.js, so the reverse import would have been a cycle).
+export { fitNativeFrame };
 
 export class Enemy {
   constructor(x, y, typeData = {}) {
@@ -26,7 +37,7 @@ export class Enemy {
     this.height = typeData.height || 30;
     this.health = typeData.health || 100;
     this.maxHealth = typeData.health || 100;
-    this.color = typeData.color || "darkgreen";
+    this.color = typeData.color || colors.surfaceRaised;
     this.name = typeData.name || "Basic Zombie";
     this.isAlive = true;
     this.id = Math.random();
@@ -40,6 +51,10 @@ export class Enemy {
     this.attackRate = typeData.attackRate || 60; // frames per attack
     this.attackCountdown = this.attackRate;
     this.isAttacking = false; // if entity is engage in attack
+    // Milliseconds left of the attack animation a shot started; see
+    // beginAttackAnimation. Only ranged enemies use it - a melee enemy's swing
+    // is driven by its own damage tick in updateBehavior.
+    this.attackAnimationRemainingMs = 0;
 
     this.isRanged = typeData.isRanged || false; //same as useProjectile check
     this.lastAttackTime = 0;
@@ -111,7 +126,8 @@ export class Enemy {
     }
   }
 
-  updateAnimation(deltaTime) {
+  /* Advances the current sheet by the real time the frame covered. */
+  updateAnimation(deltaMs = frameDeltaMs()) {
     if (!this.animationConfig || !this.animationFrames) {
       return;
     }
@@ -126,27 +142,72 @@ export class Enemy {
       console.log(`Starting death animation: ${config.frameCount} frames at ${config.fps} fps = ${config.frameCount/config.fps} seconds`);
     }
 
-    this.animationTimer += deltaTime;
-    const frameDuration = 1000 / config.fps;
+    // The attack sheet is timed against the firing cadence rather than its own
+    // fps, so it always completes one pass per attack; see AttackPlayback.js.
+    const frameDuration = frameDurationMs(this.currentAnimation, config, this.attackCadenceMs());
+    if (!(frameDuration > 0)) {
+      return;
+    }
 
-    if (this.animationTimer >= frameDuration) {
-      this.animationTimer -= frameDuration; // Use subtraction instead of reset to maintain timing
+    this.animationTimer += deltaMs;
+
+    // A loop rather than a single step: a compressed sheet can hold a frame for
+    // less than one game frame, and a single step per update would then run it
+    // at the frame rate instead of at the speed asked for.
+    while (this.animationTimer >= frameDuration) {
+      this.animationTimer -= frameDuration; // Subtract rather than reset, to keep timing
       this.animationFrame++;
 
-      if (this.animationFrame >= config.frameCount) {
-        if (config.loop !== false) {
-          this.animationFrame = 0;
-        } else {
-          this.animationFrame = config.frameCount - 1;
+      if (this.animationFrame < config.frameCount) continue;
 
-          // Mark death animation as complete
-          if (this.currentAnimation === 'death') {
-            console.log(`${this.name} death animation complete at frame ${this.animationFrame}`);
-            this.deathAnimationComplete = true;
-          }
+      if (this.currentAnimation === 'attack' && this.attackAnimationRemainingMs > 0) {
+        // A swing a shot started: one full pass, ended here rather than by the
+        // countdown, so it finishes on the frame it runs out of frames. Holding
+        // the last frame keeps determineAnimationState free to pick the walk on
+        // the next tick without the swing flashing back to its first frame.
+        // runDownAttackAnimation stays as the backstop for an enemy whose
+        // sprites never loaded and so has no sheet to run out of.
+        this.animationFrame = config.frameCount - 1;
+        this.animationTimer = 0;
+        this.attackAnimationRemainingMs = 0;
+        this.isAttacking = false;
+        break;
+      }
+
+      if (config.loop !== false) {
+        // Melee enemies loop: their swing is restarted by the damage tick in
+        // updateBehavior for as long as they stay in contact.
+        this.animationFrame = 0;
+      } else {
+        this.animationFrame = config.frameCount - 1;
+
+        // Mark death animation as complete
+        if (this.currentAnimation === 'death') {
+          console.log(`${this.name} death animation complete at frame ${this.animationFrame}`);
+          this.deathAnimationComplete = true;
         }
+        this.animationTimer = 0;
+        break;
       }
     }
+  }
+
+  /* The gap between two attacks, in milliseconds. */
+  attackCadenceMs() {
+    return (this.attackRate * 1000) / 60;
+  }
+
+  /*
+   * Restarts the attack sheet for a shot that is leaving now, timed to fit
+   * inside the firing cadence.
+   */
+  beginAttackAnimation() {
+    this.animationFrame = 0;
+    this.animationTimer = 0;
+    this.attackAnimationRemainingMs = attackAnimationDurationMs(
+      this.animationConfig?.attack,
+      this.attackCadenceMs(),
+    ) ?? 0;
   }
 
   canAttack(currentTime) {
@@ -173,9 +234,11 @@ export class Enemy {
         this.setAnimation('death');
       }
       // Update animation but don't do anything else
-      this.updateAnimation(16);
+      this.updateAnimation();
       return;
     }
+
+    this.runDownAttackAnimation();
 
     this.updateBehavior(defenderUnits);
 
@@ -185,10 +248,24 @@ export class Enemy {
     this.determineAnimationState();
 
     // Update animation
-    this.updateAnimation(16);
+    this.updateAnimation();
 
     // Handle movement
     this.handleMovement();
+  }
+
+  /*
+   * Runs down the attack animation a shot started, and drops out of the attack
+   * state when the sheet has finished its one pass.
+   */
+  runDownAttackAnimation(deltaMs = frameDeltaMs()) {
+    if (this.attackAnimationRemainingMs <= 0) return;
+
+    this.attackAnimationRemainingMs -= deltaMs;
+    if (this.attackAnimationRemainingMs <= 0) {
+      this.attackAnimationRemainingMs = 0;
+      this.isAttacking = false;
+    }
   }
 
   updateBehavior(defenderUnits) {
@@ -210,10 +287,16 @@ export class Enemy {
       if (targetDefender && !this.frozen && !this.stunned) {
         this.speed = 0;
         this.isAttacking = true;
-        this.attackCountdown--;
+        this.attackCountdown -= frameScale();
 
         if (this.attackCountdown <= 0) {
           targetDefender.takeDamage(this.attackDamage);
+          // Emitted here, on the damage tick, rather than in attack(): this is
+          // the site the visible swing is restarted from, and it fires once per
+          // tick instead of once per frame in contact. attack() would be wrong
+          // twice over - CombatManager calls it from a ranged projectile's
+          // onHit as well, so every landing arrow would claim to be a swing.
+          this.gameEngine?.emitFeedback?.('enemy:melee', { unitType: this.constructor.name });
           this.attackCountdown = this.attackRate;
           // Restart the attack animation so the visible swing lines up with damage ticks
           if (this.currentAnimation === 'attack') {
@@ -281,8 +364,58 @@ export class Enemy {
 
   handleMovement() {
     if (!this.isAttacking && !this.frozen && !this.stunned) {
-      this.x += this.speed;
+      this.x += this.speed * frameScale();
     }
+  }
+
+  /* A glow on the ground under a boss. */
+  drawBossMarker(ctx) {
+    const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 420);
+    const cx = this.x + this.width / 2;
+    const cy = this.y + this.height - 2;
+
+    /* 0.42 of the width, not 0.62. */
+    ctx.save();
+    ctx.globalAlpha = 0.16 + 0.12 * pulse;
+    ctx.fillStyle = colors.accentEnergy;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, this.width * 0.42, this.height * 0.13, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /* What the boss health bar writes above itself. */
+  bossBarLabel() {
+    return `${this.name}  ${this.health.toFixed(0)}/${this.maxHealth}`;
+  }
+
+  /*
+   * A boss's health bar: wider than the sprite, taller than the standard bar,
+   * outlined, and shown from full health rather than only once damaged.
+   */
+  drawBossHealthBar(ctx) {
+    const pad = 8;
+    /* Clamped to the board's left edge. */
+    const barX = Math.max(2, this.x - pad);
+    const barY = this.y - 16;
+    const barW = this.width + pad * 2;
+    const barH = 8;
+    const fraction = Math.max(0, Math.min(1, this.health / this.maxHealth));
+
+    ctx.save();
+    ctx.fillStyle = colors.edgeOutline;
+    ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4);
+    ctx.fillStyle = colors.accentDanger;
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = colors.accentEnergy;
+    ctx.fillRect(barX, barY, barW * fraction, barH);
+
+    ctx.fillStyle = colors.textPrimary;
+    ctx.font = canvasFont(11, 'bold');
+    // Left-aligned from the bar's own left edge - stated, not inherited.
+    ctx.textAlign = 'left';
+    ctx.fillText(this.bossBarLabel(), barX, barY - 5);
+    ctx.restore();
   }
 
   draw(ctx) {
@@ -305,12 +438,19 @@ export class Enemy {
       const frames = this.animationFrames[this.currentAnimation];
       if (frames && frames[this.animationFrame]) {
         try {
+          const animConfig = this.animationConfig && this.animationConfig[this.currentAnimation];
+          const { drawnWidth, drawnHeight, insetX, insetY } = fitNativeFrame(
+            animConfig?.frameWidth,
+            animConfig?.frameHeight,
+            this.width,
+            this.height,
+          );
           ctx.drawImage(
               frames[this.animationFrame],
-              this.x,
-              this.y,
-              this.width,
-              this.height
+              this.x + insetX,
+              this.y + insetY,
+              drawnWidth,
+              drawnHeight
           );
         } catch (e) {
           console.error('Failed to draw frame:', e);
@@ -326,26 +466,42 @@ export class Enemy {
 
     ctx.restore();
 
+    if (this.isAlive && this.isBoss) {
+      this.drawBossMarker(ctx);
+    }
+
     if (this.isAlive) {
-      // Unit name text
-      ctx.fillStyle = "black";
-      ctx.font = "12px Arial";
+      /*
+       * Everything text-shaped here is inside save/restore, and states its own
+       * alignment.
+       */
+      ctx.save();
+      ctx.textAlign = "center";
+
+      // Unit name text, under the middle of the sprite rather than off its corner.
+      ctx.fillStyle = colors.edgeOutline;
+      ctx.font = canvasFont(12);
       ctx.fillText(
-          this.name.substring(0, this.name.length),
-          this.x + 2,
+          this.name,
+          this.x + this.width / 2,
           this.y + this.height + 15
       );
 
       // Health bar and value
-      if (this.health < this.maxHealth && getSettings().display.showHealthBars) {
-        ctx.fillStyle = "red";
-        ctx.fillRect(this.x, this.y - 10, this.width, 5);
-        ctx.fillStyle = "lime";
-        const healthWidth = (this.health / this.maxHealth) * this.width;
-        ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
-        ctx.fillText(this.health.toFixed(0), this.x + this.width / 2, this.y - 15);
+      if (getSettings().display.showHealthBars) {
+        if (this.isBoss) {
+          this.drawBossHealthBar(ctx);
+        } else if (this.health < this.maxHealth) {
+          ctx.fillStyle = colors.accentDanger;
+          ctx.fillRect(this.x, this.y - 10, this.width, 5);
+          ctx.fillStyle = colors.accentSuccess;
+          const healthWidth = (this.health / this.maxHealth) * this.width;
+          ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
+          ctx.fillText(this.health.toFixed(0), this.x + this.width / 2, this.y - 15);
+        }
       }
       this.drawNegativeEffect.drawAllEffect(ctx);
+      ctx.restore();
     }
   }
 
@@ -354,8 +510,8 @@ export class Enemy {
     ctx.fillRect(this.x, this.y, this.width, this.height);
 
     // Draw unit type initial
-    ctx.fillStyle = "black";
-    ctx.font = "12px Arial";
+    ctx.fillStyle = colors.edgeOutline;
+    ctx.font = canvasFont(12);
     ctx.fillText(this.name.charAt(0), this.x + 5, this.y + 15);
   }
 
@@ -406,7 +562,7 @@ export class BasicEnemy extends Enemy {
       name: "Basic Zombie",
       speed: 0.8,
       health: 100,
-      color: "darkgreen",
+      color: colors.accentSuccess,
       width: 80,
       height: 64,
       image: image,
@@ -424,7 +580,7 @@ export class FastEnemy extends Enemy {
       name: "Fast Zombie",
       speed: 1.5, // Faster
       health: 80, // Less health
-      color: "darkorange",
+      color: decorative.orange,
       width: 64,
       height: 64,
       image: image,
@@ -443,7 +599,7 @@ export class TankEnemy extends Enemy {
       health: 1200,
       width: 90,
       height: 64,
-      color: "darkred",
+      color: colors.accentDanger,
       image: image,
       bounty: 30,
       isAttacker: true, // This one attacks
@@ -471,7 +627,7 @@ export class TankEnemy extends Enemy {
       this.attackDamage *= this.rageDamageMultiplier; // Re-enabled as Enemy now has attackDamage
       this.raged = true;
       console.log(`${this.name} is enraged! Speed: ${this.speed.toFixed(1)}`);
-      this.color = "orange"; // Simple visual change
+      this.color = decorative.orange; // Simple visual change
     }
     return died;
   }
@@ -485,7 +641,7 @@ export class BombEnemy extends Enemy {
       health: 120,
       width: 64,
       height: 64,
-      color: "purple",
+      color: decorative.violet,
       image: image,
       bounty: 20,
       isAttacker: false, // Primary interaction is explosion, not regular attack
@@ -510,8 +666,8 @@ export class BombEnemy extends Enemy {
                                         radius: this.explosionRadius / 2,
                                         timer: 40,
                                         color: this.color,
-                                        innerColor: "magenta",
-                                        particleColor: "rgba(148, 0, 211, 0.9)",
+                                        innerColor: decorative.violet,
+                                        particleColor: withAlpha(decorative.violet, 0.9),
                                         style: "shockwave",
                                         type: "enemy",
                                         source: "exploder",
@@ -545,8 +701,8 @@ export class BombEnemy extends Enemy {
                                         radius: this.explosionRadius,
                                         timer: 40,
                                         color: this.color,
-                                        innerColor: "magenta",
-                                        particleColor: "rgba(148, 0, 211, 0.9)",
+                                        innerColor: decorative.violet,
+                                        particleColor: withAlpha(decorative.violet, 0.9),
                                         style: "shockwave",
                                         type: "enemy",
                                         source: "exploder",
@@ -567,7 +723,7 @@ export class BombEnemy extends Enemy {
           0,
           Math.PI * 2
       );
-      ctx.strokeStyle = "rgba(255, 255, 0, 0.8)"; // Yellow pulsating border
+      ctx.strokeStyle = withAlpha(colors.accentEnergy, 0.8); // Yellow pulsating border
       ctx.lineWidth = 2;
       ctx.stroke();
     }
@@ -582,7 +738,7 @@ export class RangeEnemy extends Enemy {
       health: 150,
       width: 96,
       height: 64,
-      color: "White",
+      color: colors.textPrimary,
       image: image,
       bounty: 15,
       isAttacker: true,
@@ -601,21 +757,21 @@ export class RangeEnemy extends Enemy {
 
     if (targetDefender && !this.frozen && !this.stunned &&
         this.getDistanceTo(targetDefender) <= this.attackRange) {
+      // Stop to shoot, but let CombatManager decide when a shot actually happens -
+      // it owns the real cooldown. Setting isAttacking here made the animation play
+      // continuously while a defender was in range; the swing is started by the
+      // shot and ended by Enemy.runDownAttackAnimation counting the sheet down.
       this.isMoving = false;
-      this.isAttacking = true;
-      this.attackCountdown--;
-      if (this.attackCountdown <= 0) {
-        this.attackCountdown = this.attackRate;
-      }
     } else {
       this.isMoving = true;
       this.isAttacking = false;
+      this.attackAnimationRemainingMs = 0;
     }
   }
 
   handleMovement() {
     if (this.isMoving && !this.frozen && !this.stunned) {
-      this.x += this.speed;
+      this.x += this.speed * frameScale();
     }
   }
 }
@@ -629,7 +785,7 @@ export class ShieldEnemy extends Enemy {
       health: 200,
       width: 90,
       height: 64,
-      color: 'darkgray',
+      color: colors.textMuted,
       image: image,
       bounty: 25,
       isAttacker: true,
@@ -662,14 +818,14 @@ export class ShieldEnemy extends Enemy {
 
     // Draw shield if active
     if (this.shieldActive) {
-      ctx.strokeStyle = "silver";
+      ctx.strokeStyle = colors.edgeHighlight;
       ctx.lineWidth = 3;
       ctx.strokeRect(this.x - 5, this.y, 5, this.height);
 
       // Shield health bar
-      ctx.fillStyle = "blue";
+      ctx.fillStyle = colors.surfaceSunken;
       ctx.fillRect(this.x - 8, this.y - 15, 3, this.height);
-      ctx.fillStyle = "lightblue";
+      ctx.fillStyle = colors.accentInfo;
       const shieldHealthHeight = (this.shieldHealth / this.maxShieldHealth) * this.height;
       ctx.fillRect(this.x - 8, this.y - 15 + (this.height - shieldHealthHeight), 3, shieldHealthHeight);
     }
@@ -684,7 +840,7 @@ export class HealerEnemy extends Enemy {
       health: 80,
       width: 64,
       height: 64,
-      color: 'lightgreen',
+      color: colors.accentSuccess,
       image: image,
       bounty: 25,
       isAttacker: false,
@@ -704,7 +860,7 @@ export class HealerEnemy extends Enemy {
     if (!this.isAlive) return;
 
     //healing logic
-    this.currentHealCooldown--;
+    this.currentHealCooldown -= frameScale();
     if (this.currentHealCooldown <= 0) {
       this.healNearbyEnemy();
       this.currentHealCooldown = this.healCooldown;
@@ -714,6 +870,7 @@ export class HealerEnemy extends Enemy {
   healNearbyEnemy() {
     if (this.gameEngine) {
       const enemies = this.gameEngine.enemies;
+      let healedAlly = false;
       for (const enemy of enemies) {
         if (!enemy.isAlive) continue;
 
@@ -724,7 +881,18 @@ export class HealerEnemy extends Enemy {
         if (distance <= this.healRange) {
           enemy.maxHealth += this.healAmount;
           enemy.health = Math.min(enemy.maxHealth, enemy.health + this.healAmount);
+          if (enemy.id !== this.id) healedAlly = true;
         }
+      }
+
+      // One event per pulse, and only when an ALLY was healed. The healer is
+      // itself in gameEngine.enemies, so it also tops itself up every pulse -
+      // that behaviour is untouched here - but a lone healer healing nobody
+      // but itself is not a moment the player is watching, and it would put a
+      // sound on the clock forever. HealerDefender's emit works the same way:
+      // it skips itself and stays silent with nobody to heal.
+      if (healedAlly) {
+        this.gameEngine?.emitFeedback?.('enemy:heal', { unitType: this.constructor.name });
       }
     }
   }
@@ -742,7 +910,7 @@ export class HealerEnemy extends Enemy {
           0,
           Math.PI * 2
       );
-      ctx.strokeStyle = `rgba(0, 255, 0, ${(this.healCooldown - this.currentHealCooldown) / 20})`;
+      ctx.strokeStyle = withAlpha(colors.accentSuccess, (this.healCooldown - this.currentHealCooldown) / 20);
       ctx.lineWidth = 2;
       ctx.stroke();
     }
@@ -757,7 +925,7 @@ export class SplitterEnemy extends Enemy {
       health: 120,
       width: 64,
       height: 64,
-      color: 'purple',
+      color: decorative.violet,
       image: image,
       bounty: 15,
       isAttacker: true,
@@ -808,6 +976,9 @@ export class SplitterEnemy extends Enemy {
       }
       this.gameEngine.enemies.push(mini);
     }
+    // One event for the whole split, not one per mini: all three appear in the
+    // same instant, so three events would be three copies of one sound.
+    this.gameEngine?.emitFeedback?.('enemy:summon', { unitType: this.constructor.name });
   }
 }
 
@@ -820,7 +991,7 @@ export class MiniEnemy extends Enemy {
       health: 40,
       width: 32,
       height: 32,
-      color: 'mediumpurple',
+      color: decorative.violet,
       image: image,
       bounty: 5,
       isAttacker: true,
@@ -840,7 +1011,7 @@ export class SwarmLeader extends Enemy {
       health: 180,
       width: 90,
       height: 64,
-      color: 'darkred',
+      color: colors.accentDanger,
       image: image,
       bounty: 40,
       isAttacker: true,
@@ -893,6 +1064,9 @@ export class SwarmLeader extends Enemy {
 
       this.gameEngine.enemies.push(splitEnemy);
     }
+    // One event for the whole split, as for SplitterEnemy: five splitters
+    // appearing at once are one moment, not five.
+    this.gameEngine?.emitFeedback?.('enemy:summon', { unitType: this.constructor.name });
   }
 
   updateBehavior(defenderUnits) {
@@ -911,7 +1085,7 @@ export class SwarmLeader extends Enemy {
 
     // Only spawn if not frozen/stunned
     if (!this.frozen && !this.stunned) {
-      this.currentSpawnCooldown--;
+      this.currentSpawnCooldown -= frameScale();
       if (this.currentSpawnCooldown <= 0) {
         this.spawnEnemy();
         this.currentSpawnCooldown = this.spawnCooldown;
@@ -922,7 +1096,7 @@ export class SwarmLeader extends Enemy {
 
   handleMovement() {
     if (this.isMoving && !this.frozen && !this.stunned) {
-      this.x += this.speed;
+      this.x += this.speed * frameScale();
     }
   }
 
@@ -954,6 +1128,7 @@ export class SwarmLeader extends Enemy {
       spawnEnemy.setGameEngine(this.gameEngine);
     }
     this.gameEngine.enemies.push(spawnEnemy);
+    this.gameEngine?.emitFeedback?.('enemy:summon', { unitType: this.constructor.name });
   }
 
   buffNearbyEnemies() {
@@ -1042,7 +1217,7 @@ export class SwarmLeader extends Enemy {
             this.buffRange,
             0,
             Math.PI * 2);
-    ctx.strokeStyle = "rgba(255, 0, 0, 0.2)";
+    ctx.strokeStyle = withAlpha(colors.accentDanger, 0.2);
     ctx.lineWidth = 2;
     ctx.stroke();
   }
@@ -1056,7 +1231,7 @@ export class EMPEnemy extends Enemy {
       health: 180,
       width: 90,
       height: 64,
-      color: 'cyan',
+      color: colors.accentInfo,
       image: image,
       bounty: 20,
       isAttacker: true,
@@ -1087,9 +1262,9 @@ export class EMPEnemy extends Enemy {
                                       damage: 0,
                                       radius: this.empRadius,
                                       timer: 30,
-                                      color: "cyan",
-                                      innerColor: "white",
-                                      particleColor: "rgba(0, 255, 255, 0.9)",
+                                      color: colors.accentInfo,
+                                      innerColor: colors.textPrimary,
+                                      particleColor: withAlpha(colors.accentInfo, 0.9),
                                       style: "electric",
                                       type: "enemy",
                                       source: "emp",
@@ -1116,7 +1291,7 @@ export class EMPEnemy extends Enemy {
 
     // Electricity effect
     if (Math.random() < 0.3) {
-      ctx.strokeStyle = "cyan";
+      ctx.strokeStyle = colors.accentInfo;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(this.x, this.y + this.height / 2);
@@ -1138,7 +1313,7 @@ export class VampireEnemy extends Enemy {
       health: 90,
       width: 64,
       height: 64,
-      color: 'darkred',
+      color: colors.accentDanger,
       image: image,
       bounty: 30,
       isAttacker: true,
@@ -1165,7 +1340,7 @@ export class VampireEnemy extends Enemy {
 
   handleMovement() {
     if (this.isMoving && !this.frozen && !this.stunned) {
-      this.x += this.speed;
+      this.x += this.speed * frameScale();
     }
   }
 
@@ -1174,6 +1349,10 @@ export class VampireEnemy extends Enemy {
 
     const damageDealt = Math.min(target.health, this.attackDamage);
     target.takeDamage(this.attackDamage);
+    // Vampire applies its own damage instead of calling super.attack(), so it
+    // needs its own emit. It is melee-only, so this call site is never reached
+    // from a projectile's onHit.
+    this.gameEngine?.emitFeedback?.('enemy:melee', { unitType: this.constructor.name });
 
     //heal base on attack
     const healAmount = Math.floor(damageDealt * this.lifeStealPercent);
@@ -1194,7 +1373,7 @@ export class VampireEnemy extends Enemy {
           0,
           Math.PI * 2
       );
-      ctx.strokeStyle = "rgba(139, 0, 0, 0.5)";
+      ctx.strokeStyle = withAlpha(colors.accentDanger, 0.5);
       ctx.lineWidth = 3;
       ctx.stroke();
     }
@@ -1209,7 +1388,7 @@ export class GhostEnemy extends Enemy {
       health: 80,
       width: 100,
       height: 64,
-      color: 'rgba(200, 200, 255, 0.6)',
+      color: withAlpha(decorative.violet, 0.6),
       image: image,
       bounty: 25,
       isAttacker: false,
@@ -1230,11 +1409,14 @@ export class GhostEnemy extends Enemy {
     if (!this.isAlive) return;
 
     //phase shift logic
-    this.currentPhaseShiftCooldown--;
+    this.currentPhaseShiftCooldown -= frameScale();
     if (this.currentPhaseShiftCooldown <= 0 && !this.isPhased) {
       //check if there is a defender to phase through
       const nearByDefender = defenderUnits.find(defender => {
-        if (!defender.isAlive) return;
+        // A find() predicate: falsy means "not this one, keep looking". Spelled
+        // out as `false` because the same line inside a for...of loop - which
+        // is what TitanEnemy.performGroundPound had - is a real bug.
+        if (!defender.isAlive) return false;
         const distance = Math.hypot(
             this.x + this.width / 2 - (defender.x + defender.width / 2),
             this.y + this.height / 2 - (defender.y + defender.height / 2)
@@ -1249,7 +1431,7 @@ export class GhostEnemy extends Enemy {
     }
     //handle phase duration
     if (this.isPhased) {
-      this.currentPhaseDuration--;
+      this.currentPhaseDuration -= frameScale();
       if (this.currentPhaseDuration <= 0) {
         this.isPhased = false;
       }
@@ -1280,7 +1462,7 @@ export class GhostEnemy extends Enemy {
     // Phase shift aura
     if (this.isPhased) {
       ctx.save();
-      ctx.strokeStyle = "rgba(200, 200, 255, 0.6)";
+      ctx.strokeStyle = withAlpha(decorative.violet, 0.6);
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 5]);
       ctx.beginPath();
@@ -1305,7 +1487,7 @@ export class BerserkerEnemy extends Enemy {
       health: 200,
       width: 100,
       height: 64,
-      color: 'darkred',
+      color: colors.accentDanger,
       image: image,
       bounty: 35,
       isAttacker: true,
@@ -1339,7 +1521,7 @@ export class BerserkerEnemy extends Enemy {
       this.isMoving = true;
     }
     if (this.isMoving) {
-      this.x += this.speed;
+      this.x += this.speed * frameScale();
     }
   }
 
@@ -1348,6 +1530,8 @@ export class BerserkerEnemy extends Enemy {
 
     const totalDamage = this.attackDamage + this.damageBonus;
     const died = target.takeDamage(totalDamage);
+    // Berserker also applies its own damage rather than calling super.attack().
+    this.gameEngine?.emitFeedback?.('enemy:melee', { unitType: this.constructor.name });
     console.log(`Berserker does ${totalDamage}damage`);
     console.log(`Berserker move ${this.speed} speed`);
     console.log(`${this.killCount} killCount`)
@@ -1369,9 +1553,9 @@ export class BerserkerEnemy extends Enemy {
                                           damage: 0,
                                           radius: 40,
                                           timer: 50,
-                                          color: "darkred",
-                                          innerColor: "red",
-                                          particleColor: "rgba(139, 0, 0, 0.8)",
+                                          color: colors.accentDanger,
+                                          innerColor: colors.accentDanger,
+                                          particleColor: withAlpha(colors.accentDanger, 0.8),
                                           style: "rage",
                                           type: "effect",
                                           source: "berserker"})
@@ -1385,13 +1569,13 @@ export class BerserkerEnemy extends Enemy {
     //draw rage stack
     if (this.killCount > 0) {
       ctx.save();
-      ctx.fillStyle = "red";
-      ctx.font = "bold 12px Arial";
+      ctx.fillStyle = colors.accentDanger;
+      ctx.font = canvasFont(12, "bold");
       ctx.textAlign = "center";
       ctx.fillText(`x${this.killCount}`, this.x + this.width / 2, this.y - 20);
 
       // Rage aura
-      ctx.strokeStyle = `rgba(255, 0, 0, ${0.3 + this.killCount * 0.1})`;
+      ctx.strokeStyle = withAlpha(colors.accentDanger, 0.3 + this.killCount * 0.1);
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(
@@ -1415,7 +1599,7 @@ export class NecromancerEnemy extends Enemy {
       health: 100,
       width: 90,
       height: 64,
-      color: 'darkviolet',
+      color: decorative.violet,
       image: image,
       bounty: 35,
       isAttacker: true,
@@ -1445,7 +1629,7 @@ export class NecromancerEnemy extends Enemy {
 
     // Only revive if not frozen/stunned
     if (!this.frozen && !this.stunned) {
-      this.currentReviveCooldown--;
+      this.currentReviveCooldown -= frameScale();
       if (this.currentReviveCooldown <= 0) {
         this.reviveSkeletons();
         this.currentReviveCooldown = this.reviveCooldown;
@@ -1455,7 +1639,7 @@ export class NecromancerEnemy extends Enemy {
 
   handleMovement() {
     if (this.isMoving && !this.frozen && !this.stunned) {
-      this.x += this.speed;
+      this.x += this.speed * frameScale();
     }
   }
 
@@ -1471,7 +1655,7 @@ export class NecromancerEnemy extends Enemy {
     skeleton.attackDamage /= 2;
     skeleton.attackRange = 100;
     skeleton.maxHealth = 50;
-    skeleton.color = "lightgray";
+    skeleton.color = colors.textMuted;
     skeleton.isSpawned = true;
     skeleton.spawnBy = this.id;
 
@@ -1485,6 +1669,7 @@ export class NecromancerEnemy extends Enemy {
     }
 
     this.gameEngine.enemies.push(skeleton);
+    this.gameEngine?.emitFeedback?.('enemy:summon', { unitType: this.constructor.name });
     this.reviveCount++;
 
     this.gameEngine.explosions.push({
@@ -1493,9 +1678,9 @@ export class NecromancerEnemy extends Enemy {
                                       damage: 0,
                                       radius: 50,
                                       timer: 30,
-                                      color: "darkviolet",
-                                      innerColor: "purple",
-                                      particleColor: "rgba(148, 0, 211, 0.8)",
+                                      color: decorative.violet,
+                                      innerColor: decorative.violet,
+                                      particleColor: withAlpha(decorative.violet, 0.8),
                                       style: "necromancy",
                                       type: "effect",
                                       source: "necromancer"
@@ -1509,7 +1694,7 @@ export class NecromancerEnemy extends Enemy {
     if (this.currentReviveCooldown < 60) {
       ctx.save();
       ctx.globalAlpha = 0.3;
-      ctx.fillStyle = "darkviolet";
+      ctx.fillStyle = decorative.violet;
       ctx.beginPath();
       ctx.arc(
           this.x + this.width / 2,
@@ -1523,8 +1708,8 @@ export class NecromancerEnemy extends Enemy {
     }
 
     // Show revive count
-    ctx.fillStyle = "purple";
-    ctx.font = "10px Arial";
+    ctx.fillStyle = decorative.violet;
+    ctx.font = canvasFont(10);
     ctx.fillText(`Revives: ${this.reviveCount}`, this.x, this.y - 20);
   }
 
@@ -1538,7 +1723,7 @@ export class AssassinEnemy extends Enemy {
       health: 70,
       width: 50,
       height: 32,
-      color: 'black',
+      color: colors.edgeOutline,
       image: image,
       bounty: 15,
       isAttacker: true,
@@ -1564,7 +1749,7 @@ export class AssassinEnemy extends Enemy {
 
     //stealth countdown
     if (this.isStealthed) {
-      this.currentStealthDuration--;
+      this.currentStealthDuration -= frameScale();
       if (this.currentStealthDuration <= 0 ) {
         this.isStealthed = false;
       }
@@ -1591,6 +1776,9 @@ export class AssassinEnemy extends Enemy {
         //critical strike damage
         const critDamage = this.attackDamage * 5;
         targetDefender.takeDamage(critDamage);
+        // The assassination strikes from inside updateBehavior, bypassing both
+        // attack() and the base countdown; hasStruck keeps it to one event.
+        this.gameEngine?.emitFeedback?.('enemy:melee', { unitType: this.constructor.name });
 
         //strike effect
         if (this.gameEngine) {
@@ -1600,9 +1788,9 @@ export class AssassinEnemy extends Enemy {
                                             damage: 0,
                                             radius: 50,
                                             timer: 20,
-                                            color: "darkred",
-                                            innerColor: "black",
-                                            particleColor: "rgba(139, 0, 0, 0.9)",
+                                            color: colors.accentDanger,
+                                            innerColor: colors.edgeOutline,
+                                            particleColor: withAlpha(colors.accentDanger, 0.9),
                                             style: "slash",
                                             type: "effect",
                                             source: "assassin"});
@@ -1615,7 +1803,7 @@ export class AssassinEnemy extends Enemy {
 
   handleMovement() {
     if (!this.isAttacking && !this.frozen && !this.stunned) {
-      this.x += this.isStealthed ? this.dashSpeed : this.speed;
+      this.x += (this.isStealthed ? this.dashSpeed : this.speed) * frameScale();
     }
   }
 
@@ -1664,7 +1852,7 @@ export class MageEnemy extends Enemy {
       health: 90,
       width: 90,
       height: 64,
-      color: 'blue',
+      color: colors.accentInfo,
       image: image,
       bounty: 15,
       isAttacker: true,
@@ -1688,7 +1876,7 @@ export class MageEnemy extends Enemy {
   updateBehavior(defenderUnits) {
     // Update cooldowns
     if (this.attackCooldown > 0) {
-      this.attackCooldown--;
+      this.attackCooldown -= frameScale();
     }
 
     // Cancel casting if frozen/stunned
@@ -1701,7 +1889,7 @@ export class MageEnemy extends Enemy {
 
     // Handle casting
     if (this.isCasting && !this.frozen && !this.stunned) {
-      this.castingTimer--;
+      this.castingTimer -= frameScale();
       if (this.castingTimer <= 0) {
         this.performSpellAttack();
         this.isCasting = false;
@@ -1740,7 +1928,7 @@ export class MageEnemy extends Enemy {
 
   handleMovement() {
     if (this.isMoving && !this.frozen && !this.stunned && !this.isCasting) {
-      this.x += this.speed;
+      this.x += this.speed * frameScale();
     }
   }
 
@@ -1816,6 +2004,7 @@ export class MageEnemy extends Enemy {
       this.gameEngine.spellProjectiles = [];
     }
     this.gameEngine.spellProjectiles.push(fireBall);
+    this.gameEngine?.emitFeedback?.('enemy:spell', { unitType: this.constructor.name });
   }
 
   castIcebolt() {
@@ -1840,6 +2029,7 @@ export class MageEnemy extends Enemy {
       this.gameEngine.spellProjectiles = [];
     }
     this.gameEngine.spellProjectiles.push(icebolt);
+    this.gameEngine?.emitFeedback?.('enemy:spell', { unitType: this.constructor.name });
   }
 
   castLightning() {
@@ -1855,15 +2045,19 @@ export class MageEnemy extends Enemy {
                                       damage: 0,
                                       radius: 60,
                                       timer: 30,
-                                      color: "purple",
-                                      innerColor: "white",
-                                      particleColor: "rgba(138, 43, 226, 0.9)",
+                                      color: decorative.violet,
+                                      innerColor: colors.textPrimary,
+                                      particleColor: withAlpha(decorative.violet, 0.9),
                                       style: "lightning_strike",
                                       type: "effect",
                                       source: "mage"
                                     });
 
     this.currentTarget.takeDamage(this.attackDamage);
+    // The third spell has no projectile to hang a sound on, so without this it
+    // is the one cast the player cannot hear. Emitted once for the strike, not
+    // once per chained defender - the chain is one spell, not several.
+    this.gameEngine?.emitFeedback?.('enemy:spell', { unitType: this.constructor.name });
 
     //chaining
     for (const defender of this.gameEngine.defenders) {
@@ -1882,9 +2076,9 @@ export class MageEnemy extends Enemy {
                                                 damage: 0,
                                                 radius: 40,
                                                 timer: 20,
-                                                color: "purple",
-                                                innerColor: "white",
-                                                particleColor: "rgba(138, 43, 226, 0.7)",
+                                                color: decorative.violet,
+                                                innerColor: colors.textPrimary,
+                                                particleColor: withAlpha(decorative.violet, 0.7),
                                                 style: "lightning_strike",
                                                 type: "effect",
                                                 source: "mage"
@@ -1901,10 +2095,10 @@ export class MageEnemy extends Enemy {
 
   getSpellColor() {
     switch (this.spellType) {
-      case "fireball": return "orange";
-      case "icebolt": return "lightblue";
-      case "lightning": return "purple";
-      default: return "purple";
+      case "fireball": return decorative.orange;
+      case "icebolt": return colors.accentInfo;
+      case "lightning": return decorative.violet;
+      default: return decorative.violet;
     }
   }
 
@@ -2007,7 +2201,7 @@ export class TitanEnemy extends Enemy {
       health: 5000,
       width: 180,
       height: 128,
-      color: 'darkslategray',
+      color: colors.surfaceSunken,
       image: image,
       bounty: 100,
       isAttacker: true,
@@ -2069,13 +2263,24 @@ export class TitanEnemy extends Enemy {
                                       damage: 0,
                                       radius: 1500,
                                       timer: 40,
-                                      color: "darkslategray",
-                                      innerColor: "gray",
-                                      particleColor: "rgba(105, 105, 105, 0.8)",
+                                      color: colors.surfaceSunken,
+                                      innerColor: colors.textMuted,
+                                      particleColor: withAlpha(colors.textMuted, 0.8),
                                       style: "shockwave",
                                       type: "effect",
                                       source: "titan"
                                     });
+
+    // ONE event for the transition, emitted here rather than inside the loop
+    // below: that loop reaches every defender within 1500px, which in practice
+    // is the whole board, so an emit per defender would stack one copy of a
+    // LOUD sound per unit the player owns. Same rule as the Mage's lightning
+    // chain - the transition is one moment, however many things it touches.
+    this.gameEngine?.emitFeedback?.('enemy:phaseChange', {
+      unitType: this.constructor.name,
+      phase: this.phase,
+    });
+
     //stun nearby defender
     for (const defender of this.gameEngine.defenders) {
       const distance = Math.hypot(
@@ -2083,8 +2288,9 @@ export class TitanEnemy extends Enemy {
           this.y + this.height / 2 - (defender.y + defender.height / 2)
       );
       if (distance <= 1500) {
+        /* 120 authored frames (~2s), not 300 (~5s). */
         defender.disabled = true;
-        defender.disabledDuration = 300; //5sec
+        defender.disabledDuration = 120;
         defender.takeDamage(40);
       }
 
@@ -2093,14 +2299,24 @@ export class TitanEnemy extends Enemy {
 
   updateBehavior(defenderUnits) {
     super.updateBehavior(defenderUnits);
-    console.log(`Titan move at ${this.speed} speed`);
 
     if (!this.isAlive || !this.gameEngine) return;
 
-    this.currentGroundPoundCooldown--;
+    // A ground pound is not melee contact, and super.updateBehavior above
+    // clears isAttacking on every frame with nothing overlapping - so without
+    // this the telegraph performGroundPound starts survives exactly one frame
+    // and the Titan walks through its own earthquake. Re-asserted rather than
+    // set once because the base rule runs again every frame.
+    if (this.isGroundPounding) this.isAttacking = true;
+
+    this.currentGroundPoundCooldown -= frameScale();
     if (this.currentGroundPoundCooldown <= 0 && !this.isGroundPounding) {
       const nearbyDefender = defenderUnits.find(defender => {
-        if (!defender.isAlive) return;
+        // A find() PREDICATE, not a loop body: returning falsy here means "not
+        // this one, keep looking", which is what a corpse should do. Spelled
+        // out because the identical-looking line in performGroundPound's
+        // for...of below WAS a bug.
+        if (!defender.isAlive) return false;
         const distance = Math.hypot(
             this.x + this.width / 2 - (defender.x + defender.width / 2),
             this.y + this.height / 2 - (defender.y + defender.height / 2)
@@ -2120,9 +2336,33 @@ export class TitanEnemy extends Enemy {
     const originalSpeed = this.speed;
     this.speed = 0;
 
+    /*
+     * The visible telegraph. AssetManifest.enemies.Titan declares an 11-frame
+     * attack sheet at 5.5fps - 2000ms, matching the attackRate 120 cadence -
+     * and until now nothing played it except melee contact, so the player's
+     * report was literally true: the defender died without the Titan
+     * attacking.
+     */
+    this.isAttacking = true;
+    this.beginAttackAnimation();
+
+    // The wind-up used to also emit 'enemy:groundPoundCharge' here, a rising
+    // synth tone 500ms before the impact - dropped per the owner's ask ("can
+    // we only keep the earthquake sound without the initial beep?"). The
+    // wind-up is now silent; the animation above is the only warning before
+    // damage lands.
+
     //charge up animation
     setTimeout(() => {
       if (!this.isAlive || !this.gameEngine) return;
+
+      // ONE impact for all three waves. They land 200ms apart - five times
+      // AudioManager's 40ms dedupe window - so three emits would be three
+      // full-volume copies of a LOUD sound inside 400ms rather than one sound
+      // with a rhythm. The rhythm is authored into the recipe's layers, at
+      // these same offsets; see UNIT_VOICES['quake-impact'].
+      this.gameEngine?.emitFeedback?.('enemy:groundPoundImpact', { unitType: this.constructor.name });
+
       //earthequake effect
       for (let i = 0; i < 3; i++) {
         setTimeout(() => {
@@ -2134,9 +2374,9 @@ export class TitanEnemy extends Enemy {
                                             damage: 0,
                                             radius: radius,
                                             timer: 20,
-                                            color: "brown",
-                                            innerColor: "darkgoldenrod",
-                                            particleColor: "rgba(139, 69, 19, 0.8)",
+                                            color: colors.surfaceRaised,
+                                            innerColor: colors.edgeHighlight,
+                                            particleColor: withAlpha(colors.surfaceRaised, 0.8),
                                             style: "earthquake",
                                             type: "effect",
                                             source: "titan",
@@ -2145,7 +2385,12 @@ export class TitanEnemy extends Enemy {
 
           //damage all defender in radius
           for (const defender of this.gameEngine.defenders) {
-            if (!defender.isAlive) return;
+            // `continue`, not `return`. This is a for...of body, so `return`
+            // left the whole callback on the first corpse in the array and
+            // every defender BEHIND it survived a wave it was standing in -
+            // which meant who lived depended on array order. The identical loop
+            // in EMPEnemy.triggerEMP already had this right.
+            if (!defender.isAlive) continue;
 
             const distance = Math.hypot(
                 this.x + this.width / 2 - (defender.x + defender.width / 2),
@@ -2170,16 +2415,16 @@ export class TitanEnemy extends Enemy {
   draw(ctx) {
     super.draw(ctx);
 
-    // Phase indicator
+    /*
+     * The phase used to be shown as a strokeRect around the whole sprite,
+     * coloured by phase.
+     */
     ctx.save();
-    ctx.strokeStyle = this.phase === 3 ? "red" : this.phase === 2 ? "orange" : "gray";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(this.x - 2, this.y - 2, this.width + 4, this.height + 4);
 
     // Ground pound charge indicator
     if (this.isGroundPounding) {
       ctx.globalAlpha = 0.5;
-      ctx.fillStyle = "brown";
+      ctx.fillStyle = colors.surfaceRaised;
       const chargeRadius = this.earthquakeRadius * Math.sin(Date.now() / 100);
       ctx.beginPath();
       ctx.arc(
@@ -2196,14 +2441,26 @@ export class TitanEnemy extends Enemy {
 
     // Armor indicator
     if (this.hasArmor) {
-      ctx.fillStyle = "silver";
+      ctx.fillStyle = colors.edgeHighlight;
       ctx.fillRect(this.x + this.width - 10, this.y, 8, 8);
     }
-    // Phase indicator text
-    ctx.fillStyle = this.phase === 3 ? "red" : this.phase === 2 ? "orange" : "white";
-    ctx.font = "bold 12px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText(`P${this.phase}`, this.x + this.width / 2, this.y - 15);
+    /*
+     * The phase readout. For a boss it is already in the health bar (see
+     * bossBarLabel below), so drawing it again here would print it twice.
+     */
+    if (!this.isBoss) {
+      ctx.save();
+      ctx.fillStyle = this.phase === 3 ? colors.accentDanger : this.phase === 2 ? decorative.orange : colors.textPrimary;
+      ctx.font = canvasFont(12, "bold");
+      ctx.textAlign = "center";
+      ctx.fillText(`P${this.phase}`, this.x + this.width / 2, this.y - 26);
+      ctx.restore();
+    }
+  }
+
+  /** The Titan's phase belongs in the bar, not in a second row above it. */
+  bossBarLabel() {
+    return `${this.name}  P${this.phase}  ${this.health.toFixed(0)}/${this.maxHealth}`;
   }
 }
 

@@ -7,6 +7,8 @@ import "../../../style/Lobby.css"; // Assuming some styles are shared
 import "../../../style/UpgradeModal.css"; // Correct path
 import { getUpgradePreview } from "../../GameLogic (MVC)/DefenderClassUtils.js";
 import Bow from "../../../Icons/Bow.png";
+import GameBackdrop from "../TerrainBackdrop.jsx";
+import { MAX_DEFENDER_LEVEL } from "../../GameLogic (MVC)/DefenderClassUtils.js";
 
 function UpgradeModal() {
   const { playerData, startCardUpgrade, closeUpgradeModal } =
@@ -17,6 +19,9 @@ function UpgradeModal() {
 
   //check if this car can be upgraded, by resources, and by worker
   //add cardpieces requirement in order to upgrade
+  /** True once a defender has reached MAX_DEFENDER_LEVEL. */
+  const atMaxLevel = (card) => card.level >= MAX_DEFENDER_LEVEL;
+
   const canUpgradeCard = (card) => {
     if (!playerData) return false;
 
@@ -34,6 +39,7 @@ function UpgradeModal() {
 
   return (
     <div className="upgrade-modal">
+            <GameBackdrop />
       <div className="modal-content">
         <button className="close-button" onClick={closeUpgradeModal}>
           &times;
@@ -57,7 +63,7 @@ function UpgradeModal() {
                 <Card card={card} />
 
                   <div className="upgrade-info">
-                    <h4>Upgrade to Level {card.level + 1}</h4>
+                    <h4>{atMaxLevel(card) ? `Level ${card.level} - maxed` : `Upgrade to Level ${card.level + 1}`}</h4>
 
                     {/* Show Stats Improvement */}
                     {upgradePreview && (
@@ -129,18 +135,24 @@ function UpgradeModal() {
 
                     {/* Only show button if card is selected or if it's the one we're looking at */}
                     {selectedCard?.id === card.id && (
-                      <button
-                        className={`upgrade-button ${
-                          canUpgrade ? "" : "disabled"
-                        }`}
-                        onClick={() => startCardUpgrade(card.id)}
-                        disabled={!canUpgrade}
-                      >
-                        {canUpgrade ? "Start Upgrade" : "Requirements Not Met"}
-                      </button>
+                      atMaxLevel(card) ? (
+                        /* Not a disabled upgrade button: at the ceiling there is
+                           nothing to buy, and startCardUpgrade refuses outright.
+                           A greyed "Start Upgrade" would keep implying otherwise. */
+                        <p className="upgrade-maxed">Fully upgraded</p>
+                      ) : (
+                        <button
+                          className={`upgrade-button ${
+                            canUpgrade ? "" : "disabled"
+                          }`}
+                          onClick={() => startCardUpgrade(card.id)}
+                          disabled={!canUpgrade}
+                        >
+                          {canUpgrade ? "Start Upgrade" : "Requirements Not Met"}
+                        </button>
+                      )
                     )}
                   </div>
-                )
               </div>
             );
           })}

@@ -1,3 +1,8 @@
+import { colors, withAlpha } from '../../../../style/tokens.js';
+
+/* The post-crop frame size of a defender sprite. */
+export const SPRITE_NATIVE_PX = 48;
+
 /**
  * This class represent the grid cells of the in game board. Including
  * importance of initializing a grid and resetting a grid.
@@ -35,6 +40,14 @@ export class GridManager {
         }
     }
 
+    /*
+     * The board is 9 columns wide at every level - only the row count grows
+     * with the level.
+     */
+    getColsForLevel() {
+        return 9;
+    }
+
     /**
      * Initialize the grid system in the game board
      */
@@ -42,7 +55,7 @@ export class GridManager {
         const availableWidth = this.canvasWidth - this.leftMargin - this.rightMargin;
         const availableHeight = this.canvasHeight - this.topMargin - this.bottomMargin;
 
-        const cols = 9;
+        const cols = this.getColsForLevel();
         const rows = this.getRowsForLevel();
 
         // Calculate grid size based on available space
@@ -52,8 +65,8 @@ export class GridManager {
             80  // Maximum grid size cap
         );
 
-        if (this.gridSize < 40) {
-            this.gridSize = 40; //minimun for playability
+        if (this.gridSize < SPRITE_NATIVE_PX) {
+            this.gridSize = SPRITE_NATIVE_PX; // never smaller than the defender art it holds
         }
 
         // Center the grid in the available space
@@ -87,11 +100,10 @@ export class GridManager {
         }
     }
 
-    /**
-     * Return the specific grid cell from the given x and y coordinate
-     * @param x the x position of the wanted grid cell
-     * @param y the y position of the wanted grid cell
-     * @returns {*|null} if a grid cell is not found
+    /*
+     * Return the specific grid cell from the given x and y coordinate @param x
+     * the x position of the wanted grid cell @param y the y position of the
+     * wanted grid cell @returns {*|null} if a grid cell is not found
      */
     getGridCell(x, y) {
         if (x < this.gridOffsetX || y < this.gridOffsetY) return null;
@@ -131,25 +143,25 @@ export class GridManager {
         for (let row of this.deploymentGrid) {
             for (let cell of row) {
                 // Base grid styling
-                ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+                ctx.strokeStyle = withAlpha(colors.textPrimary, 0.2);
                 ctx.lineWidth = 1;
 
                 // Different visual hints for different columns (optional)
                 // Leftmost columns slightly darker to show enemy approach area
                 if (cell.col < 2) {
-                    ctx.fillStyle = "rgba(150, 150, 255, 0.05)"; // Slight blue tint for danger zone
+                    ctx.fillStyle = withAlpha(colors.accentInfo, 0.05); // Slight blue tint for danger zone
                     ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
                 }
 
                 // Highlight occupied cells
                 if (cell.occupied) {
-                    ctx.fillStyle = "rgba(255, 100, 100, 0.15)";
+                    ctx.fillStyle = withAlpha(colors.accentDanger, 0.15);
                     ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
                 }
 
                 // If player is selecting a card, highlight valid cells
                 if (this.highlightGrid && !cell.occupied) {
-                    ctx.fillStyle = "rgba(100, 255, 100, 0.25)";
+                    ctx.fillStyle = withAlpha(colors.accentSuccess, 0.25);
                     ctx.fillRect(cell.x, cell.y, this.gridSize, this.gridSize);
                 }
 
@@ -159,20 +171,20 @@ export class GridManager {
         }
 
         // Draw stronger row separators (lane indicators)
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+        ctx.strokeStyle = withAlpha(colors.textPrimary, 0.3);
         ctx.lineWidth = 2;
         for (let row = 0; row <= this.deploymentGrid.length; row++) {
             const y = this.gridOffsetY + row * this.gridSize;
             ctx.beginPath();
             ctx.moveTo(this.gridOffsetX, y);
-            ctx.lineTo(this.gridOffsetX + 9 * this.gridSize, y);
+            ctx.lineTo(this.gridOffsetX + this.getColsForLevel() * this.gridSize, y);
             ctx.stroke();
         }
 
         // Draw column separators (lighter)
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.strokeStyle = withAlpha(colors.textPrimary, 0.15);
         ctx.lineWidth = 1;
-        for (let col = 0; col <= 9; col++) {
+        for (let col = 0; col <= this.getColsForLevel(); col++) {
             const x = this.gridOffsetX + col * this.gridSize;
             ctx.beginPath();
             ctx.moveTo(x, this.gridOffsetY);
@@ -249,24 +261,43 @@ export class GridManager {
      */
     getColumnFromX(x) {
         const col = Math.floor((x - this.gridOffsetX) / this.gridSize);
-        if (col >= 0 && col < 9) {
+        if (col >= 0 && col < this.getColsForLevel()) {
             return col;
         }
         return -1;
     }
 
-    /**
-     * Get specific cell by row and column indices
-     * @param row Row index
-     * @param col Column index
-     * @returns {Object|null} Cell object or null if invalid
+    /*
+     * Get specific cell by row and column indices @param row Row index @param
+     * col Column index @returns {Object|null} Cell object or null if invalid
      */
     getCellByIndices(row, col) {
         if (row >= 0 && row < this.deploymentGrid.length &&
-            col >= 0 && col < 9) {
+            col >= 0 && col < this.getColsForLevel()) {
             return this.deploymentGrid[row][col];
         }
         return null;
+    }
+
+    /**
+     * Alternating bands, one per row, drawn under everything else. The grid is
+     * otherwise invisible unless highlighted, which leaves the player guessing
+     * which row an enemy is in and where a unit may be placed.
+     */
+    drawLaneBands(ctx) {
+        const rows = this.getRowsForLevel();
+        const width = this.getColsForLevel() * this.gridSize;
+        ctx.save();
+        for (let row = 0; row < rows; row++) {
+            ctx.fillStyle = row % 2 === 0 ? colors.surfaceBase : colors.surfaceSunken;
+            ctx.fillRect(
+                this.gridOffsetX,
+                this.gridOffsetY + row * this.gridSize,
+                width,
+                this.gridSize,
+            );
+        }
+        ctx.restore();
     }
 
 }

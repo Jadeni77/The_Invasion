@@ -1,64 +1,20 @@
 /*
-
-src/
-├── components/
-│   └── common/
-│        ├── Card.jsx
-│        └── WorkerStatus.jsx
-│   ├── GameLogic (MVC)/
-|   |    |-- GameEngineBreakDown/
-|   |    |   |-- Draws/
-|   |    |   |   |-- DrawEntities.js
-|   |    |   |   |-- DrawExplosionEffect.js
-|   |    |   |   |-- DrawNegativeEffect.js
-|   |    |   |   |-- DrawUIs.js
-|   |    |   |-- Drops/
-|   |    |   |   |-- CardPieceDrop.js
-|   |    |   |   |-- EnergyDrop.js
-|   |    |   |-- InGameManagerHandlers/
-|   |    |       |-- CombatManager.js
-|   |    |       |-- DropManager.js
-|   |    |       |-- GridManager.js
-|   |    |       |-- WaveManager.js
-|   |    |-- DefenderClassUtils.js
-│   │    ├── DefenderUnits.js
-│   │    ├── EnemyUnits.js
-│   │    ├── GameContext.jsx
-│   │    └── GameEngine.js
-│   ├── GameRendering/
-|   |    |-- LobbyButton/
-|   |    |   |-- AchievementPage.jsx
-|   |    |   |-- CollectionPage.jsx
-|   |    |   |-- SettingModal.jsx
-|   |    |   |-- UpgradeModal.jsx
-|   |    |-- CardSelectionModal.jsx
-|   |    |-- EnergyBar.jsx
-│   │    ├── GameBoard.jsx
-│   │    ├── Lobby.jsx
-│   │    ├── MapLayout.jsx
-│   │    └── ResourceIcon.jsx
-|   |    |-- UseMobileOrientation.js
-├── style/
-|   |-- AchievementPage.css
-|   |-- AllImage.css
-|   |-- Card.css
-|   |-- CardSelectionModal.css
-|   |-- CollectionPage.css
-|   |-- EnergyBar.css
-|   |-- GameBoard.css
-│   ├── Lobby.css
-|   |-- SettingModal.css
-|   |-- UpgradeModal.css
-|   |-- WorkerStatus.css
-|
-|-- Icons/
-|   |-- Bow.png
-|   |-- CloseChest.png
-|   |-- Gold.png
-|   |-- Iron.png
-|   |-- OpenChest.png
-|   |-- Worker.png
-|
-└── App.jsx
-
-*/
+ * src/ ├── components/ │ └── common/ │ ├── Card.jsx │ └── WorkerStatus.jsx │
+ * ├── GameLogic (MVC)/ | | |-- GameEngineBreakDown/ | | | |-- Draws/ | | | |
+ * |-- DrawEntities.js | | | | |-- DrawExplosionEffect.js | | | | |--
+ * DrawNegativeEffect.js | | | | |-- DrawUIs.js | | | |-- Drops/ | | | | |--
+ * CardPieceDrop.js | | | | |-- EnergyDrop.js | | | |-- InGameManagerHandlers/
+ * | | | |-- CombatManager.js | | | |-- DropManager.js | | | |-- GridManager.js
+ * | | | |-- WaveManager.js | | |-- DefenderClassUtils.js │ │ ├──
+ * DefenderUnits.js │ │ ├── EnemyUnits.js │ │ ├── GameContext.jsx │ │ └──
+ * GameEngine.js │ ├── GameRendering/ | | |-- LobbyButton/ | | | |--
+ * AchievementPage.jsx | | | |-- CollectionPage.jsx | | | |-- SettingModal.jsx
+ * | | | |-- UpgradeModal.jsx | | |-- CardSelectionModal.jsx | | |--
+ * EnergyBar.jsx │ │ ├── GameBoard.jsx │ │ ├── Lobby.jsx │ │ ├── MapLayout.jsx
+ * │ │ └── ResourceIcon.jsx | | |-- UseMobileOrientation.js ├── style/ | |--
+ * AchievementPage.css | |-- AllImage.css | |-- Card.css | |--
+ * CardSelectionModal.css | |-- CollectionPage.css | |-- EnergyBar.css | |--
+ * GameBoard.css │ ├── Lobby.css | |-- SettingModal.css | |-- UpgradeModal.css
+ * | |-- WorkerStatus.css | |-- Icons/ | |-- Bow.png | |-- CloseChest.png | |--
+ * Gold.png | |-- Iron.png | |-- OpenChest.png | |-- Worker.png | └── App.jsx
+ */

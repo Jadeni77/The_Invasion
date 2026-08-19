@@ -1,0 +1,29 @@
+/*
+ * Global foundation. This file was empty, which meant the app ran on Chrome's
+ * defaults: `body` kept its 8px margin and every box was `content-box`.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  /* The lobby and the gameboard both size themselves to the viewport, so the
+     document must never be taller or wider than one by default. */
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: var(--colors-surface-base);
+  color: var(--colors-text-primary);
+}
+
+#root {
+  min-height: 100vh;
+}

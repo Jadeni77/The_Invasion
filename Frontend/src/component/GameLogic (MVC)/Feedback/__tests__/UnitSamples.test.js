@@ -1,0 +1,234 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import {
+  sampleNameFromPath,
+  SAMPLE_VARIANTS,
+  unknownSampleNames,
+} from '../UnitSamples.js';
+import { stripComments } from '../../../../test/sourceFiles.js';
+
+describe('sampleNameFromPath', () => {
+  it.each([
+    ['/src/assets/audio/units/Mortar.ogg', 'Mortar'],
+    ['/src/assets/audio/units/Sniper.wav', 'Sniper'],
+    ['/src/assets/audio/units/TitanEnemy.mp3', 'TitanEnemy'],
+    ['../../assets/audio/units/BasicEnemy.ogg', 'BasicEnemy'],
+  ])('maps %s to %s', (path, expected) => {
+    expect(sampleNameFromPath(path)).toBe(expected);
+  });
+
+  it('keeps a name containing dots intact apart from the extension', () => {
+    expect(sampleNameFromPath('/a/b/My.Unit.ogg')).toBe('My.Unit');
+  });
+});
+
+describe('SAMPLE_VARIANTS', () => {
+  it('plays fire untransformed', () => {
+    expect(SAMPLE_VARIANTS.fire).toEqual({ playbackRate: 1, gainScale: 1, durationScale: 1 });
+  });
+
+  it('makes hit shorter and quieter at normal pitch', () => {
+    expect(SAMPLE_VARIANTS.hit.playbackRate).toBe(1);
+    expect(SAMPLE_VARIANTS.hit.gainScale).toBe(0.55);
+    expect(SAMPLE_VARIANTS.hit.durationScale).toBe(0.35);
+  });
+
+  it('pitches death down, which also lengthens it', () => {
+    expect(SAMPLE_VARIANTS.death.playbackRate).toBe(0.75);
+    expect(SAMPLE_VARIANTS.death.durationScale).toBe(1);
+  });
+
+  it('makes melee shorter and quieter at normal pitch, like a hit', () => {
+    // Rejects: a missing SAMPLE_VARIANTS.melee entry. FeedbackManager falls
+    // back to SAMPLE_VARIANTS.fire for an unknown variant, so a supplied
+    // melee sample would play at full length and full gain while the
+    // synthesized path stayed short - the two sources would not match.
+    expect(SAMPLE_VARIANTS.melee).toEqual({ playbackRate: 1, gainScale: 0.55, durationScale: 0.35 });
+    expect(SAMPLE_VARIANTS.melee.durationScale).toBeLessThan(SAMPLE_VARIANTS.fire.durationScale);
+    expect(SAMPLE_VARIANTS.melee.gainScale).toBeLessThan(SAMPLE_VARIANTS.fire.gainScale);
+  });
+
+  it('every variant is within valid multiplier ranges', () => {
+    for (const [name, t] of Object.entries(SAMPLE_VARIANTS)) {
+      expect(t.playbackRate, `${name} playbackRate`).toBeGreaterThan(0);
+      expect(t.gainScale, `${name} gainScale`).toBeGreaterThan(0);
+      expect(t.gainScale, `${name} gainScale`).toBeLessThanOrEqual(1);
+      expect(t.durationScale, `${name} durationScale`).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('the Titan ability variants (impact, phase)', () => {
+  // Prior to the clash-samples task these two had no SAMPLE_VARIANTS entry at
+  // all, so playUnitVoice's `SAMPLE_VARIANTS[variant] ?? SAMPLE_VARIANTS.fire`
+  // fallback would hand any future sample dropped under quake-impact or
+  // phase-change the untouched fire transform: full gain, full length. The
+  // suite passed throughout because no such sample existed to expose it - the
+  // exact "melee-variant trap" this file's SAMPLE_VARIANTS header now calls
+  // out.
+  //
+  // A third variant, 'charge', used to sit here too (SAMPLE_VARIANTS.charge,
+  // for a hypothetical future quake-charge sample). Removed along with the
+  // 'charge' variant itself - UNIT_VOICES['quake-charge'], the soundKeyFor
+  // branch that reached it, and the event that supplied it - per the owner's
+  // ask ("can we only keep the earthquake sound without the initial beep?").
+
+  it('gives the impact a lower gainScale than fire, so a hot-mastered sample is not louder than the "too loud" synth version', () => {
+    // Rejects: leaving SAMPLE_VARIANTS.impact at gainScale 1 (fire's value).
+    // Earthquake_Spell.ogg measures ~0dB peak; at SAMPLE_BASE_GAIN 0.7 * the
+    // LOUD mix tier (1.0) * gainScale 1, that is louder than the synth
+    // quake-impact recipe the owner already played and called too loud (its
+    // loudest layer peaks at 0.58-0.60). 0.6 keeps the sample in that
+    // neighbourhood instead of at the file's own hot peak.
+    expect(SAMPLE_VARIANTS.impact.gainScale).toBeLessThan(SAMPLE_VARIANTS.fire.gainScale);
+    expect(SAMPLE_VARIANTS.impact.gainScale).toBe(0.6);
+  });
+
+  it('gives phase-change the same conservative gain, ahead of any sample being supplied for it', () => {
+    // No phase-change sample ships with this task (see the audio README) -
+    // but the LOUD-tier-meets-hot-sample problem this fixes is a property of
+    // the tier, not of any one file, so the entry exists ahead of whoever
+    // adds that sample later rather than being deferred to them.
+    expect(SAMPLE_VARIANTS.phase.gainScale).toBe(0.6);
+  });
+
+  it('does not truncate impact or phase - their files were pre-trimmed with ffmpeg, not scaled here', () => {
+    // durationScale < 1 makes playSample fade continuously across the WHOLE
+    // truncated length (see AudioManager.playSample's `durationScale < 1`
+    // branch) rather than holding level and releasing only over a short
+    // tail - right for a sound meant to mask a 35%-length cut (hit), wrong
+    // for one meant to hold its own shape for the better part of a second.
+    // The 3.91s Earthquake_Spell.ogg was trimmed to the impact's ability
+    // window (~1.2s) before being committed, so durationScale here stays 1 -
+    // full length, held-then-released - like fire and death.
+    expect(SAMPLE_VARIANTS.impact.durationScale).toBe(1);
+    expect(SAMPLE_VARIANTS.phase.durationScale).toBe(1);
+  });
+
+  it('does not pitch-shift impact or phase', () => {
+    expect(SAMPLE_VARIANTS.impact.playbackRate).toBe(1);
+    expect(SAMPLE_VARIANTS.phase.playbackRate).toBe(1);
+  });
+
+  it('stays within the valid multiplier ranges, like every other variant', () => {
+    // The generic "every variant is within valid multiplier ranges" test
+    // above already walks Object.entries(SAMPLE_VARIANTS), so it covers
+    // these two automatically once they exist - this pins the fact that it
+    // does, rather than only relying on it silently.
+    expect(Object.keys(SAMPLE_VARIANTS)).toEqual(
+      expect.arrayContaining(['impact', 'phase']),
+    );
+  });
+
+  it('no longer has a charge entry - nothing reaches it any more', () => {
+    // Rejects: leaving SAMPLE_VARIANTS.charge behind as dead weight after the
+    // 'charge' variant and everything that reached it (UNIT_VOICES entry,
+    // soundKeyFor branch, the groundPoundCharge event and its FeedbackManager
+    // route) were removed. A stray entry here would sit unreachable, exactly
+    // the kind of leftover configuration this project has repeatedly had to
+    // clean up after the fact.
+    expect(SAMPLE_VARIANTS).not.toHaveProperty('charge');
+  });
+});
+
+describe('every variant soundKeyFor special-cases has a sample transform', () => {
+  /*
+   * Derived by reading SoundGroups.js itself rather than copying its branch
+   * list into a second, hand-written array here - which is exactly the kind of
+   * second list that drifted from the first and produced this bug in the first
+   * place (see this file's SAMPLE_VARIANTS header).
+   */
+  const here = dirname(fileURLToPath(import.meta.url));
+  const soundGroupsSource = stripComments(readFileSync(join(here, '..', 'SoundGroups.js'), 'utf8'));
+
+  function branchedVariants(source) {
+    return [...new Set(
+      [...source.matchAll(/variant === ['"]([a-z-]+)['"]/g)].map((m) => m[1]),
+    )];
+  }
+
+  const variants = branchedVariants(soundGroupsSource);
+
+  it('finds the branches this guard depends on, so it is not vacuous', () => {
+    // Pins the derived set: if soundKeyFor's branches are reformatted in a
+    // way the regex stops matching, this fails loudly instead of the
+    // it.each below silently shrinking to nothing.
+    expect(variants.sort()).toEqual(['death', 'hit', 'impact', 'landing', 'melee', 'phase']);
+  });
+
+  it.each(branchedVariants(soundGroupsSource))('%s has a SAMPLE_VARIANTS entry', (variant) => {
+    // Rejects exactly the bug this task started from: quake-charge,
+    // quake-impact and phase-change were three of soundKeyFor's own branches
+    // with no matching SAMPLE_VARIANTS entry, so
+    // `SAMPLE_VARIANTS[variant] ?? SAMPLE_VARIANTS.fire` silently fell back
+    // to fire's identity transform - full gain, full length - for any sample
+    // later dropped under those keys. Removing any one entry here
+    // reproduces that failure exactly (verified by mutation).
+    expect(SAMPLE_VARIANTS, `SAMPLE_VARIANTS.${variant} is missing`).toHaveProperty(variant);
+  });
+});
+
+describe('the landing variant (the Mortar\'s shell landing)', () => {
+  // Before this task 'landing' had no SAMPLE_VARIANTS entry at all, so
+  // playUnitVoice's `SAMPLE_VARIANTS[variant] ?? SAMPLE_VARIANTS.fire`
+  // fallback would hand mortar-impact.wav fire's untouched transform: full
+  // gain, full length - exactly the "melee-variant trap" this file's
+  // SAMPLE_VARIANTS header warns about, repeating a third time.
+
+  it('gives the landing a lower gainScale than fire, so a hot-mastered sample does not become the loudest thing in the game', () => {
+    // Rejects: leaving SAMPLE_VARIANTS.landing at gainScale 1 (fire's value).
+    // EagleArtillery_Impact.ogg measures ~-0.2dB peak, the same near-0dBFS
+    // mastering as every other sample here; at gainScale 1 in the MID tier it
+    // would land exactly as loud as the Mortar's own fire sample, leaving no
+    // margin for "heavy but not the loudest thing in the game."
+    expect(SAMPLE_VARIANTS.landing.gainScale).toBeLessThan(SAMPLE_VARIANTS.fire.gainScale);
+    expect(SAMPLE_VARIANTS.landing.gainScale).toBe(0.65);
+  });
+
+  it('does not pitch-shift or truncate the landing - the file was pre-trimmed with ffmpeg, not scaled here', () => {
+    // durationScale < 1 makes playSample fade continuously across the WHOLE
+    // truncated length (AudioManager.playSample's `durationScale < 1` branch),
+    // right for masking a hard cut in a 35%-length hit and wrong for a sound
+    // meant to hold its own shape. mortar-impact.wav was trimmed to its
+    // attack transient plus a short release (~0.58s) before being committed,
+    // so durationScale stays 1 - full length, held then released - like fire,
+    // death, impact and phase.
+    expect(SAMPLE_VARIANTS.landing.durationScale).toBe(1);
+    expect(SAMPLE_VARIANTS.landing.playbackRate).toBe(1);
+  });
+
+  it('has a SAMPLE_VARIANTS entry, so the derived soundKeyFor-branch guard below finds it', () => {
+    expect(Object.keys(SAMPLE_VARIANTS)).toContain('landing');
+  });
+
+  it('stays within the valid multiplier ranges, like every other variant', () => {
+    // The generic "every variant is within valid multiplier ranges" test
+    // above already walks Object.entries(SAMPLE_VARIANTS), so it covers this
+    // automatically once it exists - this pins the fact that it does.
+    expect(SAMPLE_VARIANTS.landing.gainScale).toBeGreaterThan(0);
+    expect(SAMPLE_VARIANTS.landing.gainScale).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('unknownSampleNames', () => {
+  // UNIT_VOICES is keyed by sound key (Task 2), not by unit class name, so a
+  // supplied filename is now checked against sound keys like 'mortar' and
+  // 'titan' rather than 'Mortar'/'TitanEnemy'.
+  it('accepts names that match sound keys', () => {
+    expect(unknownSampleNames(['mortar', 'sniper', 'titan'])).toEqual([]);
+  });
+
+  it('reports a misnamed file so a typo is visible', () => {
+    expect(unknownSampleNames(['mortar', 'Zombie'])).toEqual(['Zombie']);
+  });
+
+  it('is case sensitive, because sound keys are', () => {
+    expect(unknownSampleNames(['Mortar'])).toEqual(['Mortar']);
+  });
+
+  it('returns an empty array for no input', () => {
+    expect(unknownSampleNames([])).toEqual([]);
+  });
+});

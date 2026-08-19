@@ -3,6 +3,10 @@
 
 import { DrawNegativeEffect } from "./GameEngineBreakDown/Draws/DrawNegativeEffect.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
+import { frameDurationMs } from "./Animation/AttackPlayback.js";
+import { frameDeltaMs, frameScale } from "./Animation/FrameTime.js";
+import { canvasFont, colors, decorative, withAlpha, withFlicker } from '../../style/tokens.js';
+import { fitNativeFrame } from './Animation/SpriteFit.js';
 
 export class DefenderUnit {
   constructor(x, y, cardData = {}) {
@@ -19,7 +23,7 @@ export class DefenderUnit {
     this.health = cardData.health || 100;
     this.maxHealth = cardData.health || 100;
     this.cost = cardData.cost || 0;
-    this.color = cardData.color || "cyan";
+    this.color = cardData.color || colors.accentInfo;
     this.name = cardData.name || "Basic Police";
     this.image = cardData.image;
 
@@ -50,7 +54,13 @@ export class DefenderUnit {
     // ADD THESE: Animation properties
     this.currentAnimation = "idle";
     this.animationFrame = 0;
-    this.frameCounter = 0;
+    // Real elapsed milliseconds accumulated toward the next animation frame -
+    // real because a nominal 60fps frame is wrong on any other refresh rate;
+    // see updateAnimation. This used to be a game-frame counter compared
+    // against Math.floor(60 / config.fps), whose truncation quantised every fps
+    // that does not divide 60 - a Grenadier's 11fps sheet ran ~9% fast, a
+    // Healer's 18fps sheet ~11%.
+    this.animationTimer = 0;
     this.animationFrames = null;
     this.animationConfig = null;
 
@@ -71,7 +81,7 @@ export class DefenderUnit {
     if (this.currentAnimation !== animationName) {
       this.currentAnimation = animationName;
       this.animationFrame = 0;
-      this.frameCounter = 0;
+      this.animationTimer = 0;
 
       if (animationName === "death") {
         this.isPlayingDeathAnimation = true;
@@ -88,8 +98,8 @@ export class DefenderUnit {
     }
   }
 
-  // ADD THIS: Animation frame updates
-  updateAnimation() {
+  /* Advances the current sheet by the real time the frame covered. */
+  updateAnimation(deltaMs = frameDeltaMs()) {
     if (!this.animationConfig || !this.animationFrames) {
       // If no animation data, mark death as complete if dead
       if (!this.isAlive && this.currentAnimation === "death") {
@@ -107,29 +117,66 @@ export class DefenderUnit {
       return;
     }
 
-    this.frameCounter++;
-    const gameFramesPerAnimFrame = Math.floor(60 / config.fps);
+    // The attack sheet is timed against the firing cadence rather than its own
+    // fps, so it always completes exactly one pass per shot; see
+    // AttackPlayback.js.
+    const frameDuration = frameDurationMs(
+      this.currentAnimation,
+      config,
+      this.attackCadenceMs(),
+    );
+    if (!(frameDuration > 0)) {
+      return;
+    }
 
-    if (this.frameCounter >= gameFramesPerAnimFrame) {
-      this.frameCounter = 0;
+    this.animationTimer += deltaMs;
+
+    // A loop rather than a single step: a compressed sheet can hold a frame for
+    // less than one game frame, and a single step per update would then run it
+    // at the frame rate instead of at the speed asked for.
+    while (this.animationTimer >= frameDuration) {
+      this.animationTimer -= frameDuration;
       this.animationFrame++;
 
-      if (this.animationFrame >= config.frameCount) {
-        if (config.loop !== false) {
-          this.animationFrame = 0;
-          // Reset attack state after attack animation completes
-          if (this.currentAnimation === "attack") {
-            this.isAttacking = false;
-          }
-        } else {
-          this.animationFrame = config.frameCount - 1;
+      if (this.animationFrame < config.frameCount) continue;
 
-          if (this.currentAnimation === "death") {
-            this.deathAnimationComplete = true;
-          }
-        }
+      if (this.currentAnimation === "attack") {
+        // One full pass per attack, then hand back to idle. Looping here is
+        // what let a unit whose own timer outlasts its sheet - the Mortar's
+        // firing timer, the Healer's heal timer - replay the swing several
+        // times for a single shot. The last frame is HELD rather than reset to
+        // zero, because update() sets the idle animation on the next tick and
+        // resetting here would flash the first frame of the swing again just
+        // as it ended.
+        this.animationFrame = config.frameCount - 1;
+        this.animationTimer = 0;
+        this.isAttacking = false;
+        break;
       }
+
+      if (config.loop !== false) {
+        this.animationFrame = 0;
+        continue;
+      }
+
+      this.animationFrame = config.frameCount - 1;
+      if (this.currentAnimation === "death") {
+        this.deathAnimationComplete = true;
+      }
+      this.animationTimer = 0;
+      break;
     }
+  }
+
+  /* The gap between two attacks, in milliseconds. */
+  attackCadenceMs() {
+    return (this.fireRate * 1000) / 60;
+  }
+
+  /* Restarts the attack sheet for an attack happening now. */
+  beginAttackAnimation() {
+    this.animationFrame = 0;
+    this.animationTimer = 0;
   }
 
   applyLevelUpgrades() {
@@ -212,7 +259,8 @@ export class DefenderUnit {
   attack(target, currentTime) {
     if (!this.isAlive || !target || !target.isAlive) return;
 
-    this.isAttacking = true; // ADD THIS
+    this.isAttacking = true;
+    this.beginAttackAnimation();
     target.takeDamage(this.attackDamage);
     this.lastAttackTime = currentTime;
   }
@@ -236,12 +284,27 @@ export class DefenderUnit {
       const frames = this.animationFrames[this.currentAnimation];
       if (frames && frames[this.animationFrame]) {
         try {
-          ctx.drawImage(
-            frames[this.animationFrame],
-            this.x,
-            this.y,
+          // Native size comes from *this* defender's own config, not a
+          // shared constant: most defenders crop to 48x48, but Mortar and
+          // Frost Archer's true art doesn't fit that template and are
+          // delivered uncropped, at their full 64x64 frame (see
+          // AssetManifest.js). fitNativeFrame() reads whichever applies.
+          const animConfig = this.animationConfig && this.animationConfig[this.currentAnimation];
+          const crop = animConfig?.cropConfig;
+          const nativeWidth = crop?.enabled ? crop.cropWidth : animConfig?.frameWidth;
+          const nativeHeight = crop?.enabled ? crop.cropHeight : animConfig?.frameHeight;
+          const { drawnWidth, drawnHeight, insetX, insetY } = fitNativeFrame(
+            nativeWidth,
+            nativeHeight,
             this.width,
             this.height,
+          );
+          ctx.drawImage(
+            frames[this.animationFrame],
+            this.x + insetX,
+            this.y + insetY,
+            drawnWidth,
+            drawnHeight,
           );
         } catch (e) {
           console.error("Failed to draw frame:", e);
@@ -271,8 +334,8 @@ export class DefenderUnit {
     // Only draw health bar and name for alive units
     if (this.isAlive) {
       // Unit name text
-      ctx.fillStyle = "black";
-      ctx.font = "12px Arial";
+      ctx.fillStyle = colors.edgeOutline;
+      ctx.font = canvasFont(12);
       ctx.fillText(
         this.name.substring(0, this.name.length),
         this.x + 2,
@@ -281,9 +344,9 @@ export class DefenderUnit {
 
       // Health bar
       if (this.health < this.maxHealth && getSettings().display.showHealthBars) {
-        ctx.fillStyle = "red";
+        ctx.fillStyle = colors.accentDanger;
         ctx.fillRect(this.x, this.y - 10, this.width, 5);
-        ctx.fillStyle = "lime";
+        ctx.fillStyle = colors.accentSuccess;
         const healthWidth = (this.health / this.maxHealth) * this.width;
         ctx.fillRect(this.x, this.y - 10, healthWidth, 5);
         ctx.fillText(
@@ -301,8 +364,8 @@ export class DefenderUnit {
     ctx.fillStyle = this.color;
     ctx.fillRect(this.x, this.y, this.width, this.height);
 
-    ctx.fillStyle = "black";
-    ctx.font = "12px Arial";
+    ctx.fillStyle = colors.edgeOutline;
+    ctx.font = canvasFont(12);
     ctx.fillText(this.name.charAt(0), this.x + 5, this.y + 15);
   }
 
@@ -337,7 +400,7 @@ export class BasicDefender extends DefenderUnit {
       cost: 20,
       width: 64,
       height: 64,
-      color: "blue",
+      color: colors.accentInfo,
       isRanged: true,
       level: cardData.level || 1,
       image: cardData.image,
@@ -365,7 +428,12 @@ export class BasicDefender extends DefenderUnit {
       return;
     }
 
-    this.isAttacking = true; // ADD THIS
+    // Deliberately does NOT start the attack animation. For a unit with
+    // useProjectile this method is the projectile's onHit callback - it runs
+    // when the arrow LANDS, up to a second after the shot - so animating here
+    // played the swing at the wrong moment and, once the sheet was allowed to
+    // finish, replayed it a second time for a single shot. CombatManager
+    // starts the swing where the shot actually leaves.
     target.takeDamage(this.attackDamage, this.hasArmorPiercing);
     // const died = target.takeDamage(this.attackDamage, this.hasArmorPiercing);
     //
@@ -390,6 +458,18 @@ export class BasicDefender extends DefenderUnit {
 }
 
 export class HealerDefender extends DefenderUnit {
+  /*
+   * Level-1 values for the stats this defender scales.
+   *
+   * Static, because `applyLevelUpgrades` is called from `super()` - it runs
+   * before the constructor body, so it cannot read a property the constructor
+   * has not assigned yet. Scaling `this.<stat>` there read undefined and wrote
+   * NaN, and the constructor then set the level-1 value over the top, pinning
+   * the stat there forever. A static field exists with the class itself, so the
+   * scaling has something real to read.
+   */
+  static BASE = { healingAmount: 10, healingRange: 100 };
+
   constructor(x, y, cardData) {
     const typeData = {
       name: "Healer",
@@ -400,7 +480,7 @@ export class HealerDefender extends DefenderUnit {
       cost: 30,
       width: 64,
       height: 64,
-      color: "lightgreen",
+      color: colors.accentSuccess,
       isRanged: false,
       level: cardData.level || 1,
       image: cardData.image,
@@ -408,23 +488,24 @@ export class HealerDefender extends DefenderUnit {
     super(x, y, typeData);
 
     //healer stats
-    this.healingAmount = 10;
     this.healingRate = 120;
-    this.healingRange = 100;
     this.healingCountdown = this.healingRate;
-
-    // Animation control
-    this.healAnimationDuration = 180; // How long to play attack animation
+    this.healAnimationDuration = 180;
     this.healAnimationTimer = 0;
     this.isHealing = false;
+  }
+
+  /** A Healer acts on its healing clock, not on fireRate (which it never uses). */
+  attackCadenceMs() {
+    return (this.healingRate * 1000) / 60;
   }
 
   applyLevelUpgrades() {
     const level = this.level;
     const statMultiplier = 1 + (level - 1) * 0.2; // Healers get 20% increase per level
 
-    this.healingAmount = Math.floor(this.healingAmount * statMultiplier);
-    this.healingRange = Math.floor(this.healingRange * statMultiplier);
+    this.healingAmount = Math.floor(HealerDefender.BASE.healingAmount * statMultiplier);
+    this.healingRange = Math.floor(HealerDefender.BASE.healingRange * statMultiplier);
     this.health = Math.floor(this.health * statMultiplier);
     this.maxHealth = this.health;
     this.applySpecialAbilities();
@@ -470,16 +551,14 @@ export class HealerDefender extends DefenderUnit {
     }
 
     if (this.healAnimationTimer > 0) {
-      this.healAnimationTimer--;
-      this.isAttacking = true; // Keep attack animation playing
+      this.healAnimationTimer -= frameScale();
       if (this.healAnimationTimer <= 0) {
-        this.isAttacking = false;
         this.isHealing = false;
       }
     }
 
     // Healing Logic
-    this.healingCountdown--;
+    this.healingCountdown -= frameScale();
     if (this.healingCountdown <= 0) {
       let didHeal = false;
       const unitsToHeal = defenderUnits.filter(
@@ -511,9 +590,9 @@ export class HealerDefender extends DefenderUnit {
               damage: 0,
               radius: 30,
               timer: 20,
-              color: "lightgreen",
-              innerColor: "white",
-              particleColor: "rgba(0, 255, 0, 0.6)",
+              color: colors.accentSuccess,
+              innerColor: colors.textPrimary,
+              particleColor: withAlpha(colors.accentSuccess, 0.6),
               style: "heal",
               type: "effect",
               source: "healer",
@@ -538,9 +617,9 @@ export class HealerDefender extends DefenderUnit {
             damage: 0,
             radius: 30,
             timer: 20,
-            color: "lightgreen",
-            innerColor: "white",
-            particleColor: "rgba(0, 255, 0, 0.6)",
+            color: colors.accentSuccess,
+            innerColor: colors.textPrimary,
+            particleColor: withAlpha(colors.accentSuccess, 0.6),
             style: "heal",
             type: "effect",
             source: "healer",
@@ -586,6 +665,8 @@ export class HealerDefender extends DefenderUnit {
         this.isHealing = true;
         this.healAnimationTimer = this.healAnimationDuration;
         this.isAttacking = true;
+        this.beginAttackAnimation();
+        this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
         console.log(
           `Healer performing heal - animation timer set to ${this.healAnimationDuration}`,
         );
@@ -623,7 +704,7 @@ export class HealerDefender extends DefenderUnit {
         0,
         Math.PI * 2,
       );
-      ctx.strokeStyle = `rgba(0, 255, 0, ${pulse * 0.5})`;
+      ctx.strokeStyle = withAlpha(colors.accentSuccess, pulse * 0.5);
       ctx.lineWidth = 3;
       ctx.stroke();
 
@@ -634,7 +715,7 @@ export class HealerDefender extends DefenderUnit {
         const particleX = this.x + this.width / 2 + Math.cos(angle) * distance;
         const particleY = this.y + this.height / 2 + Math.sin(angle) * distance;
 
-        ctx.fillStyle = `rgba(0, 255, 0, ${pulse * 0.8})`;
+        ctx.fillStyle = withAlpha(colors.accentSuccess, pulse * 0.8);
         ctx.beginPath();
         ctx.arc(particleX, particleY, 3, 0, Math.PI * 2);
         ctx.fill();
@@ -646,7 +727,7 @@ export class HealerDefender extends DefenderUnit {
     // Visual indicator for resurrection ability
     if (this.hasResurrection && this.canResurrect) {
       ctx.save();
-      ctx.fillStyle = "rgba(255, 215, 0, 0.3)"; // Golden glow
+      ctx.fillStyle = withAlpha(colors.accentEnergy, 0.3); // Golden glow
       ctx.beginPath();
       ctx.arc(
         this.x + this.width / 2,
@@ -658,8 +739,8 @@ export class HealerDefender extends DefenderUnit {
       ctx.fill();
 
       // Resurrection symbol
-      ctx.fillStyle = "gold";
-      ctx.font = "bold 12px Arial";
+      ctx.fillStyle = colors.accentEnergy;
+      ctx.font = canvasFont(12, "bold");
       ctx.textAlign = "center";
       ctx.fillText("✚", this.x + this.width / 2, this.y - 5);
       ctx.restore();
@@ -668,7 +749,7 @@ export class HealerDefender extends DefenderUnit {
     // Healing range indicator (optional - shows when hovering or healing)
     if (this.isHealing) {
       ctx.save();
-      ctx.strokeStyle = "rgba(0, 255, 0, 0.2)";
+      ctx.strokeStyle = withAlpha(colors.accentSuccess, 0.2);
       ctx.setLineDash([5, 10]);
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -686,6 +767,9 @@ export class HealerDefender extends DefenderUnit {
 }
 
 export class GrenadeDefender extends DefenderUnit {
+  /* Level-1 values this defender scales from. See HealerDefender.BASE. */
+  static BASE = { grenadeRadius: 60 };
+
   constructor(x, y, cardData) {
     const typeData = {
       name: "Grenadier",
@@ -696,14 +780,13 @@ export class GrenadeDefender extends DefenderUnit {
       cost: 60,
       width: 64,
       height: 64,
-      color: "darkorange",
+      color: decorative.orange,
       isRanged: true,
       level: cardData.level || 1,
       image: cardData.image,
     };
     super(x, y, typeData);
 
-    this.grenadeRadius = 60;
     this.grenadeCountdown = this.fireRate;
 
     //Special Ability Fields
@@ -715,7 +798,7 @@ export class GrenadeDefender extends DefenderUnit {
 
     this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
     this.grenadeRadius = Math.floor(
-      this.grenadeRadius * (1 + (level - 1) * 0.1),
+      GrenadeDefender.BASE.grenadeRadius * (1 + (level - 1) * 0.1),
     ); // 10% radius increase
 
     this.applySpecialAbilities();
@@ -747,12 +830,14 @@ export class GrenadeDefender extends DefenderUnit {
   attack(target, currentTime) {
     if (!this.isAlive || !target || !target.isAlive) return;
 
-    this.isAttacking = true; // ADD THIS
+    this.isAttacking = true;
+    this.beginAttackAnimation();
 
     console.log(`Grenadier has ClusterBomb : ${this.hasClusterBomb} `);
     console.log(`Grenadier has Napalm : ${this.hasNapalm} `);
 
     if (this.gameEngine) {
+      this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
       this.gameEngine.addDefenderExplosion(
         target.x + target.width / 2,
         target.y + target.height / 2,
@@ -767,9 +852,9 @@ export class GrenadeDefender extends DefenderUnit {
         damage: 0,
         radius: this.grenadeRadius,
         timer: 30,
-        color: "orange",
-        innerColor: "yellow",
-        particleColor: "rgba(255, 200, 0, 0.8)",
+        color: decorative.orange,
+        innerColor: colors.accentEnergy,
+        particleColor: withAlpha(decorative.orange, 0.8),
         style: "burst",
         type: "defender",
         source: "grenadier",
@@ -796,9 +881,9 @@ export class GrenadeDefender extends DefenderUnit {
                 damage: 0,
                 radius: this.grenadeRadius * 0.8,
                 timer: 25,
-                color: "orange",
-                innerColor: "yellow",
-                particleColor: "rgba(255, 200, 0, 0.8)",
+                color: decorative.orange,
+                innerColor: colors.accentEnergy,
+                particleColor: withAlpha(decorative.orange, 0.8),
                 style: "burst",
                 type: "defender",
                 source: "grenadier",
@@ -823,9 +908,9 @@ export class GrenadeDefender extends DefenderUnit {
                 damage: 0,
                 radius: napalmRadius,
                 timer: 15,
-                color: "orange",
-                innerColor: "red",
-                particleColor: "rgba(255, 100, 0, 0.9)",
+                color: decorative.orange,
+                innerColor: colors.accentDanger,
+                particleColor: withAlpha(decorative.orange, 0.9),
                 style: "burst",
                 type: "defender",
                 source: "grenadier",
@@ -866,7 +951,7 @@ export class BarricadeDefender extends DefenderUnit {
       cost: 30,
       width: 64,
       height: 64,
-      color: "gray",
+      color: colors.textMuted,
       isRanged: false,
       level: cardData.level || 1,
       image: cardData.image,
@@ -932,7 +1017,12 @@ export class BarricadeDefender extends DefenderUnit {
     }
 
     if (this.hitAnimationTimer > 0) {
-      this.hitAnimationTimer -= 16;
+      // The 16 is this file's own hand-rounded 60fps frame, and it is scaled
+      // rather than replaced by the real delta on purpose: 16 against a 500ms
+      // duration is 31.25 frames, so the hit flash has always lasted ~521ms and
+      // not 500ms. Swapping in the true delta would quietly shorten it by 4% -
+      // a rebalance. This change only makes 120Hz behave like 60Hz.
+      this.hitAnimationTimer -= 16 * frameScale();
       if (this.hitAnimationTimer <= 0) {
         this.hitAnimationTimer = 0;
       }
@@ -968,9 +1058,9 @@ export class BarricadeDefender extends DefenderUnit {
             damage: 0,
             radius: 20,
             timer: 15,
-            color: "silver",
-            innerColor: "gray",
-            particleColor: "rgba(192, 192, 192, 0.8)",
+            color: colors.edgeHighlight,
+            innerColor: colors.textMuted,
+            particleColor: withAlpha(colors.textMuted, 0.8),
             style: "spike",
             type: "effect",
             source: "barricade",
@@ -983,7 +1073,7 @@ export class BarricadeDefender extends DefenderUnit {
       if (!this.electricFieldCooldown) {
         this.electricFieldCooldown = 300;
       }
-      this.electricFieldCooldown--;
+      this.electricFieldCooldown -= frameScale();
       if (this.electricFieldCooldown <= 0) {
         const stunRadius = 100;
         for (const enemy of enemies) {
@@ -1004,9 +1094,9 @@ export class BarricadeDefender extends DefenderUnit {
             damage: 0,
             radius: stunRadius,
             timer: 20,
-            color: "yellow",
-            innerColor: "white",
-            particleColor: "rgba(255, 255, 0, 0.6)",
+            color: colors.accentEnergy,
+            innerColor: colors.textPrimary,
+            particleColor: withAlpha(colors.accentEnergy, 0.6),
             style: "electric",
             type: "effect",
             source: "barricade",
@@ -1022,7 +1112,7 @@ export class BarricadeDefender extends DefenderUnit {
     // Spike visual indicator
     if (this.hasSpikes && this.isAlive) {
       ctx.save();
-      ctx.strokeStyle = "silver";
+      ctx.strokeStyle = colors.edgeHighlight;
       ctx.lineWidth = 2;
 
       // Draw spikes on the barricade
@@ -1045,7 +1135,7 @@ export class BarricadeDefender extends DefenderUnit {
     if (this.hasElectricField && this.isAlive) {
       ctx.save();
       if (this.showRangeIndicators) {
-        ctx.strokeStyle = `rgba(255, 255, 0, ${0.3 + Math.sin(Date.now() / 200) * 0.2})`;
+        ctx.strokeStyle = withAlpha(colors.accentEnergy, 0.3 + Math.sin(Date.now() / 200) * 0.2);
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
         ctx.beginPath();
@@ -1058,8 +1148,8 @@ export class BarricadeDefender extends DefenderUnit {
         );
         ctx.stroke();
       } else {
-        ctx.fillStyle = `rgba(255, 255, 0, ${0.6 + Math.sin(Date.now() / 200) * 0.3})`;
-        ctx.font = "bold 14px Arial";
+        ctx.fillStyle = withAlpha(colors.accentEnergy, 0.6 + Math.sin(Date.now() / 200) * 0.3);
+        ctx.font = canvasFont(14, "bold");
         ctx.textAlign = "center";
         ctx.fillText("⚡", this.x + this.width / 2, this.y - 4);
       }
@@ -1079,7 +1169,7 @@ export class EnergyGenerator extends DefenderUnit {
       cost: 25,
       width: 64,
       height: 64,
-      color: "yellow",
+      color: colors.accentEnergy,
       isRanged: false,
       level: cardData.level || 1,
       image: cardData.image,
@@ -1138,7 +1228,7 @@ export class EnergyGenerator extends DefenderUnit {
     }
 
     if (this.generateAnimationTimer > 0) {
-      this.generateAnimationTimer--;
+      this.generateAnimationTimer -= frameScale();
       this.isGenerating = true;
       if (this.generateAnimationTimer <= 0) {
         this.isGenerating = false;
@@ -1149,7 +1239,7 @@ export class EnergyGenerator extends DefenderUnit {
       if (!this.energyBurstCooldown) {
         this.energyBurstCooldown = 600;
       }
-      this.energyBurstCooldown--;
+      this.energyBurstCooldown -= frameScale();
       if (this.energyBurstCooldown <= 0 && this.gameEngine) {
         this.startGenerationAnimation();
         //generate 3x energy in a burst
@@ -1188,7 +1278,7 @@ export class EnergyGenerator extends DefenderUnit {
       }
     }
     // Energy drop logic
-    this.energyDropCountDown--;
+    this.energyDropCountDown -= frameScale();
     if (this.energyDropCountDown <= 0) {
       if (this.gameEngine) {
         this.startGenerationAnimation();
@@ -1227,7 +1317,7 @@ export class EnergyGenerator extends DefenderUnit {
     // Energy burst indicator
     if (this.hasEnergyBurst && this.energyBurstCooldown && this.isAlive) {
       const progress = 1 - this.energyBurstCooldown / 600;
-      ctx.strokeStyle = "gold";
+      ctx.strokeStyle = colors.accentEnergy;
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(
@@ -1243,7 +1333,7 @@ export class EnergyGenerator extends DefenderUnit {
     // Auto-collect field visual — full ring only when hovered.
     if (this.autoCollect && this.isAlive && this.showRangeIndicators) {
       ctx.save();
-      ctx.strokeStyle = `rgba(255, 215, 0, ${0.2 + Math.sin(Date.now() / 300) * 0.1})`;
+      ctx.strokeStyle = withAlpha(colors.accentEnergy, 0.2 + Math.sin(Date.now() / 300) * 0.1);
       ctx.lineWidth = 1;
       ctx.setLineDash([10, 5]);
       ctx.beginPath();
@@ -1268,7 +1358,7 @@ export class EnergyGenerator extends DefenderUnit {
       -Math.PI / 2,
       -Math.PI / 2 + Math.PI * 2 * progress,
     );
-    ctx.strokeStyle = "rgba(255, 255, 0, 0.8)";
+    ctx.strokeStyle = withAlpha(colors.accentEnergy, 0.8);
     ctx.lineWidth = 3;
     ctx.stroke();
   }
@@ -1285,14 +1375,13 @@ export class Sniper extends DefenderUnit {
       cost: 100,
       width: 64,
       height: 64,
-      color: "darkgreen",
+      color: colors.accentSuccess,
       isRanged: true,
       level: cardData.level || 1,
       image: cardData.image,
     };
     super(x, y, typeDate);
 
-    this.critChance = 0.2;
     this.critMultiplier = 2.0;
     this.lastTargetId = null;
     this.laserDuration = 300; //show laser for 300ms
@@ -1323,7 +1412,9 @@ export class Sniper extends DefenderUnit {
 
     if (this.level >= 3) {
       this.hasPiercingShot = true;
-      this.critChance = 0.4;
+      // A floor, not an assignment: a flat 0.4 here undid the level
+      // scaling above, so levels 4 and 5 crit LESS than level 3 earned.
+      this.critChance = Math.max(this.critChance, 0.4);
     }
     if (this.level >= 5) {
       this.hasHeadshot = true;
@@ -1344,7 +1435,9 @@ export class Sniper extends DefenderUnit {
   attack(target, currentTime) {
     if (!this.isAlive || !target || !target.isAlive || !this.gameEngine) return;
 
-    this.isAttacking = true; // ADD THIS
+    this.isAttacking = true;
+    this.beginAttackAnimation();
+    this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
 
     console.log(
       `Sniper attack - Level: ${this.level}, Piercing: ${this.hasPiercingShot}, Headshot: ${this.hasHeadshot}`,
@@ -1371,6 +1464,12 @@ export class Sniper extends DefenderUnit {
     this.piercingTargets.add(target.id);
 
     const targetDied = target.takeDamage(damage, true); //always have armor piercing
+    this.gameEngine?.emitFeedback?.('enemy:hit', {
+      unitType: target.constructor.name,
+      damage,
+      x: target.x + target.width / 2,
+      y: target.y,
+    });
     if (
       targetDied &&
       !target.isSpawned &&
@@ -1449,9 +1548,9 @@ export class Sniper extends DefenderUnit {
         damage: 0,
         radius: 200,
         timer: 30,
-        color: "crimson",
-        innerColor: "white",
-        particleColor: "rgba(220, 20, 60, 0.9)",
+        color: colors.accentDanger,
+        innerColor: colors.textPrimary,
+        particleColor: withAlpha(colors.accentDanger, 0.9),
         style: "piercing",
         type: "defender",
         source: "sniper",
@@ -1488,8 +1587,8 @@ export class Sniper extends DefenderUnit {
           this.lastTargetPosition.x,
           this.lastTargetPosition.y,
         );
-        gradient.addColorStop(0, `rgba(255, 0, 0, ${fadeAlpha})`);
-        gradient.addColorStop(1, `rgba(255, 100, 0, ${fadeAlpha * 0.5})`);
+        gradient.addColorStop(0, withAlpha(colors.accentDanger, fadeAlpha));
+        gradient.addColorStop(1, withAlpha(decorative.orange, fadeAlpha * 0.5));
 
         ctx.strokeStyle = gradient;
         ctx.lineWidth = 3 - (timeSinceShot / this.laserDuration) * 2; // Shrinking line
@@ -1513,7 +1612,7 @@ export class Sniper extends DefenderUnit {
         }
 
         // Draw hit markers on pierced enemies
-        ctx.fillStyle = `rgba(255, 0, 0, ${fadeAlpha * 0.7})`;
+        ctx.fillStyle = withAlpha(colors.accentDanger, fadeAlpha * 0.7);
         for (const enemyId of this.piercingTargets) {
           const enemy = this.gameEngine.enemies.find((e) => e.id === enemyId);
           if (enemy) {
@@ -1532,7 +1631,7 @@ export class Sniper extends DefenderUnit {
         }
       } else {
         // Regular laser sight (non-piercing)
-        ctx.strokeStyle = `rgba(255, 0, 0, ${fadeAlpha * 0.8})`;
+        ctx.strokeStyle = withAlpha(colors.accentDanger, fadeAlpha * 0.8);
         ctx.lineWidth = 2 - timeSinceShot / this.laserDuration;
         ctx.beginPath();
         ctx.moveTo(this.x + this.width / 2, this.y + this.height / 2);
@@ -1540,7 +1639,7 @@ export class Sniper extends DefenderUnit {
         ctx.stroke();
 
         // Impact point
-        ctx.fillStyle = `rgba(255, 100, 0, ${fadeAlpha})`;
+        ctx.fillStyle = withAlpha(decorative.orange, fadeAlpha);
         ctx.beginPath();
         ctx.arc(
           this.lastTargetPosition.x,
@@ -1557,7 +1656,7 @@ export class Sniper extends DefenderUnit {
 
     // Scope indicator
     if (this.hasHeadshot) {
-      ctx.strokeStyle = "rgba(255, 0, 0, 0.3)";
+      ctx.strokeStyle = withAlpha(colors.accentDanger, 0.3);
       ctx.lineWidth = 1;
       ctx.beginPath();
       // Crosshair
@@ -1571,6 +1670,9 @@ export class Sniper extends DefenderUnit {
 }
 
 export class Mortar extends DefenderUnit {
+  /* Level-1 values this defender scales from. See HealerDefender.BASE. */
+  static BASE = { explosionRadius: 100 };
+
   constructor(x, y, cardData) {
     const typeData = {
       name: "Mortar",
@@ -1581,7 +1683,7 @@ export class Mortar extends DefenderUnit {
       cost: 120,
       width: 64,
       height: 64,
-      color: "darkgray",
+      color: colors.textMuted,
       isRanged: true,
       level: cardData.level || 1,
       image: cardData.image,
@@ -1590,7 +1692,6 @@ export class Mortar extends DefenderUnit {
 
     // Mortar-specific properties
     this.minimumRange = 250; // Increased from 150
-    this.explosionRadius = 100; // Increased from 100
     this.shellTravelTime = 200; // 1.5 seconds for shell to land
     this.pendingShells = []; // Track shells in flight
 
@@ -1604,10 +1705,6 @@ export class Mortar extends DefenderUnit {
     this.nextTarget = null;
     this.targetLockTime = 0;
 
-    this.isFiring = false;
-    this.fireAnimationDuration = 120; // 0.5 seconds for firing animation
-    this.fireAnimationTimer = 0;
-
     // Prevent multiple shells
     this.hasShellInFlight = false;
   }
@@ -1620,7 +1717,7 @@ export class Mortar extends DefenderUnit {
     this.health = Math.floor(this.health * statMultiplier);
     this.maxHealth = Math.floor(this.maxHealth * statMultiplier);
     this.explosionRadius = Math.floor(
-      this.explosionRadius * (1 + (level - 1) * 0.15),
+      Mortar.BASE.explosionRadius * (1 + (level - 1) * 0.15),
     ); // 15% radius increase
 
     this.applySpecialAbilities();
@@ -1728,22 +1825,14 @@ export class Mortar extends DefenderUnit {
       return;
     }
 
-    if (this.fireAnimationTimer > 0) {
-      this.fireAnimationTimer--;
-      this.isFiring = true;
-      if (this.fireAnimationTimer <= 0) {
-        this.isFiring = false;
-      }
-    }
-
     // Update barrel recoil animation
     if (this.barrelRecoil > 0) {
-      this.barrelRecoil -= 0.5;
+      this.barrelRecoil -= 0.5 * frameScale();
     }
 
     // Update target lock visual
     if (this.targetLockTime > 0) {
-      this.targetLockTime--;
+      this.targetLockTime -= frameScale();
     }
 
     // Process pending shells
@@ -1753,7 +1842,7 @@ export class Mortar extends DefenderUnit {
         shell.currentY = -100;
       }
       if (shell.fired) {
-        shell.timeRemaining--;
+        shell.timeRemaining -= frameScale();
 
         if (shell.target && shell.target.isAlive) {
           shell.targetX = shell.target.x + shell.target.width / 2;
@@ -1787,23 +1876,19 @@ export class Mortar extends DefenderUnit {
       this.currentTarget = null;
     }
 
-    // Animation state management - FIX: Keep attack animation playing during lock
+    // Animation state management. Gated on isAttacking like every other
+    // defender: the sheet is 3 frames at 6fps (500ms) against a six-second
+    // reload, so it plays once at its authored speed and updateAnimation hands
+    // it back to idle. It used to run off a 120-frame firing timer of its own,
+    // which replayed the 500ms sheet four times for a single shell.
+    //
+    // The dead `if (this.isAttacking && this.attackAnimationLock <= 0)` guard
+    // that used to sit below this - known issue 15, a field that was read here
+    // and assigned nowhere, so it was always undefined and the reset never ran
+    // - is gone: updateAnimation ends the swing now.
     if (this.animationFrames) {
-      if (this.isFiring) {
-        this.setAnimation("attack");
-      } else if (this.disabled) {
-        this.setAnimation("idle");
-      } else if (this.targetLockTime > 0) {
-        this.setAnimation("idle");
-      } else {
-        this.setAnimation("idle");
-      }
+      this.setAnimation(this.isAttacking && !this.disabled ? "attack" : "idle");
       this.updateAnimation();
-    }
-
-    // Reset attack animation after firing
-    if (this.isAttacking && this.attackAnimationLock <= 0) {
-      this.isAttacking = false;
     }
   }
 
@@ -1826,6 +1911,7 @@ export class Mortar extends DefenderUnit {
     // Lock onto target
     this.currentTarget = actualTarget;
     this.targetLockTime = 60;
+    this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
 
     // Calculate angle for visual effect
     this.lastFireAngle = Math.atan2(
@@ -1834,8 +1920,8 @@ export class Mortar extends DefenderUnit {
     );
 
     // Start firing animation
-    this.isFiring = true;
-    this.fireAnimationTimer = this.fireAnimationDuration;
+    this.isAttacking = true;
+    this.beginAttackAnimation();
 
     // Add barrel recoil effect
     this.barrelRecoil = 15;
@@ -1861,6 +1947,15 @@ export class Mortar extends DefenderUnit {
   createExplosion(x, y) {
     if (!this.gameEngine) return;
 
+    // The shell's own landing sound - the payoff half of the Mortar's two
+    // sounds, the other being 'projectile:fired' on launch. Emitted BEFORE
+    // addDefenderExplosion on purpose: that call is what applies splash
+    // damage and, per enemy caught in it, emits 'enemy:hit' (the shared
+    // sound already used for every hit in the game). This is additive to
+    // that sound, not a replacement for it, and has to lead it rather than
+    // trail it, or the landing would read as an afterthought to its own hits.
+    this.gameEngine?.emitFeedback?.('defender:shellLanded', { defenderType: this.constructor.name });
+
     // Main explosion with increased damage and radius
     this.gameEngine.addDefenderExplosion(
       x,
@@ -1875,9 +1970,9 @@ export class Mortar extends DefenderUnit {
       damage: 0,
       radius: this.explosionRadius,
       timer: 30,
-      color: "orange",
-      innerColor: "yellow",
-      particleColor: "rgba(255, 200, 0, 0.9)",
+      color: decorative.orange,
+      innerColor: colors.accentEnergy,
+      particleColor: withAlpha(decorative.orange, 0.9),
       style: "burst",
       type: "defender",
       source: "mortar",
@@ -1905,9 +2000,9 @@ export class Mortar extends DefenderUnit {
                 damage: 0,
                 radius: this.explosionRadius * 0.7,
                 timer: 30,
-                color: "orange",
-                innerColor: "yellow",
-                particleColor: "rgba(255, 200, 0, 0.9)",
+                color: decorative.orange,
+                innerColor: colors.accentEnergy,
+                particleColor: withAlpha(decorative.orange, 0.9),
                 style: "burst",
                 type: "defender",
                 source: "mortar",
@@ -1939,8 +2034,8 @@ export class Mortar extends DefenderUnit {
     // Draw loading indicator if shell is in flight
     if (this.hasShellInFlight && this.isAlive) {
       ctx.save();
-      ctx.fillStyle = "rgba(255, 165, 0, 0.8)";
-      ctx.font = "bold 10px Arial";
+      ctx.fillStyle = withAlpha(decorative.orange, 0.8);
+      ctx.font = canvasFont(10, "bold");
       ctx.textAlign = "center";
       ctx.fillText("RELOADING", this.x + this.width / 2, this.y - 20);
       ctx.restore();
@@ -1953,8 +2048,8 @@ export class Mortar extends DefenderUnit {
       ctx.save();
 
       // Dead zone (minimum range) - red with pattern
-      ctx.strokeStyle = "rgba(255, 0, 0, 0.4)";
-      ctx.fillStyle = "rgba(255, 0, 0, 0.1)";
+      ctx.strokeStyle = withAlpha(colors.accentDanger, 0.4);
+      ctx.fillStyle = withAlpha(colors.accentDanger, 0.1);
       ctx.lineWidth = 2;
       ctx.setLineDash([10, 5]);
       ctx.beginPath();
@@ -1969,8 +2064,8 @@ export class Mortar extends DefenderUnit {
       ctx.stroke();
 
       // Label for dead zone
-      ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
-      ctx.font = "12px Arial";
+      ctx.fillStyle = withAlpha(colors.accentDanger, 0.8);
+      ctx.font = canvasFont(12);
       ctx.textAlign = "center";
       ctx.fillText(
         "DEAD ZONE",
@@ -1979,7 +2074,7 @@ export class Mortar extends DefenderUnit {
       );
 
       // Maximum range - green
-      ctx.strokeStyle = "rgba(0, 255, 0, 0.3)";
+      ctx.strokeStyle = withAlpha(colors.accentSuccess, 0.3);
       ctx.lineWidth = 2;
       ctx.setLineDash([]);
       ctx.beginPath();
@@ -2006,11 +2101,11 @@ export class Mortar extends DefenderUnit {
 
     // Barrel with recoil
     const barrelLength = 35 - this.barrelRecoil;
-    ctx.fillStyle = "#444";
+    ctx.fillStyle = colors.surfacePanel;
     ctx.fillRect(5, -6, barrelLength, 12);
 
     // Barrel end
-    ctx.fillStyle = "#222";
+    ctx.fillStyle = colors.surfaceSunken;
     ctx.fillRect(barrelLength + 5, -8, 5, 16);
 
     ctx.restore();
@@ -2032,7 +2127,7 @@ export class Mortar extends DefenderUnit {
       const pulse = Math.sin(Date.now() / 100) * 0.2 + 0.8;
 
       // Target reticle
-      ctx.strokeStyle = `rgba(255, 0, 0, ${pulse})`;
+      ctx.strokeStyle = withAlpha(colors.accentDanger, pulse);
       ctx.lineWidth = 3;
 
       // Outer circle
@@ -2054,8 +2149,8 @@ export class Mortar extends DefenderUnit {
       ctx.stroke();
 
       // Target lock text
-      ctx.fillStyle = `rgba(255, 0, 0, ${pulse})`;
-      ctx.font = "bold 14px Arial";
+      ctx.fillStyle = withAlpha(colors.accentDanger, pulse);
+      ctx.font = canvasFont(14, "bold");
       ctx.textAlign = "center";
       ctx.fillText("LOCKED", targetX, targetY - 60);
 
@@ -2082,7 +2177,7 @@ export class Mortar extends DefenderUnit {
 
       // Target circle on ground
       const progress = 1 - shell.timeRemaining / this.shellTravelTime;
-      ctx.strokeStyle = `rgba(255, 0, 0, ${0.5 + progress * 0.5})`;
+      ctx.strokeStyle = withAlpha(colors.accentDanger, 0.5 + progress * 0.5);
       ctx.lineWidth = 3;
       ctx.setLineDash([10, 5]);
       ctx.lineDashOffset = -Date.now() / 50;
@@ -2105,7 +2200,7 @@ export class Mortar extends DefenderUnit {
       ctx.stroke();
 
       // Impact zone preview
-      ctx.fillStyle = `rgba(255, 165, 0, ${0.1 + progress * 0.2})`;
+      ctx.fillStyle = withAlpha(decorative.orange, 0.1 + progress * 0.2);
       ctx.beginPath();
       ctx.arc(
         targetX,
@@ -2127,8 +2222,8 @@ export class Mortar extends DefenderUnit {
           shell.currentX,
           shell.currentY + trailLength * 10,
         );
-        gradient.addColorStop(0, "rgba(100, 100, 100, 0.8)");
-        gradient.addColorStop(1, "rgba(100, 100, 100, 0)");
+        gradient.addColorStop(0, withAlpha(colors.textMuted, 0.8));
+        gradient.addColorStop(1, withAlpha(colors.textMuted, 0));
 
         ctx.strokeStyle = gradient;
         ctx.lineWidth = 6;
@@ -2138,13 +2233,13 @@ export class Mortar extends DefenderUnit {
         ctx.stroke();
 
         // Shell body
-        ctx.fillStyle = "#222";
+        ctx.fillStyle = colors.surfaceSunken;
         ctx.beginPath();
         ctx.arc(shell.currentX, shell.currentY, 6, 0, Math.PI * 2);
         ctx.fill();
 
         // Shell tip
-        ctx.fillStyle = "#ff6600";
+        ctx.fillStyle = decorative.orange;
         ctx.beginPath();
         ctx.arc(shell.currentX, shell.currentY - 3, 3, 0, Math.PI * 2);
         ctx.fill();
@@ -2159,14 +2254,14 @@ export class FrostArcher extends DefenderUnit {
   constructor(x, y, cardData) {
     const typeData = {
       name: "Frost Archer",
-      damage: 2, // Increased from 80
+      damage: 2,
       health: 90,
       range: 250,
-      fireRate: 75,
+      fireRate: 18,
       cost: 35,
       width: 64,
       height: 64,
-      color: "lightblue",
+      color: colors.accentInfo,
       isRanged: true,
       level: cardData.level || 1,
       image: cardData.image,
@@ -2174,8 +2269,11 @@ export class FrostArcher extends DefenderUnit {
     super(x, y, typeData);
 
     this.slowDuration = 120; //2// sec
-    this.freezeChance = 0.1; //10%
     this.freezeDuration = 60; //1 sec
+
+    /* freezeChance is NOT set here. super() runs applyLevelUpgrades, which
+       derives it from the level - assigning it afterwards is what pinned every
+       Frost Archer in the game at the level-1 chance, upgrades included. */
   }
 
   applyLevelUpgrades() {
@@ -2187,7 +2285,11 @@ export class FrostArcher extends DefenderUnit {
     this.maxHealth = this.health;
     this.range = Math.floor(this.range * statMultiplier);
 
-    this.freezeChance = Math.min(0.5, 0.1 + (level - 1) * 0.08); // Up to 50% freeze chance
+    /* The floor is the sprite sheet, not the balance: the attack sheet is nine
+       frames and the engine advances at most one a tick, so a cadence under
+       twelve ticks drops frames off the front of every shot. */
+    this.fireRate = Math.max(12, Math.round(this.fireRate / statMultiplier));
+    this.freezeChance = Math.min(0.05, 0.02 + (level - 1) * 0.01);
     this.applySpecialAbilities();
   }
 
@@ -2207,6 +2309,7 @@ export class FrostArcher extends DefenderUnit {
     if (!this.isAlive || !target || !target.isAlive || !this.gameEngine) return;
 
     this.isAttacking = true;
+    this.beginAttackAnimation();
 
     //frost projectile
     const projectile = {
@@ -2215,7 +2318,7 @@ export class FrostArcher extends DefenderUnit {
       target: target,
       damage: this.attackDamage,
       speed: 8,
-      color: "lightblue",
+      color: colors.accentInfo,
       trail: [],
       onHit: () => this.onProjectileHit(target),
     };
@@ -2231,6 +2334,12 @@ export class FrostArcher extends DefenderUnit {
     const extraDamage =
       this.hasPermaFrost && enemy.slowed ? this.attackDamage * 0.5 : 0;
     const died = enemy.takeDamage(this.attackDamage + extraDamage, false);
+    this.gameEngine?.emitFeedback?.('enemy:hit', {
+      unitType: enemy.constructor.name,
+      damage: this.attackDamage + extraDamage,
+      x: enemy.x + enemy.width / 2,
+      y: enemy.y,
+    });
 
     //apply slow effect
     if (!enemy.frozen) {
@@ -2251,9 +2360,9 @@ export class FrostArcher extends DefenderUnit {
           damage: 0,
           radius: 40,
           timer: 20,
-          color: "lightblue",
-          innerColor: "white",
-          particleColor: "rgba(173, 216, 230, 0.9)",
+          color: colors.accentInfo,
+          innerColor: colors.textPrimary,
+          particleColor: withAlpha(colors.accentInfo, 0.9),
           style: "freeze",
           type: "effect",
           source: "frost_archer",
@@ -2284,9 +2393,9 @@ export class FrostArcher extends DefenderUnit {
         damage: 0,
         radius: 100,
         timer: 30,
-        color: "lightblue",
-        innerColor: "white",
-        particleColor: "rgba(135, 206, 235, 0.9)",
+        color: colors.accentInfo,
+        innerColor: colors.textPrimary,
+        particleColor: withAlpha(colors.accentInfo, 0.9),
         style: "ice_shatter",
         type: "defender",
         source: "frost_archer",
@@ -2305,17 +2414,23 @@ export class FrostArcher extends DefenderUnit {
   }
 }
 
-/**
- * True for one-shot consumables - Fire Blast and Ice Bomb - which fire once and
- * then remove themselves. Defender rules (resurrection, enemy targeting,
- * casualty counting) must not apply to them, because their "death" is a
- * successful cast rather than a loss.
+/*
+ * True for one-shot consumables - Fire Blast and Ice Bomb - which fire once
+ * and then remove themselves.
  */
 export function isConsumableSpell(unit) {
   return Boolean(unit?.isSpell);
 }
 
 export class FireBlast extends DefenderUnit {
+  /*
+   * Level-1 burn. See HealerDefender.BASE. The scaling also read
+   * `this.burningDamage` - the base class's own zero, a different property
+   * from `burnDamage` - so it computed zero even before the constructor
+   * overwrote it with a flat 20.
+   */
+  static BASE = { burnDamage: 20 };
+
   constructor(x, y, cardData) {
     const typeData = {
       name: "Fire Blast",
@@ -2326,7 +2441,7 @@ export class FireBlast extends DefenderUnit {
       cost: 50,
       width: 60,
       height: 60,
-      color: "orangered",
+      color: decorative.orange,
       isRanged: false,
       level: cardData.level || 1,
       image: cardData.image,
@@ -2342,7 +2457,6 @@ export class FireBlast extends DefenderUnit {
     // Blast properties
     this.blastHeight = 120;
     this.burnDuration = 300; // 5 seconds of burn
-    this.burnDamage = 20;
   }
 
   applyLevelUpgrades() {
@@ -2350,7 +2464,7 @@ export class FireBlast extends DefenderUnit {
     const damageMultiplier = 1 + (level - 1) * 0.3; // 30% increase per level
 
     this.attackDamage = Math.floor(this.attackDamage * damageMultiplier);
-    this.burnDamage = Math.floor(this.burningDamage * (1 + (level - 1) * 0.2));
+    this.burnDamage = Math.floor(FireBlast.BASE.burnDamage * (1 + (level - 1) * 0.2));
     this.applySpecialAbilities();
   }
 
@@ -2390,7 +2504,7 @@ export class FireBlast extends DefenderUnit {
 
     // Countdown to activation
     if (!this.hasActivated) {
-      this.currentActivationTimer--;
+      this.currentActivationTimer -= frameScale();
 
       // Pulsing effect while charging
       if (this.currentActivationTimer <= 0) {
@@ -2427,9 +2541,9 @@ export class FireBlast extends DefenderUnit {
         damage: 0,
         radius: 80,
         timer: 30, // Staggered timing
-        color: "orangered",
-        innerColor: "yellow",
-        particleColor: "rgba(255, 69, 0, 0.9)",
+        color: decorative.orange,
+        innerColor: colors.accentEnergy,
+        particleColor: withAlpha(decorative.orange, 0.9),
         style: "fireblast",
         type: "defender",
         source: "fireblast",
@@ -2492,9 +2606,9 @@ export class FireBlast extends DefenderUnit {
               damage: 0,
               radius: 40,
               timer: 15,
-              color: "darkred",
-              innerColor: "orange",
-              particleColor: "rgba(139, 0, 0, 0.6)",
+              color: colors.accentDanger,
+              innerColor: decorative.orange,
+              particleColor: withAlpha(colors.accentDanger, 0.6),
               style: "molten",
               type: "effect",
               source: "fireblast",
@@ -2503,6 +2617,7 @@ export class FireBlast extends DefenderUnit {
         }, i * 500); // Apply every 0.5 seconds
       }
     }
+    this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
     // Remove this unit after activation
     this.isAlive = false;
     this.health = 0;
@@ -2522,7 +2637,7 @@ export class FireBlast extends DefenderUnit {
 
       // Glowing aura
       ctx.globalAlpha = 0.6 * chargeProgress;
-      ctx.fillStyle = "orangered";
+      ctx.fillStyle = decorative.orange;
       ctx.beginPath();
       ctx.arc(
         this.x + this.width / 2,
@@ -2540,7 +2655,7 @@ export class FireBlast extends DefenderUnit {
         const particleX = this.x + this.width / 2 + Math.cos(angle) * distance;
         const particleY = this.y + this.height / 2 + Math.sin(angle) * distance;
 
-        ctx.fillStyle = `rgba(255, ${100 + Math.random() * 155}, 0, ${chargeProgress})`;
+        ctx.fillStyle = withFlicker(decorative.orange, chargeProgress, 155);
         ctx.beginPath();
         ctx.arc(particleX, particleY, 4, 0, Math.PI * 2);
         ctx.fill();
@@ -2552,6 +2667,9 @@ export class FireBlast extends DefenderUnit {
 }
 
 export class IceBomb extends DefenderUnit {
+  /* Level-1 values this defender scales from. See HealerDefender.BASE. */
+  static BASE = { explosionRadius: 200, freezeDuration: 300 };
+
   constructor(x, y, cardData) {
     const typeData = {
       name: "Ice Bomb",
@@ -2562,7 +2680,7 @@ export class IceBomb extends DefenderUnit {
       cost: 40,
       width: 50,
       height: 50,
-      color: "lightblue",
+      color: colors.accentInfo,
       isRanged: false,
       level: cardData.level || 1,
       image: cardData.image,
@@ -2576,8 +2694,6 @@ export class IceBomb extends DefenderUnit {
     this.hasActivated = false;
 
     // Explosion properties
-    this.explosionRadius = 200;
-    this.freezeDuration = 300; // 5 seconds
   }
 
   applyLevelUpgrades() {
@@ -2586,10 +2702,10 @@ export class IceBomb extends DefenderUnit {
 
     this.attackDamage = Math.floor(this.attackDamage * damageMultiplier);
     this.explosionRadius = Math.floor(
-      this.explosionRadius * (1 + (level - 1) * 0.15),
+      IceBomb.BASE.explosionRadius * (1 + (level - 1) * 0.15),
     );
     this.freezeDuration = Math.floor(
-      this.freezeDuration * (1 + (level - 1) * 0.2),
+      IceBomb.BASE.freezeDuration * (1 + (level - 1) * 0.2),
     );
     this.applySpecialAbilities();
   }
@@ -2629,7 +2745,7 @@ export class IceBomb extends DefenderUnit {
     }
 
     if (!this.hasActivated) {
-      this.currentActivationTimer--;
+      this.currentActivationTimer -= frameScale();
 
       if (this.currentActivationTimer <= 0) {
         this.activate();
@@ -2659,9 +2775,9 @@ export class IceBomb extends DefenderUnit {
       damage: 0,
       radius: this.explosionRadius,
       timer: 40,
-      color: "lightblue",
-      innerColor: "white",
-      particleColor: "rgba(173, 216, 230, 0.9)",
+      color: colors.accentInfo,
+      innerColor: colors.textPrimary,
+      particleColor: withAlpha(colors.accentInfo, 0.9),
       style: "icebomb",
       type: "defender",
       source: "icebomb",
@@ -2681,9 +2797,9 @@ export class IceBomb extends DefenderUnit {
             damage: 0,
             radius: 50,
             timer: 20,
-            color: "white",
-            innerColor: "lightblue",
-            particleColor: "rgba(255, 255, 255, 0.8)",
+            color: colors.textPrimary,
+            innerColor: colors.accentInfo,
+            particleColor: withAlpha(colors.textPrimary, 0.8),
             style: "ice_shard",
             type: "effect",
             source: "icebomb",
@@ -2722,6 +2838,7 @@ export class IceBomb extends DefenderUnit {
         }
       }
     }
+    this.gameEngine?.emitFeedback?.('projectile:fired', { defenderType: this.constructor.name });
     this.isAlive = false;
     this.health = 0;
   }
@@ -2751,7 +2868,7 @@ export class IceBomb extends DefenderUnit {
         );
         ctx.rotate(angle);
 
-        ctx.fillStyle = "white";
+        ctx.fillStyle = colors.textPrimary;
         ctx.fillRect(-3, -10, 6, 20);
         ctx.fillRect(-10, -3, 20, 6);
 
@@ -2759,7 +2876,7 @@ export class IceBomb extends DefenderUnit {
       }
 
       // Frost aura
-      ctx.strokeStyle = `rgba(173, 216, 230, ${chargeProgress * 0.8})`;
+      ctx.strokeStyle = withAlpha(colors.accentInfo, chargeProgress * 0.8);
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(

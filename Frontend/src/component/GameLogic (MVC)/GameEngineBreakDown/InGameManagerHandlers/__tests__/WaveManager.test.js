@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { WaveManager } from '../WaveManager.js';
+import { WaveManager, PREP_TIME_MS } from '../WaveManager.js';
 
 function createLevelConfig(overrides = {}) {
     return {
@@ -97,14 +97,28 @@ describe('WaveManager', () => {
     });
 
     describe('shouldStartNextWave', () => {
-        it('should start first wave after 1 second', () => {
+        /*
+         * Derived from PREP_TIME_MS, not restated. This pair named "1 second"
+         * because that was the value; a test that hardcodes a number the code
+         * owns fails on a deliberate change and says nothing about whether the
+         * change was right - which has happened five times in this project
+         * now.
+         */
+        it('starts the first wave once the prep time has elapsed', () => {
             waveManager.lastWaveStartTime = 0;
-            expect(waveManager.shouldStartNextWave(1001, 0)).toBe(true);
+            expect(waveManager.shouldStartNextWave(PREP_TIME_MS + 1, 0)).toBe(true);
         });
 
-        it('should not start first wave before 1 second', () => {
+        it('does not start the first wave before then', () => {
             waveManager.lastWaveStartTime = 0;
-            expect(waveManager.shouldStartNextWave(500, 0)).toBe(false);
+            expect(waveManager.shouldStartNextWave(PREP_TIME_MS - 1, 0)).toBe(false);
+        });
+
+        it('gives the player long enough to actually deploy something', () => {
+            // One second - the old value - is not enough to read a card, choose one
+            // and click a cell. The number matters, so it is asserted, not just
+            // derived away.
+            expect(PREP_TIME_MS).toBeGreaterThanOrEqual(5000);
         });
 
         it('should not start wave beyond max in normal mode', () => {
@@ -273,26 +287,47 @@ describe('WaveManager', () => {
     });
 
     describe('reset', () => {
-        it('should reset all counters and start wave 1', () => {
+        it('should reset all counters and leave wave 1 not yet begun', () => {
             waveManager.currentWave = 5;
             waveManager.totalEnemiesKilled = 20;
             waveManager.allWavesComplete = true;
             waveManager.reset();
-            expect(waveManager.currentWave).toBe(1); // reset calls startNextWave
+            // Wave 0: the prep time before wave 1 is the only thing that can
+            // release it, and it is only consulted while currentWave is 0.
+            // reset() used to jump straight to 1, which made PREP_TIME_MS
+            // unreachable and left a hardcoded five-second delay in charge.
+            expect(waveManager.currentWave).toBe(0);
             expect(waveManager.totalEnemiesKilled).toBe(0);
             expect(waveManager.allWavesComplete).toBe(false);
-            expect(waveManager.waveActive).toBe(true);
+            expect(waveManager.waveActive).toBe(false);
         });
 
-        it('should announce wave 1 by default (genuine new-level start)', () => {
+        /*
+         * The claim the old announce flag existed to protect: no wave horn on
+         * top of the win or loss sting. It holds by construction now - reset
+         * starts no wave, so there is no announcement to suppress.
+         */
+        it('should announce nothing, so no horn lands on a win or loss sting', () => {
             waveManager.reset();
-            expect(mockGameEngine.showWaveAnnouncement).toHaveBeenCalledWith(1, undefined); // wave 1 is not a boss wave
+            expect(mockGameEngine.showWaveAnnouncement).not.toHaveBeenCalled();
         });
 
-        it('should not announce when announceWaveStart=false (end-of-level cleanup)', () => {
-            waveManager.reset(false);
-            expect(waveManager.currentWave).toBe(1); // wave state still advances
-            expect(mockGameEngine.showWaveAnnouncement).not.toHaveBeenCalled();
+        it('should announce wave 1 when the wave actually arrives', () => {
+            waveManager.reset();
+
+            waveManager.update(PREP_TIME_MS, 0, false);
+
+            expect(waveManager.currentWave).toBe(1);
+            expect(mockGameEngine.showWaveAnnouncement).toHaveBeenCalled();
+        });
+
+        it('should clear the wave clock, not just the counters', () => {
+            waveManager.lastWaveStartTime = 90_000;
+
+            waveManager.reset();
+
+            // Compared against a game clock that resets to zero alongside it.
+            expect(waveManager.lastWaveStartTime).toBe(0);
         });
     });
 

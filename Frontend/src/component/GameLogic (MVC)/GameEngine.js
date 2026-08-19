@@ -46,10 +46,30 @@ import { DrawEntities } from "./GameEngineBreakDown/Draws/DrawEntities.js";
 import { DrawUIs } from "./GameEngineBreakDown/Draws/DrawUIs.js";
 import { AnimationManager } from "./Animation/AnimationManager.js";
 import { AnimationSources } from "./Animation/AnimationSources.js";
+import { setFrameDeltaMs, frameScale, crossedPeriod } from "./Animation/FrameTime.js";
 import { AssetManifest } from "../../assets/AssetManifest.js";
 import { GameLevelConfigs } from "./GameEngineBreakDown/GameLevelConfigs.js";
 import { GameClock } from "./Feedback/GameClock.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
+import { colors, decorative, ensureDisplayFontLoaded, withAlpha } from '../../style/tokens.js';
+
+/* How much larger a boss is drawn than the same enemy type spawned normally. */
+const BOSS_SCALE = 1.4;
+
+/*
+ * A boss's health, as a multiple of its type's and as a hard floor.
+ *
+ * The multiplier alone made a boss out of the enemy's own scale, so the small
+ * types stayed small: a boss Vampire is 90 base health, and no multiple worth
+ * applying to a Titan's 5000 leaves the Vampire standing long enough to read as
+ * a boss. The floor is what makes every boss a boss; the multiplier only still
+ * matters for the types that already clear it.
+ */
+const BOSS_MIN_HEALTH = 1500;
+const BOSS_HEALTH_SCALE = 2;
+
+/* The tallest a boss may be drawn, as a multiple of its lane's height. */
+const BOSS_MAX_LANE_HEIGHT = 2;
 
 export class GameEngine {
   constructor(
@@ -163,22 +183,20 @@ export class GameEngine {
     this.gameLevelConfigs.initLevelConfigs();
   }
 
-  /**
-   * Push the energy drop into its map
-   * @param x the x position of the current energy drop
-   * @param y the y position of the current energy drop
-   * @param amount the amount of this energy drop
+  /*
+   * Push the energy drop into its map @param x the x position of the current
+   * energy drop @param y the y position of the current energy drop @param
+   * amount the amount of this energy drop
    */
   dropEnergy(x, y, amount) {
     if (this.gameOver) return;
     this.energyDrops.push(new EnergyDrop(x, y, amount));
   }
 
-  /**
-   * Check if energy is collected and add it to the inGameEnergy,
-   * else return false
-   * @param x the x position of the current mouse
-   * @param y the y position of the current mouse
+  /*
+   * Check if energy is collected and add it to the inGameEnergy, else return
+   * false @param x the x position of the current mouse @param y the y position
+   * of the current mouse
    */
   collectEnergy(x, y) {
     for (let i = this.energyDrops.length - 1; i >= 0; i--) {
@@ -248,13 +266,7 @@ export class GameEngine {
     this.emitFeedback('wave:started', { number: waveNumber, isBoss });
   }
 
-  /**
-   * Initializes the game engine for a specific level.
-   * @param {HTMLCanvasElement} canvas - The canvas DOM element.
-   * @param {number} width - The width of the canvas.
-   * @param {number} height - The height of the canvas.
-   * @param {number} levelNumber - The number of the level to initialize.
-   */
+  /* Initializes the game engine for a specific level. */
   async initialize(canvas, width, height, levelNumber) {
     // CRITICAL: Stop any existing game loop FIRST
     this.stopLoop();
@@ -266,6 +278,16 @@ export class GameEngine {
     }
 
     this.ctx = canvas.getContext("2d"); // Get 2D rendering context
+
+    // Started here and awaited below, next to the animation load. Canvas text
+    // does not trigger a webfont fetch the way DOM text does, so the first
+    // frames would draw every damage number, wave banner and drop label in
+    // the fallback family and never redraw them when the face arrived. Kicked
+    // off before loadAllAnimations() so the two fetches overlap and this
+    // costs no extra wall-clock time on a cold cache; see
+    // ensureDisplayFontLoaded in tokens.js.
+    const displayFontLoaded = ensureDisplayFontLoaded();
+
     this.canvasWidth = width;
     this.canvasHeight = height;
     this.defenseLineX = width - 60; // Defense line 150px from right edge
@@ -294,6 +316,7 @@ export class GameEngine {
     );
 
     await this.loadAllAnimations();
+    await displayFontLoaded;
     this.resetGame();
     this.startLoop();
   }
@@ -312,10 +335,12 @@ export class GameEngine {
     const defenderAnimations =
       await this.animationSources.getDefenderAnimations(defenderTypes);
 
-    // Load into AnimationManager
+    // Load into AnimationManager. Category is passed so that an enemy and a
+    // defender sharing a unit-type name (e.g. "Healer") don't overwrite each
+    // other's cached frames.
     for (const [enemyType, animations] of Object.entries(enemyAnimations)) {
       if (animations) {
-        await this.animationManager.loadUnitAnimation(enemyType, animations);
+        await this.animationManager.loadUnitAnimation(enemyType, animations, "enemies");
       }
     }
 
@@ -323,7 +348,7 @@ export class GameEngine {
       defenderAnimations,
     )) {
       if (animations) {
-        await this.animationManager.loadUnitAnimation(defenderType, animations);
+        await this.animationManager.loadUnitAnimation(defenderType, animations, "defenders");
       }
     }
   }
@@ -342,10 +367,22 @@ export class GameEngine {
 
     if (options.isBoss) {
       enemy.isBoss = true;
-      enemy.health    = Math.floor(enemy.health    * 2.5);
-      enemy.maxHealth = Math.floor(enemy.maxHealth * 2.5);
+      enemy.maxHealth = Math.max(
+        BOSS_MIN_HEALTH,
+        Math.floor(enemy.maxHealth * BOSS_HEALTH_SCALE),
+      );
+      enemy.health = enemy.maxHealth;
       enemy.attackDamage = Math.floor(enemy.attackDamage * 2);
       enemy.bounty    = Math.floor(enemy.bounty    * 2);
+
+      /* And it has to LOOK like what it is. */
+      enemy.width = Math.round(enemy.width * BOSS_SCALE);
+
+      /* Height is capped against the lane; width is not. */
+      const laneHeight = this.gridManager?.gridSize ?? enemy.height;
+      enemy.height = Math.round(
+        Math.max(enemy.height, Math.min(enemy.height * BOSS_SCALE, laneHeight * BOSS_MAX_LANE_HEIGHT)),
+      );
     }
 
     // Center the sprite vertically on the row so tall zombies (e.g. Titan)
@@ -354,13 +391,13 @@ export class GameEngine {
 
     if (
       this.animationManager &&
-      this.animationManager.hasAnimation(enemyType)
+      this.animationManager.hasAnimation(enemyType, "enemies")
     ) {
       const frames = {
-        idle: this.animationManager.getFrames(enemyType, "idle"),
-        move: this.animationManager.getFrames(enemyType, "move"),
-        attack: this.animationManager.getFrames(enemyType, "attack"),
-        death: this.animationManager.getFrames(enemyType, "death"),
+        idle: this.animationManager.getFrames(enemyType, "idle", "enemies"),
+        move: this.animationManager.getFrames(enemyType, "move", "enemies"),
+        attack: this.animationManager.getFrames(enemyType, "attack", "enemies"),
+        death: this.animationManager.getFrames(enemyType, "death", "enemies"),
       };
 
       enemy.animationFrames = frames;
@@ -377,13 +414,13 @@ export class GameEngine {
   attachAnimationsToEnemy(enemy, enemyType) {
     if (
       this.animationManager &&
-      this.animationManager.hasAnimation(enemyType)
+      this.animationManager.hasAnimation(enemyType, "enemies")
     ) {
       const frames = {
-        idle: this.animationManager.getFrames(enemyType, "idle"),
-        move: this.animationManager.getFrames(enemyType, "move"),
-        attack: this.animationManager.getFrames(enemyType, "attack"),
-        death: this.animationManager.getFrames(enemyType, "death"),
+        idle: this.animationManager.getFrames(enemyType, "idle", "enemies"),
+        move: this.animationManager.getFrames(enemyType, "move", "enemies"),
+        attack: this.animationManager.getFrames(enemyType, "attack", "enemies"),
+        death: this.animationManager.getFrames(enemyType, "death", "enemies"),
       };
 
       enemy.animationFrames = frames;
@@ -393,11 +430,9 @@ export class GameEngine {
   }
 
   // Resets the game state to its initial values for the current level.
-  // announceWaveStart controls whether the wave-1 horn plays: true for a
-  // genuine new-level start (called from initialize()), false when this is
-  // just end-of-level cleanup (called from GameContext.endGame()) so the
-  // win/loss sting doesn't get a wave horn stacked on top of it.
-  resetGame(announceWaveStart = true) {
+  /* Back to the start of the level. The wave manager owns the wait before
+     wave 1, so nothing here needs to say whether it should be announced. */
+  resetGame() {
     this.stopLoop(); // Stop any active animation loop
     this.defenders = [];
     this.enemies = [];
@@ -416,8 +451,11 @@ export class GameEngine {
     this.lastFrameTime = null;
 
     if (this.waveManager) {
-      this.waveManager.reset(announceWaveStart);
-      this.waveManager.lastSpawnTime = this.gameClock.now + 5000; // 5 second delay
+      /* No `lastSpawnTime = now + 5000` here any more. That line was the real
+         wait before the first enemy - five seconds, from a number nobody chose,
+         quietly overriding the PREP_TIME_MS the level is meant to give. The
+         prep is the wave manager's business now. */
+      this.waveManager.reset();
     }
 
     this.baseHealth = 100;
@@ -443,13 +481,17 @@ export class GameEngine {
     console.trace();
   }
 
-  /**
-   * Deploys a defender unit onto the game board.
-   * @param {object} cardData - The data of the card being deployed.
-   * @param {number} x - X coordinate for deployment.
-   * @param {number} y - Y coordinate for deployment.
-   * @returns {boolean} True if deployment was successful, false otherwise.
-   */
+  /* Sizes a unit to exactly one grid cell. */
+  sizeUnitToGrid(unit) {
+    const cellSize = this.gridManager?.gridSize;
+    if (!cellSize) return unit;
+
+    unit.width = cellSize;
+    unit.height = cellSize;
+    return unit;
+  }
+
+  /* Deploys a defender unit onto the game board. */
   deployDefenderUnit(cardData, x, y) {
     if (this.gameOver) return false;
 
@@ -466,7 +508,7 @@ export class GameEngine {
       return false;
     }
 
-    const tempUnit = new UnitClass(0, 0, cardData);
+    const tempUnit = this.sizeUnitToGrid(new UnitClass(0, 0, cardData));
 
     if (this.inGameEnergy < cardData.cost) {
       console.log(`Not enough energy: ${this.inGameEnergy}/${cardData.cost}`);
@@ -494,17 +536,17 @@ export class GameEngine {
       return false;
     }
 
-    const newUnit = new UnitClass(deployX, deployY, cardData);
+    const newUnit = this.sizeUnitToGrid(new UnitClass(deployX, deployY, cardData));
 
     // ADD THIS: Attach animation frames if available
     if (
       this.animationManager &&
-      this.animationManager.hasAnimation(cardData.name)
+      this.animationManager.hasAnimation(cardData.name, "defenders")
     ) {
       const frames = {
-        idle: this.animationManager.getFrames(cardData.name, "idle"),
-        attack: this.animationManager.getFrames(cardData.name, "attack"),
-        death: this.animationManager.getFrames(cardData.name, "death"),
+        idle: this.animationManager.getFrames(cardData.name, "idle", "defenders"),
+        attack: this.animationManager.getFrames(cardData.name, "attack", "defenders"),
+        death: this.animationManager.getFrames(cardData.name, "death", "defenders"),
       };
 
       newUnit.animationFrames = frames;
@@ -526,11 +568,11 @@ export class GameEngine {
     return true;
   }
 
-  /**
-   * Removes a defender at the specified coordinates
-   * @param {number} x - X coordinate where the click happened
-   * @param {number} y - Y coordinate where the click happened
-   * @returns {boolean} True if a defender was removed, false otherwise
+  /*
+   * Removes a defender at the specified coordinates @param {number} x - X
+   * coordinate where the click happened @param {number} y - Y coordinate where
+   * the click happened @returns {boolean} True if a defender was removed,
+   * false otherwise
    */
   removeDefenderAt(x, y) {
     if (this.gameOver) return;
@@ -564,6 +606,12 @@ export class GameEngine {
         this.defenders.splice(i, 1);
 
         console.log(`Removed defender: ${defender.name}`);
+        // A deliberate player action (the hammer/shovel tool) had no feedback
+        // at all. Emitted only here, after the defender is confirmed alive
+        // and actually spliced out - a click on empty ground or a corpse
+        // takes neither branch and stays silent, so the sound keeps meaning
+        // "you removed something" rather than firing on every click.
+        this.emitFeedback('defender:removed', { type: defender.constructor.name });
         return true;
       }
     }
@@ -594,14 +642,7 @@ export class GameEngine {
     }
   }
 
-  /**
-   * Checks if a given position is valid for deploying a defender.
-   * @param {number} x - X coordinate.
-   * @param {number} y - Y coordinate.
-   * @param {number} width - Width of the unit.
-   * @param {number} height - Height of the unit.
-   * @returns {boolean} True if valid, false otherwise.
-   */
+  /* Checks if a given position is valid for deploying a defender. */
   isValidDeploymentPosition(x, y, width, height) {
     // Check if within canvas bounds
     if (
@@ -640,13 +681,7 @@ export class GameEngine {
     return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
   }
 
-  /**
-   * Adds an explosion effect and applies damage in an area.
-   * @param {number} x - Center X of explosion.
-   * @param {number} y - Center Y of explosion.
-   * @param {number} damage - Damage dealt by explosion.
-   * @param {number} radius - Radius of explosion effect.
-   */
+  /* Adds an explosion effect and applies damage in an area. */
   addDefenderExplosion(x, y, damage, radius) {
     if (this.gameOver) return;
 
@@ -660,32 +695,23 @@ export class GameEngine {
       ); // Distance from enemy center to explosion center
       if (distance <= radius) {
         const died = enemy.takeDamage(damage, false); //explosion does not ignore armor
+        this.emitFeedback('enemy:hit', {
+          unitType: enemy.constructor.name,
+          damage,
+          x: enemy.x + enemy.width / 2,
+          y: enemy.y,
+        });
         if (died && !this.gameOver) {
+          this.emitEnemyDeathFeedback(enemy);
+
           if (!enemy.isSpawned) {
             //only change game score when game still playing
             this.inGameScore += enemy.bounty;
             this.enemiesKilled++;
-            this.emitEnemyDeathFeedback(enemy);
             this.updateScoreCb(this.inGameScore);
           }
           this.dropManager.handleEnemyDeath(enemy);
         }
-      }
-    }
-    // Apply reduced damage to defenders within radius (friendly fire)
-    for (const defender of this.defenders) {
-      if (!defender.isAlive) continue;
-
-      const distance = Math.hypot(
-        defender.x + defender.width / 2 - x,
-        defender.y + defender.height / 2 - y,
-      ); // Distance from defender center to explosion center
-      if (distance <= radius) {
-        const friendlyFire = damage * 0.3;
-        console.log(`Defender ${defender.name} in explosion range, 
-        taking ${friendlyFire} damage`); // Fix: Added debug logging
-
-        defender.takeDamage(friendlyFire); // 30% damage to allies
       }
     }
   }
@@ -700,9 +726,6 @@ export class GameEngine {
       );
       if (distance <= radius) {
         defender.takeDamage(damage);
-        console.log(
-          `Enemy explosion: ${defender.name} taking ${damage} damage`,
-        );
       }
     }
   }
@@ -721,6 +744,7 @@ export class GameEngine {
     if (!enemy || enemy.deathFeedbackEmitted) return;
     enemy.deathFeedbackEmitted = true;
     this.emitFeedback('enemy:died', {
+      unitType: enemy.constructor.name,
       isBoss: Boolean(enemy.isBoss), x: enemy.x, y: enemy.y,
     });
   }
@@ -738,6 +762,9 @@ export class GameEngine {
     this.lastFrameTime = realNow;
 
     this.gameClock.advance(deltaMs);
+    // Sprite animation reads this instead of assuming a 60fps frame; the loop is
+    // uncapped, so on a 120Hz display "one frame" is half of one.
+    setFrameDeltaMs(deltaMs);
     this.juiceManager?.update(deltaMs);
     // Hit-stop freezes gameplay for a few frames while drawing continues.
     if (this.juiceManager?.isFrozen()) return;
@@ -794,15 +821,7 @@ export class GameEngine {
     }
   }
 
-  /**
-   * Records a defender's death exactly once.
-   *
-   * Consumable spells end by firing, not by being destroyed, so they are not
-   * casualties: counting them made the perfect_defense achievement (zero
-   * defenders lost) unobtainable for anyone who cast one, and played a crumble
-   * death sound on a successful cast. They are still marked handled so the
-   * death sweep does not reprocess them every frame.
-   */
+  /* Records a defender's death exactly once. */
   markDefenderDead(defender) {
     if (defender.deathHandled) return;
     defender.deathHandled = true;
@@ -810,7 +829,11 @@ export class GameEngine {
     if (isConsumableSpell(defender)) return;
 
     this.defendersLost++;
-    this.emitFeedback('defender:died', { x: defender.x, y: defender.y });
+    this.emitFeedback('defender:died', {
+      unitType: defender.constructor.name,
+      x: defender.x,
+      y: defender.y,
+    });
   }
 
   updateDefenders(now) {
@@ -868,14 +891,19 @@ export class GameEngine {
       if (!defender.isAlive) continue;
 
       if (defender.disabled && defender.disabledDuration) {
-        defender.disabledDuration--;
+        defender.disabledDuration -= frameScale();
         if (defender.disabledDuration <= 0) {
           defender.disabled = false;
         }
       }
       if (defender.burning && defender.burningDuration) {
-        defender.burningDuration--;
-        if (defender.burningDuration % 30 === 0) {
+        // The burn ticks every 30 authored frames. Now that the countdown steps
+        // by a fraction it lands on an exact multiple of 30 essentially never,
+        // so ask whether the step crossed one instead of whether it landed on
+        // one; crossedPeriod reproduces the old test exactly at 60fps.
+        const burningWas = defender.burningDuration;
+        defender.burningDuration -= frameScale();
+        if (crossedPeriod(burningWas, defender.burningDuration, 30)) {
           defender.takeDamage(defender.burningDamage);
         }
         if (defender.burningDuration <= 0) {
@@ -919,7 +947,7 @@ export class GameEngine {
 
       //Handle Enemy negative effects
       if (enemy.slowed && enemy.slowDuration) {
-        enemy.slowDuration--;
+        enemy.slowDuration -= frameScale();
         if (enemy.slowDuration <= 0) {
           enemy.slowed = false;
           if (enemy.initialSpeed) {
@@ -928,7 +956,7 @@ export class GameEngine {
         }
       }
       if (enemy.frozen && enemy.frozenDuration) {
-        enemy.frozenDuration--;
+        enemy.frozenDuration -= frameScale();
         if (enemy.frozenDuration <= 0) {
           enemy.frozen = false;
           if (enemy.initialSpeed) {
@@ -937,13 +965,13 @@ export class GameEngine {
         }
       }
       if (enemy.stunned && enemy.stunnedDuration) {
-        enemy.stunnedDuration--;
+        enemy.stunnedDuration -= frameScale();
         if (enemy.stunnedDuration <= 0) {
           enemy.stunned = false;
         }
       }
       if (enemy.burning && enemy.burningDuration) {
-        enemy.burningDuration--;
+        enemy.burningDuration -= frameScale();
         if (enemy.burningDuration <= 0) {
           enemy.burning = false;
         }
@@ -1003,10 +1031,13 @@ export class GameEngine {
 
   handleEnemyDeath(enemy) {
     if (!this.gameOver) {
+      // Feedback is not score: a spawned mini or a self-destructing bomber
+      // awards nothing, but it is still a death the player should hear.
+      this.emitEnemyDeathFeedback(enemy);
+
       if (!enemy.isSpawned && !enemy.shouldExplode) {
         this.inGameScore += enemy.bounty;
         this.enemiesKilled++;
-        this.emitEnemyDeathFeedback(enemy);
         this.updateScoreCb(this.inGameScore);
         this.dropManager.handleEnemyDeath(enemy);
         this.waveManager.totalEnemiesKilled++;
@@ -1054,7 +1085,13 @@ export class GameEngine {
         projectile.target.y + projectile.target.height / 2 - projectile.startY;
       const distance = Math.hypot(dx, dy);
 
-      if (distance <= projectile.speed) {
+      const step = projectile.speed * frameScale();
+
+      // Arrival is tested against the step this frame actually takes, not
+      // against the authored speed: at 30fps a frame covers two authored
+      // speeds, so a projectile that only counted as arrived within one would
+      // step straight past its target and then orbit it forever.
+      if (distance <= step) {
         if (projectile.onHit) {
           projectile.onHit();
         } else {
@@ -1063,15 +1100,17 @@ export class GameEngine {
             projectile.ignoreArmor,
           );
           this.emitFeedback('enemy:hit', {
+            unitType: projectile.target.constructor.name,
             damage: projectile.damage,
             x: projectile.target.x + projectile.target.width / 2,
             y: projectile.target.y,
           });
           if (died && !this.gameOver) {
+            this.emitEnemyDeathFeedback(projectile.target);
+
             if (!projectile.target.isSpawned) {
               this.inGameScore += projectile.target.bounty;
               this.enemiesKilled++;
-              this.emitEnemyDeathFeedback(projectile.target);
               this.updateScoreCb(this.inGameScore);
             }
             this.dropManager.handleEnemyDeath(projectile.target);
@@ -1087,8 +1126,8 @@ export class GameEngine {
       } else {
         // Move projectile
         const angle = Math.atan2(dy, dx);
-        projectile.startX += Math.cos(angle) * projectile.speed;
-        projectile.startY += Math.sin(angle) * projectile.speed;
+        projectile.startX += Math.cos(angle) * step;
+        projectile.startY += Math.sin(angle) * step;
       }
     }
   }
@@ -1112,7 +1151,11 @@ export class GameEngine {
         projectile.target.y + projectile.target.height / 2 - projectile.startY;
       const distance = Math.hypot(dx, dy);
 
-      if (distance <= projectile.speed) {
+      const step = projectile.speed * frameScale();
+
+      // Arrival is tested against this frame's step, not the authored speed;
+      // see updateProjectiles.
+      if (distance <= step) {
         if (projectile.onHit) {
           projectile.onHit();
         } else {
@@ -1123,8 +1166,8 @@ export class GameEngine {
       } else {
         //move projectile
         const angle = Math.atan2(dy, dx);
-        projectile.startX += Math.cos(angle) * projectile.speed;
-        projectile.startY += Math.sin(angle) * projectile.speed;
+        projectile.startX += Math.cos(angle) * step;
+        projectile.startY += Math.sin(angle) * step;
       }
     }
   }
@@ -1140,7 +1183,7 @@ export class GameEngine {
 
       //clean up old trial points
       spell.trail = spell.trail.filter((point) => {
-        point.timer--;
+        point.timer -= frameScale();
         return point.timer > 0; //timer reach zero, the effect be gone in its draw method
       });
 
@@ -1149,15 +1192,19 @@ export class GameEngine {
       const dy = spell.targetY - spell.currentY;
       const distance = Math.hypot(dx, dy);
 
-      if (distance <= spell.speed) {
+      const step = spell.speed * frameScale();
+
+      // Arrival is tested against this frame's step, not the authored speed;
+      // see updateProjectiles.
+      if (distance <= step) {
         //spell has reach target
         this.handleSpellImpact(spell);
         this.spellProjectiles.splice(i, 1);
       } else {
         //move toward target
         const angle = Math.atan2(dy, dx);
-        spell.currentX += Math.cos(angle) * spell.speed;
-        spell.currentY += Math.sin(angle) * spell.speed;
+        spell.currentX += Math.cos(angle) * step;
+        spell.currentY += Math.sin(angle) * step;
       }
     }
   }
@@ -1174,9 +1221,9 @@ export class GameEngine {
           damage: 0,
           radius: 180,
           timer: 30,
-          color: "orange",
-          innerColor: "yellow",
-          particleColor: "rgba(255, 165, 0, 0.9)",
+          color: decorative.orange,
+          innerColor: colors.accentEnergy,
+          particleColor: withAlpha(decorative.orange, 0.9),
           style: "fireball",
           type: "effect",
           source: "mage",
@@ -1207,9 +1254,9 @@ export class GameEngine {
           damage: 0,
           radius: 150,
           timer: 30,
-          color: "lightblue",
-          innerColor: "white",
-          particleColor: "rgba(173, 216, 230, 0.9)",
+          color: colors.accentInfo,
+          innerColor: colors.textPrimary,
+          particleColor: withAlpha(colors.accentInfo, 0.9),
           style: "ice",
           type: "effect",
           source: "mage",
@@ -1237,7 +1284,7 @@ export class GameEngine {
   /** Updates and removes expired explosion effects. */
   updateExplosions() {
     for (let i = this.explosions.length - 1; i >= 0; i--) {
-      this.explosions[i].timer--; // Decrement timer
+      this.explosions[i].timer -= frameScale(); // Decrement timer
 
       if (this.explosions[i].timer <= 0) {
         this.explosions.splice(i, 1); // Remove expired explosion
@@ -1363,6 +1410,9 @@ export class GameEngine {
     ctx.save();
     ctx.translate(shake.x, shake.y);
 
+    // Lane bands go first: they must sit under the grid overlay (cell tints,
+    // highlight, occupied state) and every entity drawn after it.
+    this.gridManager.drawLaneBands(ctx);
     this.gridManager.drawGrid(ctx);
     this.drawEntities.drawDefenders(ctx);
     this.drawEntities.drawEnemies(ctx);

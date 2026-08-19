@@ -1,11 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { GameEngine } from '../GameEngine.js';
 
-/**
+/*
  * emitEnemyDeathFeedback is tested in isolation, without constructing a full
- * GameEngine (which needs canvas/level-config wiring). Pulling the real
- * prototype methods onto a minimal object keeps this in sync with the actual
- * implementation instead of re-describing its logic.
+ * GameEngine (which needs canvas/level-config wiring).
  */
 function createFakeEngine() {
   return {
@@ -23,9 +21,12 @@ describe('GameEngine.emitEnemyDeathFeedback', () => {
     engine.emitEnemyDeathFeedback(enemy);
     engine.emitEnemyDeathFeedback(enemy);
 
+    // Per-unit voices (Task 3): the payload now carries unitType, taken from
+    // enemy.constructor.name. These fixtures are plain object literals, so
+    // that name is 'Object' rather than a real unit class.
     expect(engine.feedbackBus.emit).toHaveBeenCalledTimes(1);
     expect(engine.feedbackBus.emit).toHaveBeenCalledWith('enemy:died', {
-      isBoss: false, x: 10, y: 20,
+      unitType: 'Object', isBoss: false, x: 10, y: 20,
     });
   });
 
@@ -38,12 +39,13 @@ describe('GameEngine.emitEnemyDeathFeedback', () => {
     engine.emitEnemyDeathFeedback(enemyA); // repeat: suppressed
     engine.emitEnemyDeathFeedback(enemyB); // different enemy: not suppressed
 
+    // Per-unit voices (Task 3): unitType is included in the payload (see comment above).
     expect(engine.feedbackBus.emit).toHaveBeenCalledTimes(2);
     expect(engine.feedbackBus.emit).toHaveBeenNthCalledWith(1, 'enemy:died', {
-      isBoss: false, x: 1, y: 2,
+      unitType: 'Object', isBoss: false, x: 1, y: 2,
     });
     expect(engine.feedbackBus.emit).toHaveBeenNthCalledWith(2, 'enemy:died', {
-      isBoss: true, x: 3, y: 4,
+      unitType: 'Object', isBoss: true, x: 3, y: 4,
     });
   });
 
@@ -140,17 +142,192 @@ describe('GameEngine.resetGame', () => {
     expect(() => engine.resetGame()).not.toThrow();
   });
 
-  it('defaults to announcing wave 1 (genuine new-level start via initialize())', () => {
+  it('hands the wave manager its own reset, with nothing to announce', () => {
     const waveManager = { reset: vi.fn(), lastSpawnTime: 0 };
     const engine = createFakeResetEngine({ waveManager });
     engine.resetGame();
-    expect(waveManager.reset).toHaveBeenCalledWith(true);
+    expect(waveManager.reset).toHaveBeenCalled();
   });
 
-  it('passes announceWaveStart=false through so end-of-level cleanup stays silent', () => {
+  /*
+   * `lastSpawnTime = gameClock.now + 5000` used to sit here, and it was the real
+   * wait before the first enemy of every level - five seconds, from a number
+   * nobody chose, overriding the PREP_TIME_MS the level is meant to give. The
+   * prep belongs to the wave manager; resetGame must not reach past it.
+   */
+  it('does not push the spawn clock into the future behind the prep time', () => {
     const waveManager = { reset: vi.fn(), lastSpawnTime: 0 };
     const engine = createFakeResetEngine({ waveManager });
-    engine.resetGame(false);
-    expect(waveManager.reset).toHaveBeenCalledWith(false);
+
+    engine.resetGame();
+
+    expect(waveManager.lastSpawnTime, 'resetGame set its own spawn delay').toBe(0);
+  });
+});
+
+describe('sizeUnitToGrid', () => {
+  function engineWithCell(gridSize) {
+    return {
+      gridManager: gridSize === null ? null : { gridSize },
+      sizeUnitToGrid: GameEngine.prototype.sizeUnitToGrid,
+      checkCollision: GameEngine.prototype.checkCollision,
+    };
+  }
+
+  it('sizes a unit to the cell when the cell is small', () => {
+    const engine = engineWithCell(48);
+    const unit = { width: 64, height: 64 };
+
+    engine.sizeUnitToGrid(unit);
+
+    expect(unit.width).toBe(48);
+    expect(unit.height).toBe(48);
+  });
+
+  it('sizes a unit up to a larger cell too', () => {
+    const engine = engineWithCell(80);
+    const unit = { width: 64, height: 64 };
+
+    engine.sizeUnitToGrid(unit);
+
+    expect(unit.width).toBe(80);
+    expect(unit.height).toBe(80);
+  });
+
+  it('returns the unit so it can be used inline', () => {
+    const engine = engineWithCell(60);
+    const unit = { width: 64, height: 64 };
+
+    expect(engine.sizeUnitToGrid(unit)).toBe(unit);
+  });
+
+  it('leaves the unit alone when no grid manager is attached', () => {
+    const engine = engineWithCell(null);
+    const unit = { width: 64, height: 64 };
+
+    engine.sizeUnitToGrid(unit);
+
+    expect(unit.width).toBe(64);
+  });
+});
+
+describe('adjacent deployment at small cell sizes', () => {
+  /**
+   * Reproduces the reported bug directly: two units in neighbouring cells.
+   * checkCollision is strict AABB, so units that exactly touch do not collide.
+   */
+  function placeInCell(engine, cellIndex, cellSize, unitSize) {
+    const cellX = cellIndex * cellSize;
+    return {
+      x: cellX + (cellSize - unitSize) / 2,
+      y: 0,
+      width: unitSize,
+      height: unitSize,
+    };
+  }
+
+  const engine = { checkCollision: GameEngine.prototype.checkCollision };
+
+  it('64px units in 60px cells DO overlap - this is the bug', () => {
+    const a = placeInCell(engine, 0, 60, 64);
+    const b = placeInCell(engine, 1, 60, 64);
+
+    expect(
+      engine.checkCollision(a.x, a.y, a.width, a.height, b.x, b.y, b.width, b.height),
+    ).toBe(true);
+  });
+
+  it('cell-sized units in 60px cells do NOT overlap - this is the fix', () => {
+    const a = placeInCell(engine, 0, 60, 60);
+    const b = placeInCell(engine, 1, 60, 60);
+
+    expect(
+      engine.checkCollision(a.x, a.y, a.width, a.height, b.x, b.y, b.width, b.height),
+    ).toBe(false);
+  });
+
+  it('cell-sized units do not overlap at the minimum cell size either', () => {
+    const a = placeInCell(engine, 0, 40, 40);
+    const b = placeInCell(engine, 1, 40, 40);
+
+    expect(
+      engine.checkCollision(a.x, a.y, a.width, a.height, b.x, b.y, b.width, b.height),
+    ).toBe(false);
+  });
+});
+
+/*
+ * removeDefenderAt is tested the same way as collectEnergy above: the real
+ * prototype method pulled onto a minimal fake with just the fields it touches,
+ * so the assertions track the real implementation instead of re-describing it.
+ */
+function createFakeRemovalEngine(defenders, overrides = {}) {
+  return {
+    gameOver: false,
+    defenders,
+    gridManager: { getGridCell: vi.fn(() => ({ occupied: true })) },
+    emitFeedback: vi.fn(),
+    removeDefenderAt: GameEngine.prototype.removeDefenderAt,
+    ...overrides,
+  };
+}
+
+class FakeBasicDefender {}
+
+function makeDefender(overrides = {}) {
+  return Object.assign(new FakeBasicDefender(), {
+    x: 0, y: 0, width: 20, height: 20, isAlive: true,
+  }, overrides);
+}
+
+describe('GameEngine.removeDefenderAt', () => {
+  it('emits defender:removed with the removed unit type when a click actually removes one', () => {
+    const defender = makeDefender();
+    const engine = createFakeRemovalEngine([defender]);
+
+    const removed = engine.removeDefenderAt(10, 10);
+
+    expect(removed).toBe(true);
+    expect(engine.emitFeedback).toHaveBeenCalledWith('defender:removed', {
+      type: 'FakeBasicDefender',
+    });
+  });
+
+  it('does not emit when the click lands on empty ground', () => {
+    // Rejects: emitting unconditionally regardless of whether anything was
+    // actually removed, which would teach the player that this sound means
+    // nothing - it would fire on every miss the same as every hit.
+    const engine = createFakeRemovalEngine([]);
+
+    const removed = engine.removeDefenderAt(500, 500);
+
+    expect(removed).toBe(false);
+    expect(engine.emitFeedback).not.toHaveBeenCalled();
+  });
+
+  it('does not emit when the click lands on an already-dead defender', () => {
+    // Rejects: emitting based on "a defender's bounds were clicked" rather
+    // than "a defender was removed". removeDefenderAt refuses to remove a
+    // corpse, so the sound must refuse to play for one too.
+    const corpse = makeDefender({ isAlive: false });
+    const engine = createFakeRemovalEngine([corpse]);
+
+    const removed = engine.removeDefenderAt(10, 10);
+
+    expect(removed).toBeFalsy();
+    expect(engine.emitFeedback).not.toHaveBeenCalled();
+  });
+
+  it('frees the grid cell and still emits together, not one without the other', () => {
+    const defender = makeDefender();
+    const gridCell = { occupied: true };
+    const engine = createFakeRemovalEngine([defender], {
+      gridManager: { getGridCell: vi.fn(() => gridCell) },
+    });
+
+    engine.removeDefenderAt(10, 10);
+
+    expect(gridCell.occupied).toBe(false);
+    expect(engine.emitFeedback).toHaveBeenCalledOnce();
   });
 });

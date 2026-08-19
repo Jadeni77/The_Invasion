@@ -1,4 +1,10 @@
 // WaveManager.js - Enhanced Wave System
+/* The floor on how often enemies may arrive, in milliseconds. */
+const MIN_SPAWN_INTERVAL_MS = 200;
+
+/** How long the player gets to arrange defenders before the first wave. */
+export const PREP_TIME_MS = 10_000;
+
 export class WaveManager {
     constructor(levelConfig, spawnEnemyCallback, gameEngine) {
         this.config = levelConfig;
@@ -74,7 +80,7 @@ export class WaveManager {
     }
 
     shouldStartNextWave(now, enemyCount) {
-        if (this.currentWave === 0) return now - this.lastWaveStartTime >= 1000; // 1 second initial delay
+        if (this.currentWave === 0) return now - this.lastWaveStartTime >= PREP_TIME_MS;
         if (!this.isEndlessMode && this.currentWave >= this.config.waves) return false;
 
         const timeSinceLastWave = now - this.lastWaveStartTime;
@@ -172,10 +178,34 @@ export class WaveManager {
         return 'Tank Zombie';
     }
 
+    /* How many enemies may be alive at once, and how fast they may arrive. */
+    activeEnemyCap() {
+        return this.config?.maxActiveEnemies ?? Infinity;
+    }
+
+    activeEnemyCount() {
+        const enemies = this.gameEngine?.enemies ?? [];
+        return enemies.reduce((n, enemy) => n + (enemy.isAlive ? 1 : 0), 0);
+    }
+
     spawnWaveEnemies(now, enemyCount, waveConfig) {
         // Check spawn conditions
         if (this.waveEnemiesSpawned >= waveConfig.enemyCount) return;
         if (now - this.lastSpawnTime < this.nextSpawnDelay) return;
+
+        /*
+         * Back-pressure. Without this the spawn gate only ever asked "has
+         * enough time passed", so a level whose waves ask for a 40ms interval
+         * put twenty-five enemies a second on the board no matter how many
+         * were already there.
+         */
+        if (this.activeEnemyCount() >= this.activeEnemyCap()) return;
+
+        /* Counted across the pattern, because the gap is per enemy and only
+           the pattern knows how many it spawned - rush rolls 3 to 5. Every
+           pattern increments this synchronously; the setTimeouts inside them
+           stagger the sprite, not the count. */
+        const spawnedBefore = this.waveEnemiesSpawned;
 
         // Execute spawn pattern
         switch (waveConfig.spawnPattern) {
@@ -199,6 +229,23 @@ export class WaveManager {
         }
 
         this.lastSpawnTime = now;
+
+        /*
+         * `spawnInterval` is seconds per ENEMY, so a pattern that puts four on
+         * the board waits four of them before the next.
+         *
+         * Each pattern used to set this itself, by a factor that had nothing to
+         * do with what it spawned: rush put down 3-5 and waited x2, surround put
+         * down 3 and waited x1.5, formation put down 4 and waited x3. A wave
+         * declaring 2000ms therefore meant 2s, 3s, 4s, 6s or 10s depending on a
+         * pattern chosen elsewhere in the same config, and the authored number
+         * meant nothing on its own.
+         */
+        const spawned = Math.max(1, this.waveEnemiesSpawned - spawnedBefore);
+        this.nextSpawnDelay = Math.max(
+            MIN_SPAWN_INTERVAL_MS,
+            waveConfig.spawnInterval * spawned,
+        );
     }
 
     spawnStandardPattern(waveConfig) {
@@ -206,7 +253,6 @@ export class WaveManager {
         this.spawnEnemy(enemyType);
         this.waveEnemiesSpawned++;
         this.enemiesSpawnedThisLevel++;
-        this.nextSpawnDelay = waveConfig.spawnInterval;
     }
 
     spawnRushPattern(waveConfig) {
@@ -226,7 +272,6 @@ export class WaveManager {
             this.waveEnemiesSpawned++;
             this.enemiesSpawnedThisLevel++;
         }
-        this.nextSpawnDelay = waveConfig.spawnInterval * 2;
     }
 
     spawnFormationPattern(waveConfig) {
@@ -248,7 +293,6 @@ export class WaveManager {
             this.waveEnemiesSpawned++;
             this.enemiesSpawnedThisLevel++;
         }
-        this.nextSpawnDelay = waveConfig.spawnInterval * 3;
     }
 
     spawnSurroundPattern(waveConfig) {
@@ -265,7 +309,6 @@ export class WaveManager {
             this.waveEnemiesSpawned++;
             this.enemiesSpawnedThisLevel++;
         }
-        this.nextSpawnDelay = waveConfig.spawnInterval * 1.5;
     }
 
     spawnBossPattern(waveConfig) {
@@ -285,7 +328,6 @@ export class WaveManager {
                 this.waveEnemiesSpawned++;
                 this.enemiesSpawnedThisLevel++;
             }
-            this.nextSpawnDelay = waveConfig.spawnInterval * 5;
         } else {
             // Continue spawning regular enemies after boss
             this.spawnStandardPattern(waveConfig);
@@ -310,7 +352,6 @@ export class WaveManager {
             this.enemiesSpawnedThisLevel++;
         });
 
-        this.nextSpawnDelay = waveConfig.spawnInterval * 1.5;
     }
 
     selectEnemyType(availableTypes) {
@@ -378,10 +419,9 @@ export class WaveManager {
     }
 
     // announce (default true) gates only the wave:started horn/banner - the
-    // wave counters themselves always advance. Passed through from reset()
-    // so cleanup-only resets (end of level) don't fire the wave horn on top
-    // of the win/loss sting, while genuine wave advances (from update(), or
-    // reset() at the start of a new level) still announce.
+    // wave counters themselves always advance. reset() no longer calls this at
+    // all, so the horn cannot land on top of a win or loss sting: every wave,
+    // wave 1 included, now begins from update() when its time actually comes.
     startNextWave(announce = true) {
         // Don't exceed max waves for normal mode
         if (!this.isEndlessMode && this.currentWave >= this.config.waves) {
@@ -409,7 +449,19 @@ export class WaveManager {
         }
     }
 
-    reset(announceWaveStart = true) {
+    /*
+     * Back to the start of a level, wave 1 NOT yet begun.
+     *
+     * This used to end by calling startNextWave, which took currentWave to 1
+     * before anything ran - and `shouldStartNextWave` only consults PREP_TIME_MS
+     * while currentWave is 0. So the named prep value was unreachable, and the
+     * real wait was a `lastSpawnTime = now + 5000` in GameEngine.resetGame:
+     * five seconds, from a number nobody had chosen.
+     *
+     * Wave 1 now begins from `update`, like every other wave, which is also
+     * what makes its horn play when the wave actually arrives.
+     */
+    reset() {
         this.currentWave = 0;
         this.waveEnemiesSpawned = 0;
         this.waveEnemiesKilled = 0;
@@ -424,7 +476,36 @@ export class WaveManager {
         this.currentBoss = null;
         this.patternIndex = 0;
 
-        this.startNextWave(announceWaveStart);
+        /* Reset with the rest of the clock. Left holding a timestamp from the
+           level just played, it was compared against a game clock that had gone
+           back to zero - `0 - 90000 >= 10000` is false, so wave 1 was owed a
+           hundred seconds on the second level of a session. */
+        this.lastWaveStartTime = 0;
+    }
+
+    /**
+     * Seconds until the next wave arrives, or 0 when it is not waiting on time.
+     *
+     * DrawUIs has always called this to draw the "Next Wave" countdown, and it
+     * has never existed - so the countdown never drew and the player had no idea
+     * how long the wait was. That matters most during the prep before wave 1,
+     * which is the longest deliberate pause in a level.
+     */
+    getTimeUntilNextWave() {
+        if (this.allWavesComplete) return 0;
+
+        const now = this.gameEngine?.gameClock?.now ?? 0;
+
+        if (this.currentWave === 0) {
+            return Math.max(0, Math.ceil((PREP_TIME_MS - (now - this.lastWaveStartTime)) / 1000));
+        }
+
+        // Mid-level, a wave only waits on the clock once it is fully spawned.
+        const waveConfig = this.getCurrentWaveConfig();
+        if (!waveConfig || this.waveEnemiesSpawned < waveConfig.enemyCount) return 0;
+
+        const due = this.lastWaveStartTime + this.maxTimeBetweenWaves;
+        return Math.max(0, Math.ceil((due - now) / 1000));
     }
 
 }

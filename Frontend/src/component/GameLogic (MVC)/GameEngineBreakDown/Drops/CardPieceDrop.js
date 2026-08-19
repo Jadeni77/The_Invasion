@@ -1,3 +1,6 @@
+import { frameScale } from "../../Animation/FrameTime.js";
+import { canvasFont, colors, decorative, withAlpha } from '../../../../style/tokens.js';
+
 /**
  * This class represent the card pieces that will drop during the
  * game when a zombie died. The card pieces are useful for upgrading
@@ -32,13 +35,16 @@ export class CardPieceDrop {
             }
 
             //move toward target
+            //
+            // Deliberately NOT scaled by frameScale(); see the same decision,
+            // with its reasoning, in EnergyDrop.update().
             this.x += dx * 0.15;
             this.y += dy * 0.15;
             this.opacity *= 0.92;
             return true;
         }
 
-        this.lifetime--;
+        this.lifetime -= frameScale();
         //floating animation
         this.floatOffset = Math.sin(Date.now() * this.floatSpeed) * 4;
 
@@ -58,7 +64,7 @@ export class CardPieceDrop {
         // Glow effect
         ctx.beginPath();
         ctx.arc(this.x, this.y + this.floatOffset, this.radius + 6, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(148, 0, 211, ${alpha * 0.3})`; // Purple glow
+        ctx.fillStyle = withAlpha(decorative.violet, alpha * 0.3); // Purple glow
         ctx.fill();
 
         // Main card piece orb
@@ -68,17 +74,17 @@ export class CardPieceDrop {
             this.x, this.y + this.floatOffset, 0,
             this.x, this.y + this.floatOffset, this.radius
         );
-        gradient.addColorStop(0, `rgba(186, 85, 211, ${alpha})`); // Light purple
-        gradient.addColorStop(1, `rgba(138, 43, 226, ${alpha})`); // Blue violet
+        gradient.addColorStop(0, withAlpha(decorative.violet, alpha)); // Light purple
+        gradient.addColorStop(1, withAlpha(decorative.indigo, alpha)); // Blue violet
         ctx.fillStyle = gradient;
         ctx.fill();
-        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.strokeStyle = withAlpha(colors.textPrimary, alpha);
         ctx.lineWidth = 2;
         ctx.stroke();
 
         // Card icon/symbol
-        ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
-        ctx.font = "bold 10px Arial";
+        ctx.fillStyle = withAlpha(colors.textPrimary, alpha * 0.8);
+        ctx.font = canvasFont(10, "bold");
         ctx.textAlign = "center";
         ctx.fillText("⬟", this.x, this.y + this.floatOffset + 3);
 

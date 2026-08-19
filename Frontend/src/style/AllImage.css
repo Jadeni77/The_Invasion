@@ -4,9 +4,9 @@
   align-items: center;
   gap: 8px; /* Space between icon and info */
   padding: 8px 15px;
-  background: rgba(90, 57, 33, 0.8); /* Background from Lobby.css resource-icon */
+  background: color-mix(in srgb, var(--colors-surface-panel) 80%, transparent); /* Background from Lobby.css resource-icon */
   border-radius: 20px;
-  border: 1px solid #a78b71; /* Border from Lobby.css resource-icon */
+  border: 1px solid var(--colors-surface-raised); /* Border from Lobby.css resource-icon */
 }
 
 .resource-symbol {
@@ -27,14 +27,15 @@
 }
 
 .resource-value {
+  font-family: var(--type-display);
   font-size: 18px;
   font-weight: bold;
-  color: white; /* Default color, can be overridden */
+  color: var(--colors-text-primary); /* Default color, can be overridden */
 }
 
 .resource-label {
   font-size: 12px;
-  color: #d4c0a1; /* Default color, can be overridden */
+  color: var(--colors-text-muted); /* Default color, can be overridden */
 }
 
 /* Styles for resource requirements in UpgradeModal */

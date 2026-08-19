@@ -1,22 +1,51 @@
 // src/components/GameRendering/Lobby.jsx
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useGame } from "../GameLogic (MVC)/GameContext"; // Correct path
 import ResourceIcon from "./ResourceIcon"; // Correct path
+import {
+  RIDGE_HEIGHT,
+  FOREGROUND_HEIGHT,
+  ridgeFarPath,
+  ridgeNearPath,
+  foregroundPath,
+} from "./terrainSilhouette.js";
 import EnergyBar from "./EnergyBar"; // Correct path
 import UpgradeModal from "./LobbyButton/UpgradeModal.jsx"; // Correct path
+import SettingModal from "./LobbyButton/SettingModal.jsx";
 import {
   levelsMapData,
   connectionsData,
   chestsData,
   mapSettings,
   getLevelStatus,
-  zoneConfigs
+  nextPlayableLevelId,
+  zoneConfigs,
+  zoneSpans
 } from "./MapLayout"; // New: Import map data from MapData.js
+import { TerrainProp, propsForZone } from "./TerrainProps.jsx";
 import "../../style/Lobby.css"; // Correct path
 import "../../style/UpgradeModal.css"; // Correct path (if UpgradeModal.css is used by Lobby too)
 import CardSelectionModal from "./CardSelectionModal";
 import CloseChest from "../../Icons/CloseChest.png";
 import OpenChest from "../../Icons/OpenChest.png";
+import GateNotice from "./GateNotice.jsx";
+
+/** Distant hills. Fills the upper third, which was dead space before. */
+
+
+
+/*
+ * A region's band, sized in MapLayout to cover exactly the levels assigned to
+ * it (`zoneSpans`), so a level always stands on its own zone's ground.
+ */
+function zoneBounds(zone) {
+  const span = zoneSpans[zone];
+  if (!span) return { display: "none" };
+  return {
+    left: `${span.left}px`,
+    width: `${span.width}px`,
+  };
+}
 
 const Lobby = () => {
   const {
@@ -26,165 +55,172 @@ const Lobby = () => {
     openUpgradeModal,
     openAchievements,
     openCollection,
+    openSettings,
     handleLogout,
     collectTreasure,
-      unlockedDefender,
-      setUnlockedDefender,
+    chestReward,
+    setChestReward,
   } = useGame();
-  const [mapPosition, setMapPosition] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showCardSelection, setShowCardSelection] = useState(false);
   const [selectedLevelId, setSelectedLevelId] = useState(null);
   const [mapZoom, _setMapZoom] = useState(mapSettings.defaultZoom);
  // const [showEndlessOptions, setShowEndlessOptions] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
-  const [isMapReady, setIsMapReady] = useState(false); // Track if map is ready for interaction
-  const [defenderNotification, setDefenderNotification] = useState(null)
+  const [rewardNotice, setRewardNotice] = useState(null)
   const [notificationFading, setNotificationFading] = useState(false)
 
-  const [mapBoundaries, setMapBoundaries] = useState({
-                                                       minX: 0,
-                                                       minY: 0,
-                                                       maxX: 0,
-                                                       maxY: 0,
-                                                     });
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null); // Ref for the inner game-map div
 
-  useEffect(() => {
-    if (unlockedDefender) {
-      setDefenderNotification(unlockedDefender);
-      setNotificationFading(false)
+  // Drag-to-pan state. A plain ref, not useState: every pointer move during a
+  // drag would otherwise trigger a re-render, and nothing here needs to be
+  // read back through render - onPointerMove writes scrollLeft on the DOM
+  // node directly. `moved` is the trap this interaction always has: without
+  // it, releasing a drag over a level node or chest fires that element's
+  // onClick (launching a level, or calling the real collectTreasure backend
+  // call) as if the player had clicked it standing still. Once a drag moves
+  // the pointer past DRAG_THRESHOLD_PX, `moved` stays true for the rest of
+  // that gesture, and every onClick below checks it first and bails instead
+  // of acting - a pan can never launch a level or collect a chest.
+  const drag = useRef({ active: false, startX: 0, startY: 0, startScrollX: 0, startScrollY: 0, moved: false });
+  const DRAG_THRESHOLD_PX = 5;
 
-      //message fading out after 4 seconds
-      const fadeTimer = setTimeout(() => {
-        setNotificationFading(true)
-      }, 4000);
-
-      //remove message completely after 5 second
-      const removeTimer = setTimeout(() => {
-        setDefenderNotification(null);
-        setUnlockedDefender(null);
-      }, 5000);
-      return () => {
-        clearTimeout(fadeTimer);
-        clearTimeout(removeTimer);
-      }
-    }
-  }, [unlockedDefender, setUnlockedDefender]);
-
-  // Calculate map boundaries with proper initialization check
-  const calculateBoundaries = useCallback(() => {
-    if (!mapContainerRef.current || !mapRef.current) {
-      // Try again in a moment if refs aren't ready
-      setTimeout(() => {
-        if (mapContainerRef.current && mapRef.current) {
-          calculateBoundaries();
-        }
-      }, 100);
-      return;
-    }
-
-    const containerRect = mapContainerRef.current.getBoundingClientRect();
-    const mapWidth = mapSettings.mapWidth * mapZoom;
-    const mapHeight = mapSettings.mapHeight * mapZoom;
-
-    // Calculate boundaries that allow dragging
-    const newBoundaries = {
-      minX: Math.min(0, -(mapWidth - containerRect.width)),
-      minY: Math.min(0, -(mapHeight - containerRect.height)),
-      maxX: 0,
-      maxY: 0,
+  const onMapPointerDown = (e) => {
+    const viewport = mapContainerRef.current;
+    if (!viewport) return;
+    // Deliberately NOT capturing the pointer here. Capturing on pointerdown
+    // retargets every later pointer event - including pointerup - to the
+    // viewport, and the browser then dispatches `click` against the capture
+    // target rather than the element under the cursor. The effect was that no
+    // level node and no chest could ever be clicked: their onClick never ran,
+    // because from the DOM's point of view the click happened on the map. See
+    // the capture in onMapPointerMove, which only fires once this is a drag.
+    drag.current = {
+      active: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      startScrollX: viewport.scrollLeft,
+      startScrollY: viewport.scrollTop,
+      moved: false,
     };
+  };
 
-    setMapBoundaries(newBoundaries);
-    setIsMapReady(true); // Map is ready for interaction
-  }, [mapZoom]);
+  const onMapPointerMove = (e) => {
+    const viewport = mapContainerRef.current;
+    if (!viewport || !drag.current.active) return;
+    const deltaX = e.clientX - drag.current.startX;
+    const deltaY = e.clientY - drag.current.startY;
 
-  // Initial setup and recalculation on zoom change
+    /* The threshold is the distance travelled, not the horizontal component. */
+    if (Math.hypot(deltaX, deltaY) > DRAG_THRESHOLD_PX && !drag.current.moved) {
+      drag.current.moved = true;
+      // Now that this is unambiguously a drag rather than a click, take the
+      // pointer so panning survives the cursor leaving the map. A click never
+      // reaches this branch, so a click is never retargeted.
+      viewport.setPointerCapture?.(e.pointerId);
+    }
+
+    /*
+     * Both axes. The terrain is 720px tall and the frame is often shorter -
+     * about 575px on a phone held upright, 250px held sideways - so there is
+     * real vertical range to reach, and dragging only moved the map along one
+     * of them.
+     */
+    viewport.scrollLeft = drag.current.startScrollX - deltaX;
+    viewport.scrollTop = drag.current.startScrollY - deltaY;
+  };
+
+  const onMapPointerUp = (e) => {
+    const viewport = mapContainerRef.current;
+    if (viewport?.hasPointerCapture?.(e.pointerId)) {
+      viewport.releasePointerCapture(e.pointerId);
+    }
+    drag.current.active = false;
+  };
+
+  // A drag must never fire the click it ends on top of. Wraps a click
+  // handler so it is a no-op for the one click that follows a drag past
+  // DRAG_THRESHOLD_PX - used on both level/portal nodes (which launch a
+  // level) and chests (which call the real collectTreasure backend call).
+  const guardClick = (fn) => () => {
+    if (drag.current.moved) return;
+    fn();
+  };
+
+  // The level the map should open (and re-open) on. Computed every render -
+  // it's a cheap scan over ~21 nodes - but deliberately NOT what the effect
+  // below keys on: playerData is a fresh object reference on most context
+  // updates (14 setPlayerData call sites, including energy regenerating on a
+  // timer), and keying on the object would re-centre the viewport on every
+  // one of those, snapping the map back mid-pan for reasons that have
+  // nothing to do with level progress. Keying on the id itself means the
+  // effect only re-runs when the next playable level genuinely changes
+  // (finishing one) or zoom changes.
+  // Guarded: this now runs on every render (not deferred inside an effect
+  // like before), and playerData is undefined/incomplete during the initial
+  // load - the same case the early loading-screen return below already
+  // handles. getLevelStatus reads playerData.unlockedLevels directly (no
+  // top-level optional chaining on playerData itself), so an unguarded call
+  // here would throw during render on that first pass, before the loading
+  // check ever gets a chance to short-circuit anything.
+  const nextLevelId = playerData ? nextPlayableLevelId(playerData) : null;
+
+  // Open the map centred on the level the player can actually play next.
+  // nextLevelId is null once everything unlocked is finished; levelsMapData[0]
+  // (level 1) is the fallback so the player still sees a sensible view
+  // instead of a blank corner of the map.
   useEffect(() => {
-    // Use a small delay to ensure DOM is ready
-    const timer = setTimeout(() => {
-      calculateBoundaries();
-    }, 50);
+    const viewport = mapContainerRef.current;
+    if (!viewport) return;
+    const target = levelsMapData.find((level) => level.id === nextLevelId) ?? levelsMapData[0];
+    if (!target) return;
+    viewport.scrollLeft = target.x * mapZoom - viewport.clientWidth / 2;
 
-    window.addEventListener("resize", calculateBoundaries);
+    /* Vertically too, when the frame is shorter than the terrain. */
+    const overflowY = viewport.scrollHeight - viewport.clientHeight;
+    if (overflowY > 0) {
+      const wanted = target.y * mapZoom - viewport.clientHeight / 2;
+      viewport.scrollTop = Math.max(0, Math.min(overflowY, wanted));
+    }
+  }, [nextLevelId, mapZoom]);
 
+  /*
+   * What the reward panel shows, derived from the chest the player just
+   * opened.
+   */
+  const noticeResources = Object.entries(rewardNotice?.resources ?? {})
+      .filter(([, amount]) => amount > 0);
+  const noticeDefenders = (() => {
+    const raw = rewardNotice?.defenders;
+    if (!raw) return [];
+    return Array.isArray(raw) ? raw : [raw];
+  })();
+  const noticePieces = Object.entries(rewardNotice?.cardPieces ?? {})
+      .filter(([, amount]) => amount > 0);
+  const hasNotice = noticeResources.length > 0 || noticeDefenders.length > 0
+      || noticePieces.length > 0;
+  /* The panel serves two sources now: a chest, and the level that just granted
+     a defender. Only the heading differs. */
+  const noticeTitle = rewardNotice?.source === 'level' ? 'Level cleared' : 'Chest opened';
+
+  useEffect(() => {
+    if (!chestReward) return;
+    setRewardNotice(chestReward);
+    setNotificationFading(false);
+
+    // Fades at 4s, gone at 5s. A defender unlock gets longer than a handful of
+    // gold, because there is more to read and it is the rarer event.
+    const holdMs = (chestReward.defenders?.length ?? 0) > 0 ? 5200 : 3600;
+    const fadeTimer = setTimeout(() => setNotificationFading(true), holdMs);
+    const removeTimer = setTimeout(() => {
+      setRewardNotice(null);
+      setChestReward(null);
+    }, holdMs + 1000);
     return () => {
-      clearTimeout(timer);
-      window.removeEventListener("resize", calculateBoundaries);
+      clearTimeout(fadeTimer);
+      clearTimeout(removeTimer);
     };
-  }, [calculateBoundaries, mapZoom]);
-
-  // Force recalculation when component mounts
-  useEffect(() => {
-    // This ensures boundaries are calculated after the component is fully mounted
-    requestAnimationFrame(() => {
-      calculateBoundaries();
-    });
-  }, [calculateBoundaries]);
-
-  // Handle Map dragging (mouse events)
-  const handleMouseDown = (e) => {
-    if (!isMapReady) return; // Don't allow dragging if map isn't ready
-
-    e.preventDefault(); // Prevent text selection
-    setIsDragging(true);
-    setDragStart({
-                   x: e.clientX - mapPosition.x,
-                   y: e.clientY - mapPosition.y,
-                 });
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isDragging || !isMapReady) return;
-
-    e.preventDefault();
-    const newX = e.clientX - dragStart.x;
-    const newY = e.clientY - dragStart.y;
-
-    setMapPosition({
-                     x: Math.max(mapBoundaries.minX, Math.min(mapBoundaries.maxX, newX)),
-                     y: Math.max(mapBoundaries.minY, Math.min(mapBoundaries.maxY, newY)),
-                   });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  // Handle touch screen for mobile user
-  const handleTouchStart = (e) => {
-    if (!isMapReady) return; // Don't allow dragging if map isn't ready
-
-    if (e.touches.length === 1) {
-      e.preventDefault();
-      setIsDragging(true);
-      setDragStart({
-                     x: e.touches[0].clientX - mapPosition.x,
-                     y: e.touches[0].clientY - mapPosition.y,
-                   });
-    }
-  };
-
-  const handleTouchMove = (e) => {
-    if (!isDragging || !isMapReady || e.touches.length !== 1) return;
-
-    e.preventDefault();
-    const newX = e.touches[0].clientX - dragStart.x;
-    const newY = e.touches[0].clientY - dragStart.y;
-
-    setMapPosition({
-                     x: Math.max(mapBoundaries.minX, Math.min(mapBoundaries.maxX, newX)),
-                     y: Math.max(mapBoundaries.minY, Math.min(mapBoundaries.maxY, newY)),
-                   });
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
-
+  }, [chestReward, setChestReward]);
 
   // Handle treasure click
   const handleTreasureClick = (chestId) => {
@@ -235,7 +271,7 @@ const Lobby = () => {
             key={`level-${level.id}`}
             className={`endless-portal ${status.locked ? 'locked' : 'unlocked'}`}
             style={{ top: `${level.y}px`, left: `${level.x}px` }}
-            onClick={() => !status.locked && handleLevelNodeClick(level.id)}
+            onClick={guardClick(() => !status.locked && handleLevelNodeClick(level.id))}
         >
           <div className="portal-animation">
             <div className="portal-ring ring-1"></div>
@@ -258,21 +294,17 @@ const Lobby = () => {
 
   const renderLevelNode = (level) => {
     const status = getLevelStatus(level.id, playerData);
-    const zone = zoneConfigs[level.zone];
+    const stateClass = status.locked ? 'locked' : status.completed ? 'completed' : 'available';
 
     return (
         <div
             key={`level-${level.id}`}
-            className={`level-node ${zone.nodeClass} ${status.locked ? 'locked' : ''} ${
-                status.completed ? 'completed' : ''
-            } ${level.isBoss ? 'boss-level' : ''} ${level.isFinal ? 'final-level' : ''}`}
+            className={`level-node ${stateClass} ${level.isBoss ? 'boss' : ''} ${level.isFinal ? 'final-level' : ''}`}
             style={{
               top: `${level.y}px`,
               left: `${level.x}px`,
-              backgroundColor: status.locked ? '#444' : zone.backgroundColor,
-              borderColor: zone.borderColor
             }}
-            onClick={() => !status.locked && handleLevelNodeClick(level.id)}
+            onClick={guardClick(() => !status.locked && handleLevelNodeClick(level.id))}
             title={level.name}
         >
           <div className="level-number">{level.id}</div>
@@ -301,99 +333,189 @@ const Lobby = () => {
     );
   }
   if (gameState === "upgrade") return <UpgradeModal />;
+  if (gameState === "settings") return <SettingModal />;
 
   // Render Lobby UI
   return (
       <div className="lobby-container">
 
-        {/* Defender unlock notification */}
-        {defenderNotification && (
-            <div className={`defender-notification ${notificationFading ? 'fade-out': ""}`}>
-              <div className='notification-icon'>🎉</div>
+        <GateNotice />
+
+        {/* What the chest actually gave you. Resources and defenders together:
+            listing only defenders meant most chests opened in silence. */}
+        {hasNotice && (
+            <div className={`reward-notification ${notificationFading ? 'fade-out' : ''}`} role="status">
+              <div className="notification-icon">🎉</div>
               <div className="notification-content">
-                <h3>New Defender Unlocked!</h3>
-                <p className="defender-name">{defenderNotification}</p>
+                <h3>{noticeTitle}</h3>
+                {noticeResources.length > 0 && (
+                    <ul className="reward-resources">
+                      {noticeResources.map(([type, amount]) => (
+                          <li key={type} className="reward-resource">
+                            <ResourceIcon type={type} value={`+${amount}`} />
+                          </li>
+                      ))}
+                    </ul>
+                )}
+                {noticePieces.length > 0 && (
+                    <ul className="reward-pieces">
+                      {noticePieces.map(([name, amount]) => (
+                          <li key={name} className="reward-piece">
+                            <span className="reward-piece-name">{name}</span>
+                            <span className="reward-piece-count">+{amount} pieces</span>
+                          </li>
+                      ))}
+                    </ul>
+                )}
+                {noticeDefenders.length > 0 && (
+                    <p className="reward-defenders">
+                      <span className="reward-defenders-label">
+                        New defender{noticeDefenders.length > 1 ? 's' : ''}
+                      </span>
+                      <span className="defender-name">{noticeDefenders.join(', ')}</span>
+                    </p>
+                )}
               </div>
             </div>
         )}
 
-        {/* Top menu bar */}
-        <div className="top-menu-bar">
-          <div className="player-info">
-            <div className="player-name">{playerData.name}</div>
-            <div className="player-rank">{playerData.rank}</div>{" "}
+        {/*
+ * Top chrome: player identity, menu buttons, energy and resources used to be
+ * three stacked blocks eating roughly a third of the screen before the map
+ * began.
+ */}
+        <div className="lobby-topband">
+          {/* Top menu bar */}
+          <div className="top-menu-bar">
+            <div className="player-info">
+              <div className="player-name">{playerData.name}</div>
+              <div className="player-rank">{playerData.rank}</div>{" "}
+            </div>
+
+            <div className="menu-buttons">
+              <button className="menu-button collection" onClick={openCollection}>
+                <i className="icon-collection" />
+                <span>Collection</span>
+              </button>
+              <button className="menu-button achievement" onClick={openAchievements}>
+                <i className="icon-achievement" />
+                <span>Achievement</span>
+              </button>
+              {/*
+ * These two buttons carried the same `icon-setting` glyph, with the
+ * destructive one (log out, ending the session) sitting immediately left of
+ * the benign one.
+ */}
+              <button className="menu-button settings" onClick={handleLogout}>
+                <i className="icon-logout" />
+                <span>Logout</span>
+              </button>
+              <button className="menu-button open-settings" onClick={openSettings}>
+                <i className="icon-gear" />
+                <span>Settings</span>
+              </button>
+            </div>
           </div>
 
-          <div className="menu-buttons">
-            <button className="menu-button collection" onClick={openCollection}>
-              <i className="icon-collection" />
-              <span>Collection</span>
-            </button>
-            <button className="menu-button achievement" onClick={openAchievements}>
-              <i className="icon-achievement" />
-              <span>Achievement</span>
-            </button>
-            <button className="menu-button settings" onClick={handleLogout}>
-              <i className="icon-setting" />
-              <span>Logout</span>
-            </button>
+          {/* Energy Bar */}
+          {playerData.resources && (
+              <EnergyBar
+                  current={playerData.resources.lobbyEnergy}
+                  max={playerData.resources.maxLobbyEnergy}
+                  rechargeRate={playerData.resources.energyRechargeRate}
+                  lastRechargeTime={playerData.resources.lastEnergyRechargeTime}
+              />
+          )}
+
+          {/* Resources Bar */}
+          <div className="resource-bar">
+            <ResourceIcon type="gold" value={playerData.resources.gold} />
+            <ResourceIcon type="iron" value={playerData.resources.iron} />
+            <ResourceIcon type="grain" value={playerData.resources.grain} />
+            <ResourceIcon type="water" value={playerData.resources.water} />
+            <ResourceIcon type="gem" value={playerData.resources.gem} />
           </div>
         </div>
 
-        {/* Energy Bar */}
-        {playerData.resources && (
-            <EnergyBar
-                current={playerData.resources.lobbyEnergy}
-                max={playerData.resources.maxLobbyEnergy}
-                rechargeRate={playerData.resources.energyRechargeRate}
-                lastRechargeTime={playerData.resources.lastEnergyRechargeTime}
-            />
-        )}
-
-        {/* Resources Bar */}
-        <div className="resource-bar">
-          <ResourceIcon type="gold" value={playerData.resources.gold} />
-          <ResourceIcon type="iron" value={playerData.resources.iron} />
-          <ResourceIcon type="grain" value={playerData.resources.grain} />
-          <ResourceIcon type="water" value={playerData.resources.water} />
-          <ResourceIcon type="gem" value={playerData.resources.gem} />
-        </div>
-
-        {/* Game Map */}
+        {/* Game Map. Panning is native scrolling (scrollLeft), driven either
+            by the browser directly or by the pointer handlers below - there
+            is no JS-computed boundary to keep in sync with it any more. */}
         <div
             className="game-map-container"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+            onPointerDown={onMapPointerDown}
+            onPointerMove={onMapPointerMove}
+            onPointerUp={onMapPointerUp}
+            onPointerCancel={onMapPointerUp}
             ref={mapContainerRef}
-            style={{
-              cursor: isDragging ? "grabbing" : (isMapReady ? "grab" : "default"),
-              userSelect: "none" // Prevent text selection during drag
-            }}
         >
           <div
               className="game-map"
               ref={mapRef}
               style={{
-                transform: `translate(${mapPosition.x}px, ${mapPosition.y}px)`,
-                transition: isDragging ? 'none' : undefined, // Smooth transitions when not dragging
+                width: `${mapSettings.mapWidth * mapZoom}px`,
+                height: `${mapSettings.mapHeight * mapZoom}px`,
               }}
           >
             {/* Zone backgrounds */}
-            {Object.entries(zoneConfigs).map(([zone, config]) => (
+            {/*
+ * No inline colour at all - `zoneBounds` only ever returns position
+ * (left/width, or `display: none` for the endless portal), never a colour
+ * property, so it can't reintroduce the override mechanism the comment below
+ * describes.
+ */}
+            {Object.keys(zoneConfigs).map((zone) => (
                 <div
                     key={`zone-${zone}`}
                     className={`zone-background zone-${zone}`}
-                    style={{
-                      background: config.backgroundColor === '#rainbow-gradient' ?
-                                  'linear-gradient(45deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)' :
-                                  config.backgroundColor
-                    }}
-                />
+                    style={zoneBounds(zone)}
+                >
+                  {zoneConfigs[zone]?.label && (
+                      <span className="zone-label">{zoneConfigs[zone].label}</span>
+                  )}
+                  <svg
+                      className="zone-ridge"
+                      viewBox={`0 0 ${zoneSpans[zone]?.width ?? 600} ${RIDGE_HEIGHT}`}
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                  >
+                    <path
+                        d={ridgeFarPath(zoneSpans[zone]?.left ?? 0, zoneSpans[zone]?.width ?? 600)}
+                        fill="var(--terrain-ridge-far)"
+                    />
+                    <path
+                        d={ridgeNearPath(zoneSpans[zone]?.left ?? 0, zoneSpans[zone]?.width ?? 600)}
+                        fill="var(--terrain-ridge-near)"
+                    />
+                  </svg>
+                  <svg
+                      className="zone-fore"
+                      viewBox={`0 0 ${zoneSpans[zone]?.width ?? 600} ${FOREGROUND_HEIGHT}`}
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                  >
+                    <path
+                        d={foregroundPath(zoneSpans[zone]?.left ?? 0, zoneSpans[zone]?.width ?? 600)}
+                        fill="var(--terrain-foreground)"
+                    />
+                  </svg>
+                  {/*
+ * Mid-ground scenery. Count, kind, row and offsets all come from
+ * `propsForZone` (TerrainProps.jsx), which is given this region's own width so
+ * a wide region gets proportionally more scenery instead of the same two or
+ * three props stretched further apart.
+ */}
+                  {propsForZone(zone, zoneSpans[zone]?.width).map((prop) => (
+                      <TerrainProp
+                          key={prop.key}
+                          kind={prop.kind}
+                          className={prop.row === 'near' ? 'prop-near' : 'prop-far'}
+                          style={{
+                            left: `${prop.left}%`,
+                            bottom: `${prop.bottom}%`,
+                          }}
+                      />
+                  ))}
+                </div>
             ))}
 
             {/* Connection lines */}
@@ -409,7 +531,12 @@ const Lobby = () => {
                         top: `${conn.y}px`,
                         left: `${conn.x}px`,
                         width: `${conn.length}px`,
-                        transform: `rotate(${conn.rotation}deg)`,
+                        /*
+                         * `conn.x`/`conn.y` are the segment's MIDPOINT, so the
+                         * bar has to be centred on that point - hence
+                         * translate(-50%, -50%) and a centre transform-origin.
+                         */
+                        transform: `translate(-50%, -50%) rotate(${conn.rotation}deg)`,
                       }}
                   />
               );
@@ -426,16 +553,16 @@ const Lobby = () => {
               return (
                   <div
                       key={`chest-${chest.id}`}
-                      className={`treasure-chest ${isCollected ? "collected" : ""} ${
+                      className={`treasure-chest map-chest ${isCollected ? "collected" : ""} ${
                           !canCollect ? "locked-chest" : ""
                       } ${chest.hidden ? "secret-chest" : ""}`}
                       style={{ top: `${chest.y}px`, left: `${chest.x}px` }}
-                      onClick={() => !isCollected && canCollect && handleTreasureClick(chest.id)}
+                      onClick={guardClick(() => !isCollected && canCollect && handleTreasureClick(chest.id))}
                   >
                     {isCollected ? (
-                        <img src={OpenChest} alt="Open Chest" className="open-chest"/>
+                        <img src={OpenChest} alt="Open Chest" className="open-chest" draggable={false} />
                     ) : (
-                         <img src={CloseChest} alt="Close Chest" className="close-chest"/>
+                         <img src={CloseChest} alt="Close Chest" className="close-chest" draggable={false} />
                      )}
                     {!isCollected && canCollect && <div className="chest-glow" />}
                   </div>

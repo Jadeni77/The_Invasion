@@ -6,6 +6,8 @@ import { calculateCardStats } from "../GameLogic (MVC)/DefenderClassUtils";
 import Gold from "../../Icons/Gold.png";
 import Iron from "../../Icons/Iron.png";
 import { useMobileOrientation } from "./UseMobileOrientation.js";
+import { useCardCooldowns } from "./useCardCooldowns.js";
+import { useLeaveWarning } from "./useLeaveWarning.js";
 
 const GameBoard = () => {
   const canvasRef = useRef(null);
@@ -29,6 +31,7 @@ const GameBoard = () => {
     addCollectedPieces,
     collectedCardPieces,
     currentEndlessWave,
+    energyCostOf,
     feedback,
   } = useGame();
 
@@ -38,33 +41,36 @@ const GameBoard = () => {
 
   const [cardSlots, setCardSlots] = useState([]);
   const cardSlotsRef = useRef([]);
-  const [cardCooldown, setCardCooldown] = useState({});
 
   const [baseHealth, setBaseHealth] = useState(100);
   const [_resetTrigger, _setResetTrigger] = useState(0);
   const [showQuitDialog, setShowQuitDialog] = useState(false);
 
+  // Counts down on the clock, and holds while the quit dialog is up.
+  const [cardCooldown, setCardCooldown] = useCardCooldowns(showQuitDialog);
+
   useMobileOrientation(gameState);
+
+  /* A level in progress cannot be resumed, and the energy is already spent -
+     so a refresh is worth one confirmation. Once it is over, there is nothing
+     left to lose and the prompt would only be in the way. */
+  useLeaveWarning(gameState === "inGame" && !gameOver);
+
+  /* The playfield is a FIXED size, and CSS scales it to fit. */
+  const LOGICAL_WIDTH = 1280;
+  const LOGICAL_HEIGHT = 720;
 
   // canvas sizing
   useEffect(() => {
     const resizeCanvas = () => {
       if (canvasRef.current) {
-        const container = canvasRef.current.parentElement;
-        canvasRef.current.width = container.clientWidth;
-        canvasRef.current.height = container.clientHeight - 60 - 250; // Account for top
-        // bar (60px) AND
-        // bottom bar (120)
+        canvasRef.current.width = LOGICAL_WIDTH;
+        canvasRef.current.height = LOGICAL_HEIGHT;
 
-        // Update game engine if exists
         if (gameEngineRef.current) {
-          gameEngineRef.current.canvasWidth = container.clientWidth;
-          gameEngineRef.current.canvasHeight =
-            container.clientHeight - 60 - 250; // Account
-          // for
-          // both
-          // bars
-          gameEngineRef.current.defenseLineX = container.clientWidth * 0.9;
+          gameEngineRef.current.canvasWidth = LOGICAL_WIDTH;
+          gameEngineRef.current.canvasHeight = LOGICAL_HEIGHT;
+          gameEngineRef.current.defenseLineX = LOGICAL_WIDTH * 0.9;
         }
       }
     };
@@ -105,23 +111,8 @@ const GameBoard = () => {
       });
       setCardCooldown(initialCooldown);
     }
-  }, [selectedCardsForGame, playerData]);
+  }, [selectedCardsForGame, playerData, setCardCooldown]);
 
-  //update cooldowns
-  useEffect(() => {
-    const cooldownInterval = setInterval(() => {
-      setCardCooldown((prev) => {
-        const updated = { ...prev };
-        Object.keys(updated).forEach((cardId) => {
-          if (updated[cardId] > 0 && !showQuitDialog) {
-            updated[cardId] = Math.max(0, updated[cardId] - 100); //deacrease by 100ms
-          }
-        });
-        return updated;
-      });
-    }, 100);
-    return () => clearInterval(cooldownInterval);
-  }, [showQuitDialog]);
 
   //TODO: Game Engine reinitialize itself causing the game to reset (the resetGame method is
   // called) Initialize game engine
@@ -235,13 +226,26 @@ const GameBoard = () => {
     setSelectedCard(null);
   };
 
+  /*
+   * Pointer position in PLAYFIELD coordinates. The canvas bitmap is a fixed
+   * 1280x720 and its CSS box is whatever fits the screen, so a click at the
+   * left edge of a 390px-wide box is x=0 in both, but a click in the middle is
+   * 195 in CSS pixels and 640 in the playfield.
+   */
+  const toPlayfield = (event) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (event.clientX - rect.left) * (canvas.width / rect.width),
+      y: (event.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  };
+
   const handleCanvasMouseMove = (event) => {
     if (!gameEngineRef.current) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    const { x, y } = toPlayfield(event);
     gameEngineRef.current.setHoveredDefender(x, y);
   };
 
@@ -257,10 +261,7 @@ const GameBoard = () => {
       return;
     }
 
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    const { x, y } = toPlayfield(event);
 
     //try to remove defender if shovelmode active
     if (shovelMode) {
@@ -297,20 +298,28 @@ const GameBoard = () => {
     }
   };
 
-  //get the cooldown duration for a card type
+  /* How long a card is unavailable after being played. */
+  const MS_PER_ENERGY = 200;
+  const MIN_COOLDOWN_MS = 5000;
+  const MAX_COOLDOWN_MS = 20000;
+
   const getCooldownDuration = (card) => {
     const cooldowns = {
       Shooter: 5000, //5 second
       Healer: 8000,
       Grenadier: 10000,
-      Barricade: 1000,
       "E-Gen": 5000,
-      Sniper: 1000,
-      "Frost Archer": 1000,
-      "Fire Blast": 1000,
-      "Ice Bomb": 1000,
+      Barricade: 6000,
+      Sniper: 16000,
+      "Frost Archer": 7000,
+      "Fire Blast": 10000,
+      "Ice Bomb": 8000,
+      Mortar: 19000,
     };
-    return cooldowns[card.name] || 5000; //default at 5 seconds
+    if (cooldowns[card.name]) return cooldowns[card.name];
+
+    const derived = (card.cost ?? 25) * MS_PER_ENERGY;
+    return Math.min(MAX_COOLDOWN_MS, Math.max(MIN_COOLDOWN_MS, derived));
   };
 
   const handleQuitClick = () => {
@@ -423,7 +432,8 @@ const GameBoard = () => {
             {gameWon && !isEndless && (
               <p>
                 Stars Earned:{" "}
-                <span className="stars-value">{"⭐".repeat(stars)}</span>
+                {/* U+2605 BLACK STAR, not U+2B50 WHITE MEDIUM STAR. */}
+                <span className="stars-value">{"★".repeat(stars)}</span>
               </p>
             )}
           </div>
@@ -501,17 +511,13 @@ const GameBoard = () => {
           >
             RETURN TO LOBBY
           </button>
-          {/* <button className="replay-button" onClick={() => {
-                        endGame("replay");
-                        setBaseHealth(100);
-                        setSelectedCard(null);
-                        setShovelMode(false);
-                        setCardCooldown(Object.fromEntries(cardSlots.map(c => [c.id, 0])));
-                        setResetTrigger(prev => prev + 1);
-                        setTimeout(() => selectedLevel && startLevel(selectedLevel), 100);
-                    }}>
-                        PLAY AGAIN
-                    </button> */}
+          {/*
+ * <button className="replay-button" onClick={() => { endGame("replay");
+ * setBaseHealth(100); setSelectedCard(null); setShovelMode(false);
+ * setCardCooldown(Object.fromEntries(cardSlots.map(c => [c.id, 0])));
+ * setResetTrigger(prev => prev + 1); setTimeout(() => selectedLevel &&
+ * startLevel(selectedLevel), 100); }}> PLAY AGAIN </button>
+ */}
         </div>
       </div>
     );
@@ -547,17 +553,19 @@ const GameBoard = () => {
         </div>
       </div>
 
-      {/* Game Canvas */}
+      {/* Game Canvas, inside a frame that owns the leftover height. */}
+      <div className="game-canvas-frame">
       <canvas
         ref={canvasRef}
-        width={800}
-        height={450}
+        width={LOGICAL_WIDTH}
+        height={LOGICAL_HEIGHT}
         onClick={handleCanvasClick}
         onMouseMove={handleCanvasMouseMove}
         onMouseLeave={handleCanvasMouseLeave}
         className="game-canvas"
         style={{ cursor: shovelMode ? "crosshair" : "default" }}
       />
+      </div>
 
       {/* Card slots in bottom bar */}
       <div className="game-bottom-bar">
@@ -576,6 +584,11 @@ const GameBoard = () => {
             const cooldown = cardCooldown[card.id] || 0;
             const cooldownPercent =
               cooldown > 0 ? (cooldown / getCooldownDuration(card)) * 100 : 0;
+            // Fraction of the recharge still remaining: 1 right after
+            // deploying, counting down to 0 as the card becomes ready again.
+            // Card.jsx turns this into --sweep-angle, so the on-card overlay
+            // uncovers the card as it recharges rather than covering it.
+            const cooldownFraction = cooldownPercent / 100;
             const isDisabled = cooldown > 0 || inGameEnergy < card.cost;
 
             return (
@@ -585,14 +598,17 @@ const GameBoard = () => {
                   onClick={() => handleCardSelection(card)}
                   selected={selectedCard?.id === card.id && !shovelMode}
                   disabled={isDisabled}
+                  cooldownFraction={cooldownFraction}
                 />
 
+                {/*
+ * The numeral only. The recharge is shown twice more than it used to be:
+ * Card's .cooldown-sweep draws a conic wedge from 12 o'clock over the same
+ * fraction, and there used to be a .cooldown-progress bottom-up rectangular
+ * fill here as well.
+ */}
                 {cooldown > 0 && (
                   <div className="cooldown-overlay">
-                    <div
-                      className="cooldown-progress"
-                      style={{ height: `${cooldownPercent}%` }}
-                    />
                     <div className="cooldown-text">
                       {Math.ceil(cooldown / 1000)}s
                     </div>
@@ -621,9 +637,26 @@ const GameBoard = () => {
         <div className="quit-dialog-overlay">
           <div className="quit-dialog">
             <h3>Return to Lobby?</h3>
-            <p>
-              Warning: Quitting will remove all resources gain from this level!
-            </p>
+            {/* The cost stated plainly. The old copy mentioned the level's
+                resources and said nothing about the energy already spent to
+                start it, which is the part the player cannot get back. */}
+            {selectedLevel === 999 ? (
+              <p>
+                Your run to <b>wave {currentEndlessWave}</b> will be banked, with
+                everything it earned.
+              </p>
+            ) : (
+              <>
+                <p>
+                  This level pays nothing if you leave: no gold, no resources, no
+                  stars, and no defender.
+                </p>
+                <p className="quit-dialog-cost">
+                  The <b>{energyCostOf(selectedLevel)} ⚡</b> it cost to start is
+                  already spent, and starting again will cost that much more.
+                </p>
+              </>
+            )}
             <div className="quit-dialog-buttons">
               <button
                 className="quit-confirm-button"

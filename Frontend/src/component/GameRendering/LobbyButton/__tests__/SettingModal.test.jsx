@@ -3,7 +3,10 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import SettingModal from '../SettingModal.jsx';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../../GameLogic (MVC)/Feedback/SettingsStore.js';
 
-vi.mock('../../../GameLogic (MVC)/GameContext.jsx', () => ({
+/* Partial mock via importOriginal, not a replacement object. */
+vi.mock('../../../GameLogic (MVC)/GameContext.jsx', async (importOriginal) => ({
+  ...(await importOriginal()),
+
   useGame: () => ({ closeSettings: vi.fn() }),
 }));
 

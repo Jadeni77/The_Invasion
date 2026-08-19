@@ -17,10 +17,12 @@ export class DropManager {
     handleEnemyDeath(enemy) {
         if (!enemy.isSpawned) {
             if (Math.random() < this.energyDropChance) {
+                // 8 at a 35% chance is ~2.8 per kill, so a 20-cost defender pays
+                // for itself in about seven kills.
                 this.gameEngine.dropEnergy(
                     enemy.x + enemy.width / 2,
                     enemy.y + enemy.height / 2,
-                    5
+                    8
                 );
             }
             if (Math.random() < this.cardPieceDropChance) {

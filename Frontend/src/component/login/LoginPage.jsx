@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { apiUrl } from "../../config/api.js";
 
 const MODE_LOGIN = "login";
 const MODE_REGISTER = "register";
@@ -15,11 +16,20 @@ export default function LoginPage( { onLogin }) {
     const [error, setError] = useState("");
     const [info, setInfo] = useState("");
     const [loading, setLoading] = useState(false);
+    /* The free host spins the backend down when nobody is playing, and the
+       next request waits for it to come back - tens of seconds, against a
+       server that itself starts in about two. Saying so beats a button that
+       sits on "..." long enough to look broken. */
+    const [waking, setWaking] = useState(false);
 
     const resetTransientState = () => {
         setError("");
         setInfo("");
+        setWaking(false);
     };
+
+    /** How long a request may take before it is worth explaining the wait. */
+    const WAKING_AFTER_MS = 4000;
 
     const switchMode = (next) => {
         resetTransientState();
@@ -31,13 +41,15 @@ export default function LoginPage( { onLogin }) {
         resetTransientState();
         setLoading(true);
 
+        const wakingTimer = setTimeout(() => setWaking(true), WAKING_AFTER_MS);
+
         try {
             if (mode === MODE_LOGIN || mode === MODE_REGISTER) {
                 const endpoint = mode === MODE_REGISTER ? "/api/auth/register" : "/api/auth/login";
                 const body = mode === MODE_REGISTER
                     ? { email, password, displayName }
                     : { email, password };
-                const res = await fetch(`http://localhost:8080${endpoint}`, {
+                const res = await fetch(apiUrl(`${endpoint}`), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(body)
@@ -49,7 +61,7 @@ export default function LoginPage( { onLogin }) {
                 const data = await res.json();
                 onLogin(data.token, data.player);
             } else if (mode === MODE_FORGOT_REQUEST) {
-                const res = await fetch("http://localhost:8080/api/auth/forgot-password", {
+                const res = await fetch(apiUrl("/api/auth/forgot-password"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email })
@@ -61,7 +73,7 @@ export default function LoginPage( { onLogin }) {
                 setInfo("If that email is registered, a 6-digit code has been sent.");
                 setMode(MODE_FORGOT_RESET);
             } else if (mode === MODE_FORGOT_RESET) {
-                const res = await fetch("http://localhost:8080/api/auth/reset-password", {
+                const res = await fetch(apiUrl("/api/auth/reset-password"), {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ email, code, newPassword })
@@ -80,6 +92,8 @@ export default function LoginPage( { onLogin }) {
             setError("Cannot connect to server");
         } finally {
             setLoading(false);
+            setWaking(false);
+            clearTimeout(wakingTimer);
         }
     };
 
@@ -163,9 +177,15 @@ export default function LoginPage( { onLogin }) {
 
                 {error && <p style={styles.error}>{error}</p>}
                 {info && <p style={styles.info}>{info}</p>}
+                {waking && (
+                    <p style={styles.info}>
+                        Waking the server &mdash; it sleeps when nobody is playing.
+                        This takes up to a minute the first time.
+                    </p>
+                )}
 
                 <button type="submit" disabled={loading} style={styles.button}>
-                    {loading ? "..." : submitLabel}
+                    {loading ? (waking ? "Waking the server\u2026" : "\u2026") : submitLabel}
                 </button>
 
                 {mode === MODE_LOGIN && (

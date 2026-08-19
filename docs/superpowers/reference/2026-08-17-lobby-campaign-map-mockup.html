@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lobby mockup v2 — filled</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap" rel="stylesheet">
+<style>
+:root{
+  --surface-base:#2f2a1d; --surface-panel:#4a4231; --surface-raised:#6b5c40;
+  --surface-sunken:#241f16; --edge-outline:#1a160f; --edge-highlight:#a8906a;
+  --text-primary:#f5ecd8; --text-muted:#b8a888;
+  --accent-energy:#ffd700; --accent-danger:#d94f3d; --accent-success:#5fa855; --accent-info:#4a9cc4;
+  --display:'Black Ops One',system-ui,sans-serif;
+  --body:system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface-base);color:var(--text-primary);font-family:var(--body);
+  height:100vh;display:flex;flex-direction:column;gap:8px;padding:10px;overflow:hidden}
+
+.topband{display:flex;align-items:center;gap:9px;flex-wrap:wrap;flex:0 0 auto;
+  background:linear-gradient(180deg,var(--surface-panel),var(--surface-sunken));
+  border:3px solid var(--edge-outline);border-radius:14px;padding:7px 11px;
+  box-shadow:0 4px 0 rgba(26,22,15,.55), inset 0 1px 0 var(--edge-highlight)}
+.who{font-family:var(--display);font-size:14px}
+.rank{font-size:10px;color:var(--text-muted)}
+.energy{display:flex;align-items:center;gap:7px;margin-left:auto;background:var(--surface-sunken);
+  border:2px solid var(--edge-outline);border-radius:999px;padding:3px 11px}
+.energy b{font-family:var(--display);color:var(--accent-energy);font-size:14px;font-variant-numeric:tabular-nums}
+.ebar{width:80px;height:7px;background:var(--edge-outline);border-radius:999px;overflow:hidden}
+.ebar i{display:block;height:100%;width:53%;background:linear-gradient(90deg,#8a6d10,var(--accent-energy))}
+.res{display:flex;gap:5px}
+.pill{display:flex;align-items:center;gap:4px;background:var(--surface-sunken);
+  border:2px solid var(--edge-outline);border-radius:8px;padding:3px 8px;font-size:11px}
+.pill b{font-family:var(--display);font-variant-numeric:tabular-nums}
+.iconbtn{width:32px;height:32px;border-radius:8px;background:var(--surface-raised);
+  border:3px solid var(--edge-outline);box-shadow:0 3px 0 rgba(26,22,15,.55);
+  display:grid;place-items:center;font-size:14px;cursor:pointer}
+.iconbtn:active{transform:translateY(2px);box-shadow:inset 0 3px 0 rgba(26,22,15,.45)}
+
+.mapview{flex:1 1 auto;min-height:0;border:3px solid var(--edge-outline);border-radius:14px;
+  overflow-x:auto;overflow-y:hidden;box-shadow:inset 0 0 40px rgba(26,22,15,.8);position:relative;
+  cursor:grab}
+.mapview:active{cursor:grabbing}
+.mapview::-webkit-scrollbar{height:9px}
+.mapview::-webkit-scrollbar-track{background:var(--surface-sunken)}
+.mapview::-webkit-scrollbar-thumb{background:var(--surface-raised);border-radius:999px}
+
+.terrain{position:relative;width:1900px;height:100%;display:flex}
+.region{flex:1;position:relative;overflow:hidden}
+.region .label{position:absolute;top:8px;left:50%;transform:translateX(-50%);
+  font-family:var(--display);font-size:10px;letter-spacing:3px;text-transform:uppercase;
+  color:var(--text-muted);opacity:.65;z-index:3;white-space:nowrap}
+
+/* GROUND: each region a different character, all CSS */
+.r1{background:repeating-linear-gradient(58deg,rgba(95,168,85,.045) 0 3px,transparent 3px 10px),
+  linear-gradient(180deg,#3c4a2c 0%,#46552f 42%,#39442a 100%)}
+.r2{background:repeating-linear-gradient(58deg,rgba(168,144,106,.045) 0 3px,transparent 3px 10px),
+  linear-gradient(180deg,#42392a 0%,#544733 42%,#3d3427 100%)}
+.r3{background:repeating-linear-gradient(58deg,rgba(217,79,61,.05) 0 3px,transparent 3px 10px),
+  linear-gradient(180deg,#33221d 0%,#472e25 42%,#2c1d18 100%)}
+
+/* --- FILLING THE VERTICAL SPACE --- */
+/* 1. distant ridgeline: fills the top third, gives depth */
+.ridge{position:absolute;left:-2%;right:-2%;top:0;height:44%;z-index:1;opacity:.5}
+.ridge svg{width:100%;height:100%;display:block}
+/* 2. mid-ground scatter: scenery between nodes */
+.prop{position:absolute;transform:translate(-50%,-100%);z-index:2;
+  filter:drop-shadow(0 2px 2px rgba(26,22,15,.7));opacity:.9;user-select:none}
+.prop.far{opacity:.42;transform:translate(-50%,-100%) scale(.62)}
+/* 3. foreground silhouette band: frames the bottom, closer = darker */
+.fore{position:absolute;left:0;right:0;bottom:0;height:22%;z-index:4;pointer-events:none}
+.fore svg{width:100%;height:100%;display:block}
+/* 4. region seam: a broken wall marks the boundary rather than a hard edge */
+.seam{position:absolute;top:0;bottom:0;left:-14px;width:28px;z-index:3;
+  background:linear-gradient(90deg,transparent,rgba(26,22,15,.5),transparent)}
+.terrain::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:5;
+  background:radial-gradient(130% 100% at 50% 45%,transparent 52%,rgba(26,22,15,.6) 100%)}
+
+/* --- THE ROUTE: much greater vertical amplitude, uses the full height --- */
+svg.route{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.node{position:absolute;width:54px;height:54px;transform:translate(-50%,-50%);border-radius:50%;
+  display:grid;place-items:center;font-family:var(--display);font-size:18px;
+  border:3px solid var(--edge-outline);cursor:pointer;z-index:6}
+.node small{position:absolute;top:56px;font-size:9.5px;font-family:var(--body);white-space:nowrap;
+  color:var(--text-primary);text-shadow:0 1px 3px var(--edge-outline)}
+.node .stars{position:absolute;top:-12px;font-size:9px;letter-spacing:-1px}
+.done{background:radial-gradient(circle at 35% 30%,var(--surface-raised),#4e4230);
+  box-shadow:0 4px 0 rgba(26,22,15,.65)}
+.open{background:radial-gradient(circle at 35% 30%,#ffe45c,var(--accent-energy));color:var(--edge-outline);
+  box-shadow:0 4px 0 rgba(26,22,15,.65),0 0 0 6px rgba(255,215,0,.16);animation:breathe 2.2s ease-in-out infinite}
+@keyframes breathe{50%{box-shadow:0 4px 0 rgba(26,22,15,.65),0 0 0 13px rgba(255,215,0,.05)}}
+.locked{background:var(--surface-sunken);color:#6f6555;box-shadow:none}
+.locked small{color:var(--text-muted)}
+.boss{width:66px;height:66px;font-size:21px;border-width:4px;border-radius:13px;
+  background:radial-gradient(circle at 35% 30%,#e2705d,var(--accent-danger));color:#2a1b17}
+.boss::after{content:'';position:absolute;inset:-8px;border:2px dashed rgba(217,79,61,.45);border-radius:17px}
+.chest{position:absolute;transform:translate(-50%,-50%);font-size:17px;z-index:6;
+  filter:drop-shadow(0 2px 2px var(--edge-outline))}
+.portal{position:absolute;transform:translate(-50%,-50%);width:74px;height:74px;border-radius:50%;
+  display:grid;place-items:center;font-family:var(--display);font-size:10px;letter-spacing:1px;
+  color:var(--accent-info);border:3px dashed var(--accent-info);background:rgba(74,156,196,.1);z-index:6}
+.hint{flex:0 0 auto;font-size:10.5px;color:var(--text-muted);text-align:center}
+</style>
+</head>
+<body>
+
+<div class="topband">
+  <div><div class="who">Novice Gardener</div><div class="rank">Rank 1 &middot; 3 of 20 cleared</div></div>
+  <div class="iconbtn">&#9635;</div><div class="iconbtn">&#9733;</div>
+  <div class="iconbtn">&#9650;</div><div class="iconbtn">&#9881;</div>
+  <div class="energy"><span>&#9889;</span><b>53/100</b><span class="ebar"><i></i></span></div>
+  <div class="res">
+    <span class="pill">&#129689;<b>200</b></span><span class="pill">&#9724;<b>10</b></span>
+    <span class="pill">&#127806;<b>30</b></span><span class="pill">&#128167;<b>40</b></span>
+    <span class="pill">&#128142;<b>6</b></span>
+  </div>
+</div>
+
+<div class="mapview" id="mapview">
+  <div class="terrain">
+
+    <div class="region r1">
+      <span class="label">Settled ground</span>
+      <div class="ridge"><svg viewBox="0 0 600 200" preserveAspectRatio="none">
+        <path d="M0,150 L60,110 L120,135 L190,80 L260,120 L330,70 L400,115 L470,85 L540,125 L600,100 L600,200 L0,200Z" fill="#2b3520"/>
+        <path d="M0,175 L80,145 L160,168 L240,130 L320,160 L410,125 L500,158 L600,138 L600,200 L0,200Z" fill="#232c1b"/>
+      </svg></div>
+      <span class="prop far" style="left:8%;bottom:52%;font-size:20px">&#127795;</span>
+      <span class="prop far" style="left:20%;bottom:55%;font-size:16px">&#127795;</span>
+      <span class="prop" style="left:31%;bottom:24%;font-size:22px">&#127807;</span>
+      <span class="prop" style="left:57%;bottom:18%;font-size:20px">&#9978;</span>
+      <span class="prop far" style="left:69%;bottom:50%;font-size:18px">&#127795;</span>
+      <span class="prop" style="left:84%;bottom:27%;font-size:19px">&#128737;</span>
+      <div class="fore"><svg viewBox="0 0 600 100" preserveAspectRatio="none">
+        <path d="M0,55 Q70,28 150,48 T310,40 T470,52 T600,35 L600,100 L0,100Z" fill="#20281a"/>
+      </svg></div>
+    </div>
+
+    <div class="region r2">
+      <div class="seam"></div>
+      <span class="label">The ashlands</span>
+      <div class="ridge"><svg viewBox="0 0 600 200" preserveAspectRatio="none">
+        <path d="M0,120 L70,75 L150,110 L230,60 L310,105 L390,65 L470,110 L550,80 L600,110 L600,200 L0,200Z" fill="#332a20"/>
+        <path d="M0,160 L90,132 L180,158 L270,120 L360,150 L450,118 L540,150 L600,132 L600,200 L0,200Z" fill="#292219"/>
+      </svg></div>
+      <span class="prop far" style="left:11%;bottom:53%;font-size:19px">&#127983;</span>
+      <span class="prop" style="left:26%;bottom:22%;font-size:21px">&#128293;</span>
+      <span class="prop" style="left:47%;bottom:17%;font-size:19px">&#127983;</span>
+      <span class="prop far" style="left:63%;bottom:51%;font-size:17px">&#127983;</span>
+      <span class="prop" style="left:78%;bottom:25%;font-size:20px">&#9760;</span>
+      <div class="fore"><svg viewBox="0 0 600 100" preserveAspectRatio="none">
+        <path d="M0,48 Q80,22 160,44 T320,34 T480,50 T600,30 L600,100 L0,100Z" fill="#241e17"/>
+      </svg></div>
+    </div>
+
+    <div class="region r3">
+      <div class="seam"></div>
+      <span class="label">Scorched reach</span>
+      <div class="ridge"><svg viewBox="0 0 600 200" preserveAspectRatio="none">
+        <path d="M0,105 L80,55 L165,95 L250,45 L335,90 L420,50 L505,95 L600,60 L600,200 L0,200Z" fill="#2e1f1a"/>
+        <path d="M0,150 L95,118 L190,148 L285,108 L380,142 L475,105 L570,142 L600,125 L600,200 L0,200Z" fill="#251a15"/>
+      </svg></div>
+      <span class="prop far" style="left:9%;bottom:52%;font-size:18px">&#128293;</span>
+      <span class="prop" style="left:24%;bottom:20%;font-size:22px">&#128293;</span>
+      <span class="prop" style="left:44%;bottom:16%;font-size:20px">&#9760;</span>
+      <span class="prop far" style="left:58%;bottom:50%;font-size:19px">&#128293;</span>
+      <span class="prop" style="left:73%;bottom:23%;font-size:21px">&#127984;</span>
+      <div class="fore"><svg viewBox="0 0 600 100" preserveAspectRatio="none">
+        <path d="M0,52 Q75,24 155,46 T310,32 T465,48 T600,28 L600,100 L0,100Z" fill="#1e1512"/>
+      </svg></div>
+    </div>
+
+    <!-- route: swings from near the floor to near the ridge, using the full height -->
+    <svg class="route" viewBox="0 0 1900 500" preserveAspectRatio="none">
+      <path id="p" d="M100,420 L240,205 L390,400 L540,175 L700,395 L860,160 L1010,385 L1170,150 L1330,370 L1500,140 L1680,330 L1830,190"
+        fill="none" stroke="#1a160f" stroke-width="15" stroke-linecap="round" opacity=".5"/>
+      <path d="M100,420 L240,205 L390,400 L540,175 L700,395 L860,160 L1010,385 L1170,150 L1330,370 L1500,140 L1680,330 L1830,190"
+        fill="none" stroke="#a8906a" stroke-width="5" stroke-linecap="round" stroke-dasharray="1 14" opacity=".6"/>
+    </svg>
+
+    <div class="node done" style="left:100px;top:84%"><span class="stars">★★★</span>1<small>First Contact</small></div>
+    <div class="chest" style="left:170px;top:63%">&#128176;</div>
+    <div class="node done" style="left:240px;top:41%"><span class="stars">★★☆</span>2<small>Swift Danger</small></div>
+    <div class="node done" style="left:390px;top:80%"><span class="stars">★☆☆</span>3<small>Explosive Encounter</small></div>
+    <div class="node open" style="left:540px;top:35%">4<small>Heavy Resistance</small></div>
+    <div class="chest" style="left:620px;top:57%">&#128176;</div>
+    <div class="node locked" style="left:700px;top:79%">5<small>Ranged Assault</small></div>
+    <div class="node boss locked" style="left:860px;top:32%">6<small>Shield Wall</small></div>
+    <div class="node locked" style="left:1010px;top:77%">7<small>Support Squadron</small></div>
+    <div class="node locked" style="left:1170px;top:30%">8<small>Multiplication Crisis</small></div>
+    <div class="chest" style="left:1250px;top:52%">&#128176;</div>
+    <div class="node locked" style="left:1330px;top:74%">9<small>Electromagnetic Chaos</small></div>
+    <div class="node boss locked" style="left:1500px;top:28%">10<small>Blood Moon</small></div>
+    <div class="node locked" style="left:1680px;top:66%">11<small>Total Chaos</small></div>
+    <div class="portal" style="left:1830px;top:38%">ENDLESS</div>
+  </div>
+</div>
+
+<div class="hint">Drag sideways &middot; opens on level 4 &middot; ridgelines, scenery and a foreground band fill what was dead space</div>
+
+<script>
+  const v=document.getElementById('mapview'),o=document.querySelector('.node.open');
+  v.scrollLeft=o.offsetLeft-v.clientWidth/2+27;
+  let d=false,x0=0,s0=0;
+  v.addEventListener('pointerdown',e=>{d=true;x0=e.clientX;s0=v.scrollLeft;v.setPointerCapture(e.pointerId)});
+  v.addEventListener('pointermove',e=>{if(d)v.scrollLeft=s0-(e.clientX-x0)});
+  v.addEventListener('pointerup',()=>d=false);
+</script>
+</body>
+</html>

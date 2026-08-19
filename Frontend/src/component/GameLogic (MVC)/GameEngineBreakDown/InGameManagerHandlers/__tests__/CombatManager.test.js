@@ -267,3 +267,118 @@ describe('findTargetForEnemy spell exclusion', () => {
         expect(combat.findTargetForEnemy(createEnemy(), [defender])).toBeNull();
     });
 });
+
+describe('enemy ranged fire is audible and animated', () => {
+  function createEnemy(overrides = {}) {
+    return {
+      x: 0, y: 0, width: 40, height: 40,
+      isAttacker: true, isAlive: true, isRanged: true, frozen: false,
+      attackRange: 500, attackDamage: 7, isAttacking: false,
+      canAttack: () => true, constructor: { name: 'RangeEnemy' },
+      ...overrides,
+    };
+  }
+
+  function createDefender() {
+    return { x: 50, y: 0, width: 40, height: 40, isAlive: true };
+  }
+
+  function createEngine() {
+    return {
+      enemyProjectiles: [], projectiles: [],
+      emitFeedback: vi.fn(),
+    };
+  }
+
+  it('emits a firing event carrying the enemy type', () => {
+    const engine = createEngine();
+    const combat = new CombatManager(engine);
+    const enemy = createEnemy();
+
+    combat.updateEnemyCombat([createDefender()], [enemy], 1000);
+
+    expect(engine.emitFeedback).toHaveBeenCalledWith(
+      'enemy:fired',
+      expect.objectContaining({ unitType: 'RangeEnemy' }),
+    );
+  });
+
+  it('sets the attacking state at the moment it fires', () => {
+    const engine = createEngine();
+    const combat = new CombatManager(engine);
+    const enemy = createEnemy();
+
+    combat.updateEnemyCombat([createDefender()], [enemy], 1000);
+
+    expect(enemy.isAttacking).toBe(true);
+    expect(engine.enemyProjectiles).toHaveLength(1);
+  });
+
+  it('does not fire or animate when the cooldown says no', () => {
+    const engine = createEngine();
+    const combat = new CombatManager(engine);
+    const enemy = createEnemy({ canAttack: () => false });
+
+    combat.updateEnemyCombat([createDefender()], [enemy], 1000);
+
+    expect(enemy.isAttacking).toBe(false);
+    expect(engine.enemyProjectiles).toHaveLength(0);
+    expect(engine.emitFeedback).not.toHaveBeenCalled();
+  });
+
+  it('emits once per shot, not once per nearby defender', () => {
+    const engine = createEngine();
+    const combat = new CombatManager(engine);
+
+    combat.updateEnemyCombat(
+      [createDefender(), createDefender(), createDefender()],
+      [createEnemy()],
+      1000,
+    );
+
+    const fired = engine.emitFeedback.mock.calls.filter((c) => c[0] === 'enemy:fired');
+    expect(fired).toHaveLength(1);
+  });
+
+  it('does not throw when the engine exposes no emitFeedback', () => {
+    // Rejects: a bare this.gameEngine.emitFeedback(...) call. Several tests in
+    // this file build an engine stub without a feedback bus, and GameEngine
+    // itself is constructed before its bus is attached.
+    const engine = { enemyProjectiles: [], projectiles: [] };
+    const combat = new CombatManager(engine);
+
+    expect(() => combat.updateEnemyCombat([createDefender()], [createEnemy()], 1000)).not.toThrow();
+  });
+
+  it('calls a melee strike a strike, not a shot', () => {
+    // Rejects: emitting 'enemy:fired' from the shared branch rather than from
+    // the projectile branch. A melee swing is not a shot - it gets its own
+    // event, and the two must not be confused.
+    const engine = createEngine();
+    const combat = new CombatManager(engine);
+    const enemy = createEnemy({ isRanged: false, attack: vi.fn() });
+
+    combat.updateEnemyCombat([createDefender()], [enemy], 1000);
+
+    expect(enemy.attack).toHaveBeenCalled();
+    const fired = engine.emitFeedback.mock.calls.filter((c) => c[0] === 'enemy:fired');
+    expect(fired).toHaveLength(0);
+    expect(engine.emitFeedback).toHaveBeenCalledWith(
+      'enemy:melee',
+      expect.objectContaining({ unitType: 'RangeEnemy' }),
+    );
+  });
+
+  it('does not hold a melee enemy in an attack animation', () => {
+    // The animation lock belongs to the shot: a melee enemy's swing is driven
+    // by its own damage tick in updateBehavior, which restarts the animation
+    // itself. Setting the flag here as well would fight that.
+    const engine = createEngine();
+    const combat = new CombatManager(engine);
+    const enemy = createEnemy({ isRanged: false, attack: vi.fn() });
+
+    combat.updateEnemyCombat([createDefender()], [enemy], 1000);
+
+    expect(enemy.isAttacking).toBe(false);
+  });
+});

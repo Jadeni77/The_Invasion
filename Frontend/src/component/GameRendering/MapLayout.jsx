@@ -1,53 +1,70 @@
 // MapLayout.js - Enhanced map system with 20 levels + endless mode
 
-// Level nodes arranged in a serpentine pattern across the map
-export const levelsMapData = [
+import { colors, decorative } from "../../style/tokens.js";
+
+/*
+ * The seven-stop rainbow, ordered to match `.rainbow-connection` in
+ * Lobby.css:857 stop for stop.
+ */
+export const RAINBOW_STOPS = [
+  colors.accentDanger,
+  decorative.orange,
+  colors.accentEnergy,
+  colors.accentSuccess,
+  colors.accentInfo,
+  decorative.indigo,
+  decorative.violet,
+];
+
+/*
+ * Route geometry - the one thing on this map that everything else is
+ * positioned against.
+ */
+const ROUTE_START_X = 200;
+const NODE_SPACING_X = 190;
+/*
+ * The terrain's height, and the factor that spreads the authored `y` values
+ * across it.
+ */
+const AUTHORED_MAP_HEIGHT = 600;
+const MAP_HEIGHT = 720;
+const Y_SCALE = MAP_HEIGHT / AUTHORED_MAP_HEIGHT;
+/** Breathing room past the last stop, so the portal isn't flush to the edge. */
+const ROUTE_END_PADDING = 200;
+
+/* The campaign's stops in route order, carrying everything except `x`. */
+const routeStops = [
   // Tutorial Zone (Levels 1-3)
-  { id: 1, x: 200, y: 500, zone: "tutorial", name: "The Outbreak" },
-  { id: 2, x: 350, y: 450, zone: "tutorial", name: "Swift Danger" },
-  { id: 3, x: 500, y: 400, zone: "tutorial", name: "Explosive Encounter" },
+  { id: 1, y: 500, zone: "tutorial", name: "The Outbreak" },
+  { id: 2, y: 380, zone: "tutorial", name: "Swift Danger" },
+  { id: 3, y: 460, zone: "tutorial", name: "Explosive Encounter" },
 
   // Early Game Zone (Levels 4-7)
-  { id: 4, x: 650, y: 350, zone: "early", name: "Heavy Resistance" },
-  { id: 5, x: 800, y: 300, zone: "early", name: "Ranged Assault" },
-  { id: 6, x: 950, y: 350, zone: "early", name: "Shield Wall" },
-  { id: 7, x: 1100, y: 400, zone: "early", name: "Support Squadron" },
+  { id: 4, y: 300, zone: "early", name: "Heavy Resistance" },
+  { id: 5, y: 420, zone: "early", name: "Ranged Assault" },
+  { id: 6, y: 260, zone: "early", name: "Shield Wall" },
+  { id: 7, y: 400, zone: "early", name: "Support Squadron" },
 
   // Mid Game Zone (Levels 8-12)
-  { id: 8, x: 1250, y: 450, zone: "mid", name: "Multiplication Crisis" },
-  { id: 9, x: 1400, y: 500, zone: "mid", name: "Swarm Tactics" },
-  {
-    id: 10,
-    x: 1550,
-    y: 450,
-    zone: "mid",
-    name: "Electromagnetic Chaos",
-    isBoss: true,
-  },
-  { id: 11, x: 1700, y: 400, zone: "mid", name: "Blood Hunt" },
-  { id: 12, x: 1850, y: 350, zone: "mid", name: "Spectral Invasion" },
+  { id: 8, y: 510, zone: "mid", name: "Multiplication Crisis" },
+  { id: 9, y: 320, zone: "mid", name: "Swarm Tactics" },
+  { id: 10, y: 440, zone: "mid", name: "Electromagnetic Chaos", isBoss: true },
+  { id: 11, y: 200, zone: "mid", name: "Blood Hunt" },
+  { id: 12, y: 380, zone: "mid", name: "Spectral Invasion" },
 
-  // Late Game Zone (Levels 13-17) - Second row
-  { id: 13, x: 1850, y: 250, zone: "late", name: "Berserker Rage" },
-  { id: 14, x: 1700, y: 200, zone: "late", name: "Death's Army" },
-  { id: 15, x: 1550, y: 150, zone: "late", name: "Shadow Strike" },
-  { id: 16, x: 1400, y: 200, zone: "late", name: "Arcane Apocalypse" },
-  { id: 17, x: 1250, y: 250, zone: "late", name: "Total Chaos" },
+  // Late Game Zone (Levels 13-17)
+  { id: 13, y: 260, zone: "late", name: "Berserker Rage" },
+  { id: 14, y: 420, zone: "late", name: "Death's Army" },
+  { id: 15, y: 180, zone: "late", name: "Shadow Strike" },
+  { id: 16, y: 340, zone: "late", name: "Arcane Apocalypse" },
+  { id: 17, y: 140, zone: "late", name: "Total Chaos" },
 
-  // End Game Zone (Levels 18-20) - Third row ascent
-  {
-    id: 18,
-    x: 1100,
-    y: 200,
-    zone: "endgame",
-    name: "Titan's Wrath",
-    isBoss: true,
-  },
-  { id: 19, x: 950, y: 150, zone: "endgame", name: "Final Stand" },
+  // End Game Zone (Levels 18-20) - the final ascent
+  { id: 18, y: 300, zone: "endgame", name: "Titan's Wrath", isBoss: true },
+  { id: 19, y: 160, zone: "endgame", name: "Final Stand" },
   {
     id: 20,
-    x: 800,
-    y: 100,
+    y: 90,
     zone: "endgame",
     name: "The Omega Wave",
     isBoss: true,
@@ -57,8 +74,7 @@ export const levelsMapData = [
   // Endless Mode Portal - Unlocked after completing level 20
   {
     id: 999,
-    x: 650,
-    y: 50,
+    y: 100,
     zone: "endless",
     name: "Endless Survival",
     isEndless: true,
@@ -67,282 +83,220 @@ export const levelsMapData = [
   },
 ];
 
-// Connection paths between levels
+/* The level nodes, each in its own x column. */
+export const levelsMapData = routeStops.map((stop, index) => ({
+  ...stop,
+  x: ROUTE_START_X + index * NODE_SPACING_X,
+  y: Math.round(stop.y * Y_SCALE),
+}));
+
+/** The last stop's column - the portal's, and what sizes the terrain. */
+const ROUTE_END_X = levelsMapData[levelsMapData.length - 1].x;
+
+/** A node's own position, looked up by id rather than copied. */
+function nodeById(id) {
+  const node = levelsMapData.find((level) => level.id === id);
+  if (!node) throw new Error(`MapLayout: no level with id ${id}`);
+  return node;
+}
+
+/*
+ * A connector segment between two nodes - midpoint, length and angle computed
+ * from their live positions, not hand-typed.
+ */
+function connectionBetween(fromId, toId, extra) {
+  const from = nodeById(fromId);
+  const to = nodeById(toId);
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  return {
+    from: fromId,
+    to: toId,
+    x: (from.x + to.x) / 2,
+    y: (from.y + to.y) / 2,
+    length: Math.sqrt(dx * dx + dy * dy),
+    rotation: (Math.atan2(dy, dx) * 180) / Math.PI,
+    ...extra,
+  };
+}
+
+// Connection paths between levels. Derived (see connectionBetween above),
+// not hand-typed - only `from`/`to`/`special` are authored here.
 export const connectionsData = [
   // Tutorial connections
-  { from: 1, to: 2, x: 275, y: 475, length: 150, rotation: -20 },
-  { from: 2, to: 3, x: 425, y: 425, length: 150, rotation: -20 },
+  connectionBetween(1, 2),
+  connectionBetween(2, 3),
 
   // Early game connections
-  { from: 3, to: 4, x: 575, y: 375, length: 150, rotation: -20 },
-  { from: 4, to: 5, x: 725, y: 325, length: 150, rotation: -20 },
-  { from: 5, to: 6, x: 875, y: 325, length: 150, rotation: 20 },
-  { from: 6, to: 7, x: 1025, y: 375, length: 150, rotation: 20 },
+  connectionBetween(3, 4),
+  connectionBetween(4, 5),
+  connectionBetween(5, 6),
+  connectionBetween(6, 7),
 
   // Mid game connections
-  { from: 7, to: 8, x: 1175, y: 425, length: 150, rotation: 20 },
-  { from: 8, to: 9, x: 1325, y: 475, length: 150, rotation: 20 },
-  { from: 9, to: 10, x: 1475, y: 475, length: 150, rotation: -20 },
-  { from: 10, to: 11, x: 1625, y: 425, length: 150, rotation: -20 },
-  { from: 11, to: 12, x: 1775, y: 375, length: 150, rotation: -20 },
+  connectionBetween(7, 8),
+  connectionBetween(8, 9),
+  connectionBetween(9, 10),
+  connectionBetween(10, 11),
+  connectionBetween(11, 12),
 
-  // Transition to late game (vertical connection)
-  { from: 12, to: 13, x: 1850, y: 300, length: 100, rotation: -90 },
+  // Transition to late game. Was described here as "vertical" because the
+  // folded route doubled back in column 1850 and levels 12 and 13 shared it;
+  // it advances a column like every other connector now.
+  connectionBetween(12, 13),
 
   // Late game connections
-  { from: 13, to: 14, x: 1775, y: 225, length: 150, rotation: -160 },
-  { from: 14, to: 15, x: 1625, y: 175, length: 150, rotation: -160 },
-  { from: 15, to: 16, x: 1475, y: 175, length: 150, rotation: 160 },
-  { from: 16, to: 17, x: 1325, y: 225, length: 150, rotation: 160 },
+  connectionBetween(13, 14),
+  connectionBetween(14, 15),
+  connectionBetween(15, 16),
+  connectionBetween(16, 17),
 
   // End game connections
-  { from: 17, to: 18, x: 1175, y: 225, length: 150, rotation: -160 },
-  { from: 18, to: 19, x: 1025, y: 175, length: 150, rotation: -160 },
-  { from: 19, to: 20, x: 875, y: 125, length: 150, rotation: -160 },
+  connectionBetween(17, 18),
+  connectionBetween(18, 19),
+  connectionBetween(19, 20),
 
   // Endless portal connection (appears after beating level 20)
-  {
-    from: 20,
-    to: 999,
-    x: 725,
-    y: 75,
-    length: 150,
-    rotation: -160,
-    special: "rainbow",
-  },
+  connectionBetween(20, 999, { special: "rainbow" }),
 ];
 
-//TODO: set up defender unlock upon chest reward
-// Treasure chests with better rewards distribution
+/*
+ * An on-route chest's position: the midpoint of the connector leaving the
+ * level it requires - derived the same way the connector itself now is, rather
+ * than hand-typed as a second copy of the same fact.
+ */
+function chestOnRoute(id, fromId, toId, rewards) {
+  const { x, y } = connectionBetween(fromId, toId);
+  return { id, x, y, rewards, requiresLevel: fromId };
+}
+
+/*
+ * A secret chest's position: off the route by design, but anchored to the node
+ * that unlocks it rather than to an absolute coordinate.
+ */
+function chestNearLevel(id, requiresLevel, rewards, dx, dy, extra) {
+  const node = nodeById(requiresLevel);
+  return { id, x: node.x + dx, y: node.y + dy, rewards, requiresLevel, ...extra };
+}
+
+/*
+ * The defenders a chest unlocks, as a list, whichever way its reward was
+ * written.
+ */
+export function chestDefenders(chest) {
+  const named = chest?.rewards?.defender;
+  if (!named) return [];
+  return Array.isArray(named) ? named : [named];
+}
+
+/* The card pieces a chest grants, as defender name -> count. */
+export function chestCardPieces(chest) {
+  return chest?.rewards?.cardPieces ?? {};
+}
+
+/* A chest's resource rewards, expanded to one accumulated amount per resource. */
+export function resourceRewardsOf(chest) {
+  const totals = {};
+  const credit = (resource, amount) => {
+    totals[resource] = (totals[resource] ?? 0) + amount;
+  };
+  for (const [resource, amount] of Object.entries(chest?.rewards ?? {})) {
+    if (resource === "defender" || resource === "cardPieces") continue;
+    if (resource === "all") {
+      for (const res of ["gold", "iron", "grain", "water"]) credit(res, amount);
+    } else {
+      credit(resource, amount);
+    }
+  }
+  return totals;
+}
+
+/*
+ * Treasure chests: **six landmarks along the route, not one per level.** There
+ * were twenty on-route chests, one on every connector.
+ */
 export const chestsData = [
-  // Early game chests
-  {
-    id: "chest-1",
-    x: 275,
-    y: 475,
-    rewards: { gold: 100, gem: 1, defender: "E-Gen" },
-    requiresLevel: 1,
-  },
+  // Tutorial. Requires level 1, which is always unlocked, so the first
+  // landmark is reachable from a standing start.
+  chestOnRoute("chest-1", 1, 2, {
+    gold: 100,
+    gem: 1,
+    cardPieces: { Shooter: 5 },
+  }),
 
-  {
-    id: "chest-2",
-    x: 425,
-    y: 425,
-    rewards: { iron: 50, grain: 30, defender: "Barricade" },
-    requiresLevel: 2,
-  },
+  // Early region.
+  chestOnRoute("chest-2", 5, 6, {
+    iron: 150,
+    grain: 130,
+    water: 50,
+    gem: 7,
+    cardPieces: { Grenadier: 10 },
+  }),
 
-  {
-    id: "chest-3",
-    x: 575,
-    y: 375,
-    rewards: { water: 50, gem: 2, defender: "Grenadier" },
-    requiresLevel: 3,
-  },
+  // Mid region.
+  chestOnRoute("chest-3", 8, 9, {
+    gold: 750,
+    iron: 200,
+    grain: 300,
+    water: 150,
+    gem: 30,
+    cardPieces: { Healer: 15 },
+  }),
 
-  // Mid game chests
-  {
-    id: "chest-4",
-    x: 725,
-    y: 325,
-    rewards: { gold: 250, iron: 100, defender: "Healer" },
-    requiresLevel: 4,
-  },
+  // The crossing into the late region.
+  chestOnRoute("chest-4", 12, 13, {
+    gold: 1000,
+    gem: 100,
+    all: 1500,
+    cardPieces: { Sniper: 25 },
+  }),
 
-  {
-    id: "chest-5",
-    x: 875,
-    y: 325,
-    rewards: { gem: 5, grain: 100 },
-    requiresLevel: 5,
-  },
+  // Late region.
+  chestOnRoute("chest-5", 16, 17, {
+    gold: 1000,
+    gem: 200,
+    all: 2000,
+    cardPieces: { "Fire Blast": 30 },
+  }),
 
-  {
-    id: "chest-6",
-    x: 1025,
-    y: 375,
-    rewards: { gold: 500, water: 150, defender: "Frost Archer" },
-    requiresLevel: 6,
-  },
+  // Endgame, on the last climb to level 20.
+  chestOnRoute("chest-6", 19, 20, {
+    gold: 1000,
+    gem: 250,
+    all: 2000,
+    cardPieces: { Mortar: 40 },
+  }),
 
-  // Late game chests
-  {
-    id: "chest-7",
-    x: 1175,
-    y: 425,
-    rewards: { gem: 10, iron: 200 },
-    requiresLevel: 7,
-  },
-
-  {
-    id: "chest-8",
-    x: 1325,
-    y: 475,
-    rewards: { gold: 1000, grain: 300 },
-    requiresLevel: 8,
-  },
-
-  // End game chests
-  {
-    id: "chest-9",
-    x: 1475,
-    y: 475,
-    rewards: { gem: 20, gold: 2000 },
-    requiresLevel: 9,
-  },
-
-  {
-    id: "chest-10",
-    x: 1625,
-    y: 425,
-    rewards: { gem: 50, all: 500, defender: "Sniper" },
-    requiresLevel: 10,
-  },
-
-  {
-    id: "chest-11",
-    x: 1775,
-    y: 375,
-    rewards: { gem: 50, all: 500, defender: "Ice Bomb" },
-    requiresLevel: 11,
-  },
-
-  {
-    id: "chest-12",
-    x: 1900,
-    y: 300,
-    rewards: { gem: 50, all: 500 },
-    requiresLevel: 12,
-  },
-
-  {
-    id: "chest-13",
-    x: 1775,
-    y: 225,
-    rewards: { gem: 50, all: 500 },
-    requiresLevel: 13,
-  },
-
-  {
-    id: "chest-14",
-    x: 1625,
-    y: 175,
-    rewards: { gem: 50, all: 500, defender: "Mortar" },
-    requiresLevel: 14,
-  },
-
-  {
-    id: "chest-15",
-    x: 1475,
-    y: 175,
-    rewards: { gem: 50, all: 500 },
-    requiresLevel: 15,
-  },
-
-  {
-    id: "chest-16",
-    x: 1325,
-    y: 225,
-    rewards: { gem: 50, all: 500, defender: "Fire Blast" },
-    requiresLevel: 16,
-  },
-
-  {
-    id: "chest-17",
-    x: 1175,
-    y: 225,
-    rewards: { gem: 50, all: 500 },
-    requiresLevel: 17,
-  },
-
-  {
-    id: "chest-18",
-    x: 1025,
-    y: 175,
-    rewards: { gem: 50, all: 500 },
-    requiresLevel: 18,
-  },
-
-  {
-    id: "chest-19",
-    x: 875,
-    y: 125,
-    rewards: { gem: 50, all: 500 },
-    requiresLevel: 19,
-  },
-
-  {
-    id: "chest-20",
-    x: 725,
-    y: 75,
-    rewards: { gem: 50, all: 500 },
-    requiresLevel: 20,
-  },
-
-  // Secret chests (hidden or require special conditions)
-  {
-    id: "secret-1",
-    x: 1000,
-    y: 500,
-    rewards: { gem: 15, gold: 750 },
-    requiresLevel: 10,
+  // Secret chests (hidden or require special conditions). Off-route by
+  // design - the offsets below are what puts them beside the trail rather
+  // than on it - but anchored to the node that reveals them, not to an
+  // absolute coordinate. See chestNearLevel above.
+  chestNearLevel("secret-1", 10, { gem: 15, gold: 750 }, -70, 90, {
     hidden: true,
     condition: "perfectWave", // No damage taken in wave
-  },
-  {
-    id: "secret-2",
-    x: 1400,
-    y: 100,
-    rewards: { gem: 25, iron: 500 },
-    requiresLevel: 16,
+  }),
+  chestNearLevel("secret-2", 16, { gem: 25, iron: 500 }, 80, 85, {
     hidden: true,
     condition: "speedRun", // Complete level under time limit
-  },
+  }),
 ];
 //TODO: set up defender unlock upon level
 export const levelDefenderReward = {
   2: "Barricade",
 };
 
-// Zone visual configurations for styling
+/* Zone visual configurations. **These carry no colour, deliberately. */
 export const zoneConfigs = {
-  tutorial: {
-    backgroundColor: "#4a7c59",
-    borderColor: "#2d5436",
-    glowColor: "#6fb85f",
-    nodeClass: "tutorial-node",
-  },
-  early: {
-    backgroundColor: "#5a7cb8",
-    borderColor: "#3a5c88",
-    glowColor: "#7a9cd8",
-    nodeClass: "early-node",
-  },
-  mid: {
-    backgroundColor: "#b87c5a",
-    borderColor: "#885c3a",
-    glowColor: "#d89c7a",
-    nodeClass: "mid-node",
-  },
-  late: {
-    backgroundColor: "#b85a7c",
-    borderColor: "#883a5c",
-    glowColor: "#d87a9c",
-    nodeClass: "late-node",
-  },
-  endgame: {
-    backgroundColor: "#7c5ab8",
-    borderColor: "#5c3a88",
-    glowColor: "#9c7ad8",
-    nodeClass: "endgame-node",
-  },
-  endless: {
-    backgroundColor: "#rainbow-gradient",
-    borderColor: "#animated",
-    glowColor: "#rainbow-pulse",
-    nodeClass: "endless-portal",
-    animation: "portal-swirl",
-  },
+  // `label` is the region's name, painted faintly across its own span. The
+  // approved mockup carried these ("SETTLED GROUND", "THE ASHLANDS"); without
+  // them a region is a colour change with no reason attached, which is part of
+  // why the map read as a board rather than a place.
+  tutorial: { label: "Settled ground" },
+  early: { label: "The green line" },
+  mid: { label: "The ashlands" },
+  late: { label: "Scorched reach" },
+  endgame: { label: "The last stand" },
+  endless: { nodeClass: "endless-portal", animation: "portal-swirl" },
 };
 
 // Endless Mode Configuration
@@ -354,15 +308,8 @@ export const endlessPortalConfig = {
     particles: true,
     glowIntensity: 2,
     pulseSpeed: 1.5,
-    colors: [
-      "#ff0000",
-      "#ff7f00",
-      "#ffff00",
-      "#00ff00",
-      "#0000ff",
-      "#4b0082",
-      "#9400d3",
-    ],
+    // Was a second, independent seven-hex rainbow. Same list, one source.
+    colors: RAINBOW_STOPS,
   },
 
   // Unlock requirements
@@ -425,23 +372,54 @@ export const endlessPortalConfig = {
   },
 };
 
-// Map viewport and camera settings
+/*
+ * The map's own dimensions and default zoom - the only three fields here
+ * anything reads (`mapWidth`/`mapHeight` size `.game-map` and place its zone
+ * bands, `defaultZoom` seeds the zoom state in Lobby.jsx).
+ */
 export const mapSettings = {
-  viewportWidth: 1920,
-  viewportHeight: 600,
-  mapWidth: 2200,
-  mapHeight: 600,
-  initialPosition: { x: 0, y: 0 },
-  zoomLevels: [0.75, 1.0, 1.25, 1.5],
+  /* Derived from the route, not chosen for it. */
+  mapWidth: ROUTE_END_X + ROUTE_END_PADDING,
+  mapHeight: MAP_HEIGHT,
   defaultZoom: 1.0,
-  scrollSpeed: 1.5,
-  edgePadding: 50,
-
-  // Auto-camera movement to show player progress
-  autoCameraEnabled: true,
-  cameraFollowPlayer: true,
-  smoothScrollDuration: 500,
 };
+
+/* The terrain regions, in the order the route walks through them. */
+export const TERRAIN_ZONES = [
+  ...new Set(levelsMapData.filter((level) => level.zone !== "endless").map((level) => level.zone)),
+];
+
+/*
+ * Each region's horizontal span, sized to cover exactly the levels assigned to
+ * it, so a level always stands on its own zone's ground.
+ */
+function terrainZoneSpans() {
+  const extremes = TERRAIN_ZONES.map((zone) => {
+    const columns = levelsMapData.filter((level) => level.zone === zone).map((level) => level.x);
+    return { zone, first: Math.min(...columns), last: Math.max(...columns) };
+  });
+
+  const spans = {};
+  extremes.forEach((region, index) => {
+    const before = extremes[index - 1];
+    const after = extremes[index + 1];
+    const left = before ? (before.last + region.first) / 2 : 0;
+    const right = after ? (region.last + after.first) / 2 : mapSettings.mapWidth;
+    spans[region.zone] = { left, width: right - left };
+  });
+  return spans;
+}
+
+export const zoneSpans = terrainZoneSpans();
+
+/** The region whose span contains `x`, or null past both ends of the terrain. */
+export function zoneAtX(x) {
+  for (const zone of TERRAIN_ZONES) {
+    const { left, width } = zoneSpans[zone];
+    if (x >= left && x < left + width) return zone;
+  }
+  return null;
+}
 
 // Achievement triggers for map progression
 export const mapAchievements = [
@@ -514,4 +492,17 @@ export function getLevelStatus(levelId, playerData) {
     stars: stars,
     available: isUnlocked && !isCompleted,
   };
+}
+
+/**
+ * The level the map should open on: the first unlocked one the player has not
+ * finished. Null when they have cleared everything currently unlocked, in
+ * which case the caller should fall back to its own default.
+ */
+export function nextPlayableLevelId(playerData) {
+  for (const level of levelsMapData) {
+    const status = getLevelStatus(level.id, playerData);
+    if (status.available) return level.id;
+  }
+  return null;
 }

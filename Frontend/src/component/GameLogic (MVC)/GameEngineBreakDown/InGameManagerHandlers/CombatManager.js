@@ -1,4 +1,5 @@
 import { isConsumableSpell } from '../../DefenderUnits.js';
+import { colors } from '../../../../style/tokens.js';
 
 /**
  * This class represent the combat system of how defender and enemy interact
@@ -9,11 +10,9 @@ export class CombatManager {
         this.gameEngine = gameEngine;
     }
 
-    /**
-     * Defender in game logic to handle attack and create projectile in the actual engine.
-     * @param defenders the defender array given
-     * @param enemies the enemy array given
-     * @param now the current real time
+    /*
+     * Defender in game logic to handle attack and create projectile in the
+     * actual engine.
      */
     updateDefenderCombat(defenders, enemies, now) {
         for (const defender of defenders) {
@@ -40,6 +39,15 @@ export class CombatManager {
                             this.gameEngine.emitFeedback?.('projectile:fired', {
                                 defenderType: defender.constructor.name,
                             });
+                            // The swing belongs to the shot leaving, not to the
+                            // arrow landing. This branch never calls attack() -
+                            // the projectile's onHit does, up to a second later -
+                            // so without this a Shooter played no attack animation
+                            // at all until its arrow arrived. Every other defender
+                            // starts its own swing inside attack(), which for them
+                            // IS the moment of the shot.
+                            defender.isAttacking = true;
+                            defender.beginAttackAnimation?.();
                             defender.lastAttackTime = now;
                         } else {
                             defender.attack(target, now);
@@ -52,11 +60,9 @@ export class CombatManager {
         }
     }
 
-    /**
-     * Enemy in game logic to handle attack and create projectile in the actual engine.
-     * @param defenders the defender array given
-     * @param enemies the enemy array given
-     * @param now the current real time
+    /*
+     * Enemy in game logic to handle attack and create projectile in the actual
+     * engine.
      */
     updateEnemyCombat(defenders, enemies, now) {
         for (const enemy of enemies) {
@@ -72,26 +78,57 @@ export class CombatManager {
                                                                   target: target,
                                                                   speed: 8,
                                                                   damage: enemy.attackDamage,
-                                                                  color: "#FF4444",
+                                                                  color: colors.accentDanger,
                                                                   attacker: enemy,
                                                                   onHit: () => {
                                                                       enemy.attack(target, now);
                                                                   }});
                         enemy.lastAttackTime = now;
+                        // The animation is driven from the actual shot, not from a
+                        // separate countdown - two independent timers is why the
+                        // skeleton's attack and its projectile never lined up.
+                        // beginAttackAnimation restarts the sheet and sizes one
+                        // full pass to fit inside the firing cadence;
+                        // Enemy.update() runs that down via
+                        // runDownAttackAnimation(), because a flag cleared in this
+                        // same frame would be gone before the enemy's next
+                        // determineAnimationState.
+                        enemy.isAttacking = true;
+                        enemy.beginAttackAnimation?.();
+                        this.gameEngine.emitFeedback?.('enemy:fired', {
+                            unitType: enemy.constructor.name,
+                        });
                     } else {
                         enemy.attack(target, now);
+                        // The one call site that is unambiguously a melee strike -
+                        // the ranged branch above never reaches it, and the onHit
+                        // callback that also calls attack() is a landing arrow.
+                        // Some enemies (Necromancer, Swarm Witch) apply melee
+                        // damage through here and nowhere else, so without this
+                        // their strikes are silent.
+                        //
+                        // BossEnemy also deals damage on the base updateBehavior
+                        // countdown and so emits twice per attack cycle, far too
+                        // far apart to dedupe; see known-issue 14, which is the
+                        // authoritative account and is fixed by having one damage
+                        // path, not by anything at this site.
+                        //
+                        // stunned is checked because attack() bails out on it
+                        // before dealing damage, while this loop only filters
+                        // frozen: without the guard a stunned enemy would announce
+                        // a swing that never happened.
+                        if (!enemy.stunned) {
+                            this.gameEngine.emitFeedback?.('enemy:melee', {
+                                unitType: enemy.constructor.name,
+                            });
+                        }
                     }
                 }
             }
         }
     }
 
-    /**
-     * Finds the closest valid target (enemies) for given defender.
-     * @param {DefenderUnit} defender - The defender unit looking for a target.
-     * @param enemies - The enemies units being look for
-     * @returns {Enemy|null} The closest enemy in range, or null if none found.
-     */
+    /* Finds the closest valid target (enemies) for given defender. */
     findTargetForDefender(defender, enemies) {
         let closestEnemy = null;
         let closestDistance = Infinity;
@@ -117,12 +154,7 @@ export class CombatManager {
         return closestEnemy;
     }
 
-    /**
-     * Find the closest valid target (defenders) for given enemy.
-     * @param enemy - The enemy unit looking for a target.
-     * @param defenders - The defender nits being look for
-     * @returns {null} The closest enemy in range, or null if none found.
-     */
+    /* Find the closest valid target (defenders) for given enemy. */
     findTargetForEnemy(enemy, defenders) {
         let closestDefender = null;
         let closestDistance = Infinity;

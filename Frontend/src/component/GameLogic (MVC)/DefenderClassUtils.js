@@ -12,6 +12,9 @@ import {
   IceBomb,
 } from "./DefenderUnits";
 
+/* The highest level a defender can reach. */
+export const MAX_DEFENDER_LEVEL = 5;
+
 export const defenderUnitClasses = {
   Shooter: BasicDefender,
   Healer: HealerDefender,

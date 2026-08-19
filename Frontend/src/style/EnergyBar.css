@@ -1,64 +1,69 @@
 /* Energy Bar Styles */
+/*
+ * The energy block sits inside `.lobby-topband`, which draws the band's one
+ * surface, so this block draws none of its own.
+ */
 .energy-bar {
-  background: rgba(0, 0, 0, 0.6);
-  border-radius: 12px;
-  padding: 15px;
-  margin: 15px 0;
-  border: 2px solid #5a3921;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 var(--space-sm);
+  margin: 0;
 }
 
 .energy-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
 }
 
 .energy-icon {
   font-size: 28px;
-  color: #ffd700;
+  color: var(--colors-accent-energy);
 }
 
 .energy-text {
   font-size: 20px;
   font-weight: bold;
-  color: #ffd700;
-  text-shadow: 1px 1px 0 #000;
+  color: var(--colors-accent-energy);
+  text-shadow: 1px 1px 0 var(--colors-edge-outline);
 }
 
 .energy-info {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
 }
 
 .energy-count {
+  font-family: var(--type-display);
   font-size: 24px;
   font-weight: bold;
-  color: white;
+  color: var(--colors-text-primary);
 }
 
 .energy-timer {
   font-size: 18px;
-  color: #a9a9a9;
-  background: rgba(0, 0, 0, 0.4);
+  color: var(--colors-text-muted);
+  background: color-mix(in srgb, var(--colors-edge-outline) 40%, transparent);
   padding: 5px 10px;
   border-radius: 8px;
 }
 
 .energy-progress-bar {
-  height: 20px;
-  background: rgba(0, 0, 0, 0.3);
+  height: 12px;
+  background: color-mix(in srgb, var(--colors-edge-outline) 30%, transparent);
   border-radius: 10px;
   overflow: hidden;
   position: relative;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-xs);
 }
 
 .energy-progress-fill {
   height: 100%;
-  background: linear-gradient(to right, #8b6f4b, #ffd700);
+  background: linear-gradient(to right, var(--colors-surface-panel), var(--colors-accent-energy));
   transition: width 0.5s;
   position: relative;
   z-index: 2;
@@ -69,14 +74,14 @@
   top: 0;
   left: 0;
   height: 100%;
-  background: rgba(255, 215, 0, 0.3);
+  background: color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
   z-index: 1;
   transition: width 1s linear;
 }
 
 .energy-rate {
   font-size: 14px;
-  color: #d4c0a1;
+  color: var(--colors-text-muted);
   text-align: center;
 }
 
@@ -94,9 +99,9 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .energy-bar {
-    padding: 10px;
+    padding: 0 var(--space-xs);
   }
-  
+
   .energy-icon {
     font-size: 24px;
   }
@@ -112,4 +117,35 @@
   .energy-timer {
     font-size: 16px;
   }
+}
+/* Buying energy rather than waiting for it. */
+.energy-buy {
+  margin-top: var(--space-xs);
+  width: 100%;
+  padding: 3px var(--space-sm);
+  font-family: var(--type-display);
+  font-size: var(--type-size-sm);
+  letter-spacing: 0.04em;
+  color: var(--colors-edge-outline);
+  background: var(--colors-accent-energy);
+  border: var(--borders-thin) solid var(--colors-edge-outline);
+  border-radius: var(--radii-sm);
+  box-shadow: var(--shadows-drop);
+  cursor: pointer;
+  transition: transform 0.15s ease-out, filter 0.15s ease-out;
+}
+
+.energy-buy:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.energy-buy:disabled {
+  /* text-primary, not text-muted: muted on surface-raised measured 2.78:1 against
+     a 4.5:1 threshold. Disabled still has to be readable - it is telling the
+     player what they cannot afford yet. */
+  background: var(--colors-surface-raised);
+  color: var(--colors-text-primary);
+  box-shadow: none;
+  cursor: not-allowed;
 }

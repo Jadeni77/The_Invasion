@@ -32,4 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 
-src/main/resources/application.properties
+# src/main/resources/application.properties is tracked again. It was excluded
+# because it carried a real signing key; it now carries none - every secret
+# comes from the environment (JWT_SECRET, SPRING_DATASOURCE_*), and the
+# fallbacks are development values the application refuses to deploy on. While
+# it was excluded a fresh clone had no configuration at all, so nothing could
+# be built and deployed from this repository.

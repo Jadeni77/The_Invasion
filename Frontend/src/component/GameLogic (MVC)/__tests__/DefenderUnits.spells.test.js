@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   isConsumableSpell,
   FireBlast,
@@ -6,6 +6,17 @@ import {
   BasicDefender,
   HealerDefender,
 } from '../DefenderUnits.js';
+import { setFrameDeltaMs } from '../Animation/FrameTime.js';
+
+/*
+ * These tests drive unit.update() by hand, standing in for GameEngine's loop,
+ * and count ticks.
+ */
+const FRAME_MS_60HZ = 1000 / 60;
+
+beforeEach(() => {
+  setFrameDeltaMs(FRAME_MS_60HZ);
+});
 
 const CARD = { level: 1, image: null };
 
@@ -82,15 +93,9 @@ describe('spell damage immunity', () => {
 });
 
 describe('healer resurrection targeting', () => {
-  /**
-   * A level-5 healer with resurrection unlocked, primed to act on the very next
-   * update().
-   *
-   * The healing and resurrection logic sits behind `this.healingCountdown--;
-   * if (this.healingCountdown <= 0)`, and a healer starts at healingCountdown =
-   * 120. Without priming it to 1, a single update() call decrements to 119 and
-   * never reaches the resurrection block at all - so every "does not resurrect"
-   * assertion would pass vacuously, proving nothing.
+  /*
+   * A level-5 healer with resurrection unlocked, primed to act on the very
+   * next update().
    */
   function createResurrectingHealer() {
     const healer = new HealerDefender(0, 0, { level: 5, image: null });
@@ -154,5 +159,47 @@ describe('healer resurrection targeting', () => {
 
     expect(defender.health).toBeGreaterThan(0);
     expect(spell.health).toBe(0);
+  });
+});
+
+describe('spell detonation is audible', () => {
+  function createSpellWithEngine(SpellClass) {
+    const spell = new SpellClass(0, 0, CARD);
+    const emitted = [];
+    spell.gameEngine = {
+      emitFeedback: (event, payload) => emitted.push({ event, payload }),
+      enemies: [],
+      defenders: [],
+      explosions: [],
+      inGameScore: 0,
+      enemiesKilled: 0,
+      dropManager: { handleEnemyDeath: () => {} },
+      waveManager: { totalEnemiesKilled: 0 },
+    };
+    return { spell, emitted };
+  }
+
+  it('Fire Blast emits projectile:fired when it detonates', () => {
+    const { spell, emitted } = createSpellWithEngine(FireBlast);
+
+    spell.activate();
+
+    expect(emitted.some((e) => e.event === 'projectile:fired'
+      && e.payload.defenderType === 'FireBlast')).toBe(true);
+  });
+
+  it('Ice Bomb emits projectile:fired when it detonates', () => {
+    const { spell, emitted } = createSpellWithEngine(IceBomb);
+
+    spell.activate();
+
+    expect(emitted.some((e) => e.event === 'projectile:fired'
+      && e.payload.defenderType === 'IceBomb')).toBe(true);
+  });
+
+  it('a spell without an engine reference does not throw when activated', () => {
+    const spell = new FireBlast(0, 0, CARD);
+    spell.gameEngine = null;
+    expect(() => spell.activate()).not.toThrow();
   });
 });

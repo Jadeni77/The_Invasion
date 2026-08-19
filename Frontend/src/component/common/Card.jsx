@@ -2,8 +2,22 @@ import "../../style/Card.css";
 import "../../style/GameBoard.css";
 import { useSpriteFrame } from "./useSpriteFrame.js";
 
-function Card({ card, onClick, selected, disabled }) {
+function Card({ card, onClick, selected, disabled, cooldownFraction }) {
   const cardImage = useSpriteFrame("defenders", card.name);
+
+  // cooldownFraction is "how much of the recharge is still left", 1 right
+  // after deployment down to 0 once ready. Guarded with Number.isFinite (not
+  // a truthiness/`|| 0` check) so a missing prop, an explicit `undefined`, or
+  // a stray NaN from upstream all land on the same safe default - only a
+  // real finite number moves the needle. Clamped to [0, 1] so bad upstream
+  // data (e.g. a fraction > 1) can't sweep past a full circle or invert
+  // negative. The result renders as --sweep-angle on .cooldown-sweep below;
+  // at 0 that's 0deg, matching the CSS default, so an unwired or
+  // data-less card still reads as fully ready.
+  const clampedCooldownFraction = Number.isFinite(cooldownFraction)
+      ? Math.min(1, Math.max(0, cooldownFraction))
+      : 0;
+  const sweepAngle = `${clampedCooldownFraction * 360}deg`;
 
   return (
       <div
@@ -62,6 +76,9 @@ function Card({ card, onClick, selected, disabled }) {
               ))}
             </div>
         )}
+
+        {/* Recharge shown on the card itself. */}
+        <div className="cooldown-sweep" style={{ "--sweep-angle": sweepAngle }} />
       </div>
   );
 }

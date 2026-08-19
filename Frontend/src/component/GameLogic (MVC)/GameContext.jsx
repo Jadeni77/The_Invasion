@@ -8,7 +8,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { chestsData } from "../GameRendering/MapLayout.jsx";
+import { chestsData, chestDefenders, resourceRewardsOf, chestCardPieces } from "../GameRendering/MapLayout.jsx";
 import { SessionManager } from "./SessionManager.js";
 import LoginPage from "../login/LoginPage.jsx";
 import { FeedbackBus } from "./Feedback/FeedbackBus.js";
@@ -17,11 +17,106 @@ import { JuiceManager } from "./Feedback/JuiceManager.js";
 import { MusicPlayer } from "./Feedback/MusicPlayer.js";
 import { FeedbackManager } from "./Feedback/FeedbackManager.js";
 import { loadSettings, subscribe } from "./Feedback/SettingsStore.js";
+import { SAMPLE_URLS, unknownSampleNames } from "./Feedback/UnitSamples.js";
+import { SOUND_KEYS } from "./Feedback/SoundGroups.js";
+import { apiUrl } from "../../config/api.js";
+import { MAX_DEFENDER_LEVEL } from "./DefenderClassUtils.js";
+import { defenderUnlockedBy, defendersEarnedBy } from "./LevelUnlocks.js";
 
 export const GameContext = createContext();
 
 export const useGame = () => {
   return useContext(GameContext);
+};
+
+/* What one energy purchase costs and grants. */
+export const ENERGY_PACK = { amount: 10, gold: 150 };
+
+/* What starting a level costs. Level 1 and endless are free. */
+export const LEVEL_ENERGY_COST = 8;
+
+/** The energy `levelId` costs to start. */
+export function energyCostOf(levelId) {
+  return levelId === 1 || levelId === 999 ? 0 : LEVEL_ENERGY_COST;
+}
+
+const getUpgradeCost = (cardName, level) => {
+  const baseCosts = {
+    Shooter: { gold: 100, iron: 5, water: 3 },
+    Healer: { gold: 150, grain: 10, water: 5, gem: 1 },
+    Grenadier: { gold: 200, iron: 15, gem: 2 },
+    Barricade: { gold: 120, iron: 20, grain: 5 },
+    "E-Gen": { gold: 80, water: 10, grain: 20 },
+    Sniper: { gold: 400, water: 60, grain: 35, gem: 3 },
+    Mortar: { gold: 350, iron: 30, water: 20, gem: 1 },
+    "Frost Archer": { gold: 300, iron: 30, water: 20, gem: 2 },
+    "Fire Blast": { gold: 300, iron: 50, water: 30, gem: 2 },
+    "Ice Bomb": { gold: 300, iron: 30, water: 80, gem: 2 },
+  };
+  const base = baseCosts[cardName] || { gold: 100 };
+  const multiplier = Math.pow(1.5, level - 1);
+  const cost = {};
+  Object.entries(base).forEach(([resource, amount]) => {
+    cost[resource] = Math.floor(amount * multiplier);
+  });
+  return cost;
+};
+
+const getCardCost = (cardName) => {
+  const cost = {
+    Shooter: 20,
+    Healer: 30,
+    Grenadier: 60,
+    Barricade: 30,
+    "E-Gen": 25,
+    Sniper: 100,
+    Mortar: 120,
+    "Frost Archer": 35,
+    "Fire Blast": 50,
+    "Ice Bomb": 40,
+  };
+  return cost[cardName] || 15;
+};
+
+const getPiecesNeeded = (defenderName) => {
+  const piecesMap = {
+    Shooter: 10,
+    "E-Gen": 10,
+    Barricade: 10,
+    Grenadier: 10,
+    Healer: 10,
+    Mortar: 15,
+    "Frost Archer": 25,
+    "Ice Bomb": 25,
+    Sniper: 25,
+    "Fire Blast": 25,
+  };
+  return piecesMap[defenderName] || 10;
+};
+
+/**
+ * `cards` with `defenderName` added, or the same list if it is already owned.
+ *
+ * The one place a card is built. Winning a level and opening a chest both go
+ * through here, so the two cannot drift - and because it returns the list
+ * unchanged for a defender already held, replaying level 3 cannot hand out a
+ * second Grenadier.
+ *
+ * The id is computed from the list being built rather than from the player's
+ * saved cards, so two defenders granted in the same update cannot collide.
+ */
+export const withDefender = (cards, defenderName) => {
+  if (!defenderName) return cards;
+  if (cards.some((card) => card.name === defenderName)) return cards;
+
+  return [...cards, {
+    id: Math.max(...cards.map((c) => c.id), 0) + 1,
+    name: defenderName,
+    level: 1,
+    pieces: 0,
+    piecesNeeded: getPiecesNeeded(defenderName),
+    upgradeCost: getUpgradeCost(defenderName, 1),
+  }];
 };
 
 export const GameProvider = ({ children }) => {
@@ -53,6 +148,15 @@ export const GameProvider = ({ children }) => {
         .then(() => {
           if (cancelled) return;
           feedbackRef.current.audio.setVolumes(loadSettings().audio);
+          const misnamed = unknownSampleNames(Object.keys(SAMPLE_URLS));
+          if (misnamed.length > 0) {
+            console.warn(
+              `Audio sample files match no sound key and will never play: ${misnamed.join(", ")}. ` +
+              `Name each file after a sound key, not after a unit class - the keys are ` +
+              `${SOUND_KEYS.join(", ")}. See src/assets/audio/units/README.md for the checklist.`,
+            );
+          }
+          feedbackRef.current.audio.loadSamples(SAMPLE_URLS);
           feedbackRef.current.music.start();
           // Only remove the listener once resume actually succeeds, so a
           // rejected resume() (e.g. blocked by browser policy) can retry on
@@ -75,6 +179,11 @@ export const GameProvider = ({ children }) => {
   const [playerData, setPlayerData] = useState(null);
   const playerDataRef = useRef(null);
 
+  /* Defenders already back-granted this session. fetchPlayerData runs on mount
+     and again after every win, so without this the same catch-up POST goes out
+     on each one until the server's copy catches up. */
+  const backGrantedRef = useRef(new Set());
+
   // In-game session specific states (managed by GameEngine, exposed via callbacks)
   const [inGameEnergy, setInGameEnergy] = useState(0);
   const [inGameScore, setInGameScore] = useState(0);
@@ -86,7 +195,14 @@ export const GameProvider = ({ children }) => {
 
   //endless mode tracking
   const [currentEndlessWave, setCurrentEndlessWave] = useState(0);
-  const [unlockedDefender, setUnlockedDefender] = useState(false);
+  /* The reward the player just collected, or null. */
+  const [chestReward, setChestReward] = useState(null);
+
+  /**
+   * Something the player needs to be told, shown in-game rather than by the
+   * browser. `kind` is 'energy' when the shortfall is buyable, 'locked' otherwise.
+   */
+  const [gateNotice, setGateNotice] = useState(null);
 
   //authentication
   const [isAuthenticated, setIsAuthenticated] = useState(
@@ -101,6 +217,7 @@ export const GameProvider = ({ children }) => {
   };
 
   const handleLogout = () => {
+    backGrantedRef.current.clear();
     SessionManager.clearSession();
     setPlayerData(null);
     setIsAuthenticated(false);
@@ -175,6 +292,9 @@ export const GameProvider = ({ children }) => {
           water: newWater,
           gem: newGem,
         },
+        // Credited here, before any request goes out, so a dead backend cannot
+        // swallow a defender the player has already been told they won.
+        cards: withDefender(prev.cards, defenderUnlockedBy(level)),
         unlockedLevels: newUnlockedLevels,
         completedLevels: newCompleteLevels,
         levelStars: newLevelStars,
@@ -182,26 +302,44 @@ export const GameProvider = ({ children }) => {
       };
     });
 
+    /*
+     * Tell the player, on the same notice a chest uses. `playerDataRef` still
+     * holds the save as it was before this win, which is what makes "did they
+     * already have it" answerable - a replay of level 3 wins nothing and says
+     * nothing.
+     */
+    const wonDefender = defenderUnlockedBy(level);
+    const isNewDefender = Boolean(wonDefender)
+      && !(playerDataRef.current?.cards ?? []).some((card) => card.name === wonDefender);
+
+    if (isNewDefender) {
+      setChestReward({ source: "level", levelId: level, resources: {}, defenders: [wonDefender] });
+      feedbackRef.current?.bus?.emit("defender:unlocked", { defenderName: wonDefender });
+    }
+
     //Save the result to backend
     try {
-      await fetch(`http://localhost:8080/api/player/complete-level`, {
+      await fetch(apiUrl(`/api/player/complete-level`), {
         method: "POST",
         headers: SessionManager.authHeaders(),
         body: JSON.stringify({ levelId: level, score: score, stars: stars }),
       });
 
-      await fetch(`http://localhost:8080/api/player/update-stats`, {
+      await fetch(apiUrl(`/api/player/update-stats`), {
         method: "POST",
         headers: SessionManager.authHeaders(),
         body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
       });
+
+      // The same helper the chest path uses; no backend change needed.
+      if (isNewDefender) await saveUnlockedDefender(wonDefender);
 
       const specialUnlocks = [];
       if (defendersLost === 0) specialUnlocks.push('perfect_defense');
       if (baseDamageTaken === 0) specialUnlocks.push('untouchable');
       if (timeElapsed < 120000 && level !== 999) specialUnlocks.push('speed_demon');
       for (const id of specialUnlocks) {
-        await fetch(`http://localhost:8080/api/player/unlock-special-achievement`, {
+        await fetch(apiUrl(`/api/player/unlock-special-achievement`), {
           method: "POST",
           headers: SessionManager.authHeaders(),
           body: JSON.stringify({ achievementId: id }),
@@ -214,6 +352,73 @@ export const GameProvider = ({ children }) => {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * Pay out an endless run and record how far it got.
+   *
+   * Shared by dying and by quitting. It used to live only in onLoseCb, so a
+   * player who stopped a run voluntarily banked nothing while one who let the
+   * base fall banked everything - the game paid you to lose on purpose, and
+   * endless has no other ending.
+   */
+  const bankEndlessRun = useCallback(
+    async ({ endlessWave, enemiesKilled = 0, defendersDeployed = 0, energyCollected = 0 }) => {
+      const goldEarned = Math.floor(endlessWave * 25);
+      const ironEarned = Math.floor(endlessWave * 10);
+      const grainEarned = Math.floor(endlessWave * 10);
+      const waterEarned = Math.floor(endlessWave * 8);
+      const gemEarned = Math.floor(endlessWave / 10);
+
+      setPlayerData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          resources: {
+            ...prev.resources,
+            gold: prev.resources.gold + goldEarned,
+            iron: prev.resources.iron + ironEarned,
+            grain: prev.resources.grain + grainEarned,
+            water: prev.resources.water + waterEarned,
+            gem: prev.resources.gem + gemEarned,
+          },
+          endlessHighScore: Math.max(prev.endlessHighScore || 0, endlessWave),
+          endlessStats: {
+            ...prev.endlessStats,
+            totalWaves: (prev.endlessStats?.totalWaves || 0) + endlessWave,
+            totalRuns: (prev.endlessStats?.totalRuns || 0) + 1,
+          },
+        };
+      });
+
+      try {
+        await fetch(apiUrl(`/api/player/update-resources`), {
+          method: "POST",
+          headers: SessionManager.authHeaders(),
+          body: JSON.stringify({
+            resourcesChange: {
+              gold: goldEarned, iron: ironEarned, grain: grainEarned,
+              water: waterEarned, gem: gemEarned,
+            },
+          }),
+        });
+
+        await fetch(apiUrl(`/api/player/endless-score`), {
+          method: "POST",
+          headers: SessionManager.authHeaders(),
+          body: JSON.stringify({ waveReached: endlessWave }),
+        });
+
+        await fetch(apiUrl(`/api/player/update-stats`), {
+          method: "POST",
+          headers: SessionManager.authHeaders(),
+          body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
+        });
+      } catch (e) {
+        console.error("Failed to bank an endless run:", e);
+      }
+    },
+    [],
+  );
+
   //handle game loss logic
   const onLoseCb = useCallback(
     async ({ score, level, reason, endlessWave, enemiesKilled = 0, defendersDeployed = 0, energyCollected = 0 }) => {
@@ -224,72 +429,7 @@ export const GameProvider = ({ children }) => {
       );
 
       if (level === 999) {
-        const goldEarned = Math.floor(endlessWave * 25);
-        const ironEarned = Math.floor(endlessWave * 10);
-        const grainEarned = Math.floor(endlessWave * 10);
-        const waterEarned = Math.floor(endlessWave * 8);
-        const gemEarned = Math.floor(endlessWave / 10);
-
-        setPlayerData((prev) => {
-          if (!prev) return prev;
-
-          // Update endless high score
-          const newHighScore = Math.max(
-            prev.endlessHighScore || 0,
-            endlessWave,
-          );
-
-          // Calculate endless rewards based on waves survived
-          return {
-            ...prev,
-            resources: {
-              ...prev.resources,
-              gold: prev.resources.gold + goldEarned,
-              iron: prev.resources.iron + ironEarned,
-              grain: prev.resources.grain + grainEarned,
-              water: prev.resources.water + waterEarned,
-              gem: prev.resources.gem + gemEarned,
-            },
-            endlessHighScore: newHighScore,
-            endlessStats: {
-              ...prev.endlessStats,
-              totalWaves: (prev.endlessStats?.totalWaves || 0) + endlessWave,
-              totalRuns: (prev.endlessStats?.totalRuns || 0) + 1,
-            },
-          };
-        });
-
-        try {
-          await fetch(`http://localhost:8080/api/player/update-resources`, {
-            method: "POST",
-            headers: SessionManager.authHeaders(),
-            body: JSON.stringify({
-              resourcesChange: {
-                gold: goldEarned,
-                iron: ironEarned,
-                grain: grainEarned,
-                water: waterEarned,
-                gem: gemEarned,
-              },
-            }),
-          });
-
-          await fetch(`http://localhost:8080/api/player/endless-score`, {
-            method: "POST",
-            headers: SessionManager.authHeaders(),
-            body: JSON.stringify({
-              waveReached: endlessWave,
-            }),
-          });
-
-          await fetch(`http://localhost:8080/api/player/update-stats`, {
-            method: "POST",
-            headers: SessionManager.authHeaders(),
-            body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
-          });
-        } catch (e) {
-          console.error("Failed to save endless rewards:", e);
-        }
+        await bankEndlessRun({ endlessWave, enemiesKilled, defendersDeployed, energyCollected });
       } else {
         // Deduct resources on loss
         const goldPenalty = 50;
@@ -323,7 +463,7 @@ export const GameProvider = ({ children }) => {
         });
 
         try {
-          await fetch(`http://localhost:8080/api/player/update-resources`, {
+          await fetch(apiUrl(`/api/player/update-resources`), {
             method: "POST",
             headers: SessionManager.authHeaders(),
             body: JSON.stringify({
@@ -336,7 +476,7 @@ export const GameProvider = ({ children }) => {
               },
             }),
           });
-          await fetch(`http://localhost:8080/api/player/update-stats`, {
+          await fetch(apiUrl(`/api/player/update-stats`), {
             method: "POST",
             headers: SessionManager.authHeaders(),
             body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
@@ -346,7 +486,7 @@ export const GameProvider = ({ children }) => {
         }
       }
     },
-    [], // Dependencies are handled by the state setters
+    [bankEndlessRun], // Everything else is handled by the state setters
   );
 
   //calculate star base on performance
@@ -371,7 +511,7 @@ export const GameProvider = ({ children }) => {
   // Backend API integration points
   const fetchPlayerData = useCallback(async () => {
     try {
-      const response = await fetch(`http://localhost:8080/api/player/me`, {
+      const response = await fetch(apiUrl(`/api/player/me`), {
         method: "GET",
         headers: SessionManager.authHeaders(),
       });
@@ -442,67 +582,35 @@ export const GameProvider = ({ children }) => {
         claimedAchievements: data.claimedAchievements || [],
         specialAchievements: data.specialAchievements || [],
       };
+
+      /*
+       * Hand over anything the player's cleared levels earned but never gave
+       * them. Defenders used to come from optional chests, so a save can hold
+       * levels 1-8 finished and none of the defenders those wins now grant -
+       * and the win handler only ever fires on a NEW win, so nothing else would
+       * ever settle it. Owned defenders are left alone, which makes this safe
+       * to run on every load rather than needing a one-time flag.
+       */
+      const earned = defendersEarnedBy(playerData.completedLevels);
+      const owed = earned.filter(
+        (name) => !playerData.cards.some((card) => card.name === name),
+      );
+      const toPersist = owed.filter((name) => !backGrantedRef.current.has(name));
+      for (const name of toPersist) backGrantedRef.current.add(name);
+      for (const name of owed) {
+        playerData.cards = withDefender(playerData.cards, name);
+      }
+
       setPlayerData(playerData);
+
+      // The player already has these on screen; a failed save retries next load.
+      for (const name of toPersist) await saveUnlockedDefender(name);
     } catch (e) {
       console.error("Fail to fetch data:", e);
       // Only fall back to defaults if there's no existing player data in memory
       setPlayerData((prev) => prev ?? getDefaultPlayerData());
     }
   }, []);
-
-  const getUpgradeCost = (cardName, level) => {
-    const baseCosts = {
-      Shooter: { gold: 100, iron: 5, water: 3 },
-      Healer: { gold: 150, grain: 10, water: 5, gem: 1 },
-      Grenadier: { gold: 200, iron: 15, gem: 2 },
-      Barricade: { gold: 120, iron: 20, grain: 5 },
-      "E-Gen": { gold: 80, water: 10, grain: 20 },
-      Sniper: { gold: 400, water: 60, grain: 35, gem: 3 },
-      Mortar: { gold: 350, iron: 30, water: 20, gem: 1 },
-      "Frost Archer": { gold: 300, iron: 30, water: 20, gem: 2 },
-      "Fire Blast": { gold: 300, iron: 50, water: 30, gem: 2 },
-      "Ice Bomb": { gold: 300, iron: 30, water: 80, gem: 2 },
-    };
-    const base = baseCosts[cardName] || { gold: 100 };
-    const multiplier = Math.pow(1.5, level - 1);
-    const cost = {};
-    Object.entries(base).forEach(([resource, amount]) => {
-      cost[resource] = Math.floor(amount * multiplier);
-    });
-    return cost;
-  };
-
-  const getCardCost = (cardName) => {
-    const cost = {
-      Shooter: 20,
-      Healer: 30,
-      Grenadier: 60,
-      Barricade: 30,
-      "E-Gen": 25,
-      Sniper: 100,
-      Mortar: 120,
-      "Frost Archer": 35,
-      "Fire Blast": 50,
-      "Ice Bomb": 40,
-    };
-    return cost[cardName] || 15;
-  };
-
-  const getPiecesNeeded = (defenderName) => {
-    const piecesMap = {
-      Shooter: 10,
-      "E-Gen": 10,
-      Barricade: 10,
-      Grenadier: 10,
-      Healer: 10,
-      Mortar: 15,
-      "Frost Archer": 25,
-      "Ice Bomb": 25,
-      Sniper: 25,
-      "Fire Blast": 25,
-    };
-    return piecesMap[defenderName] || 10;
-  };
 
   const getDefaultPlayerData = () => {
     return {
@@ -634,6 +742,15 @@ export const GameProvider = ({ children }) => {
 
       const hasEnoughPieces = card.pieces >= card.piecesNeeded * card.level;
 
+      /*
+       * The ceiling. There was none: this function checked resources and
+       * pieces and nothing else, so a defender could be upgraded without limit
+       * - a level 100 Sniper that one-shots the campaign, with stats
+       * extrapolated far past the ability table that is supposed to define
+       * them.
+       */
+      if (card.level >= MAX_DEFENDER_LEVEL) return;
+
       if (canAfford && hasEnoughPieces) {
         Object.entries(card.upgradeCost).forEach(([resource, amount]) => {
           updateResource(resource, -amount);
@@ -663,6 +780,50 @@ export const GameProvider = ({ children }) => {
   );
 
   // Game State management
+  /* Buying energy instead of waiting for it. */
+
+
+  const canBuyEnergy = () => {
+    if (!playerData?.resources) return false;
+    const { lobbyEnergy, maxLobbyEnergy, gold } = playerData.resources;
+    return gold >= ENERGY_PACK.gold && lobbyEnergy < maxLobbyEnergy;
+  };
+
+  const buyEnergy = useCallback(async () => {
+    if (!playerData?.resources) return false;
+    const { lobbyEnergy, maxLobbyEnergy, gold } = playerData.resources;
+
+    if (gold < ENERGY_PACK.gold) return false;
+    if (lobbyEnergy >= maxLobbyEnergy) return false;
+
+    // Capped, not overfilled - a player near the cap pays full price for what fits.
+    const granted = Math.min(ENERGY_PACK.amount, maxLobbyEnergy - lobbyEnergy);
+
+    setPlayerData((prev) => (!prev ? prev : {
+      ...prev,
+      resources: {
+        ...prev.resources,
+        gold: prev.resources.gold - ENERGY_PACK.gold,
+        lobbyEnergy: prev.resources.lobbyEnergy + granted,
+      },
+    }));
+
+    // Persisted after the local change: a failed request must not silently undo
+    // what the player already saw.
+    try {
+      await fetch(apiUrl(`/api/player/update-resources`), {
+        method: "POST",
+        headers: SessionManager.authHeaders(),
+        body: JSON.stringify({
+          resourcesChange: { gold: -ENERGY_PACK.gold, lobbyEnergy: granted },
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to persist an energy purchase:", error);
+    }
+    return true;
+  }, [playerData]);
+
   const startLevel = useCallback(
     async (levelId, selectedCards = null, _options = {}) => {
       if (!playerData) {
@@ -675,21 +836,29 @@ export const GameProvider = ({ children }) => {
           playerData.completedLevels?.includes(10) ||
           playerData.totalStars >= 50;
         if (!isUnlocked) {
-          alert(
-            "Complete Level 20 or collect 50 stars to unlock Endless Mode!",
-          );
+          setGateNotice({
+            kind: "locked",
+            title: "Endless Mode is locked",
+            message: "Complete Level 20 or collect 50 stars to unlock it.",
+          });
           return;
         }
         setCurrentEndlessWave(0);
       }
 
-      const levelCost = levelId === 1 || levelId === 999 ? 0 : 8; // Level 1 is free
+      const levelCost = energyCostOf(levelId);
       const currentEnergy = playerData.resources.lobbyEnergy;
 
       if (currentEnergy < levelCost) {
-        alert(
-          `Not enough energy! You need ${levelCost} energy to start this level.`,
-        );
+        // The chosen cards ride along so buying energy can start the level the
+        // player set up, rather than sending them back to pick a deck again.
+        setGateNotice({
+          kind: "energy",
+          levelId,
+          needed: levelCost,
+          have: currentEnergy,
+          selectedCards,
+        });
         return;
       }
 
@@ -698,7 +867,7 @@ export const GameProvider = ({ children }) => {
 
       if (levelCost > 0) {
         try {
-          await fetch(`http://localhost:8080/api/player/update-resources`, {
+          await fetch(apiUrl(`/api/player/update-resources`), {
             method: "POST",
             headers: SessionManager.authHeaders(),
             body: JSON.stringify({
@@ -732,11 +901,17 @@ export const GameProvider = ({ children }) => {
         gameEngineRef.current.stopLoop(); // Ensure engine loop stops
         // false: this is end-of-level cleanup, not a new level starting, so
         // don't let the wave-1 horn stack on top of the win/loss sting.
-        gameEngineRef.current.resetGame(false); // Reset engine's internal state
+        gameEngineRef.current.resetGame(); // Reset engine's internal state
       }
 
       if (result === "quit") {
-        // Return to lobby with penalty (with cauze injury worker)
+        /* Endless has no ending but stopping, so quitting banks the run. The
+           campaign keeps its forfeit: the energy is spent and the level pays
+           nothing. */
+        if (selectedLevel === 999 && currentEndlessWave > 0) {
+          await bankEndlessRun({ endlessWave: currentEndlessWave });
+        }
+
         setGameState("lobby");
         setGameOver(false);
         setGameWon(false);
@@ -780,7 +955,7 @@ export const GameProvider = ({ children }) => {
           }, {});
           //call backend for each card type
           for (const [cardName, count] of Object.entries(piecesMap)) {
-            await fetch(`http://localhost:8080/api/player/add-card-pieces`, {
+            await fetch(apiUrl(`/api/player/add-card-pieces`), {
               method: "POST",
               headers: SessionManager.authHeaders(),
               body: JSON.stringify({
@@ -804,7 +979,8 @@ export const GameProvider = ({ children }) => {
       setCurrentEndlessWave(0);
       await savePlayerData(playerData);
     },
-    [playerData, savePlayerData, collectedCardPieces, fetchPlayerData],
+    [playerData, savePlayerData, collectedCardPieces, fetchPlayerData,
+     selectedLevel, currentEndlessWave, bankEndlessRun],
   );
 
   const deployDefender = useCallback(
@@ -885,39 +1061,33 @@ export const GameProvider = ({ children }) => {
     setPlayerData((prev) => {
       if (!prev) return prev;
 
-      // Apply rewards
+      // Apply rewards. `all` expansion and the defender exclusion both live in
+      // resourceRewardsOf (MapLayout) rather than being resolved here, because
+      // the backend payload below needs the same answer and used to compute its
+      // own - see that helper's comment for the 1000-gold disagreement that
+      // caused.
       const newResources = { ...prev.resources };
-      Object.entries(chest.rewards).forEach(([resource, amount]) => {
-        if (resource === "defender") {
-          //handle separately
-          console.log("Chest With Defender");
-          return;
-        }
-        if (resource === "all") {
-          ["gold", "iron", "grain", "water"].forEach((res) => {
-            newResources[res] = (newResources[res] || 0) + amount;
-          });
-        } else {
-          newResources[resource] = (newResources[resource] || 0) + amount;
-        }
-      });
+      for (const [resource, amount] of Object.entries(resourceRewardsOf(chest))) {
+        newResources[resource] = (newResources[resource] || 0) + amount;
+      }
 
-      let newCards = [...prev.cards];
-      if (chest.rewards.defender) {
-        const defenderName = chest.rewards.defender;
-        const hasDefender = newCards.some((card) => card.name === defenderName);
+      // Defenders come from winning levels now; a chest that still names one
+      // is honoured rather than dropped on the floor.
+      let newCards = prev.cards;
+      for (const defenderName of chestDefenders(chest)) {
+        newCards = withDefender(newCards, defenderName);
+      }
 
-        if (!hasDefender) {
-          const newCardId = Math.max(...newCards.map((c) => c.id), 0) + 1;
-          newCards.push({
-            id: newCardId,
-            name: defenderName,
-            level: 1,
-            pieces: 0,
-            piecesNeeded: getPiecesNeeded(defenderName),
-            upgradeCost: getUpgradeCost(defenderName, 1),
-          });
-        }
+      /* Pieces toward a defender the player already holds. Each chest names one
+         it is certain they own by the level that reveals it, so nothing is
+         credited to a card that is not there to receive it. */
+      const pieceGrants = chestCardPieces(chest);
+      if (Object.keys(pieceGrants).length > 0) {
+        newCards = newCards.map((card) => (
+          pieceGrants[card.name]
+            ? { ...card, pieces: (card.pieces || 0) + pieceGrants[card.name] }
+            : card
+        ));
       }
 
       // Mark chest as collected
@@ -933,30 +1103,39 @@ export const GameProvider = ({ children }) => {
       };
     });
 
-    try {
-      const backendRewards = {};
-      Object.entries(chest.rewards).forEach(([resource, amount]) => {
-        if (resource !== "defender" && resource !== "all") {
-          backendRewards[resource] = amount;
-        } else if (resource === "all") {
-          ["gold", "iron", "grain", "water"].forEach((res) => {
-            backendRewards[res] = amount;
-          });
-        }
-      });
+    /* Tell the player what they got, and play it, BEFORE any network call. */
+    const unlocked = chestDefenders(chest);
+    setChestReward({
+      chestId,
+      resources: resourceRewardsOf(chest),
+      defenders: unlocked,
+      cardPieces: chestCardPieces(chest),
+    });
+    feedbackRef.current?.bus?.emit('treasure:collected', { chestId, unlockedDefenders: unlocked });
 
-      await fetch(`http://localhost:8080/api/player/collect-treasure`, {
+    try {
+      // The same expansion the player was credited with above, not a second
+      // one computed here. The second copy assigned where the first
+      // accumulated, so a chest carrying both `gold` and `all` credited the
+      // player and told the server different numbers.
+      await fetch(apiUrl(`/api/player/collect-treasure`), {
         method: "POST",
         headers: SessionManager.authHeaders(),
         body: JSON.stringify({
           chestId: chestId,
-          rewards: backendRewards,
+          rewards: resourceRewardsOf(chest),
         }),
       });
 
-      if (chest.rewards.defender) {
-        saveUnlockedDefender(chest.rewards.defender);
-        setUnlockedDefender(chest.rewards.defender);
+      // One POST per defender, so the backend contract stays one name per call.
+      for (const defenderName of unlocked) saveUnlockedDefender(defenderName);
+
+      for (const [cardName, pieces] of Object.entries(chestCardPieces(chest))) {
+        await fetch(apiUrl(`/api/player/add-card-pieces`), {
+          method: "POST",
+          headers: SessionManager.authHeaders(),
+          body: JSON.stringify({ cardName, pieces }),
+        });
       }
     } catch (error) {
       console.error("Failed to save collected treasure:", error);
@@ -972,7 +1151,7 @@ export const GameProvider = ({ children }) => {
     if (!defenderName) return;
 
     try {
-      await fetch(`http://localhost:8080/api/player/unlock-defender`, {
+      await fetch(apiUrl(`/api/player/unlock-defender`), {
         method: "POST",
         headers: SessionManager.authHeaders(),
         body: JSON.stringify({ defenderName }),
@@ -996,6 +1175,7 @@ export const GameProvider = ({ children }) => {
     currentEndlessWave,
     startLevel,
     endGame,
+    energyCostOf,
     deployDefender,
     removeDefender,
     getGameEngine,
@@ -1018,8 +1198,13 @@ export const GameProvider = ({ children }) => {
     updateResource,
     addCollectedPieces,
     collectedCardPieces,
-    unlockedDefender,
-    setUnlockedDefender,
+    chestReward,
+    setChestReward,
+    gateNotice,
+    setGateNotice,
+    buyEnergy,
+    canBuyEnergy,
+    energyPack: ENERGY_PACK,
     handleLogout,
     fetchPlayerData,
     feedback: feedbackRef.current,

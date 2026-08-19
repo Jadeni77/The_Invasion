@@ -1,43 +1,36 @@
 .lobby-container {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20px;
-  background-color: #2e7d32;
-  min-height: 100vh;
-  font-family: "Pixel", sans-serif;
+  gap: var(--space-sm);
+  width: 100%;
+  height: 100vh;
+  padding: var(--space-md);
+  background: var(--colors-surface-base);
+  font-family: var(--type-display);
+  color: var(--colors-text-primary);
+  box-sizing: border-box;
 }
 
 .game-map {
-  width: 80%;
-  max-width: 800px;
-  background-color: #4caf50;
-  border-radius: 10px;
-  padding: 20px;
-  margin: 20px 0;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--colors-surface-sunken);
 }
 
-.level-node {
-  cursor: pointer;
-}
-
-.level-node.unlocked circle {
-  fill: #ff9800;
-  stroke: #e65100;
-  stroke-width: 2;
-}
-
-.level-node.locked circle {
-  fill: #9e9e9e;
-  stroke: #616161;
-  stroke-width: 2;
-}
-
-.level-node text {
-  fill: white;
-  font-weight: bold;
-  font-size: 14px;
+/* Darkens the terrain's edges so the eye settles on the route, not the map's
+   own boundary. Sits above every zone's ground/ridge/fore (z-index 5) and
+   below the interactive layer (chests at 8, nodes at 10, the portal at 15),
+   so it never dims what the player can click. */
+.game-map::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
   pointer-events: none;
+  background: radial-gradient(130% 100% at 50% 45%, transparent 52%, var(--terrain-vignette) 100%);
 }
 
 .resource {
@@ -48,17 +41,18 @@
 
 .label {
   font-size: 16px;
-  color: #d7ccc8;
+  color: var(--colors-text-muted);
 }
 
 .value {
+  font-family: var(--type-display);
   font-size: 18px;
   font-weight: bold;
-  color: #ffd54f;
+  color: var(--colors-accent-energy);
 }
 
 .energy .value {
-  color: #4fc3f7;
+  color: var(--colors-accent-info);
 }
 
 .card-hand {
@@ -69,52 +63,24 @@
 
 .card {
   padding: 10px 15px;
-  background-color: #5d4037;
+  background-color: var(--colors-surface-panel);
   border-radius: 8px;
   cursor: pointer;
-  border: 2px solid #8d6e63;
+  border: 2px solid var(--colors-surface-raised);
   transition: all 0.2s;
   min-width: 100px;
   text-align: center;
 }
 
 .card.selected {
-  border-color: #ffd54f;
-  background-color: #6d4c41;
+  border-color: var(--colors-accent-energy);
+  background-color: var(--colors-surface-panel);
   transform: translateY(-5px);
 }
 
-.card-name {
-  font-size: 14px;
-  color: #fff;
-  margin-bottom: 5px;
-}
 
-.card-cost {
-  font-size: 18px;
-  color: #ffd54f;
-  font-weight: bold;
-}
 
-.deployment-indicator {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: rgba(0, 0, 0, 0.7);
-  padding: 10px 20px;
-  border-radius: 8px;
-  color: white;
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
 
-.indicator-icon {
-  font-size: 24px;
-  color: #4fc3f7;
-}
 
 /* Wave animation for energy bar when charging */
 @keyframes pulse {
@@ -140,7 +106,7 @@
   right: -5px;
   bottom: -5px;
   left: -5px;
-  border: 2px solid #4fc3f7;
+  border: 2px solid var(--colors-accent-info);
   border-radius: 8px;
   opacity: 0;
   animation: pulse 2s infinite;
@@ -151,30 +117,35 @@
 }
 
 /* ---------- */
-/* Lobby Container */
-.lobby-container {
-  position: relative;
-  height: 100vh;
-  overflow: hidden;
-  background-image: url("/assets/lobby-bg.jpg");
-  background-size: cover;
-  background-position: center;
-  font-family: "Pixel", sans-serif;
-  color: white;
-  padding: 20px;
+/*
+ * One row: the map absorbs spare height, not this band. `nowrap` needs
+ * `min-width: 0` on each block below, or a block that cannot shrink forces a
+ * wrap. `width: 100%` gives the blocks a definite width to shrink within.
+ */
+.lobby-topband {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: nowrap;
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-sm) var(--space-md);
+  background: linear-gradient(180deg, var(--colors-surface-panel), var(--colors-surface-sunken));
+  border: var(--borders-outline) solid var(--colors-edge-outline);
+  border-radius: var(--radii-lg);
+  box-shadow: var(--shadows-drop), inset 0 1px 0 var(--colors-edge-highlight);
 }
 
-/* Top Menu Bar */
+/* A block inside the band, so it carries no panel of its own - the band is the
+   single surface. The buttons keep their chrome; they are controls. */
 .top-menu-bar {
   display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding: 15px;
-  background: rgba(0, 0, 0, 0.7);
-  border-radius: 12px;
-  border: 2px solid #5a3921;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  gap: var(--space-md);
 }
 
 .player-info {
@@ -184,35 +155,40 @@
 .player-name {
   font-size: 24px;
   font-weight: bold;
-  color: #ffd700;
-  text-shadow: 2px 2px 0 #000;
+  color: var(--colors-accent-energy);
+  text-shadow: 2px 2px 0 var(--colors-edge-outline);
 }
 
 .player-rank {
   font-size: 16px;
-  color: #a9a9a9;
+  color: var(--colors-text-muted);
 }
 
 .menu-buttons {
   display: flex;
-  gap: 15px;
+  gap: var(--space-sm);
 }
 
 .menu-button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px 15px;
-  background: #4a2e17;
-  border: 2px solid #6b4b2e;
+  /* Tightened from 10px 15px. The band only stays one row if what is in it
+     fits one row; four buttons at the old padding and gap were most of why it
+     did not. */
+  padding: var(--space-xs) var(--space-sm);
+  white-space: nowrap;
+  background: var(--colors-surface-panel);
+  border: var(--borders-outline) solid var(--colors-surface-raised);
   border-radius: 8px;
-  color: #f0e6d2;
+  box-shadow: var(--shadows-drop);
+  color: var(--colors-text-primary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .menu-button:hover {
-  background: #5a3a20;
+  background: var(--colors-surface-sunken);
   transform: translateY(-2px);
 }
 
@@ -221,44 +197,44 @@
   margin-bottom: 5px;
 }
 
-/* Resource Bar */
+/* No panel of its own - the pills keep theirs, one readable chip per resource. */
 .resource-bar {
   display: flex;
-  justify-content: space-around;
-  margin-bottom: 20px;
-  padding: 10px;
-  background: rgba(0, 0, 0, 0.6);
-  border-radius: 10px;
-  border: 1px solid #5a3921;
+  flex: 0 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
-.resource-icon {
+.lobby-container .resource-icon {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 15px;
-  background: rgba(90, 57, 33, 0.8);
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--colors-surface-panel) 80%, transparent);
   border-radius: 20px;
-  border: 1px solid #a78b71;
+  border: 1px solid var(--colors-surface-raised);
 }
 
-.resource-symbol {
+.lobby-container .resource-symbol {
   font-size: 24px;
 }
 
-.resource-info {
+.lobby-container .resource-info {
   display: flex;
   flex-direction: column;
 }
 
-.resource-value {
+.lobby-container .resource-value {
+  font-family: var(--type-display);
   font-size: 18px;
   font-weight: bold;
 }
 
-.resource-label {
+.lobby-container .resource-label {
   font-size: 12px;
-  color: #d4c0a1;
+  color: var(--colors-text-muted);
 }
 
 /* Worker Status */
@@ -269,123 +245,88 @@
   justify-content: center;
 }
 
-/* Game Map */
+/*
+ * The map's viewport. Overflow lives here, not on `.lobby-container` - the
+ * map's real content (`.game-map`, sized to `mapSettings.mapWidth` in
+ * Lobby.jsx) is wider than this box, and `overflow-x: auto` is what turns that
+ * width into something a player can actually reach, instead of content
+ * silently clipped past the edge (which is how levels 15-17 went unreachable).
+ */
 .game-map-container {
   position: relative;
-  height: 60vh;
+  /* `0` grow, not `1`: the terrain is a fixed height, so a growing frame left
+     144px of empty ground below it inside the same border. Shrink stays at 1 so
+     a short window still makes the frame yield rather than push the page
+     taller, which is what `min-height: 0` and `overflow-y` are here for. */
+  flex: 0 1 auto;
+  min-height: 0;
+  /* This box exists to CLIP the terrain and scroll it. Without an explicit width it
+     grows to its content instead and the page scrolls; `min-width: 0` is what lets
+     it shrink below that content. */
   width: 100%;
-  overflow: hidden;
-  background: rgba(25, 40, 15, 0.7);
-  border-radius: 15px;
-  border: 3px solid #4a2e17;
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  /*
+   * `auto`, not `hidden`. `.game-map` is a fixed 600px tall (mapHeight, set
+   * inline from MapLayout) while this box is whatever the column flex has left
+   * over, and the arithmetic does not always reach 600: the page's padding and
+   * gaps take 40px, the top band about 128px, and the upgrade button - in
+   * normal flow now rather than floating over the map - about 52px.
+   */
+  overflow-y: auto;
+  border: var(--borders-outline) solid var(--colors-edge-outline);
+  border-radius: var(--radii-lg);
+  box-shadow: inset 0 0 40px var(--terrain-vignette);
+  /* Drag is the primary way to pan, so the viewport says so before anything
+     is touched. Native scrolling stays underneath because it costs nothing and
+     genuinely helps trackpad users - it is just no longer the visible
+     affordance, which on a desktop mouse meant shift+wheel or hunting for a
+     scrollbar. */
+  cursor: grab;
+  /* The real bug on a touchscreen. */
+  /* `pinch-zoom` only - the browser pans neither axis now. */
+  touch-action: pinch-zoom;
+  /* Hidden, not disabled: the element stays scrollable (wheel, trackpad,
+     keyboard, and the scrollLeft the drag handler and the opening-scroll
+     effect both write), it just stops advertising scrolling as the way to
+     move around when dragging is. */
+  scrollbar-width: none;
+  /* A pan gesture starts wherever the pointer happens to land - often a
+     level-name label or a star. Without this, that drag selects the text it
+     crosses instead of panning (the chest <img> side of the same problem is
+     `draggable={false}` in Lobby.jsx, since a native image drag isn't a text-
+     selection concern user-select can address). */
+  user-select: none;
 }
 
-.game-map {
-  position: absolute;
-  top: 0;
-  left: 0;
-  min-width: 2000px;
-  min-height: 2000px;
-  background-image: url("/assets/map-bg.png");
-  background-size: 200px;
-  transform-origin: top left;
+/* The WebKit half of `scrollbar-width: none`. Both are needed; neither
+   removes the element's ability to scroll. */
+.game-map-container::-webkit-scrollbar {
+  display: none;
 }
 
-/* Boundary indicators */
-.game-map-container::before,
-.game-map-container::after {
-  content: "";
-  position: absolute;
-  z-index: 5;
-  background: rgba(255, 215, 0, 0.3);
-  pointer-events: none;
+/* Fires on pointerdown and holds for the gesture, which is exactly the window
+   the drag handler is active for. */
+.game-map-container:active {
+  cursor: grabbing;
 }
 
-.game-map-container::before {
-  /* Horizontal boundaries */
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 5px;
-  box-shadow: 0 -2px 5px rgba(255, 215, 0, 0.5);
-}
-
-.game-map-container::after {
-  /* Vertical boundaries */
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 5px;
-  box-shadow: -2px 0 5px rgba(255, 215, 0, 0.5);
-}
-
-/* Boundary indicators for opposite sides */
-.game-map-container .boundary-right {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 5px;
-  background: rgba(255, 215, 0, 0.3);
-  box-shadow: 2px 0 5px rgba(255, 215, 0, 0.5);
-  pointer-events: none;
-  z-index: 5;
-}
-
-.game-map-container .boundary-bottom {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 5px;
-  background: rgba(255, 215, 0, 0.3);
-  box-shadow: 0 2px 5px rgba(255, 215, 0, 0.5);
-  pointer-events: none;
-  z-index: 5;
-}
-
-.map-connection {
-  position: absolute;
-  height: 8px;
-  background: #d4c0a1;
-  border: 2px solid #8b6f4b;
-  border-radius: 4px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-}
-
-.level-node {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-  background: url("/assets/level-node.png") center/contain no-repeat;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  transform: translate(-50%, -50%);
-  filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.7));
-}
-
-.level-node.locked {
-  filter: grayscale(100%) brightness(0.5)
-    drop-shadow(0 0 5px rgba(0, 0, 0, 0.7));
-}
-
-.level-number {
-  font-size: 24px;
-  font-weight: bold;
-  color: #ffd700;
-  text-shadow: 2px 2px 0 #000;
-  margin-top: 5px;
-}
+/*
+ * The pre-token `.map-connection` and `.level-number` rules that used to live
+ * here are gone, not merely edited: this file already declares both selectors
+ * again, correctly, in the "Map connections" and "Level interior" sections
+ * below, and the two copies were colliding - property-by-property, not
+ * rule-by-rule, since equal-specificity same-element selectors merge rather
+ * than one fully replacing the other.
+ */
 
 .level-pulse {
   position: absolute;
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: rgba(255, 215, 0, 0.3);
+  background: color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
   animation: pulse 2s infinite;
 }
 
@@ -411,7 +352,7 @@
   height: 40px;
   cursor: pointer;
   transform: translate(-50%, -50%);
-  filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.7));
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--colors-accent-energy) 70%, transparent));
   transition: all 0.3s;
 }
 
@@ -432,23 +373,7 @@
 
 .treasure-chest:not(.collected):not(.locked-chest):hover {
   transform: translate(-50%, -50%) scale(1.1);
-  filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.9));
-}
-
-.chest-glow {
-  position: absolute;
-  width: 70px;
-  height: 70px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(
-    circle,
-    rgba(255, 215, 0, 0.5) 0%,
-    rgba(255, 215, 0, 0) 70%
-  );
-  border-radius: 50%;
-  animation: glow 2s infinite alternate;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--colors-accent-energy) 90%, transparent));
 }
 
 @keyframes glow {
@@ -461,175 +386,304 @@
 }
 
 /* Upgrade Button */
+/* In normal flow, not floating over the map. */
 .upgrade-button {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  padding: 15px 25px;
-  background: linear-gradient(to bottom, #8b6f4b, #5a3a20);
-  border: 3px solid #d4c0a1;
+  flex: 0 0 auto;
+  padding: var(--space-md) var(--space-lg);
+  background: linear-gradient(to bottom, var(--colors-surface-panel), var(--colors-surface-sunken));
+  border: 3px solid var(--colors-surface-raised);
   border-radius: 50px;
-  color: #ffd700;
+  color: var(--colors-accent-energy);
   font-size: 18px;
   font-weight: bold;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 10px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-  z-index: 100;
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
   transition: all 0.2s;
 }
 
 .upgrade-button:hover {
   transform: scale(1.05);
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 6px 15px color-mix(in srgb, var(--colors-edge-outline) 70%, transparent);
 }
 
 
 /* Lobby.css - Enhanced for 20 levels and endless mode */
 
-.lobby-container {
-  position: relative;
-  width: 100%;
-  height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  overflow: hidden;
-}
-
-/* Game Map Container */
-.game-map-container {
-  position: relative;
-  width: 90%;
-  height: 60vh;
-  margin: 20px auto;
-  border: 3px solid #333;
-  border-radius: 10px;
-  overflow: hidden;
-  background: linear-gradient(to bottom, #87CEEB, #98D8C8);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-}
-
-.game-map {
-  position: absolute;
-  transition: transform 0.1s ease-out;
-  transform-origin: top left;
-}
-
 /* Zone backgrounds */
 .zone-background {
   position: absolute;
-  opacity: 0.1;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+/*
+ * The grain wash in each rule below is mixed from that same zone's own
+ * `--terrain-groundN-top`, not a semantic `--colors-accent-*` token: an accent
+ * used as page-scale ground is what flattened the map into a green rectangle
+ * in the first place (see the guard in noRawColours.test.js and the accent
+ * check in TerrainLayers.test.jsx).
+ */
+.zone-tutorial {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground1-top) 5%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground1-top) 0%, var(--terrain-ground1-mid) 42%, var(--terrain-ground1-bot) 100%);
+}
+.zone-early {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground2-top) 5%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground2-top) 0%, var(--terrain-ground2-mid) 42%, var(--terrain-ground2-bot) 100%);
+}
+.zone-mid {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground3-top) 4%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground3-top) 0%, var(--terrain-ground3-mid) 42%, var(--terrain-ground3-bot) 100%);
+}
+.zone-late {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground4-top) 5%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground4-top) 0%, var(--terrain-ground4-mid) 42%, var(--terrain-ground4-bot) 100%);
+}
+.zone-endgame {
+  background:
+    repeating-linear-gradient(58deg, color-mix(in srgb, var(--terrain-ground5-top) 6%, transparent) 0 3px, transparent 3px 10px),
+    linear-gradient(180deg, var(--terrain-ground5-top) 0%, var(--terrain-ground5-mid) 42%, var(--terrain-ground5-bot) 100%);
+}
+
+/*
+ * Depth layers inside each zone backdrop - inline SVG, so their fills read
+ * token colours.
+ */
+.zone-ridge {
+  position: absolute;
+  left: -2%;
+  right: -2%;
+  top: 0;
+  height: 44%;
+  z-index: 1;
+  opacity: 0.5;
+  pointer-events: none;
+  /* The ridge paths close along the bottom of their own viewBox, so this block
+     ended at exactly 44% with a straight horizontal edge - a hard line ruled
+     across every region at the same height, which is what made the terrain look
+     like two stacked rectangles instead of hills standing on ground. Fading the
+     last third out lets the hills sit into the ground. */
+  mask-image: linear-gradient(to bottom, var(--colors-edge-outline) 62%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, var(--colors-edge-outline) 62%, transparent 100%);
+}
+
+/* The region's name, set faintly into its own span. Not a heading - it is
+   scenery, and it must never compete with a level number for attention. */
+.zone-label {
+  position: absolute;
+  top: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  font-family: var(--type-display);
+  font-size: var(--type-size-sm);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--colors-text-muted);
+  opacity: 0.45;
   pointer-events: none;
 }
 
-.zone-tutorial {
-  left: 150px;
-  top: 350px;
-  width: 400px;
-  height: 200px;
-  border-radius: 20px;
+/* A soft seam between regions. Butting two different grounds together left a
+   hard vertical edge at every boundary; this bleeds one into the next over
+   ~120px so the ground changes character without announcing a border. The first
+   region has no seam to its left, so `:first-child` opts out. */
+.zone-background + .zone-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -60px;
+  width: 120px;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--terrain-vignette) 50%,
+    transparent 100%
+  );
+  opacity: 0.55;
 }
 
-.zone-early {
-  left: 550px;
-  top: 250px;
-  width: 600px;
-  height: 200px;
-  border-radius: 20px;
+.zone-fore {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22%;
+  z-index: 4;
+  pointer-events: none;
 }
 
-.zone-mid {
-  left: 1150px;
-  top: 300px;
-  width: 750px;
-  height: 250px;
-  border-radius: 20px;
+/*
+ * Mid-ground scenery (TerrainProps.jsx). z-index 3 of the reserved 2-3 range
+ * above: above .zone-ridge (1) so props read against the hills, below
+ * .zone-fore (4) so the foreground band still frames them rather than hiding
+ * them.
+ */
+.terrain-prop {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  transform: translate(-50%, 0);
+  z-index: 3;
+  pointer-events: none;
 }
 
-.zone-late {
-  left: 1200px;
-  top: 100px;
-  width: 700px;
-  height: 200px;
-  border-radius: 20px;
-}
-
-.zone-endgame {
-  left: 750px;
-  top: 50px;
-  width: 450px;
-  height: 200px;
-  border-radius: 20px;
+/* Distant props are smaller and fainter, so they sit in the ridgeline
+   rather than on top of it. Held at roughly two thirds of the near row, the
+   same ratio as the 26/17 pair it replaces - the depth cue is the ratio
+   between the rows, not either number on its own. */
+.terrain-prop.prop-far {
+  width: 45px;
+  height: 45px;
+  opacity: 0.45;
 }
 
 /* Level Nodes */
 .level-node {
   position: absolute;
-  width: 60px;
-  height: 60px;
+  width: 62px;
+  height: 62px;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
+  font-family: var(--type-display);
+  font-size: var(--type-size-md);
+  /* Was `border: 3px solid` with no colour, relying on an inline
+     `borderColor` from MapLayout's config for every node - five hand-darkened
+     per-zone shades. One shared cartoon outline instead, declared here so the
+     node needs no inline colour at all. */
+  border: var(--borders-outline) solid var(--colors-edge-outline);
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  border: 3px solid;
   z-index: 10;
 }
 
-.level-node.locked {
-  background: #555 !important;
-  border-color: #333 !important;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
+/* Three states, three distinct treatments - not three shades of the same idea. */
+/* Completed reads as *cleared*, not as a slightly different dark circle. */
 .level-node.completed {
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+  background: radial-gradient(circle at 35% 30%, var(--colors-surface-raised), var(--terrain-node-done));
+  color: var(--colors-text-primary);
+  border-color: var(--colors-accent-success);
+  box-shadow: var(--shadows-drop), 0 0 0 var(--borders-thin) color-mix(in srgb, var(--colors-accent-success) 45%, transparent);
 }
 
-.level-node.unlocked:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+/*
+ * The tick. Shape and glyph, so "cleared" survives being glanced at, being
+ * small, and being colour-blind - a ring alone is still just a ring.
+ */
+.level-node.completed::before {
+  content: '\2713';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--colors-accent-success);
+  color: var(--colors-edge-outline);
+  border: var(--borders-thin) solid var(--colors-edge-outline);
+  font-size: 13px;
+  font-weight: bold;
+  line-height: 1;
 }
 
-/* Zone-specific node styles */
-.tutorial-node {
-  background: linear-gradient(135deg, #4a7c59, #6fb85f);
+.level-node.available {
+  background: radial-gradient(circle at 35% 30%, var(--terrain-node-open), var(--colors-accent-energy));
+  color: var(--colors-edge-outline);
+  box-shadow: var(--shadows-drop), 0 0 0 6px color-mix(in srgb, var(--colors-accent-energy) 16%, transparent);
 }
 
-.early-node {
-  background: linear-gradient(135deg, #5a7cb8, #7a9cd8);
+/*
+ * Locked recedes: no ring, no shadow, and a border dimmed toward the ground so
+ * the node has no lit edge to catch the eye.
+ */
+.level-node.locked {
+  background: var(--colors-surface-sunken);
+  color: var(--colors-text-muted);
+  border-color: color-mix(in srgb, var(--colors-edge-outline) 55%, transparent);
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
-.mid-node {
-  background: linear-gradient(135deg, #b87c5a, #d89c7a);
+/*
+ * No node ever carries an `.unlocked` class (renderLevelNode assigns exactly
+ * one of locked/completed/available) - this used to read `.level-node.
+ * unlocked:hover` and matched nothing, at the base commit and after this
+ * branch moved it here unchanged.
+ */
+/* The centring translate has to be restated. */
+.level-node:not(.locked):hover {
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 6px 12px color-mix(in srgb, var(--colors-edge-outline) 40%, transparent);
 }
 
-.late-node {
-  background: linear-gradient(135deg, #b85a7c, #d87a9c);
+/*
+ * Zone-specific node styles used to live here (`.tutorial-node`,
+ * `.early-node`, `.mid-node`, `.late-node`, `.endgame-node`, each a single
+ * class carrying that zone's background).
+ */
+
+/*
+ * Boss level indicator. A boss node that is merely a red circle is still a
+ * circle, so it gets its own size, its own border weight, and a dashed ring
+ * outside the node itself - shape and weight carry the "fortified position"
+ * read, not hue alone.
+ */
+.level-node.boss {
+  width: 66px;
+  height: 66px;
+  border-radius: var(--radii-lg);
+  border-width: var(--borders-heavy);
+  font-size: var(--type-size-lg);
+  background: radial-gradient(circle at 35% 30%, var(--terrain-node-boss), var(--colors-accent-danger));
+  color: var(--colors-edge-outline);
 }
 
-.endgame-node {
-  background: linear-gradient(135deg, #7c5ab8, #9c7ad8);
+/* A dashed ring, so a boss reads as a fortified position rather than a stop. */
+.level-node.boss::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: var(--borders-thin) dashed color-mix(in srgb, var(--colors-accent-danger) 45%, transparent);
+  border-radius: calc(var(--radii-lg) + 4px);
 }
 
-/* Boss level indicator */
-.level-node.boss-level {
-  width: 70px;
-  height: 70px;
-  border-width: 4px;
-  border-color: #FFD700 !important;
+.map-chest {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  filter: drop-shadow(0 2px 2px var(--colors-edge-outline));
+  /*
+   * Deliberately no pointer-events override here: this class sits on the same
+   * element as `.treasure-chest`, which carries the onClick that calls
+   * collectTreasure() (a real backend call), and `.treasure-chest` declares no
+   * pointer-events of its own.
+   */
 }
 
 .boss-indicator {
   position: absolute;
   top: -10px;
   right: -10px;
-  background: #FF0000;
-  color: white;
+  background: var(--colors-accent-danger);
+  /* contrast-ok: 3.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+     contrast opt-outs". */
+  color: var(--colors-text-primary);
   font-size: 10px;
   padding: 2px 5px;
   border-radius: 10px;
@@ -642,28 +696,42 @@
 }
 
 @keyframes finalPulse {
-  0%, 100% { box-shadow: 0 0 30px rgba(255, 215, 0, 0.8); }
-  50% { box-shadow: 0 0 50px rgba(255, 215, 0, 1); }
+  0%, 100% { box-shadow: 0 0 30px color-mix(in srgb, var(--colors-accent-energy) 80%, transparent); }
+  50% { box-shadow: 0 0 50px var(--colors-accent-energy); }
 }
 
 /* Level interior */
 .level-number {
+  font-family: var(--type-display);
   font-size: 20px;
   font-weight: bold;
-  color: white;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  text-shadow: 1px 1px 2px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
+/* Pushed clear of the star row below the node. */
 .level-name {
   position: absolute;
-  bottom: -20px;
+  bottom: -36px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 10px;
   white-space: nowrap;
-  color: #333;
+  /*
+   * Light on dark, not the reverse: this label sits below the node's own
+   * circle (negative bottom offset), landing on whichever zone's terrain is
+   * underneath, not on a controlled surface - see the terrain contrast ratios
+   * in the fix report.
+   */
+  color: var(--colors-text-primary);
   font-weight: bold;
-  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
+  text-shadow: 1px 1px 2px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
+  /*
+   * Decoration, not a target. These hang OUTSIDE the circle on a negative
+   * offset while being children of it, so they were part of the node's hover
+   * area - and `:hover` scales the node, which pushes them further from the
+   * cursor that is hovering them.
+   */
+  pointer-events: none;
 }
 
 .level-pulse {
@@ -674,7 +742,7 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
+  background: color-mix(in srgb, var(--colors-text-primary) 30%, transparent);
   animation: pulse 1.5s infinite;
 }
 
@@ -683,34 +751,55 @@
   100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
 }
 
-/* Stars display */
+/*
+ * Stars display - the row of three immediately below the node, above the
+ * level's name.
+ */
 .stars {
   position: absolute;
-  bottom: -15px;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  gap: 2px;
+  gap: var(--space-xs);
+  justify-content: center;
+  line-height: 1;
+  white-space: nowrap;
+  /*
+   * Decoration, not a target. These hang OUTSIDE the circle on a negative
+   * offset while being children of it, so they were part of the node's hover
+   * area - and `:hover` scales the node, which pushes them further from the
+   * cursor that is hovering them.
+   */
+  pointer-events: none;
 }
 
 .star {
-  color: #ccc;
-  font-size: 12px;
+  /* Same terrain-contrast reasoning as `.level-name` above: this sits below
+     the node, on the ground, not on a background this rule controls. */
+  color: var(--colors-text-primary);
+  text-shadow: 0 1px 0 var(--colors-edge-outline);
+  font-size: var(--type-size-md);
+  line-height: 1;
 }
 
 .star.earned {
-  color: #FFD700;
+  color: var(--colors-accent-energy);
+  text-shadow: 0 2px 0 var(--colors-edge-outline);
 }
 
 /* Endless Portal */
+/*
+ * Centred on the position Lobby.jsx gives it, the same way `.level-node` is -
+ * so the portal actually sits on the end of its own rainbow connector.
+ */
 .endless-portal {
   position: absolute;
   width: 100px;
   height: 100px;
   cursor: pointer;
   z-index: 15;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-left: -120px;
-  margin-top: -50px;
+  transform: translate(-50%, -50%);
 }
 
 .endless-portal.locked {
@@ -735,7 +824,7 @@
 .ring-1 {
   width: 100%;
   height: 100%;
-  border-color: #ff0000;
+  border-color: var(--colors-accent-danger);
   animation-duration: 3s;
 }
 
@@ -744,7 +833,7 @@
   height: 80%;
   top: 10%;
   left: 10%;
-  border-color: #ff7f00;
+  border-color: var(--decorative-orange);
   animation-duration: 4s;
   animation-direction: reverse;
 }
@@ -754,7 +843,7 @@
   height: 60%;
   top: 20%;
   left: 20%;
-  border-color: #ffff00;
+  border-color: var(--colors-accent-energy);
   animation-duration: 2s;
 }
 
@@ -770,7 +859,7 @@
   transform: translate(-50%, -50%);
   width: 40%;
   height: 40%;
-  background: radial-gradient(circle, #9400d3, #4b0082, #0000ff);
+  background: radial-gradient(circle, var(--decorative-violet), var(--decorative-indigo), var(--colors-accent-info));
   border-radius: 50%;
   display: flex;
   flex-direction: column;
@@ -785,14 +874,15 @@
 }
 
 .portal-label {
-  color: white;
+  color: var(--colors-text-primary);
   font-weight: bold;
   font-size: 12px;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--colors-text-primary) 80%, transparent);
 }
 
 .highest-wave {
-  color: #FFD700;
+  font-family: var(--type-display);
+  color: var(--colors-accent-energy);
   font-size: 10px;
   margin-top: 2px;
 }
@@ -804,7 +894,7 @@
   right: -20px;
   bottom: -20px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(148, 0, 211, 0.4), transparent);
+  background: radial-gradient(circle, color-mix(in srgb, var(--decorative-violet) 40%, transparent), transparent);
   animation: portalGlow 2s infinite;
 }
 
@@ -818,8 +908,8 @@
   bottom: -25px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
+  background: color-mix(in srgb, var(--colors-edge-outline) 80%, transparent);
+  color: var(--colors-text-primary);
   padding: 3px 8px;
   border-radius: 3px;
   font-size: 10px;
@@ -829,20 +919,43 @@
 /* Map connections */
 .map-connection {
   position: absolute;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, #666, transparent);
-  transform-origin: left center;
-  opacity: 0.3;
+  /*
+   * A 3px bar at opacity 0.3, fading to transparent at both ends, was
+   * effectively invisible against the terrain - the route read as a few faint
+   * scratches rather than a path you walk.
+   */
+  height: 12px;
+  border-radius: 999px;
+  background-color: var(--colors-edge-outline);
+  background-image: radial-gradient(
+    circle,
+    var(--colors-edge-highlight) 2px,
+    transparent 2.5px
+  );
+  background-size: 17px 12px;
+  background-repeat: repeat-x;
+  background-position: center;
+  /* Centre, not `left center`: the inline transform centres the bar on the
+     segment's midpoint, so it must rotate about its own centre. See the note on
+     the transform in Lobby.jsx. */
+  transform-origin: center;
+  opacity: 0.72;
+  /* Above the ridge (1), props (2-3), the opaque foreground band (4) and the
+     vignette (5) - the route used to declare no z-index at all, which put it
+     in the z-index:auto group, below every one of those. Still below the
+     interactive layer (chest 8, node 10, portal 15). See the stacking
+     comment above .zone-ridge. */
+  z-index: 6;
 }
 
 .map-connection.unlocked {
-  background: linear-gradient(90deg, transparent, #4CAF50, transparent);
+  background: linear-gradient(90deg, transparent, var(--colors-accent-success), transparent);
   opacity: 0.7;
 }
 
 .map-connection.rainbow-connection {
   background: linear-gradient(90deg,
-  #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3);
+  var(--colors-accent-danger), var(--decorative-orange), var(--colors-accent-energy), var(--colors-accent-success), var(--colors-accent-info), var(--decorative-indigo), var(--decorative-violet));
   opacity: 1;
   animation: rainbowFlow 2s linear infinite;
 }
@@ -862,8 +975,16 @@
   z-index: 8;
 }
 
+/*
+ * Same defect as `.level-node:not(.locked):hover` above, on the map's other
+ * clickable thing: this is the later of the two rules for this selector (see
+ * KNOWN_DUPLICATE_SELECTORS in lobbyCascade.test.js) so its `transform` wins
+ * outright, and declaring only `scale(1.2)` dropped the `translate(-50%,
+ * -50%)` the chest is centred by - a hovered chest jumped 20px down and right,
+ * away from the cursor about to click it.
+ */
 .treasure-chest:not(.collected):not(.locked-chest):hover {
-  transform: scale(1.2);
+  transform: translate(-50%, -50%) scale(1.2);
 }
 
 .treasure-chest.collected {
@@ -882,10 +1003,11 @@
 }
 
 @keyframes secretPulse {
-  0%, 100% { filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5)); }
-  50% { filter: drop-shadow(0 0 20px rgba(255, 215, 0, 1)); }
+  0%, 100% { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--colors-accent-energy) 50%, transparent)); }
+  50% { filter: drop-shadow(0 0 20px var(--colors-accent-energy)); }
 }
 
+/* The glow behind an uncollected chest. */
 .chest-glow {
   position: absolute;
   top: -10px;
@@ -893,8 +1015,9 @@
   right: -10px;
   bottom: -10px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 215, 0, 0.6), transparent);
+  background: radial-gradient(circle, color-mix(in srgb, var(--colors-accent-energy) 60%, transparent), transparent);
   animation: chestGlow 1.5s infinite;
+  pointer-events: none;
 }
 
 @keyframes chestGlow {
@@ -910,7 +1033,7 @@
   display: flex;
   gap: 10px;
   align-items: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
   padding: 5px 10px;
   border-radius: 20px;
   z-index: 20;
@@ -921,19 +1044,25 @@
   height: 30px;
   border-radius: 50%;
   border: none;
-  background: #4CAF50;
-  color: white;
+  background: var(--colors-accent-success);
+  /* Ring via box-shadow, not a border: fixed 30x30px circle, no
+     box-sizing: border-box in this project, so a 3px border would grow it
+     to 36x36px. */
+  box-shadow: var(--shadows-drop), 0 0 0 var(--borders-outline) var(--colors-edge-outline);
+  /* contrast-ok: 2.48:1, below 4.5:1 - see task-3-report.md, "Systemic
+     contrast opt-outs". */
+  color: var(--colors-text-primary);
   font-size: 18px;
   cursor: pointer;
   transition: background 0.3s;
 }
 
 .zoom-controls button:hover {
-  background: #45a049;
+  background: var(--colors-accent-success);
 }
 
 .zoom-controls span {
-  color: white;
+  color: var(--colors-text-primary);
   font-size: 14px;
   min-width: 40px;
   text-align: center;
@@ -941,7 +1070,7 @@
 
 /* Endless Options Modal */
 .endless-options-modal {
-  background: white;
+  background: var(--colors-text-primary);
   border-radius: 10px;
   padding: 30px;
   max-width: 600px;
@@ -953,7 +1082,7 @@
 .endless-options-modal h2 {
   text-align: center;
   margin-bottom: 20px;
-  color: #333;
+  color: var(--colors-surface-sunken);
 }
 
 .difficulty-options {
@@ -965,94 +1094,164 @@
 
 .difficulty-option {
   padding: 15px;
-  border: 2px solid #ddd;
+  border: 2px solid var(--colors-text-muted);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
-  background: white;
+  background: var(--colors-text-primary);
 }
 
 .difficulty-option:hover {
-  border-color: #4CAF50;
+  border-color: var(--colors-accent-success);
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 8px color-mix(in srgb, var(--colors-edge-outline) 10%, transparent);
 }
 
 .difficulty-option.normal {
-  border-color: #4CAF50;
+  border-color: var(--colors-accent-success);
 }
 
 .difficulty-option.challenge {
-  border-color: #ff9800;
+  border-color: var(--colors-accent-energy);
 }
 
 .difficulty-option h3 {
   margin: 0 0 8px 0;
-  color: #333;
+  color: var(--colors-surface-sunken);
 }
 
 .difficulty-option p {
   margin: 0 0 8px 0;
-  color: #666;
+  /* This modal's background is text-primary (a light cream) - inherited
+     from the rest of the dark theme's palette, not a light theme of its
+     own. text-muted is a light tan built for muted text on a dark surface;
+     against this light background it measured 1.99:1. surface-sunken (dark)
+     matches the h2/h3 in this same modal and gives 13.93:1. */
+  color: var(--colors-surface-sunken);
   font-size: 14px;
 }
 
 .difficulty-option .multiplier {
-  color: #4CAF50;
+  /* surface-sunken, not accent-success: this sits in the same light
+     (text-primary-background) modal as .difficulty-option p and h3, both
+     already switched to a dark token for the same reason - accent-success
+     measured 2.48:1 against this light background. Matches the modal's
+     established dark-text pattern; 13.93:1. */
+  color: var(--colors-surface-sunken);
   font-weight: bold;
   font-size: 16px;
 }
 
 /* Defender Unlock Notification */
-.defender-notification {
+/* The reward panel, shown when a chest is opened. */
+.reward-notification {
   position: fixed;
-  top: 100px;
+  /* Clear of the top band rather than on top of it. At 100px this covered the
+     energy panel's recharge line - and the band is the one thing on screen whose
+     numbers the player is checking against the reward being announced. */
+  top: 152px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 15px;
-  padding: 20px 30px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
   z-index: 1000;
   display: flex;
   align-items: center;
-  gap: 20px;
-  animation: slideDown 0.5s ease-out;
-  transition: opacity 0.5s ease-out;
+  gap: var(--space-md);
+  min-width: 280px;
+  padding: var(--space-md) var(--space-lg);
+  background: linear-gradient(180deg, var(--colors-surface-panel), var(--colors-surface-sunken));
+  border: var(--borders-outline) solid var(--colors-edge-outline);
+  border-radius: var(--radii-lg);
+  box-shadow: var(--shadows-drop), inset 0 1px 0 var(--colors-edge-highlight);
+  animation: slideDown 0.4s ease-out;
+  transition: opacity 0.9s ease-out, transform 0.9s ease-out;
+  /* Announces a reward; it is never the thing you click. Without this it can
+     cover a chest or a node while it fades. */
+  pointer-events: none;
 }
 
-.defender-notification.fade-out {
+.reward-notification.fade-out {
   opacity: 0;
-  transform: translateX(-50%) translateY(-20px);
+  transform: translateX(-50%) translateY(-16px);
 }
 
 .notification-icon {
   font-size: 40px;
-  animation: bounce 1s infinite;
-}
-
-.notification-content {
-  color: white;
+  line-height: 1;
 }
 
 .notification-content h3 {
-  margin: 0 0 5px 0;
-  font-size: 18px;
-  font-weight: bold;
+  margin: 0 0 var(--space-xs);
+  font-family: var(--type-display);
+  font-size: var(--type-size-md);
+  letter-spacing: 0.06em;
+  color: var(--colors-text-primary);
 }
 
-.notification-content .defender-name {
-  margin: 0 0 5px 0;
-  font-size: 24px;
-  font-weight: bold;
-  color: #ffd700;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.notification-content .notification-hint {
+/* The resources gained, as the same chips the top band uses - a reward should
+   look like the currency it pays into. */
+.reward-resources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
   margin: 0;
-  font-size: 14px;
-  opacity: 0.9;
+  padding: 0;
+  list-style: none;
+}
+
+.reward-resource {
+  display: flex;
+  align-items: center;
+}
+
+/* Pieces toward a defender the player already has, the reward chests give now
+   that defenders come from winning levels. */
+.reward-pieces {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--space-sm) 0 0;
+  padding: var(--space-sm) 0 0;
+  list-style: none;
+  border-top: 1px solid var(--colors-surface-raised);
+}
+
+.reward-piece {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: space-between;
+  font-size: var(--type-size-sm);
+}
+
+.reward-piece-name {
+  color: var(--colors-text-primary);
+}
+
+.reward-piece-count {
+  font-family: var(--type-display);
+  color: var(--colors-accent-energy);
+}
+
+.reward-defenders {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--space-sm) 0 0;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--colors-surface-raised);
+}
+
+.reward-defenders-label {
+  font-size: var(--type-size-sm);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--colors-text-muted);
+}
+
+.reward-notification .defender-name {
+  margin: 0;
+  font-family: var(--type-display);
+  font-size: var(--type-size-md);
+  color: var(--colors-accent-energy);
 }
 
 @keyframes slideDown {
@@ -1072,5 +1271,193 @@
   }
   50% {
     transform: translateY(-10px);
+  }
+}
+
+/*
+ * ===========================================================================
+ * Responsive rules, and the measurements they come from.
+ */
+
+/* Stage 1: shed text, keep one row. */
+@media (max-width: 1300px) {
+  /* Scoped like the rest: `.resource-label` belongs to the shared ResourceIcon
+     component (AllImage.css owns it), and a bare copy here reaches every screen
+     that renders one - which is how the upgrade screen inherited the lobby's chip
+     styling. */
+  .lobby-container .resource-label {
+    display: none;
+  }
+
+  .player-rank {
+    display: none;
+  }
+
+  .menu-button {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: 12px;
+  }
+
+  .lobby-container .resource-icon {
+    padding: var(--space-xs) var(--space-sm);
+    gap: var(--space-xs);
+  }
+}
+
+/* Stage 2: wrap. Measured - shedding text still left the band 51px over at
+   1100px and 83px over at 1000px, so this starts above them, not at 900. */
+@media (max-width: 1150px) {
+  .lobby-container {
+    padding: var(--space-sm);
+    gap: var(--space-xs);
+  }
+
+  .lobby-topband {
+    /* `nowrap` is correct where one row is achievable, and impossible here. */
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
+  }
+
+  /* A row each, so nothing can land on top of anything else. */
+  .top-menu-bar,
+  .resource-bar {
+    flex: 1 1 100%;
+    min-width: 0;
+    justify-content: space-between;
+  }
+
+  .player-name {
+    font-size: 15px;
+    text-shadow: 1px 1px 0 var(--colors-edge-outline);
+  }
+
+  .menu-buttons {
+    gap: var(--space-xs);
+  }
+
+  .resource-bar {
+    gap: 2px;
+  }
+
+  .lobby-container .resource-symbol {
+    font-size: 15px;
+  }
+
+  .lobby-container .resource-value {
+    font-size: 13px;
+  }
+
+  .zone-label {
+    font-size: 9px;
+    letter-spacing: 0.2em;
+  }
+
+  .upgrade-button {
+    padding: 8px 18px;
+    font-size: 13px;
+  }
+}
+
+/* Stage 3: phones. */
+@media (max-width: 480px) {
+  .top-menu-bar {
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+
+  .player-info,
+  .menu-buttons {
+    flex: 1 1 100%;
+  }
+
+  .player-info {
+    text-align: left;
+  }
+
+  .menu-buttons {
+    justify-content: space-between;
+  }
+
+  .menu-button {
+    flex: 1 1 auto;
+    padding: 5px 4px;
+    font-size: 10px;
+  }
+}
+
+/*
+ * Short viewports - a phone turned sideways, which is how phone players are
+ * expected to hold it.
+ */
+@media (max-height: 500px) {
+  .lobby-container {
+    padding: var(--space-xs);
+    gap: 4px;
+  }
+
+  /* One row, and let it scroll sideways if it must. */
+  .lobby-topband {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 2px var(--space-sm);
+    gap: var(--space-xs);
+  }
+
+  .lobby-topband::-webkit-scrollbar {
+    display: none;
+  }
+
+  /*
+   * Undo the width stages' full-width rows, and pin EVERY child - the energy
+   * bar included.
+   */
+  .top-menu-bar,
+  .resource-bar,
+  .player-info,
+  .menu-buttons,
+  .lobby-topband .energy-bar {
+    flex: 0 0 auto;
+  }
+
+  .top-menu-bar {
+    flex-wrap: nowrap;
+  }
+
+  .player-name {
+    font-size: 13px;
+  }
+
+  .player-rank {
+    display: none;
+  }
+
+  .menu-button {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+
+  .lobby-container .resource-icon {
+    padding: 2px 6px;
+  }
+
+  .lobby-container .resource-label {
+    display: none;
+  }
+
+  /* The recharge caption and the "Energy" heading go. */
+  .lobby-topband .energy-rate,
+  .lobby-topband .energy-header .energy-text {
+    display: none;
+  }
+
+  .lobby-topband .energy-bar {
+    padding: 2px 6px;
+  }
+
+  .upgrade-button {
+    padding: 5px 14px;
+    font-size: 12px;
   }
 }
