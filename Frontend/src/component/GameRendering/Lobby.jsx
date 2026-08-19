@@ -29,6 +29,7 @@ import CardSelectionModal from "./CardSelectionModal";
 import CloseChest from "../../Icons/CloseChest.png";
 import OpenChest from "../../Icons/OpenChest.png";
 import GateNotice from "./GateNotice.jsx";
+import UpdateNotice from "./UpdateNotice.jsx";
 
 /** Distant hills. Fills the upper third, which was dead space before. */
 
@@ -340,6 +341,7 @@ const Lobby = () => {
       <div className="lobby-container">
 
         <GateNotice />
+        <UpdateNotice />
 
         {/* What the chest actually gave you. Resources and defenders together:
             listing only defenders meant most chests opened in silence. */}
