@@ -1,0 +1,122 @@
+/* The in-game replacement for a browser alert when a level cannot be started. */
+.gate-notice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  background: color-mix(in srgb, var(--colors-edge-outline) 72%, transparent);
+}
+
+.gate-notice {
+  width: min(380px, 100%);
+  padding: var(--space-lg);
+  text-align: center;
+  background: linear-gradient(180deg, var(--colors-surface-panel), var(--colors-surface-sunken));
+  border: var(--borders-outline) solid var(--colors-edge-outline);
+  border-radius: var(--radii-lg);
+  box-shadow: var(--shadows-drop), inset 0 1px 0 var(--colors-edge-highlight);
+  font-family: var(--type-body);
+  color: var(--colors-text-primary);
+}
+
+.gate-notice h3 {
+  margin: 0 0 var(--space-sm);
+  font-family: var(--type-display);
+  font-size: var(--type-size-lg);
+  letter-spacing: 0.04em;
+  color: var(--colors-accent-energy);
+}
+
+.gate-notice-message {
+  margin: 0 0 var(--space-md);
+  font-size: var(--type-size-md);
+  color: var(--colors-text-primary);
+}
+
+/* The offer, stated as a trade: what you get, what it costs. */
+.gate-notice-offer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xs);
+  padding: var(--space-sm);
+  background: var(--colors-surface-sunken);
+  border: var(--borders-thin) solid var(--colors-surface-raised);
+  border-radius: var(--radii-md);
+}
+
+.gate-notice-pack,
+.gate-notice-price {
+  font-family: var(--type-display);
+  font-size: var(--type-size-lg);
+  color: var(--colors-accent-energy);
+}
+
+.gate-notice-pack span,
+.gate-notice-price span {
+  font-family: var(--type-body);
+  font-size: var(--type-size-sm);
+  color: var(--colors-text-muted);
+}
+
+.gate-notice-balance {
+  margin: 0 0 var(--space-md);
+  font-size: var(--type-size-sm);
+  color: var(--colors-text-muted);
+}
+
+.gate-notice-balance.short {
+  color: var(--colors-accent-danger);
+}
+
+.gate-notice-actions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: center;
+}
+
+.gate-notice-cancel,
+.gate-notice-confirm {
+  padding: var(--space-sm) var(--space-lg);
+  font-family: var(--type-display);
+  font-size: var(--type-size-sm);
+  border: var(--borders-outline) solid var(--colors-edge-outline);
+  border-radius: var(--radii-md);
+  box-shadow: var(--shadows-drop);
+  cursor: pointer;
+  transition: transform 0.15s ease-out, filter 0.15s ease-out;
+}
+
+.gate-notice-cancel {
+  background: var(--colors-surface-raised);
+  color: var(--colors-text-primary);
+}
+
+/* Dark on gold, the pairing used for every primary action in the game. */
+.gate-notice-confirm {
+  background: var(--colors-accent-energy);
+  color: var(--colors-edge-outline);
+}
+
+.gate-notice-cancel:hover:not(:disabled),
+.gate-notice-confirm:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.gate-notice-confirm:disabled {
+  background: var(--colors-surface-raised);
+  color: var(--colors-text-primary);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.gate-notice-wait {
+  margin: var(--space-md) 0 0;
+  font-size: var(--type-size-sm);
+  color: var(--colors-text-muted);
+}
