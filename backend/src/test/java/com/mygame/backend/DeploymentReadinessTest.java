@@ -67,6 +67,20 @@ class DeploymentReadinessTest {
         assertThat(properties()).contains("${PORT:");
     }
 
+    /**
+     * SecurityConfig permits /h2-console/** unauthenticated and disables frame
+     * options for it, and H2 stays on the classpath even when the datasource is
+     * Postgres - so nothing about deploying turns this off except the setting
+     * itself. The console takes an arbitrary JDBC URL, which makes an exposed
+     * one a way to run code rather than only a way to read the data.
+     */
+    @Test
+    void keepsTheDatabaseConsoleOffUnlessAskedFor() {
+        assertThat(properties())
+                .as("an exposed H2 console accepts any JDBC URL from anyone who can reach it")
+                .contains("spring.h2.console.enabled=${H2_CONSOLE_ENABLED:false}");
+    }
+
     @Test
     void carriesNoRealSigningKey() {
         // The committed key was a 64-character hex string. Anyone who could read
