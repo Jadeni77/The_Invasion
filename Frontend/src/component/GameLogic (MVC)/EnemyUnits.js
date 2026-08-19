@@ -489,6 +489,8 @@ export class Enemy {
 
     ctx.fillStyle = colors.textPrimary;
     ctx.font = canvasFont(11, 'bold');
+    // Left-aligned from the bar's own left edge - stated, not inherited.
+    ctx.textAlign = 'left';
     ctx.fillText(this.bossBarLabel(), barX, barY - 5);
     ctx.restore();
   }
@@ -546,12 +548,28 @@ export class Enemy {
     }
 
     if (this.isAlive) {
-      // Unit name text
+      /*
+       * Everything text-shaped here is inside save/restore, and states its own
+       * alignment.
+       *
+       * Neither used to be true, and the two compounded. The name was drawn at
+       * `this.x + 2` - the LEFT EDGE of the sprite's box - which for a 252px-wide
+       * boss Titan put it a long way from the unit it labels. And TitanEnemy's
+       * phase readout sets `textAlign = "center"` without restoring, so once any
+       * Titan had drawn, every later name in that frame AND the Titan's own on the
+       * next was centred on `x + 2` instead of left-aligned from it, shifting it
+       * further left again. Canvas state is global; leaving it modified is leaving
+       * a trap for whatever draws next.
+       */
+      ctx.save();
+      ctx.textAlign = "center";
+
+      // Unit name text, under the middle of the sprite rather than off its corner.
       ctx.fillStyle = colors.edgeOutline;
       ctx.font = canvasFont(12);
       ctx.fillText(
-          this.name.substring(0, this.name.length),
-          this.x + 2,
+          this.name,
+          this.x + this.width / 2,
           this.y + this.height + 15
       );
 
@@ -569,6 +587,7 @@ export class Enemy {
         }
       }
       this.drawNegativeEffect.drawAllEffect(ctx);
+      ctx.restore();
     }
   }
 
@@ -2550,10 +2569,12 @@ export class TitanEnemy extends Enemy {
      * collision the wider boss bar made obvious but did not create.
      */
     if (!this.isBoss) {
+      ctx.save();
       ctx.fillStyle = this.phase === 3 ? colors.accentDanger : this.phase === 2 ? decorative.orange : colors.textPrimary;
       ctx.font = canvasFont(12, "bold");
       ctx.textAlign = "center";
       ctx.fillText(`P${this.phase}`, this.x + this.width / 2, this.y - 26);
+      ctx.restore();
     }
   }
 
