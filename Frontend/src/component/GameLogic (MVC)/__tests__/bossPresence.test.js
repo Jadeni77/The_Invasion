@@ -202,3 +202,45 @@ describe('the Titan phase readout', () => {
     expect(texts.filter((t) => /^P\d$/.test(t))).toEqual([]);
   });
 });
+
+/**
+ * The boss bar stays on the board while its owner walks onto it.
+ *
+ * Enemies spawn off-board at x = -100 and walk in, so a boss's bar sat at a
+ * negative x for the first seconds of every fight and the canvas cut it off - the
+ * label read "2500" where it should read "Titan P1 12500/12500".
+ */
+describe('the boss health bar is readable from the moment it appears', () => {
+  it('does not draw the bar off the left edge of the board', () => {
+    const ctx = recordingCtx();
+    // Mid-walk-in: most of the sprite is still off-board.
+    const boss = enemyAt({ isBoss: true, x: -60 });
+    boss.draw(ctx);
+
+    const bar = named(ctx, 'fillRect').filter((c) => c.args[1] < boss.y);
+    expect(bar.length, 'no boss bar drawn').toBeGreaterThan(0);
+    for (const call of bar) {
+      expect(call.args[0], 'bar starts off the left edge').toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('writes the label on the board too', () => {
+    const ctx = recordingCtx();
+    const boss = enemyAt({ isBoss: true, x: -60 });
+    boss.draw(ctx);
+
+    const label = named(ctx, 'fillText').find((c) => String(c.args[0]).includes('/'));
+    expect(label, 'no bar label').toBeDefined();
+    expect(label.args[1], 'label starts off the left edge').toBeGreaterThanOrEqual(0);
+  });
+
+  it('still tracks the boss once it is fully on the board', () => {
+    // The clamp must not pin the bar to the edge forever.
+    const ctx = recordingCtx();
+    const boss = enemyAt({ isBoss: true, x: 500 });
+    boss.draw(ctx);
+
+    const bar = named(ctx, 'fillRect').filter((c) => c.args[1] < boss.y);
+    expect(Math.min(...bar.map((c) => c.args[0]))).toBeGreaterThan(400);
+  });
+});

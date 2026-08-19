@@ -591,7 +591,16 @@ const GameBoard = () => {
         </div>
       </div>
 
-      {/* Game Canvas */}
+      {/*
+        Game Canvas, inside a frame that owns the leftover height.
+
+        The canvas cannot be a direct child of the column: `max-height: 100%` on a
+        flex item resolves against the CONTAINER's height, not the space left after
+        the bars, so at 1453px wide the 16:9 canvas computed 817px tall against 814
+        available and pushed the card tray off the bottom of the screen. The frame
+        is the flex item that shrinks; the canvas fits inside whatever it gets.
+      */}
+      <div className="game-canvas-frame">
       <canvas
         ref={canvasRef}
         width={LOGICAL_WIDTH}
@@ -602,6 +611,7 @@ const GameBoard = () => {
         className="game-canvas"
         style={{ cursor: shovelMode ? "crosshair" : "default" }}
       />
+      </div>
 
       {/* Card slots in bottom bar */}
       <div className="game-bottom-bar">
