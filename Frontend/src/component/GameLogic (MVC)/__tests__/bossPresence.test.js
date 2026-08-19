@@ -244,3 +244,56 @@ describe('the boss health bar is readable from the moment it appears', () => {
     expect(Math.min(...bar.map((c) => c.args[0]))).toBeGreaterThan(400);
   });
 });
+
+/**
+ * A boss stays inside the lane it is walking in.
+ *
+ * Sprites are centred on their row, so extra height hangs equally above and below
+ * the lane. The Titan is authored 180x128 in an 80px lane - it overhung by 24px a
+ * side before any boss scaling, and by 50px after, which reads as a unit standing
+ * beside its lane rather than in it. The owner's words were "the titan is
+ * misplaced", and it was not misplaced: it was too tall for where it correctly was.
+ */
+describe('boss scaling respects the lane', () => {
+  const LANE = 80;
+
+  /** What GameEngine.spawnEnemy does to a boss's box, in isolation. */
+  function scaled({ width, height }, scale = 1.4, maxLanes = 2) {
+    return {
+      width: Math.round(width * scale),
+      height: Math.round(Math.max(height, Math.min(height * scale, LANE * maxLanes))),
+    };
+  }
+
+  it('caps a tall boss at twice its lane', () => {
+    // Titan: 128 * 1.4 = 179, which is 2.2 lanes.
+    const box = scaled({ width: 180, height: 128 });
+    expect(box.height).toBeLessThanOrEqual(LANE * 2);
+  });
+
+  it('never shrinks a boss below the size it is normally drawn at', () => {
+    // The cap must not make a boss Titan smaller than an ordinary one.
+    const box = scaled({ width: 180, height: 128 });
+    expect(box.height).toBeGreaterThanOrEqual(128);
+  });
+
+  it('still enlarges an ordinary-sized enemy, where the cap does not bite', () => {
+    // A 64px enemy scales to 90, well inside two lanes - the signal survives for
+    // every enemy the cap was not written for.
+    const box = scaled({ width: 64, height: 64 });
+    expect(box.height).toBe(90);
+  });
+
+  it('leaves width uncapped, because lanes stack vertically', () => {
+    // A wide boss overlaps nothing; a tall one overlaps its neighbours.
+    const box = scaled({ width: 180, height: 128 });
+    expect(box.width).toBe(252);
+  });
+
+  it('halves the Titan overhang the boss work introduced', () => {
+    const box = scaled({ width: 180, height: 128 });
+    const overhang = (box.height - LANE) / 2;
+    // Was 50px a side at an uncapped 1.4x.
+    expect(overhang).toBeLessThanOrEqual(40);
+  });
+});

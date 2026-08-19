@@ -63,6 +63,15 @@ import { colors, decorative, ensureDisplayFontLoaded, withAlpha } from '../../st
  */
 const BOSS_SCALE = 1.4;
 
+/**
+ * The tallest a boss may be drawn, as a multiple of its lane's height.
+ *
+ * Sprites are centred on their row, so height above this just hangs into the lanes
+ * either side. Two lanes' worth is enough to read as "much bigger" while keeping
+ * the unit recognisably inside the row it occupies.
+ */
+const BOSS_MAX_LANE_HEIGHT = 2;
+
 export class GameEngine {
   constructor(
     updateEnergyCb,
@@ -388,8 +397,25 @@ export class GameEngine {
        * centre line. It scales the hitbox with the sprite too, which is correct -
        * a boss that looks bigger should be easier to hit, not deceptively narrow.
        */
-      enemy.width  = Math.round(enemy.width  * BOSS_SCALE);
-      enemy.height = Math.round(enemy.height * BOSS_SCALE);
+      enemy.width = Math.round(enemy.width * BOSS_SCALE);
+
+      /*
+       * Height is capped against the lane; width is not.
+       *
+       * A sprite is centred on its row, so extra height hangs equally above and
+       * below the lane it is walking in - and the Titan is authored 180x128 in an
+       * 80px lane, so it overhung by 24px each side before any boss scaling and by
+       * 50px after, which reads as a unit standing beside its lane rather than in
+       * it. Extra WIDTH costs nothing: lanes are stacked vertically, so a wide
+       * boss overlaps nothing.
+       *
+       * Never below the authored height, or a boss Titan would come out smaller
+       * than an ordinary one.
+       */
+      const laneHeight = this.gridManager?.gridSize ?? enemy.height;
+      enemy.height = Math.round(
+        Math.max(enemy.height, Math.min(enemy.height * BOSS_SCALE, laneHeight * BOSS_MAX_LANE_HEIGHT)),
+      );
     }
 
     // Center the sprite vertically on the row so tall zombies (e.g. Titan)

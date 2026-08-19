@@ -786,8 +786,15 @@
     height: 120px;
   }
 
+  /* 78, not 70: at 70 with the 14px name below, "Shooter" wrapped to two lines
+     - "Shoote / r" - in the tray. The name is also dropped to 10px, because the
+     longest defender names need both. */
   .card-slot-wrapper .card-container {
-    width: 70px !important;
+    width: 78px !important;
+  }
+
+  .card-slot-wrapper .card-name {
+    font-size: 10px;
   }
 
   .deployment-indicator {
