@@ -150,13 +150,40 @@
  * board square-on and letterboxes the leftover, which is the honest trade: the
  * board is the same board everywhere, just smaller.
  */
+/*
+ * The frame owns the height left over after the bars; the canvas fits inside it.
+ *
+ * The canvas used to be a direct child of the column, where `max-height: 100%`
+ * resolves against the CONTAINER's height rather than the leftover - so at 1453px
+ * wide the 16:9 board computed 817px tall against 814px available and pushed the
+ * card tray off the bottom of the screen. `flex: 1 1 auto` with `min-height: 0` is
+ * what makes this box the leftover, and `min-height: 0` is the load-bearing half:
+ * without it a flex item refuses to shrink below its content.
+ */
+.game-canvas-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/*
+ * Sized by aspect ratio inside that frame, NOT `object-fit: contain`.
+ *
+ * `contain` would letterbox the bitmap inside a larger element box, and the click
+ * mapping measures `getBoundingClientRect()` - the ELEMENT box - so every deploy
+ * would be offset by however wide the letterbox bars were. Sizing the element to
+ * the bitmap's own ratio keeps the two boxes identical, which is what makes the
+ * scale factor in `toPlayfield` correct.
+ */
 .game-canvas {
   aspect-ratio: 16 / 9;
   max-width: 100%;
   max-height: 100%;
   width: auto;
   height: auto;
-  margin: auto;
   background: var(--colors-surface-base);
   display: block;
 }

@@ -466,7 +466,14 @@ export class Enemy {
    */
   drawBossHealthBar(ctx) {
     const pad = 8;
-    const barX = this.x - pad;
+    /*
+     * Clamped to the board's left edge. Enemies spawn off-board at x = -100 and
+     * walk in, so a boss's bar - and the name and numbers written above it - sat
+     * at a negative x for the first seconds of the fight and was cut off by the
+     * canvas: the label read "2500" where it should read "Titan P1 12500/12500".
+     * The bar slides in with the boss once it is fully on the board.
+     */
+    const barX = Math.max(2, this.x - pad);
     const barY = this.y - 16;
     const barW = this.width + pad * 2;
     const barH = 8;
