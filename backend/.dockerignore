@@ -1,0 +1,15 @@
+# Everything the build does not read. Without this the whole target/ directory -
+# including a 62MB jar - is uploaded to the daemon on every build.
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+.git/
+.gitignore
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# The image builds its own; a stale local copy must not be baked in.
+Dockerfile
+.dockerignore
