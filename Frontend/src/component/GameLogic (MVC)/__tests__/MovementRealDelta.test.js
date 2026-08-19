@@ -5,30 +5,7 @@ import { Enemy } from '../EnemyUnits.js';
 import { BasicDefender } from '../DefenderUnits.js';
 import { setFrameDeltaMs } from '../Animation/FrameTime.js';
 
-/**
- * Playtest report: "the attacks are not consistent... idk if i am lagging or what."
- *
- * The reporter was not lagging - the game was running fast. 0b7bc21 moved sprite
- * animation onto real elapsed time, and combat cooldowns were already there via
- * GameClock, but movement and a long tail of countdowns were still counted once
- * per rendered frame. The loop is uncapped requestAnimationFrame, so on a 120Hz
- * ProMotion display every enemy walked and every projectile flew at double its
- * intended speed while the firing cadence stayed correct.
- *
- * Two properties are under test here, and they pull in opposite directions:
- *
- *  1. IDENTITY AT 60fps. Every speed and countdown constant in this codebase was
- *     authored against a 60fps frame, so this is a bug fix and not a rebalance
- *     only if 60fps behaviour is reproduced exactly - not close, not within a
- *     tolerance, but to the last bit. These tests compare against a reference
- *     computed by the very repeated addition the frame-counted code performed,
- *     with toBe. They pass both before and after the conversion; that is the
- *     point of them.
- *
- *  2. REFRESH-RATE INDEPENDENCE. One real second of frames must advance the game
- *     by one real second of gameplay whether that second contained 120, 60 or 30
- *     of them.
- */
+/* Playtest report: "the attacks are not consistent... */
 
 /** The refresh rates worth caring about: ProMotion, standard, and a bad drop. */
 const FRAME_MS = {
@@ -39,13 +16,7 @@ const FRAME_MS = {
 
 const FRAME_MS_60HZ = 1000 / 60;
 
-/**
- * A GameEngine reduced to the frame loop and the systems that move things.
- *
- * update() and the update methods under test are the real prototype methods -
- * what is being tested is how they turn elapsed real time into displacement -
- * with the subsystems that have nothing to do with movement stubbed out.
- */
+/* A GameEngine reduced to the frame loop and the systems that move things. */
 function createFrameEngine(overrides = {}) {
   return {
     // State GameEngine.update() reads.
@@ -120,16 +91,9 @@ function createFrameDriver(engine, frameMs) {
       nowMs += frameMs;
       engine.update();
     },
-    /**
-     * Runs the loop's very first frame, which every measurement below excludes.
-     *
-     * A frame's length is measured against the previous frame, so the first one
-     * has nothing to measure against and covers zero time by definition - the
-     * same rule GameClock and sprite animation have followed since 0b7bc21.
-     * Nothing observable turns on it (it is one frame at game start and one on
-     * resume from pause), but it is not a whole frame of movement either, so
-     * measuring across it would compare a startup artifact rather than the
-     * conversion.
+    /*
+     * Runs the loop's very first frame, which every measurement below
+     * excludes.
      */
     warmUp() {
       driver.tick();
@@ -144,22 +108,7 @@ function createFrameDriver(engine, frameMs) {
   return driver;
 }
 
-/**
- * Runs one frame that covers exactly one sixtieth of a second.
- *
- * The identity property is about a frame that *measures* exactly 1000/60 ms:
- * frameScale() is then exactly 1, because x / x is 1 for any finite non-zero x,
- * and every `speed * frameScale()` is bit-for-bit `speed`. Driving this through
- * GameEngine.update()'s own performance.now() arithmetic would not test that -
- * a mocked clock advanced by repeated += 1000/60 accumulates rounding, so the
- * measured delta comes out an ulp off and the scale lands at 0.9999999999999998
- * instead of 1. That is a property of the fixture, not of the game.
- *
- * So the delta is published directly, the way AttackAnimation.test.js and
- * EnemyUnits.audioEvents.test.js already do, and the frame's real update methods
- * are called in GameEngine.update()'s own order. The refresh-rate independence
- * suite below drives the real update() end to end, where that ulp is irrelevant.
- */
+/* Runs one frame that covers exactly one sixtieth of a second. */
 function tickExactly60Hz(engine) {
   setFrameDeltaMs(FRAME_MS_60HZ);
   engine.gameClock.advance(FRAME_MS_60HZ);

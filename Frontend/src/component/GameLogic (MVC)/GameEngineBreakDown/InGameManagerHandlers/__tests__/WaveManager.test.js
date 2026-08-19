@@ -99,9 +99,10 @@ describe('WaveManager', () => {
     describe('shouldStartNextWave', () => {
         /*
          * Derived from PREP_TIME_MS, not restated. This pair named "1 second"
-         * because that was the value; a test that hardcodes a number the code owns
-         * fails on a deliberate change and says nothing about whether the change
-         * was right - which has happened five times in this project now.
+         * because that was the value; a test that hardcodes a number the code
+         * owns fails on a deliberate change and says nothing about whether the
+         * change was right - which has happened five times in this project
+         * now.
          */
         it('starts the first wave once the prep time has elapsed', () => {
             waveManager.lastWaveStartTime = 0;

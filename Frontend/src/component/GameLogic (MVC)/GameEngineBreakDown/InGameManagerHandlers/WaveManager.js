@@ -1,24 +1,8 @@
 // WaveManager.js - Enhanced Wave System
-/**
- * The floor on how often enemies may arrive, in milliseconds.
- *
- * 200ms is five a second, which is still frantic. The authored waves reach 40ms -
- * twenty-five a second - which no arrangement of defenders can answer.
- */
+/* The floor on how often enemies may arrive, in milliseconds. */
 const MIN_SPAWN_INTERVAL_MS = 200;
 
-/**
- * How long the player gets before the first wave, in milliseconds.
- *
- * It was 1000 - one second between the board appearing and the first enemy
- * spawning, which is not enough time to read a card, pick one and click a cell,
- * let alone plan. A lane-defence game's opening is meant to be a moment of
- * arrangement, and the player was starting every level already behind.
- *
- * Ten seconds. The walk itself is long - roughly 26 seconds at a Basic Zombie's
- * speed across the fixed 1280px playfield - so this is deliberately about the
- * chance to ARRANGE rather than about survival time.
- */
+/** How long the player gets to arrange defenders before the first wave. */
 export const PREP_TIME_MS = 10_000;
 
 export class WaveManager {
@@ -96,8 +80,6 @@ export class WaveManager {
     }
 
     shouldStartNextWave(now, enemyCount) {
-        // Before the first wave, the player gets time to look at their cards and
-        // put something down. See PREP_TIME_MS.
         if (this.currentWave === 0) return now - this.lastWaveStartTime >= PREP_TIME_MS;
         if (!this.isEndlessMode && this.currentWave >= this.config.waves) return false;
 
@@ -196,20 +178,7 @@ export class WaveManager {
         return 'Tank Zombie';
     }
 
-    /**
-     * How many enemies may be alive at once, and how fast they may arrive.
-     *
-     * `maxActiveEnemies` is authored for every level (1 at level 1 rising to 50 in
-     * endless) and, until now, was read by nothing at all - so nothing anywhere
-     * limited how many enemies could be on the board simultaneously.
-     *
-     * MIN_SPAWN_INTERVAL_MS is the other half. Twenty of the 138 authored waves
-     * ask for intervals below 200ms; level 18 descends to 60ms, level 19 floors at
-     * 60ms, and level 20 has a wave at 40ms - twenty-five enemies per second. That
-     * is not difficulty, it is a wall, and it is most of why the owner reported
-     * "it spawn so often". Clamping where the value is CONSUMED rather than editing
-     * twenty wave configs means a new config cannot reintroduce it.
-     */
+    /* How many enemies may be alive at once, and how fast they may arrive. */
     activeEnemyCap() {
         return this.config?.maxActiveEnemies ?? Infinity;
     }
@@ -225,11 +194,10 @@ export class WaveManager {
         if (now - this.lastSpawnTime < this.nextSpawnDelay) return;
 
         /*
-         * Back-pressure. Without this the spawn gate only ever asked "has enough
-         * time passed", so a level whose waves ask for a 40ms interval put
-         * twenty-five enemies a second on the board no matter how many were
-         * already there. Holding rather than dropping: the wave still owes its
-         * full enemyCount, it just delivers them as the board clears.
+         * Back-pressure. Without this the spawn gate only ever asked "has
+         * enough time passed", so a level whose waves ask for a 40ms interval
+         * put twenty-five enemies a second on the board no matter how many
+         * were already there.
          */
         if (this.activeEnemyCount() >= this.activeEnemyCap()) return;
 

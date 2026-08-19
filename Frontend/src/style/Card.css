@@ -34,47 +34,14 @@
   cursor: not-allowed;
 }
 
-/*
- * Picking the card up: press it down and in rather than only tinting it.
- *
- * :not(.disabled) - Card.jsx never wires an onClick handler for a disabled
- * card, so it shouldn't look pressable if it isn't.
- *
- * :not(.selected) - resolves a cascade tie deliberately rather than leaving
- * it to file/import order. `.card-container.selected` and this rule are
- * both two-class-selector-equivalent specificity, so whichever stylesheet
- * loads later would silently win whenever a selected card is pressed (the
- * same fragile mechanism behind the Task 3 bug where a contrast test
- * measured a rule the cascade actually discarded). Excluding `.selected`
- * here means there is no tie to resolve: a selected card keeps its lift and
- * glow when pressed, full stop, regardless of load order.
- *
- * The transition below is scoped to this rule alone (not the base rule)
- * so only the press itself is fast - entering :active uses this 60ms
- * transition; leaving it uses whatever rule the element lands back in
- * (the base rule's 0.3s, or .selected's, both untouched).
- */
+/* Picking the card up: press it down and in rather than only tinting it. */
 .card-container:active:not(.disabled):not(.selected) {
   transition: transform 60ms ease-out, box-shadow 60ms ease-out;
   transform: translateY(2px);
   box-shadow: var(--shadows-pressed);
 }
 
-/*
- * Recharge shown on the card itself rather than beside it. GameBoard.jsx
- * still also renders a `.cooldown-overlay` sibling with a numeric seconds
- * readout (GameBoard.css) - this overlay supplements rather than replaces
- * it, since removing that readout is a product call outside this task. The
- * angle comes from --sweep-angle, which Card.jsx sets per card from its
- * cooldownFraction prop (GameBoard.jsx computes it from cardCooldown /
- * getCooldownDuration); --sweep-angle defaults to 0deg (declared in
- * tokens.generated.css, and again as the local var() fallback) so a card
- * whose component never sets it - or sets a non-finite value - renders
- * fully ready rather than fully obscured. The gradient's opaque wedge spans
- * 0deg to --sweep-angle, so it *shrinks* (uncovering the card) as the
- * fraction counts down toward ready, and covers the full card at 360deg
- * right after deployment.
- */
+/* Recharge shown on the card itself rather than beside it. */
 .cooldown-sweep {
   position: absolute;
   inset: 0;

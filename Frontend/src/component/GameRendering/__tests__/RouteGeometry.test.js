@@ -1,24 +1,4 @@
-/**
- * The route's geometry, asserted rather than assumed.
- *
- * The map shipped with a route folded back on itself: `mapSettings.mapWidth`
- * was 2200, inherited from a mockup holding 10 levels plus a portal, and the
- * real campaign has 20 plus a portal. Twenty-one nodes were fitted into a
- * width sized for eleven by running levels 1-12 left to right (x 200->1850)
- * and then levels 13-20 back right to left (x 1850->800), so every column from
- * 650 to 1850 held two levels - one from each leg. Levels 9 and 16 landed 20px
- * apart on a 58px node and rendered as one doubled circle with both names
- * printed over each other; the route crossed itself four times where the
- * return leg cut back over the outbound one.
- *
- * Every check below is arithmetic over the exported data, which is the only
- * part of "the path can be followed" that a test in this repo *can* reach:
- * jsdom has no layout engine and no rasteriser, so whether the map now reads
- * as a journey is the owner's judgement, not this file's. What this file does
- * prove is that the two structural defects behind it - two nodes in one
- * column, and connectors that cross - are absent, computed from the same
- * `levelsMapData`/`connectionsData` the component renders.
- */
+/* The route's geometry, asserted rather than assumed. */
 import { describe, it, expect } from 'vitest';
 import { levelsMapData, connectionsData, mapSettings } from '../MapLayout.jsx';
 
@@ -138,7 +118,7 @@ describe('the terrain is wide enough to hold the route it carries', () => {
   });
 });
 
-/**
+/*
  * Connector segments must not cross. Monotonic x makes a crossing
  * geometrically impossible, but "impossible" is what the folded route was
  * assumed to be too, so it is computed here: an exact segment-segment

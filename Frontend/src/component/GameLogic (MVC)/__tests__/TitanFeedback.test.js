@@ -8,22 +8,9 @@ import { FeedbackManager } from '../Feedback/FeedbackManager.js';
 import { resolveVoice } from '../Feedback/UnitVoices.js';
 import { mixGainFor } from '../Feedback/SoundGroups.js';
 
-/**
+/*
  * Playtest report: "there is no audio for the earthquake attack, no audio for
- * the phase change... when I place a defender close to titan, it instantly dies
- * without seeing the titan attack at all."
- *
- * Both halves of that are feedback, not balance. The Titan's two AoE abilities
- * work exactly as written - they are simply invisible and inaudible:
- *
- *   - performGroundPound charges for 500ms and then lands three expanding waves
- *     of 45 damage each. Nothing called setAnimation, so the Titan walked
- *     through its own earthquake, and nothing emitted, so it was silent.
- *   - createPhaseTransition disables and damages everything within 1500px at
- *     66% and 33% health, and was equally silent.
- *
- * The damage numbers are deliberately untouched here; they are the owner's
- * balance decision, reported in docs/superpowers/2026-08-15-titan-feedback-report.md.
+ * the phase change...
  */
 
 /** The Titan's own ground-pound schedule, read off performGroundPound. */
@@ -112,18 +99,11 @@ function damageToReach(titan, healthFraction) {
 }
 
 describe('the earthquake damages every live defender, whatever the array order', () => {
-  /**
-   * THE BUG. performGroundPound's damage loop opened with
-   *
-   *     for (const defender of this.gameEngine.defenders) {
-   *       if (!defender.isAlive) return;
-   *
-   * `return` inside a for...of leaves the whole METHOD, so the first corpse in
-   * the array ended the wave early and every defender behind it was spared.
-   * Which defenders survived therefore depended on where the dead ones happened
-   * to sit in the array - the sort of thing that reads as "sometimes it hits me
-   * and sometimes it doesn't". `continue` is what was meant, and it is what the
-   * identical loop in EMPEnemy.triggerEMP already uses.
+  /*
+   * THE BUG. performGroundPound's damage loop opened with for (const defender
+   * of this.gameEngine.defenders) { if (!defender.isAlive) return; `return`
+   * inside a for...of leaves the whole METHOD, so the first corpse in the
+   * array ended the wave early and every defender behind it was spared.
    */
   it('damages a live defender that sits behind a dead one in the array', () => {
     const engine = createEngine();
@@ -299,16 +279,7 @@ describe('the phase transition is audible', () => {
 });
 
 describe('the ground pound is visible before it lands', () => {
-  /**
-   * The owner watched a defender die "without seeing the titan attack at all".
-   * AssetManifest.enemies.Titan declares an 11-frame attack sheet at 5.5fps -
-   * 2000ms, exactly the Titan's attackRate 120 cadence - and nothing ever
-   * played it outside melee contact.
-   *
-   * The telegraph reuses the cadence-derived playback from 01801f4 rather than
-   * adding a second animation clock: beginAttackAnimation() restarts the sheet
-   * at frame 0 and sizes one full pass to min(authored, cadence).
-   */
+  /* The owner watched a defender die "without seeing the titan attack at all". */
   function createAnimatedTitan(engine) {
     return withManifestAnimations(createTitan(engine), 'enemies', 'Titan');
   }

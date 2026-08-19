@@ -1,10 +1,6 @@
-/**
+/*
  * A minimal looping chord bed. Deliberately simple: this is ambience so the
  * Music Volume slider controls something real, not a composed soundtrack.
- *
- * Uses lookahead scheduling - a coarse timer that schedules precise Web Audio
- * start times slightly ahead of the clock. setInterval alone is far too jittery
- * to drive audio directly.
  */
 
 /** Am - F - C - G, one chord per bar, as raw frequencies in Hz. */
@@ -42,12 +38,10 @@ export class MusicPlayer {
     this.tick();
   }
 
-  /**
-   * Stops scheduling new chords, but already-scheduled chords continue sounding
-   * for up to ~2.5 seconds (LOOKAHEAD_SECONDS + SECONDS_PER_CHORD) as their
-   * envelopes decay. This audible tail is intentional — it avoids clicks and
-   * provides a smooth fade-out. Callers expecting immediate silence on unmount
-   * should account for this duration.
+  /*
+   * Stops scheduling new chords, but already-scheduled chords continue
+   * sounding for up to ~2.5 seconds (LOOKAHEAD_SECONDS + SECONDS_PER_CHORD) as
+   * their envelopes decay.
    */
   stop() {
     if (this.timer !== null) {

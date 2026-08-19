@@ -33,12 +33,9 @@
 
 /*
  * Scoped to its own screen. `.close-button` was declared bare in four
- * stylesheets - AchievementPage, CollectionPage, SettingModal and UpgradeModal -
- * and every stylesheet in this app is bundled globally, so all four competed and
- * bundle order decided the winner. UpgradeModal's `position: absolute` was
- * winning everywhere, which is why the Settings dialog's X rendered in the
- * viewport's top-right corner instead of in its own header: absolute against the
- * nearest positioned ancestor, and the overlay is `position: fixed`.
+ * stylesheets - AchievementPage, CollectionPage, SettingModal and UpgradeModal
+ * - and every stylesheet in this app is bundled globally, so all four competed
+ * and bundle order decided the winner.
  */
 .achievement-page .close-button {
     background: none;
@@ -314,15 +311,7 @@
     background: var(--colors-accent-energy);
 }
 
-/*
- * Everything that is not the backdrop sits above it.
- *
- * A first pass lifted named children (`.settings-modal`, `.achievement-header`)
- * and the achievement LIST stayed underneath, so the page rendered as a header
- * over an empty hillside. Naming the children means any child added later, or any
- * child nobody remembered, paints under an opaque backdrop. This inverts it: the
- * backdrop is the only thing allowed to be at the bottom.
- */
+/* Everything that is not the backdrop sits above it. */
 .achievement-page > *:not(.game-backdrop) {
   position: relative;
   z-index: 1;

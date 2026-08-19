@@ -4,16 +4,10 @@ import * as DefenderModule from '../DefenderUnits.js';
 import { CombatManager } from '../GameEngineBreakDown/InGameManagerHandlers/CombatManager.js';
 import { setFrameDeltaMs } from '../Animation/FrameTime.js';
 
-/**
+/*
  * Task 3 (per-unit audio, fix wave): before this change, only BasicDefender
  * (via CombatManager, gated on useProjectile) and FrostArcher emitted
- * 'projectile:fired'. Sniper, Mortar, GrenadeDefender and HealerDefender each
- * perform their attack through a different path - immediate damage, a
- * locally-tracked shell, an immediate explosion, and a heal tick respectively
- * - and none of them emitted anything, so the spec's motivating example
- * (telling a Sniper from a Mortar) was impossible. These tests prove each
- * unit now emits its own event, carrying its own constructor name, at the
- * moment it actually acts.
+ * 'projectile:fired'.
  */
 const CARD = { level: 1, image: null };
 
@@ -26,12 +20,9 @@ function createTarget(overrides = {}) {
   };
 }
 
-/**
+/*
  * These tests drive unit.update() by hand, standing in for GameEngine's loop,
- * and count ticks. Movement and every countdown now advance by whatever real
- * time the engine says the frame covered (Animation/FrameTime.js), so the loop
- * is pinned to 60Hz here to give those tick counts the fixed meaning they
- * always assumed.
+ * and count ticks.
  */
 const FRAME_MS_60HZ = 1000 / 60;
 
@@ -100,12 +91,9 @@ describe('Mortar emits its own firing event', () => {
   });
 });
 
-/**
+/*
  * The other half of the Mortar's two sounds: it fired with a sound and landed
- * with nothing (createExplosion emitted no feedback event at all). The
- * landing must lead the shared 'hit' sound that follows it for every enemy
- * the splash catches (GameEngine.addDefenderExplosion's 'enemy:hit' emits),
- * so it is emitted BEFORE addDefenderExplosion is called, not after.
+ * with nothing (createExplosion emitted no feedback event at all).
  */
 describe('the Mortar\'s shell landing emits its own event', () => {
   function createMortarTarget() {
@@ -262,15 +250,10 @@ describe('HealerDefender emits its own firing event on a successful heal', () =>
   });
 });
 
-/**
+/*
  * Fix round 1: enemy:hit's `damage` field is not cosmetic - GameEngine feeds
  * it straight into juice.addDamageNumber(x, y, damage), the floating number
- * the player reads on screen. Sniper and FrostArcher both emitted
- * this.attackDamage there, ignoring the actual damage applied a couple of
- * lines above (crit multiplier for Sniper, PermaFrost bonus for FrostArcher).
- * These tests force the bonus path deterministically - no reliance on a
- * random crit roll - and assert the emitted damage matches what was really
- * dealt, not the unit's base stat.
+ * the player reads on screen.
  */
 describe('enemy:hit carries the real damage dealt, not the base stat', () => {
   it('Sniper emits the post-crit damage when a critical hit occurs', () => {
@@ -318,20 +301,7 @@ describe('enemy:hit carries the real damage dealt, not the base stat', () => {
   });
 });
 
-/**
- * Playtest fix, bug 1: the class list is DERIVED, not written out.
- *
- * The suite above names five defenders by hand. A hand-written list is exactly
- * how a silent unit survives: add an eleventh defender, forget to add it here,
- * and the gap is invisible. This block enumerates the module's own exports
- * instead, so any future ranged defender is covered the moment it is exported.
- *
- * It also drives the real CombatManager rather than calling attack() directly,
- * because "does the unit emit" and "does the path the game actually takes
- * reach the emit" are different questions - CombatManager's
- * `isRanged && useProjectile` branch is what made them different in the first
- * place, and only BasicDefender sets useProjectile.
- */
+/* Playtest fix, bug 1: the class list is DERIVED, not written out. */
 describe('every ranged defender the module exports emits when it fires', () => {
   /** Every concrete DefenderUnit subclass exported by DefenderUnits.js. */
   const exportedDefenderClasses = Object.entries(DefenderModule).filter(
@@ -366,11 +336,10 @@ describe('every ranged defender the module exports emits when it fires', () => {
     };
   }
 
-  /**
+  /*
    * Places a target at a distance every unit accepts: halfway between its
    * minimum range (Mortar refuses anything closer than minimumRange) and its
-   * maximum. Derived from the unit's own stats so it stays correct if a unit
-   * is rebalanced.
+   * maximum.
    */
   function targetInRangeOf(defender) {
     const distance = ((defender.minimumRange || 0) + defender.range) / 2;

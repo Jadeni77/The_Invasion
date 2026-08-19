@@ -6,13 +6,7 @@ const TRAUMA_DECAY_PER_SECOND = 1.5;
 const DAMAGE_NUMBER_LIFETIME_MS = 700;
 const DAMAGE_NUMBER_RISE_PIXELS = 40;
 
-/**
- * Owns all non-audio feedback: screen shake, hit-stop, damage numbers, flash.
- *
- * Shake uses a trauma model - displacement is proportional to trauma squared.
- * Squaring keeps small hits subtle and makes large ones violent; linear shake
- * reads as uniform mush.
- */
+/* Owns all non-audio feedback: screen shake, hit-stop, damage numbers, flash. */
 export class JuiceManager {
   constructor() {
     this.trauma = 0;
@@ -28,7 +22,7 @@ export class JuiceManager {
     if (showDamageNumbers !== undefined) this.damageNumbersEnabled = showDamageNumbers;
   }
 
-  /**
+  /*
    * Clears all transient feedback state. Without this, state persists across
    * levels: a loss always lands a frame after base:damaged, so trauma and the
    * red flash are frozen mid-decay when the loop stops, then replay over the

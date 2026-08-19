@@ -1,17 +1,6 @@
 import { colors, withAlpha } from '../../../../style/tokens.js';
 
-/**
- * The post-crop frame size of a defender sprite. AssetManifest.defenders
- * crops every animation frame down to 48x48 (see each entry's cropConfig),
- * uniformly across all 10 defender types and every animation (30 entries).
- *
- * Enemies deliberately have no equivalent constant here. Unlike defenders,
- * `sizeUnitToGrid` (GameEngine.js) is only ever called for defenders -
- * enemies are never resized to the grid's cell size, so an enemy's own
- * declared width/height (its gameplay footprint, fixed per type) is never
- * driven by `gridSize` and cannot overflow a cell it is never placed into.
- * Grid sizing only needs to satisfy the defender side.
- */
+/* The post-crop frame size of a defender sprite. */
 export const SPRITE_NATIVE_PX = 48;
 
 /**
@@ -51,11 +40,9 @@ export class GridManager {
         }
     }
 
-    /**
+    /*
      * The board is 9 columns wide at every level - only the row count grows
-     * with the level. A named accessor (mirroring getRowsForLevel) so the
-     * column count has one source of truth instead of a literal `9` repeated
-     * at every call site.
+     * with the level.
      */
     getColsForLevel() {
         return 9;
@@ -113,11 +100,10 @@ export class GridManager {
         }
     }
 
-    /**
-     * Return the specific grid cell from the given x and y coordinate
-     * @param x the x position of the wanted grid cell
-     * @param y the y position of the wanted grid cell
-     * @returns {*|null} if a grid cell is not found
+    /*
+     * Return the specific grid cell from the given x and y coordinate @param x
+     * the x position of the wanted grid cell @param y the y position of the
+     * wanted grid cell @returns {*|null} if a grid cell is not found
      */
     getGridCell(x, y) {
         if (x < this.gridOffsetX || y < this.gridOffsetY) return null;
@@ -281,11 +267,9 @@ export class GridManager {
         return -1;
     }
 
-    /**
-     * Get specific cell by row and column indices
-     * @param row Row index
-     * @param col Column index
-     * @returns {Object|null} Cell object or null if invalid
+    /*
+     * Get specific cell by row and column indices @param row Row index @param
+     * col Column index @returns {Object|null} Cell object or null if invalid
      */
     getCellByIndices(row, col) {
         if (row >= 0 && row < this.deploymentGrid.length &&

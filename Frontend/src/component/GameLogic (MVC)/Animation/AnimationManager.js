@@ -7,17 +7,7 @@ export class AnimationManager {
         this.frameCache = new Map(); // store extracted frames
     }
 
-    /**
-     * Load multiple sprite sheets for one unit type.
-     *
-     * `category` ('enemies' or 'defenders') disambiguates unit types that
-     * share a name across the two sides (e.g. the enemy "Healer" and the
-     * defender "Healer" are unrelated units with different sprite sheets).
-     * Without it, loading both into the same Map would let the second one
-     * loaded silently overwrite the first. This mirrors the
-     * `${category}_${unitType}` cache-key pattern AnimationSources already
-     * uses for the same reason.
-     */
+    /* Load multiple sprite sheets for one unit type. */
     async loadUnitAnimation(unitType, animationFiles, category) {
         const loadedAnimations = {};
 

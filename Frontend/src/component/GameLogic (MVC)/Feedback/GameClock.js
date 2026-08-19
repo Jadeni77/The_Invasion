@@ -1,17 +1,5 @@
-/**
- * Monotonic gameplay clock, advanced only while the game is actually running.
- *
- * Wave timing must not use Date.now(): update() is skipped while paused and
- * during hit-stop, so wall-clock time would keep running and produce a burst
- * of waves on resume.
- */
-/**
- * The longest a single frame is allowed to count for.
- *
- * Exported because animation has to clamp identically - see
- * Animation/FrameTime.js. Two clamping policies would mean a tab restored after
- * a minute away resumes its sprites and its cooldowns at different points.
- */
+/* Monotonic gameplay clock, advanced only while the game is actually running. */
+/* The longest a single frame is allowed to count for. */
 export const MAX_DELTA_MS = 1000;
 
 export class GameClock {

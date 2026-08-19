@@ -1,17 +1,4 @@
-/**
- * A boss has to be recognisable as one.
- *
- * The stat buff has always been there - `GameEngine.spawnEnemy` gives a boss
- * 2.5x health, 2x attack damage and 2x bounty - but `isBoss` reached nothing
- * except the wave-announcement banner. So a level-10 boss was a Vampire drawn at
- * exactly normal size, in normal colours, with a normal health bar, carrying two
- * and a half times the hidden health. Every multiplier worked and the fight still
- * read as an ordinary wave with a label on it.
- *
- * These tests pin the three signals that make it legible: it is bigger, it has a
- * boss health bar, and it has a ground marker. They do NOT judge how it looks -
- * jsdom has no rasteriser, so the canvas calls are recorded and counted, not seen.
- */
+/* A boss has to be recognisable as one. */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Enemy } from '../EnemyUnits.js';
 
@@ -19,14 +6,7 @@ import { Enemy } from '../EnemyUnits.js';
 function recordingCtx() {
   const calls = [];
   const track = (name) => (...args) => { calls.push({ name, args }); };
-  /*
-   * save()/restore() actually stack the state they claim to.
-   *
-   * A first version only RECORDED the calls, which made the leak test below
-   * meaningless: `restore()` did nothing, so textAlign stayed modified whether the
-   * code under test balanced its save/restore or not. A mock that cannot tell the
-   * fixed case from the broken one is not a test.
-   */
+  /* save()/restore() actually stack the state they claim to. */
   const stack = [];
   return {
     calls,
@@ -84,10 +64,10 @@ function enemyAt(overrides = {}) {
 const named = (ctx, name) => ctx.calls.filter((c) => c.name === name);
 
 /*
- * Health-bar rects specifically, not every rect on the canvas: with no animation
- * frames loaded the sprite falls back to drawing its own rectangle, so counting
- * all `fillRect` calls said "there is a health bar" about a plain undamaged enemy.
- * Bars sit ABOVE the sprite (negative offset from `y`); the fallback body does not.
+ * Health-bar rects specifically, not every rect on the canvas: with no
+ * animation frames loaded the sprite falls back to drawing its own rectangle,
+ * so counting all `fillRect` calls said "there is a health bar" about a plain
+ * undamaged enemy.
  */
 const barRects = (ctx, enemyY) =>
   named(ctx, 'fillRect').filter((c) => c.args[1] < enemyY);
@@ -158,16 +138,13 @@ describe('a boss is drawn as a boss', () => {
   });
 });
 
-/**
- * The Titan's phase readout.
- *
- * The phase was drawn two ways: as a `strokeRect` around the whole sprite,
- * coloured by phase, which read as a debug bounding box (the owner took it for an
- * attack-range overlay and wanted it gone, and scaling bosses up made it worse);
- * and as `P{n}` text at `y - 15`, which is exactly where the standard health bar
- * writes its value - so the phase and the health number were drawn over each other
- * for every Titan in the game. The boss bar made that collision obvious; it did
- * not create it.
+/*
+ * The Titan's phase readout. The phase was drawn two ways: as a `strokeRect`
+ * around the whole sprite, coloured by phase, which read as a debug bounding
+ * box (the owner took it for an attack-range overlay and wanted it gone, and
+ * scaling bosses up made it worse); and as `P{n}` text at `y - 15`, which is
+ * exactly where the standard health bar writes its value - so the phase and
+ * the health number were drawn over each other for every Titan in the game.
  */
 describe('the Titan phase readout', () => {
   it('draws no bounding box around the sprite', async () => {
@@ -220,13 +197,7 @@ describe('the Titan phase readout', () => {
   });
 });
 
-/**
- * The boss bar stays on the board while its owner walks onto it.
- *
- * Enemies spawn off-board at x = -100 and walk in, so a boss's bar sat at a
- * negative x for the first seconds of every fight and the canvas cut it off - the
- * label read "2500" where it should read "Titan P1 12500/12500".
- */
+/* The boss bar stays on the board while its owner walks onto it. */
 describe('the boss health bar is readable from the moment it appears', () => {
   it('does not draw the bar off the left edge of the board', () => {
     const ctx = recordingCtx();
@@ -262,15 +233,7 @@ describe('the boss health bar is readable from the moment it appears', () => {
   });
 });
 
-/**
- * A boss stays inside the lane it is walking in.
- *
- * Sprites are centred on their row, so extra height hangs equally above and below
- * the lane. The Titan is authored 180x128 in an 80px lane - it overhung by 24px a
- * side before any boss scaling, and by 50px after, which reads as a unit standing
- * beside its lane rather than in it. The owner's words were "the titan is
- * misplaced", and it was not misplaced: it was too tall for where it correctly was.
- */
+/* A boss stays inside the lane it is walking in. */
 describe('boss scaling respects the lane', () => {
   const LANE = 80;
 
@@ -315,17 +278,7 @@ describe('boss scaling respects the lane', () => {
   });
 });
 
-/**
- * The name label sits under the unit, and nothing leaks canvas state.
- *
- * The name was drawn at `this.x + 2` - the LEFT EDGE of the sprite's box - which
- * on a 252px-wide boss Titan put it a long way from the unit it labels. Worse,
- * TitanEnemy's phase readout set `textAlign = "center"` and never restored it, so
- * once any Titan had drawn, every later name in that frame and the Titan's own on
- * the next was centred on `x + 2` rather than left-aligned from it - shifting it
- * further left again. Canvas state is global; the owner saw the compound effect as
- * "the titan name is still placed to the left".
- */
+/* The name label sits under the unit, and nothing leaks canvas state. */
 describe('the unit name label', () => {
   it('is drawn under the middle of the sprite, not at its left edge', () => {
     const ctx = recordingCtx();

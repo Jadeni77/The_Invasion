@@ -11,12 +11,10 @@ import { relativeToSrc, stripComments, stylesheetFiles } from '../../test/source
 // composition avoids the rewrite (same fix as the other tests in this dir).
 const styleDir = join(dirname(fileURLToPath(import.meta.url)), '..') + '/';
 
-/**
+/*
  * Every stylesheet under `src/`, derived by walking the tree (see
  * src/test/sourceFiles.js) rather than by a non-recursive
- * `readdirSync(src/style)`. A stylesheet colocated with its component was
- * invisible to this guard as well as to the colour and font guards - all four
- * shared that one listing, which is why widening it is a change in one place.
+ * `readdirSync(src/style)`.
  */
 function stylesheets() {
   return stylesheetFiles().map(relativeToSrc);
@@ -33,14 +31,7 @@ const TOKEN_HEX = new Map(
     .map((m) => [m[1], m[2]]),
 );
 
-/**
- * A wash this app layers a translucent colour over. There is no single
- * correct answer to "what is actually behind a color-mix(..., transparent)
- * background" without rendering the page - it depends on where in the DOM
- * the element sits - but every screen in this game is built on the same
- * dark backdrop, so compositing against the root surface token is a
- * consistent, documented approximation rather than a guess per-element.
- */
+/* A wash this app layers a translucent colour over. */
 const ASSUMED_BACKDROP = TOKEN_HEX.get('--colors-surface-base');
 
 function hexToRgb(hex) {
@@ -77,13 +68,13 @@ function opaqueMix(hexA, pctA, hexB, pctB) {
   return '#' + out.map((c) => c.toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * Resolves a declaration's value to an opaque hex colour for contrast
- * maths, or null if the value isn't one of the shapes this codebase's
- * conversion produces (a plain token, or the two color-mix() shapes it
- * uses - see the shape inventory this was written against: every
- * color-mix() in the stylesheets is either `var(--X) P%, transparent` or
- * `var(--X) P%, var(--Y) Q%`).
+/*
+ * Resolves a declaration's value to an opaque hex colour for contrast maths,
+ * or null if the value isn't one of the shapes this codebase's conversion
+ * produces (a plain token, or the two color-mix() shapes it uses - see the
+ * shape inventory this was written against: every color-mix() in the
+ * stylesheets is either `var(--X) P%, transparent` or `var(--X) P%, var(--Y)
+ * Q%`).
  */
 function resolveColour(value) {
   const trimmed = value.trim();
@@ -140,14 +131,11 @@ function declaredValue(body, prop) {
   return m ? m[1].trim() : null;
 }
 
-/**
+/*
  * Some containers hold their readout in a differently-named sibling class
- * rather than a nested selector (`.score-container` holds `.score-label`,
- * not `.score-container .score-label` in the CSS text - the JSX puts them
- * side by side in the DOM), so selector-text analysis alone can't find the
- * pairing. These are the container/text pairs this review turned up (see
- * GameBoard.jsx); add to this list if a new one like it is introduced -
- * this test can't discover it on its own.
+ * rather than a nested selector (`.score-container` holds `.score-label`, not
+ * `.score-container .score-label` in the CSS text - the JSX puts them side by
+ * side in the DOM), so selector-text analysis alone can't find the pairing.
  */
 const KNOWN_PAIRS = [
   ['GameBoard.css', '.score-container', '.score-label'],
@@ -155,22 +143,7 @@ const KNOWN_PAIRS = [
   ['GameBoard.css', '.energy-container', '.energy-value'],
 ];
 
-/**
- * Every rule allowed to sit below its WCAG floor today, pinned by name.
- *
- * A `/* contrast-ok *‍/` comment is an escape hatch, and an unaudited escape
- * hatch is worse than none: it looks supervised. So the set is pinned here -
- * a rule that starts opting out without being added to this list fails the
- * test, and a rule that stops needing its opt-out fails it too (delete the
- * entry). Adding to this list is the deliberate act; the comment alone is
- * not enough.
- *
- * All 14 below are one systemic pattern: `text-primary` on a saturated
- * accent background - white text on a coloured button, an app-wide
- * convention that predates the token conversion. See task-3-report.md,
- * "The systemic finding the test surfaced", for the measured ratios and the
- * token-only fix that would clear all of them at once.
- */
+/* Every rule allowed to sit below its WCAG floor today, pinned by name. */
 const EXPECTED_OPT_OUTS = [
   'CardSelectionModal.css .selection-indicator',
   'CardSelectionModal.css .confirm-button',
@@ -197,27 +170,9 @@ function selectorNames(selector) {
   return selector.split(',').map((s) => s.trim());
 }
 
-/**
+/*
  * The winning declaration of `prop` for `selector`, resolved the way the
  * cascade resolves it.
- *
- * Every rule involved here is a single class selector, so all of them carry
- * the same specificity - a grouped rule (`.a, .b, .c { }`) and a
- * single-selector rule (`.b { }`) are equally specific, contrary to the
- * intuition that the more specific-looking one wins. With specificity tied,
- * the last declaration in file order wins, so this walks the whole file and
- * keeps the last rule that names `selector` *and* declares `prop`.
- *
- * Resolved per declaration rather than per rule, because a rule may set
- * `color` while a later rule naming the same selector sets only `background`:
- * the winner for each property has to be found separately, or one of them
- * gets read off a rule the cascade already overrode.
- *
- * (Rules nested in an `@media` block are included, since `rulesOf` flattens
- * them. In this stylesheet those only ever restate `padding`/`font-size` for
- * these selectors, never a colour, so flattening cannot change a colour
- * answer here; a future media-query colour override would need a
- * viewport-aware model this test does not have.)
  */
 function cascadingDeclaration(rules, selector, prop) {
   let winner = null;
@@ -360,42 +315,10 @@ describe('WCAG contrast ratio for token-derived colour pairs', () => {
   });
 });
 
-/**
+/*
  * C1 and C2 shared one root cause the block above cannot see: a rule that
  * declares `color` and no `background` of its own, painted over a surface a
- * *different* rule controls. `.level-number` inherits from whichever
- * `.level-node.<state>` rule matched its ancestor; `.level-name`/`.star` sit
- * outside the node's own box (pushed there by a negative `bottom`) and paint
- * over the zone terrain beside it instead. Neither pairing is written down
- * anywhere in the CSS as a `.parent .child` selector, so the descendant-pair
- * mechanism above - which matches CSS selector *text* - cannot find either
- * one. Full cascade/box-layout resolution is out of scope (see the module
- * docstring above and the fix report this guard shipped with); what follows
- * is deliberately the smallest thing that closes the specific hole C1/C2
- * exploited, scoped to Lobby.css, where it happened.
- *
- * The two backgrounds a Lobby.css child rule can actually be sitting on,
- * both derived from the stylesheet's own content rather than named by hand:
- *
- * - a "state family": a base selector combined with modifier classes
- *   (`.level-node.completed`/`.available`/`.locked`/`.boss` - discovered by
- *   the compound-selector *shape* `.base.modifier`, not by knowing
- *   "level-node" is a thing), for rules painted directly on their own
- *   container; or
- * - the zone terrain: every `.zone-<region>` ground rule, discovered by its
- *   own gradient shape (`linear-gradient(180deg, ...)`), for rules pushed
- *   outside their container's box.
- *
- * Which of the two applies to a given orphan rule is decided by one
- * mechanical, CSS-native signal: does the rule (or a pluralised wrapper of
- * the same name - `.star` inside `.stars`, the one convention this file
- * actually uses for "item inside its group") declare a *negative*
- * top/bottom/left/right? A negative inset is what pushes a child out of its
- * positioned ancestor's padding box and onto whatever is rendered behind it -
- * `.level-number` has none (it sits centred, in front of the node, via the
- * parent's `place-items: center`); `.level-name` has its own (`bottom:
- * -20px`); `.star` doesn't, but `.stars` - the wrapper every `.star` renders
- * inside - does (`bottom: -15px`).
+ * *different* rule controls.
  */
 describe('descendant text-colour rules whose background lives in a different rule (Lobby.css)', () => {
   const lobbyCss = readStylesheet('style/Lobby.css');

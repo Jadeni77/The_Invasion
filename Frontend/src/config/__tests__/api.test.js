@@ -1,15 +1,4 @@
-/**
- * The backend URL is configurable, and no source file names it inline.
- *
- * Twenty-one fetches hardcoded `http://localhost:8080`, spread across three source
- * files, with no `.env` and no `import.meta.env` reference anywhere in the project.
- * That is a build that works on the machine it was built on and fails on every
- * other one - all at once, at the first request.
- *
- * The scope test below derives its file list from the source tree rather than a
- * hand-written list, because seventeen guards in this project have been found not
- * to guard and every one of them failed on scope.
- */
+/* The backend URL is configurable, and no source file names it inline. */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, relative } from 'node:path';

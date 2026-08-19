@@ -1,11 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { GameEngine } from '../GameEngine.js';
 
-/**
+/*
  * emitEnemyDeathFeedback is tested in isolation, without constructing a full
- * GameEngine (which needs canvas/level-config wiring). Pulling the real
- * prototype methods onto a minimal object keeps this in sync with the actual
- * implementation instead of re-describing its logic.
+ * GameEngine (which needs canvas/level-config wiring).
  */
 function createFakeEngine() {
   return {
@@ -250,16 +248,10 @@ describe('adjacent deployment at small cell sizes', () => {
   });
 });
 
-/**
+/*
  * removeDefenderAt is tested the same way as collectEnergy above: the real
- * prototype method pulled onto a minimal fake with just the fields it
- * touches, so the assertions track the real implementation instead of
- * re-describing it.
- *
- * The hammer (GameBoard's shovel mode) had no sound at all. The fix is an
- * emitFeedback call in removeDefenderAt itself, gated on a defender actually
- * having been removed - a click on empty ground, or on a corpse, must stay
- * silent, or the sound stops meaning "you removed something."
+ * prototype method pulled onto a minimal fake with just the fields it touches,
+ * so the assertions track the real implementation instead of re-describing it.
  */
 function createFakeRemovalEngine(defenders, overrides = {}) {
   return {

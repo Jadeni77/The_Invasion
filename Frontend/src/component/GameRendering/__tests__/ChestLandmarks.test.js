@@ -1,30 +1,8 @@
-/**
- * Chests as landmarks, and the arithmetic that proves the cut lost nothing.
- *
- * `chestsData` held twenty on-route chests, one per level. The approved mockup
- * had three, placed as landmarks between nodes; one per level is wallpaper and
- * is much of why the map read as cluttered. Cutting to six is the easy half.
- * The half that goes wrong quietly is the rewards: nine of the twenty chests
- * carried a defender unlock and all twenty carried resources, so a careless cut
- * deletes real progression and nothing fails.
- *
- * The totals below are what the twenty chests granted, computed once from the
- * pre-cut data and pinned here. They are deliberately literal: deriving them
- * from `chestsData` would make this test agree with whatever the file happens
- * to say, which is precisely the property that would let a reward vanish
- * unnoticed.
- */
+/* Chests as landmarks, and the arithmetic that proves the cut lost nothing. */
 import { describe, it, expect } from 'vitest';
 import { chestsData, chestDefenders, connectionsData, levelsMapData, mapSettings, zoneAtX } from '../MapLayout.jsx';
 
-/**
- * What the twenty one-per-level chests granted in total.
- *
- * `all` is a shorthand the reward applier expands to its amount for each of
- * gold/iron/grain/water (see collectTreasure in GameContext), so it is tracked
- * as its own line rather than folded into the four - keeping it separate is
- * what makes a chest that swapped `all: 500` for `gold: 500` visible here.
- */
+/* What the twenty one-per-level chests granted in total. */
 const PRE_CUT_TOTALS = {
   gold: 3850,
   iron: 350,

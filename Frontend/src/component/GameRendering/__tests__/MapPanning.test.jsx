@@ -31,19 +31,8 @@ describe("overflow lives on the viewport, not the page", () => {
   });
 
   /*
-   * The vertical axis has the same reachability problem the horizontal one had,
-   * just at short window heights rather than always. `.game-map` is a fixed
-   * 600px (mapHeight, set inline) and this box gets what the column flex has
-   * left: roughly `100vh - 220px` once the page padding and gaps (40px), the top
-   * band (~128px) and the upgrade button in normal flow (~52px) are taken. So
-   * the terrain fits at about 820px of window height and not below it - and
-   * under `overflow-y: hidden` the shortfall was cut off and unreachable. At
-   * 730px that is the bottom 90px: level 8's node and label, and part of
-   * level 1's.
-   *
-   * jsdom lays out nothing, so the threshold itself is arithmetic in the rule's
-   * comment, not something asserted here. What is assertable is the declaration
-   * that decides whether the shortfall is reachable at all.
+   * The vertical axis has the same reachability problem the horizontal one
+   * had, just at short window heights rather than always.
    */
   it("does not clip the bottom of the terrain at short window heights", () => {
     const body = ruleBody(".game-map-container");
@@ -70,21 +59,7 @@ describe("overflow lives on the viewport, not the page", () => {
   });
 });
 
-/**
- * Drag is the primary way to pan; native scrolling stays underneath.
- *
- * The owner asked for dragging over scrolling "unless scrolling is good for all
- * users include phone and computer", and it is not: on a desktop with a mouse,
- * horizontal scrolling means shift+wheel or grabbing a scrollbar. Pointer
- * events cover mouse, touch and pen in one path. So drag leads, and scrolling
- * stays because it costs nothing and helps trackpad users - it just stops being
- * the visible affordance.
- *
- * The touch-action half of this is a source-text check and can only be one:
- * jsdom implements no native scrolling, so the double-speed pan it fixes cannot
- * be reproduced here. What jsdom *can* measure is the handler's own arithmetic,
- * which is the other contributor - see the 1:1 test below.
- */
+/* Drag is the primary way to pan; native scrolling stays underneath. */
 describe("the map is dragged, and the drag moves it 1:1", () => {
   it("gives BOTH axes to the drag handler, and nothing else", () => {
     // With `overflow` and no touch-action, a drag has two things moving the map:
@@ -188,7 +163,10 @@ let mockPlayerData;
 let mockStartLevel;
 let mockCollectTreasure;
 
-vi.mock("../../GameLogic (MVC)/GameContext", () => ({
+/* Partial mock via importOriginal, not a replacement object. */
+vi.mock('../../GameLogic (MVC)/GameContext', async (importOriginal) => ({
+  ...(await importOriginal()),
+
   useGame: () => ({
     gameState: "lobby",
     playerData: mockPlayerData,
@@ -205,30 +183,10 @@ vi.mock("../../GameLogic (MVC)/GameContext", () => ({
   }),
 }));
 
-/**
- * A drag must not fire a node's or a chest's click - the bug this
- * interaction always has, because a released drag still dispatches a real
- * `click` event on whatever is underneath the pointer.
- *
- * What this proves: Lobby.jsx's own JS-level state (`drag.current.moved`,
- * flipped by `onPointerMove` once movement passes a 5px threshold, read by
- * every node/chest's `onClick` before it acts) actually gates the real
- * handlers - opening CardSelectionModal for a node, and `collectTreasure`
- * (the real backend call) for a chest. Every assertion below is on that
- * application logic, exercised through a real
- * pointerdown/pointermove/pointerup/click sequence dispatched on a real
- * Lobby render.
- *
- * What this does NOT prove: that a real browser drag looks or feels right,
- * or that CSS (`cursor: grab`/`grabbing`, `.game-map`'s width exceeding its
- * container) produces actual visible overflow - jsdom has no layout engine,
- * so pixels, scrolling geometry and rendered appearance are outside what any
- * test here can check. It also does not rely on `pointer-events` CSS to
- * block the click: jsdom does not honour that property for synthetic
- * dispatch, so a mechanism that depended on it would pass here for the
- * wrong reason regardless of whether it worked in a browser. The guard
- * under test is plain JS state read inside the click handler, which is why
- * this is real coverage of the mechanism rather than a false positive.
+/*
+ * A drag must not fire a node's or a chest's click - the bug this interaction
+ * always has, because a released drag still dispatches a real `click` event on
+ * whatever is underneath the pointer.
  */
 describe("a drag never fires a node's or a chest's click", () => {
   beforeEach(() => {
@@ -310,11 +268,7 @@ describe("a drag never fires a node's or a chest's click", () => {
 
   /*
    * The pan distance itself, which is the half of the double-speed bug that is
-   * measurable here. jsdom has no native scrolling, so what this exercises is
-   * the handler in isolation: a pointer that travels N px must move the map
-   * exactly N px, not some multiple of it. With `touch-action: pinch-zoom` the
-   * handler is the only thing moving the map on EITHER axis, so this arithmetic
-   * is the whole of the gesture rather than one of two contributors.
+   * measurable here.
    */
   it("moves the map exactly as far as the pointer travelled", () => {
     const { container } = render(<Lobby />);
@@ -334,12 +288,8 @@ describe("a drag never fires a node's or a chest's click", () => {
 
 
   /*
-   * The vertical half, and diagonals.
-   *
-   * The handler moved only `scrollLeft`, which was enough while the terrain always
-   * fitted its frame vertically. It does not: the terrain is 720px tall against a
-   * frame of about 575px on a phone held upright and 250px held sideways, so there
-   * is real vertical range and dragging could not reach it.
+   * The vertical half, and diagonals. The handler moved only `scrollLeft`,
+   * which was enough while the terrain always fitted its frame vertically.
    */
   it("moves the map vertically by exactly what the pointer travelled", () => {
     const { container } = render(<Lobby />);
@@ -375,10 +325,9 @@ describe("a drag never fires a node's or a chest's click", () => {
 
   it("counts a straight-down drag as a drag, so it cannot launch a level", () => {
     /*
-     * The threshold measured only the horizontal component, so a purely vertical
-     * gesture never set `moved` and the click it ended on fired - launching
-     * whatever level the finger came to rest on. Guarding the axis that the same
-     * change introduced.
+     * The threshold measured only the horizontal component, so a purely
+     * vertical gesture never set `moved` and the click it ended on fired -
+     * launching whatever level the finger came to rest on.
      */
     const { container } = render(<Lobby />);
     const viewport = container.querySelector(".game-map-container");
@@ -434,17 +383,7 @@ describe("a drag never fires a node's or a chest's click", () => {
   });
 });
 
-/**
- * The opening-scroll effect used to key on `[playerData, mapZoom]` directly.
- * `playerData` is a fresh object reference on most GameContext updates -
- * including energy regenerating on a timer, one of 14 setPlayerData call
- * sites - so keying on the object re-ran the effect, and re-centred the
- * viewport on the next playable level, on every one of those updates: a
- * player panning the map would get snapped back to wherever the map opened
- * for reasons unrelated to level progress. The effect now keys on
- * `nextPlayableLevelId(playerData)` (a level id, or null) computed at
- * render time, so it only re-runs when that id actually changes.
- */
+/* The opening-scroll effect used to key on `[playerData, mapZoom]` directly. */
 describe("the opening-scroll effect keys on the next level, not the playerData reference", () => {
   beforeEach(() => {
     mockPlayerData = {

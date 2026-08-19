@@ -1,18 +1,6 @@
-/**
+/*
  * The player is told what a chest gave them, even when the server never hears
  * about it.
- *
- * `setChestReward` and the `treasure:collected` sound both used to sit inside
- * `collectTreasure`'s try block, AFTER `await fetch(collect-treasure)`. The
- * rewards themselves are applied to local state before that. So when the fetch
- * rejected - backend stopped, connection refused, offline - the catch logged the
- * error and swallowed the notification: the player received the resources and
- * the card, the chest was marked collected and could not be clicked again, and
- * nothing on screen or in the speakers said so. Reproduced in a real browser
- * with the backend down before this was written.
- *
- * Persistence may fail and be retried. Feedback for something that has already
- * happened locally is not conditional on the server agreeing.
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';

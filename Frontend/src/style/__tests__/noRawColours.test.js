@@ -15,13 +15,7 @@ const styleDir = join(dirname(fileURLToPath(import.meta.url)), '..') + '/';
 
 const NAMED_ALLOWED = new Set(['transparent', 'currentcolor', 'inherit', 'initial', 'unset', 'none']);
 
-/**
- * Every stylesheet under `src/`, not `readdirSync(src/style)`. The old listing
- * was non-recursive and directory-bound, so a stylesheet colocated with its
- * component (`component/GameRendering/ProbePanel.css`) was invisible to it -
- * the same seam as the `.jsx` one below, in the half that was widened second.
- * Paths are relative to `src/` so a colocated sheet reads as what it is.
- */
+/* Every stylesheet under `src/`, not `readdirSync(src/style)`. */
 function stylesheets() {
   return stylesheetFiles().map(relativeToSrc);
 }
@@ -124,18 +118,7 @@ describe('component source uses tokens, not raw colours', () => {
     return found;
   }
 
-  /**
-   * Named colours, but only where the string is being used *as* a colour.
-   *
-   * The canvas guard can match a named colour in any string position because
-   * game logic never uses a colour word as data. JSX does: Lobby renders
-   * `<ResourceIcon type="gold" />` for the gold resource, and there are
-   * "grain"/"water"/"gem" siblings that happen not to collide. Matching
-   * anywhere here would fail on `type="gold"`, and the natural response to a
-   * guard that cries wolf is to delete it - so this looks only at values
-   * assigned to a colour-valued CSS/JSX style property, plus any string
-   * containing a gradient function, where a bare colour word is unambiguous.
-   */
+  /* Named colours, but only where the string is being used *as* a colour. */
   const COLOUR_PROPERTY = String.raw`(?:background|backgroundColor|borderColor|border|borderTopColor|borderRightColor|borderBottomColor|borderLeftColor|color|fill|stroke|outline|outlineColor|boxShadow|textShadow|caretColor|columnRuleColor|textDecorationColor|glowColor)`;
 
   function namedColoursIn(src) {
@@ -162,17 +145,10 @@ describe('component source uses tokens, not raw colours', () => {
     return found;
   }
 
-  /**
+  /*
    * The login screen predates this spec, is named nowhere in it, and styles
    * itself entirely from a local inline-style object in a different idiom
-   * (dark blue-violet gradients, #4CAF50 buttons). Converting it would be an
-   * unreviewed redesign of a whole screen at the final gate, so it is pinned
-   * rather than exempted: the exact multiset of literals is asserted below,
-   * so adding one, changing one, or converting some-but-not-all fails.
-   *
-   * This is the same supervised-escape-hatch shape as contrastRatio.test.js's
-   * audited opt-out list, and deliberately not a `SKIP_FILES` set - a name in
-   * a skip list is invisible once written, which is how scope holes start.
+   * (dark blue-violet gradients, #4CAF50 buttons).
    */
   const PINNED = new Map([
     ['component/login/LoginPage.jsx', [
@@ -224,18 +200,11 @@ describe('numeric readouts keep their tabular figures', () => {
     expect(gameBoard).toContain('font-variant-numeric: tabular-nums');
   });
 
-  /**
+  /*
    * .energy-value, .score-value and .health-value are each named twice in
    * GameBoard.css: once as part of the shared `.energy-value,\n.score-value,
    * \n.health-value { font-variant-numeric: tabular-nums; ... }` selector
-   * group, and once as their own standalone rule carrying the reserved
-   * width. A naive `css.indexOf(selector)` finds the shared group first for
-   * every one of the three names (each is the group's last selector,
-   * immediately followed by ` {`, so it is textually indistinguishable from
-   * a standalone rule) and never reaches the width - it would report a
-   * missing width even when the CSS is untouched. Finding the rule whose
-   * selector list has exactly one entry is what actually locates the width
-   * declaration.
+   * group, and once as their own standalone rule carrying the reserved width.
    */
   function soleSelectorRule(css, selector) {
     for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {

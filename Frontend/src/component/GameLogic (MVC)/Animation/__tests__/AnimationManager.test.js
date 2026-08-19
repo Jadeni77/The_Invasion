@@ -2,20 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AnimationManager } from '../AnimationManager.js';
 import { AssetManifest } from '../../../../assets/AssetManifest.js';
 
-/**
+/*
  * Bug: the enemy Healer (EnemyUnits.js HealerEnemy) and the defender Healer
- * (DefenderUnits.js HealerDefender) share the literal unit-type name
- * "Healer". AnimationManager stored loaded animations in a single Map keyed
- * by that name alone, with no notion of enemy vs. defender, so loading both
- * overwrote one another - whichever loaded second won for both. In the real
- * game the defender's 3-4 frame sheets then got served up for the enemy
- * Healer too (whose AssetManifest attack sheet is 21 frames), so indices
- * past the shorter sheet rendered a blank rectangle - the reported bug.
- *
- * AnimationSources.js already solves this correctly with a
- * `${category}_${unitType}` cache key; this test drives AnimationManager
- * through the same category-aware calls to prove it resolves each side
- * independently.
+ * (DefenderUnits.js HealerDefender) share the literal unit-type name "Healer".
  */
 
 // jsdom does not implement image decoding or a real canvas 2d context, so
@@ -95,17 +84,9 @@ describe('AnimationManager category isolation (enemy vs. defender "Healer")', ()
   });
 });
 
-/**
+/*
  * Guard test: this class of bug is any unit-type name that appears in both
- * AssetManifest.enemies and AssetManifest.defenders. Today that is exactly
- * "Healer" (see EnemyUnits.js HealerEnemy / DefenderUnits.js HealerDefender),
- * but the list is computed from the manifest itself - never hand-written -
- * so it stays correct if names are added, removed, or renamed later. A
- * hand-written list is exactly how a similar bug slipped through earlier in
- * this project.
- *
- * Frame counts asserted below also come straight from each side's real
- * AssetManifest config, not from numbers typed into this file.
+ * AssetManifest.enemies and AssetManifest.defenders.
  */
 const sharedUnitTypeNames = Object.keys(AssetManifest.enemies).filter((name) =>
   Object.prototype.hasOwnProperty.call(AssetManifest.defenders, name),

@@ -77,12 +77,7 @@ function Card({ card, onClick, selected, disabled, cooldownFraction }) {
             </div>
         )}
 
-        {/* Recharge shown on the card itself. Painted last so it sits above
-            the static in-flow content above (absolute-positioned elements
-            paint after non-positioned siblings regardless of DOM order, but
-            keeping it last here keeps that intent readable). At the default/
-            ready angle (0deg) the conic-gradient is fully transparent, so
-            this is safe to always render, not just while on cooldown. */}
+        {/* Recharge shown on the card itself. */}
         <div className="cooldown-sweep" style={{ "--sweep-angle": sweepAngle }} />
       </div>
   );

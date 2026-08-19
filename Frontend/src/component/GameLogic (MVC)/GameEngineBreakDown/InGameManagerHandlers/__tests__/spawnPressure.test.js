@@ -1,20 +1,4 @@
-/**
- * The spawn gate has back-pressure, and a floor on how fast enemies arrive.
- *
- * Two authored values were being ignored in opposite directions:
- *
- * `maxActiveEnemies` is set for every level - 1 at level 1, rising to 50 in
- * endless - and was read by NOTHING. Nothing anywhere limited how many enemies
- * could be alive at once.
- *
- * The per-wave `spawnInterval` was honoured exactly as written, and twenty of the
- * 138 authored waves ask for under 200ms: level 18 descends to 60ms, level 19
- * floors at 60ms, and level 20 has a wave at **40ms** - twenty-five enemies per
- * second. No arrangement of defenders answers that.
- *
- * Together they are most of why the owner reported that the game "spawn so often"
- * and was "hard to defend".
- */
+/* The spawn gate has back-pressure, and a floor on how fast enemies arrive. */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { WaveManager } from '../WaveManager.js';
 

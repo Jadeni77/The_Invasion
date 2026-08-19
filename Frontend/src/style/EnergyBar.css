@@ -1,18 +1,7 @@
 /* Energy Bar Styles */
 /*
  * The energy block sits inside `.lobby-topband`, which draws the band's one
- * surface, so this block draws none of its own. It used to carry a background,
- * a 12px radius, a 2px border and a drop shadow *inside* the band's background,
- * radius, border and shadow - one of the three boxes in a box that made the
- * band read as the three stacked panels it replaced.
- *
- * `min-width: 0` and `flex: 1 1 auto` because the band is `nowrap` now: this is
- * the widest of the three blocks, so it is the one that has to be able to
- * compress rather than force a wrap. The progress bar inside is a percentage
- * width, so it narrows with the block instead of clipping.
- *
- * This component renders only in the lobby band (Lobby.jsx is its one caller),
- * so removing the panel does not strip chrome from some other screen.
+ * surface, so this block draws none of its own.
  */
 .energy-bar {
   flex: 1 1 auto;
@@ -128,4 +117,35 @@
   .energy-timer {
     font-size: 16px;
   }
+}
+/* Buying energy rather than waiting for it. */
+.energy-buy {
+  margin-top: var(--space-xs);
+  width: 100%;
+  padding: 3px var(--space-sm);
+  font-family: var(--type-display);
+  font-size: var(--type-size-sm);
+  letter-spacing: 0.04em;
+  color: var(--colors-edge-outline);
+  background: var(--colors-accent-energy);
+  border: var(--borders-thin) solid var(--colors-edge-outline);
+  border-radius: var(--radii-sm);
+  box-shadow: var(--shadows-drop);
+  cursor: pointer;
+  transition: transform 0.15s ease-out, filter 0.15s ease-out;
+}
+
+.energy-buy:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.energy-buy:disabled {
+  /* text-primary, not text-muted: muted on surface-raised measured 2.78:1 against
+     a 4.5:1 threshold. Disabled still has to be readable - it is telling the
+     player what they cannot afford yet. */
+  background: var(--colors-surface-raised);
+  color: var(--colors-text-primary);
+  box-shadow: none;
+  cursor: not-allowed;
 }

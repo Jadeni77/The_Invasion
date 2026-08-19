@@ -1,12 +1,6 @@
 /*
- * Global foundation.
- *
- * This file was empty, which meant the app ran on Chrome's defaults: `body`
- * kept its 8px margin and every box was `content-box`. The consequence was not
- * cosmetic - a child declaring `width: 100%` plus padding measured wider than
- * the viewport, so the document scrolled horizontally and the lobby's top bar
- * slid out of view to the left. The approved mockup opened with exactly these
- * two rules; only they never made it into the application.
+ * Global foundation. This file was empty, which meant the app ran on Chrome's
+ * defaults: `body` kept its 8px margin and every box was `content-box`.
  */
 
 *,

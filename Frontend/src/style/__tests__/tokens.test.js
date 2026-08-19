@@ -35,15 +35,9 @@ describe('design tokens', () => {
   });
 });
 
-/**
+/*
  * withAlpha and withFlicker carry 146 colour values between them across the
  * canvas drawing code (Task 4), and until now neither had a single test.
- * That gap was not hypothetical: withFlicker was missing its export entirely
- * for part of that work, and the 876 tests passing at the time did not
- * notice, because nothing exercised the draw call that would have thrown.
- * These tests exist so a broken helper fails here, in milliseconds, instead
- * of only when some particular explosion or particle effect happens to be
- * on screen during a test run.
  */
 describe('withAlpha', () => {
   it('decodes a 6-digit hex token into its RGB channels', () => {

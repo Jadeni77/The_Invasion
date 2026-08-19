@@ -53,23 +53,10 @@ import { GameClock } from "./Feedback/GameClock.js";
 import { getSettings } from "./Feedback/SettingsStore.js";
 import { colors, decorative, ensureDisplayFontLoaded, withAlpha } from '../../style/tokens.js';
 
-/**
- * How much larger a boss is drawn than the same enemy type spawned normally.
- *
- * 1.4 rather than something bolder: lanes are `gridSize` (60px) and enemy sprites
- * are already 32-128px tall, so the tall types overflow their lane before any
- * boss scaling. 40% is unmistakable next to its own minions without making the
- * overflow materially worse.
- */
+/* How much larger a boss is drawn than the same enemy type spawned normally. */
 const BOSS_SCALE = 1.4;
 
-/**
- * The tallest a boss may be drawn, as a multiple of its lane's height.
- *
- * Sprites are centred on their row, so height above this just hangs into the lanes
- * either side. Two lanes' worth is enough to read as "much bigger" while keeping
- * the unit recognisably inside the row it occupies.
- */
+/* The tallest a boss may be drawn, as a multiple of its lane's height. */
 const BOSS_MAX_LANE_HEIGHT = 2;
 
 export class GameEngine {
@@ -184,22 +171,20 @@ export class GameEngine {
     this.gameLevelConfigs.initLevelConfigs();
   }
 
-  /**
-   * Push the energy drop into its map
-   * @param x the x position of the current energy drop
-   * @param y the y position of the current energy drop
-   * @param amount the amount of this energy drop
+  /*
+   * Push the energy drop into its map @param x the x position of the current
+   * energy drop @param y the y position of the current energy drop @param
+   * amount the amount of this energy drop
    */
   dropEnergy(x, y, amount) {
     if (this.gameOver) return;
     this.energyDrops.push(new EnergyDrop(x, y, amount));
   }
 
-  /**
-   * Check if energy is collected and add it to the inGameEnergy,
-   * else return false
-   * @param x the x position of the current mouse
-   * @param y the y position of the current mouse
+  /*
+   * Check if energy is collected and add it to the inGameEnergy, else return
+   * false @param x the x position of the current mouse @param y the y position
+   * of the current mouse
    */
   collectEnergy(x, y) {
     for (let i = this.energyDrops.length - 1; i >= 0; i--) {
@@ -269,13 +254,7 @@ export class GameEngine {
     this.emitFeedback('wave:started', { number: waveNumber, isBoss });
   }
 
-  /**
-   * Initializes the game engine for a specific level.
-   * @param {HTMLCanvasElement} canvas - The canvas DOM element.
-   * @param {number} width - The width of the canvas.
-   * @param {number} height - The height of the canvas.
-   * @param {number} levelNumber - The number of the level to initialize.
-   */
+  /* Initializes the game engine for a specific level. */
   async initialize(canvas, width, height, levelNumber) {
     // CRITICAL: Stop any existing game loop FIRST
     this.stopLoop();
@@ -381,37 +360,10 @@ export class GameEngine {
       enemy.attackDamage = Math.floor(enemy.attackDamage * 2);
       enemy.bounty    = Math.floor(enemy.bounty    * 2);
 
-      /*
-       * And it has to LOOK like what it is.
-       *
-       * The four multipliers above have always been here, but `isBoss` reached
-       * nothing except the wave-announcement banner - so a level-10 boss was a
-       * Vampire drawn at exactly normal size, normal colour, with a normal health
-       * bar, carrying two and a half times the hidden health. The stats were real
-       * and invisible, which is why the fight read as an ordinary wave with a
-       * label on it.
-       *
-       * Scaling `width`/`height` is the cheapest strong signal and needs no draw
-       * code: every enemy draw path sizes its sprite from these two, and the row
-       * centring below runs afterwards, so a bigger boss still sits on its lane's
-       * centre line. It scales the hitbox with the sprite too, which is correct -
-       * a boss that looks bigger should be easier to hit, not deceptively narrow.
-       */
+      /* And it has to LOOK like what it is. */
       enemy.width = Math.round(enemy.width * BOSS_SCALE);
 
-      /*
-       * Height is capped against the lane; width is not.
-       *
-       * A sprite is centred on its row, so extra height hangs equally above and
-       * below the lane it is walking in - and the Titan is authored 180x128 in an
-       * 80px lane, so it overhung by 24px each side before any boss scaling and by
-       * 50px after, which reads as a unit standing beside its lane rather than in
-       * it. Extra WIDTH costs nothing: lanes are stacked vertically, so a wide
-       * boss overlaps nothing.
-       *
-       * Never below the authored height, or a boss Titan would come out smaller
-       * than an ordinary one.
-       */
+      /* Height is capped against the lane; width is not. */
       const laneHeight = this.gridManager?.gridSize ?? enemy.height;
       enemy.height = Math.round(
         Math.max(enemy.height, Math.min(enemy.height * BOSS_SCALE, laneHeight * BOSS_MAX_LANE_HEIGHT)),
@@ -513,14 +465,7 @@ export class GameEngine {
     console.trace();
   }
 
-  /**
-   * Sizes a unit to exactly one grid cell.
-   *
-   * Sprites declare a fixed 64px while the cell is computed from window size and
-   * ranges 40-80. At any cell under 64 a placed unit overhangs its neighbours,
-   * and isValidDeploymentPosition then refuses to place anything in an adjacent
-   * cell - so on an ordinary laptop window later levels could not be filled.
-   */
+  /* Sizes a unit to exactly one grid cell. */
   sizeUnitToGrid(unit) {
     const cellSize = this.gridManager?.gridSize;
     if (!cellSize) return unit;
@@ -530,13 +475,7 @@ export class GameEngine {
     return unit;
   }
 
-  /**
-   * Deploys a defender unit onto the game board.
-   * @param {object} cardData - The data of the card being deployed.
-   * @param {number} x - X coordinate for deployment.
-   * @param {number} y - Y coordinate for deployment.
-   * @returns {boolean} True if deployment was successful, false otherwise.
-   */
+  /* Deploys a defender unit onto the game board. */
   deployDefenderUnit(cardData, x, y) {
     if (this.gameOver) return false;
 
@@ -613,11 +552,11 @@ export class GameEngine {
     return true;
   }
 
-  /**
-   * Removes a defender at the specified coordinates
-   * @param {number} x - X coordinate where the click happened
-   * @param {number} y - Y coordinate where the click happened
-   * @returns {boolean} True if a defender was removed, false otherwise
+  /*
+   * Removes a defender at the specified coordinates @param {number} x - X
+   * coordinate where the click happened @param {number} y - Y coordinate where
+   * the click happened @returns {boolean} True if a defender was removed,
+   * false otherwise
    */
   removeDefenderAt(x, y) {
     if (this.gameOver) return;
@@ -687,14 +626,7 @@ export class GameEngine {
     }
   }
 
-  /**
-   * Checks if a given position is valid for deploying a defender.
-   * @param {number} x - X coordinate.
-   * @param {number} y - Y coordinate.
-   * @param {number} width - Width of the unit.
-   * @param {number} height - Height of the unit.
-   * @returns {boolean} True if valid, false otherwise.
-   */
+  /* Checks if a given position is valid for deploying a defender. */
   isValidDeploymentPosition(x, y, width, height) {
     // Check if within canvas bounds
     if (
@@ -733,13 +665,7 @@ export class GameEngine {
     return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
   }
 
-  /**
-   * Adds an explosion effect and applies damage in an area.
-   * @param {number} x - Center X of explosion.
-   * @param {number} y - Center Y of explosion.
-   * @param {number} damage - Damage dealt by explosion.
-   * @param {number} radius - Radius of explosion effect.
-   */
+  /* Adds an explosion effect and applies damage in an area. */
   addDefenderExplosion(x, y, damage, radius) {
     if (this.gameOver) return;
 
@@ -898,15 +824,7 @@ export class GameEngine {
     }
   }
 
-  /**
-   * Records a defender's death exactly once.
-   *
-   * Consumable spells end by firing, not by being destroyed, so they are not
-   * casualties: counting them made the perfect_defense achievement (zero
-   * defenders lost) unobtainable for anyone who cast one, and played a crumble
-   * death sound on a successful cast. They are still marked handled so the
-   * death sweep does not reprocess them every frame.
-   */
+  /* Records a defender's death exactly once. */
   markDefenderDead(defender) {
     if (defender.deathHandled) return;
     defender.deathHandled = true;

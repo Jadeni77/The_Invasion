@@ -1,24 +1,4 @@
-/**
- * The lobby survives a phone.
- *
- * Source-level guards, deliberately. jsdom has no layout engine, so it cannot see
- * that a band overflows its box - the measurements that found these came from
- * driving a real browser at 390x844 (scripts/visual-check.mjs).
- *
- * Two defects, both measured:
- *
- * 1. `Lobby.css` had NO media query at all. The top band's content measured 702px
- *    inside a 366px box, so the player name sat on top of the energy readout, a
- *    menu button disappeared under a resource pill, and the overflow pushed the
- *    document to 717px in a 390px window - a horizontally scrolling page with the
- *    band sliding off it. The band's `flex-wrap: nowrap` is right on a desktop,
- *    where wrapping undid the compaction it exists for; at 390px nothing fits one
- *    row, so it has to wrap there instead of overflowing.
- *
- * 2. The opening scroll set only `scrollLeft`. On a phone the map frame is ~575px
- *    and the terrain is 720, and the route runs y 168-612 with level 1 at y 600 -
- *    so the player's first sight of the campaign was the empty upper third.
- */
+/* The lobby survives a phone. Source-level guards, deliberately. */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -28,15 +8,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const css = readFileSync(join(HERE, '..', '..', '..', 'style', 'Lobby.css'), 'utf8');
 const jsx = readFileSync(join(HERE, '..', 'Lobby.jsx'), 'utf8');
 
-/**
- * Every @media block's body, with its condition.
- *
- * Deliberately NOT keyed on a pixel value. A first version of this file asserted
- * against `max-width: 720px` and broke the moment measurement moved the breakpoint
- * to 900px - restating a number the stylesheet owns, which is the same mistake that
- * made four other tests in this project fail on correct changes. What matters is
- * that SOME narrow-viewport block does each of these things.
- */
+/* Every @media block's body, with its condition. */
 function mediaBlocks() {
   const blocks = [];
   const re = /@media([^{]*)\{/g;

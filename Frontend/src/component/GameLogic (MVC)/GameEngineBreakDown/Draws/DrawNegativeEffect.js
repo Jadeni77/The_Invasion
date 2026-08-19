@@ -216,16 +216,7 @@ export class DrawNegativeEffect {
         ctx.lineDashOffset = shockTime * 2;
         ctx.strokeRect(this.unit.x - 2, this.unit.y - 2, this.unit.width + 4, this.unit.height + 4);
 
-        /*
-         * 6. "DISABLED" text.
-         *
-         * Was gated on `width > 40`, so most defenders showed only a pulsing
-         * border - and a stunned defender in its idle animation looks exactly like
-         * an idle one. The owner read a board-wide Titan stun as the Shooter
-         * attacking inconsistently, which is what an unexplained stop looks like.
-         * The label is the explanation, so every size gets it; only its size
-         * scales.
-         */
+        /* 6. "DISABLED" text. */
         {
             ctx.fillStyle = withAlpha(colors.textPrimary, pulseAlpha);
             ctx.font = canvasFont(this.unit.width > 40 ? 10 : 8, "bold");

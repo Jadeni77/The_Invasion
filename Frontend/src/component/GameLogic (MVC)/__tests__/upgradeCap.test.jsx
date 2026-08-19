@@ -1,14 +1,7 @@
-/**
- * Defenders stop at MAX_DEFENDER_LEVEL.
- *
- * `startCardUpgrade` checked two things - can the player afford it, and do they
- * have the card pieces - and nothing else. There was no ceiling, so a Sniper could
- * be taken to level 100 and one-shot the campaign, with stats extrapolated far
- * past the ability tables that are supposed to define them.
- *
- * Five is not a number invented here: every defender's ability table in
- * DefenderClassUtils grants its last ability at level 5, and nothing in the
- * project describes a level 6.
+/*
+ * Defenders stop at MAX_DEFENDER_LEVEL. `startCardUpgrade` checked two things
+ * - can the player afford it, and do they have the card pieces - and nothing
+ * else.
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -41,8 +34,6 @@ function Probe() {
  * `cardId`, not `id`: fetchPlayerData maps the backend's `cardId` onto
  * playerData's `id`, so a fixture using `id` produces a card whose id is
  * undefined and `cards.find(c => c.id === 1)` quietly returns nothing.
- * `upgradeCost` is recomputed from name and level by the mapping, so it is not
- * worth stating here.
  */
 const cardAt = (level) => ({
   cardId: 1, name: 'Sniper', level, pieces: 999999, piecesNeeded: 1,

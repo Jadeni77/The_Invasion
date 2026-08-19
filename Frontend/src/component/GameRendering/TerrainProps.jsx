@@ -24,35 +24,13 @@ export const PROPS_BY_ZONE = {
 export const FOREGROUND_BAND_TOP = 22;
 export const PROP_ROWS = { near: 30, far: 52 };
 
-/**
+/*
  * Roughly how much horizontal ground one prop is meant to occupy, in map
  * pixels.
- *
- * The count used to be "one prop per kind this zone names" - two or three per
- * region, which was already thin on a 2200px map and is scenery-by-homeopathy
- * on the 4200px one: five regions, thirteen props, at 26px each. The spec's
- * second success criterion is "no dead space that neither route, terrain,
- * scenery nor framing occupies", so the count is derived from how much ground
- * there is to occupy instead of from how many kinds happen to be listed.
  */
 export const PROP_SPACING_PX = 150;
 
-/**
- * The props a region actually renders, positioned deterministically.
- *
- * Deterministic, not random: a prop that moves on every render is distracting,
- * and a random position is not something a test can pin. The caller passes the
- * region's own width (`zoneSpans` in MapLayout) rather than this module
- * importing the map - scenery should not need to know about level data to know
- * how much ground it has.
- *
- * Kind selection is deliberately decorrelated from the row. Cycling the kind
- * list straight through while alternating near/far row makes every near prop
- * the first kind and every far prop the second whenever a region names exactly
- * two, which is four of the five regions - two tidy rows of one tree each,
- * rather than scenery. The `floor(i / kinds.length)` term shifts the cycle so
- * both kinds appear in both rows.
- */
+/* The props a region actually renders, positioned deterministically. */
 export function propsForZone(zone, spanWidthPx = 0) {
   const kinds = PROPS_BY_ZONE[zone] ?? [];
   if (kinds.length === 0) return [];
@@ -80,12 +58,7 @@ export function propsForZone(zone, spanWidthPx = 0) {
 
 /*
  * Every shape below is drawn to read at the near row's 70px, not only at the
- * 26px these were first sized for. That distinction matters: at 26px a single
- * filled triangle is a convincing tree because it is barely more than a
- * gesture, and at 70px the same triangle is a flat triangle. Three shapes
- * gained a second element for exactly that reason (see each comment), which is
- * the "fix the geometry" half of enlarging them rather than just scaling up
- * something that was only ever legible because it was small.
+ * 26px these were first sized for.
  */
 const SHAPES = {
   // Two-tier pine over a trunk. The upper tier's base (y=5.5) sits below the

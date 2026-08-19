@@ -39,13 +39,6 @@ describe('top chrome is one band', () => {
    * The band wrapped into three stacked rows at the owner's window width,
    * which undid the compaction it exists for: it became the three stacked
    * blocks it replaced, with an extra border around them.
-   *
-   * jsdom has no layout engine, so nothing here can measure whether the band
-   * fits one line at any particular width - that is the owner's to confirm.
-   * What is checkable is the two declarations that decide it: the band must
-   * not be allowed to wrap, and each block must be allowed to shrink. A block
-   * that cannot shrink is what forces a wrap, so `nowrap` alone would just
-   * move the failure to overflow.
    */
   it('does not allow the band to wrap onto a second row', () => {
     expect(ruleBody('.lobby-topband')).toMatch(/flex-wrap\s*:\s*nowrap/);
@@ -63,13 +56,9 @@ describe('top chrome is one band', () => {
   });
 });
 
-/**
+/*
  * Each block kept its own panel chrome inside the band's chrome - borders,
- * gradients and shadows nested in borders, gradients and shadows. Three boxes
- * in a box, which is what the band read as.
- *
- * The band keeps its surface; the blocks give up theirs. Asserted on the
- * blocks' own rules, since that is where the nested panels were declared.
+ * gradients and shadows nested in borders, gradients and shadows.
  */
 describe('the band is one surface, not three boxes in a box', () => {
   it('still gives the band itself a surface to be', () => {
@@ -102,15 +91,9 @@ describe('the band is one surface, not three boxes in a box', () => {
   });
 });
 
-/**
+/*
  * `.upgrade-button` was `position: absolute; bottom: 20px; right: 20px`, so it
- * floated over the bottom-right of the map. Pre-existing rather than from the
- * map branch, but it looks like a bug and it covers terrain.
- *
- * It also leaked: UpgradeModal.jsx puts this same class on its per-card "Start
- * Upgrade" button and UpgradeModal.css declares no base rule for it, so those
- * buttons inherited the absolute positioning and were pinned to a corner
- * instead of sitting in their card.
+ * floated over the bottom-right of the map.
  */
 describe('the upgrade button sits in the page, not over the map', () => {
   it('is not absolutely positioned', () => {

@@ -1,12 +1,4 @@
-/**
- * Sound identity is by archetype, not by unit.
- *
- * A Shooter and a Skeleton firing a basic projectile carry no information that
- * distinguishing them would convey, so they share one sound. Grouping this way
- * cuts the sound set from 29 to 14, and that reduction is itself the fix for
- * incoherence: a small set can come from a single pack, while a large one
- * pushes toward mixing packs with different room tone and mastering.
- */
+/* Sound identity is by archetype, not by unit. */
 
 /** Units whose firing sound is their own, not their category's. */
 const FIRE_SIGNATURES = {
@@ -48,13 +40,7 @@ const DEFENDERS = new Set([
   'EnergyGenerator', 'Sniper', 'Mortar', 'FrostArcher', 'FireBlast', 'IceBomb',
 ]);
 
-/**
- * Every sound key soundKeyFor can return.
- *
- * Game events (deploy, energy, wave, win, lose) are NOT here - they play through
- * playSfx by their SfxLibrary id, not through unit resolution. They still get a
- * mix tier, keyed by that id; see MIX_TIERS.
- */
+/* Every sound key soundKeyFor can return. */
 export const SOUND_KEYS = [
   'projectile', 'artillery', 'magic', 'fire', 'heal', 'melee', 'summon', 'hit',
   'mortar', 'sniper', 'mortar-impact',
@@ -62,12 +48,7 @@ export const SOUND_KEYS = [
   'death-small', 'death-medium', 'death-defender', 'titan', 'boss',
 ];
 
-/**
- * Resolves a unit and variant to its sound key.
- *
- * Unknown units resolve to a sensible default rather than undefined, so a unit
- * added later is generic rather than silent.
- */
+/* Resolves a unit and variant to its sound key. */
 export function soundKeyFor(unitName, variant) {
   if (variant === 'hit') return 'hit';
 
@@ -120,20 +101,16 @@ const LOUD = 1.0;
 const MID = 0.7;
 const QUIET = 0.4;
 
-/**
- * Relative level per sound key.
- *
- * Projectiles and hits fire constantly, so they must sit under everything else -
- * without this the mix has no foreground and reads as noise however well the
- * individual sounds are chosen.
+/*
+ * Relative level per sound key. Projectiles and hits fire constantly, so they
+ * must sit under everything else - without this the mix has no foreground and
+ * reads as noise however well the individual sounds are chosen.
  */
 export const MIX_TIERS = {
-  /**
+  /*
    * Lobby rewards. MID, not LOUD: a chest is a good moment, not a board-wide
    * event, and the lobby is quiet - nothing else is competing with it, so it
-   * does not need the headroom a boss death does. The defender fanfare shares
-   * the tier rather than being louder; it earns its weight from being longer
-   * and higher, not from volume.
+   * does not need the headroom a boss death does.
    */
   treasureCollected: MID, defenderUnlocked: MID,
 
@@ -141,47 +118,23 @@ export const MIX_TIERS = {
   projectile: QUIET, hit: QUIET,
   artillery: MID, magic: MID, fire: MID, heal: MID, melee: MID, summon: MID,
   mortar: MID, sniper: MID,
-  /**
+  /*
    * The Mortar's shell landing sits beside its own firing sound in the MID
-   * tier, not with the Titan's abilities in LOUD. It is the payoff of an
-   * ordinary defender's attack - heavy, but not a board-wide event costing the
-   * player most of their defenders the way a ground pound or a phase change
-   * does, which is what LOUD is reserved for here. Gain (SAMPLE_VARIANTS.landing,
-   * UNIT_VOICES['mortar-impact']) is the lever for "heavy but not the loudest
-   * thing in the game", not the tier.
+   * tier, not with the Titan's abilities in LOUD.
    */
   'mortar-impact': MID,
   'death-small': MID, 'death-medium': MID, 'death-defender': MID,
   titan: LOUD, boss: LOUD,
-  /**
-   * The Titan's two AoE abilities, both LOUD.
-   *
-   * They belong beside baseDamaged and the boss death rather than in the mid
-   * tier with the ordinary attacks, and the argument is the same one: a tier is
-   * about how much the moment MATTERS, and these two moments cost the player
-   * most of the board. A ground pound is 135 damage inside 350px and a phase
-   * transition disables everything within 1500px for five seconds. Nothing else
-   * in the game does that.
-   *
-   * A third key, quake-charge, used to sit here at the same LOUD tier - the
-   * ground pound's 500ms wind-up warning. Dropped per the owner's ask ("can we
-   * only keep the earthquake sound without the initial beep?"); the wind-up is
-   * silent now, so only the impact and the phase change remain.
-   */
+  /* The Titan's two AoE abilities, both LOUD. */
   'quake-impact': LOUD, 'phase-change': LOUD,
 
   // Game-event sounds, keyed by their SfxLibrary id because they play through
   // playSfx rather than through unit resolution. The ids must match exactly or
   // the tier silently never applies.
   energyCollected: QUIET, defenderPlaced: QUIET, deployRejected: QUIET,
-  /**
+  /*
    * Removing a defender sits at MID, not beside defenderPlaced in the quiet
-   * tier. Placing happens constantly while setting up a board and has to stay
-   * out of the way; removing is a deliberate, consequential choice - giving up
-   * a unit already on the field - and the owner's ask was explicit that it
-   * should feel that way ("probably not the quiet tier"). MID puts it beside
-   * the other single-action sounds that matter without competing with
-   * baseDamaged or a Titan ability.
+   * tier.
    */
   defenderRemoved: MID,
   waveStarted: MID, bossWaveStarted: MID,

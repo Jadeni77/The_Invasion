@@ -1,26 +1,4 @@
-/**
- * The board fits the board, and it is the same board on every device.
- *
- * The playfield used to be sized in screen pixels - `canvas.width =
- * container.clientWidth` - so the game itself changed with the window. Two
- * consequences, both measured in a real browser before this was written:
- *
- * DEPLOYING WAS IMPOSSIBLE ON A PHONE. The grid is 9 columns that never shrink
- * below the 48px sprite they hold, so it needs 432px plus 140px of margins. On a
- * 390px canvas `initializeGrid` computed a NEGATIVE left offset of -11 and ran the
- * grid from -11 to 421 inside a 390px canvas: the first column off the left edge,
- * and - with `defenseLineX` at `width * 0.9` = 351 - the last two columns sitting
- * BEHIND the player's own base. Verified against the old code: a deploy click
- * placed nothing at 390x844 or 844x390, and did at 1470x956.
- *
- * AND IT WAS NOT FAIR. Enemies spawn at x = -100 and walk to `defenseLineX`, so a
- * lane was 1396px long on a 1470px laptop and 451px on a 390px phone - under a
- * third of the reaction time for the same wave. The owner spotted this from play:
- * "the enemy spawn in your face on phone".
- *
- * The fix is a fixed logical playfield scaled by CSS, so these tests assert the
- * invariants at that size rather than at whatever a window happens to be.
- */
+/* The board fits the board, and it is the same board on every device. */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

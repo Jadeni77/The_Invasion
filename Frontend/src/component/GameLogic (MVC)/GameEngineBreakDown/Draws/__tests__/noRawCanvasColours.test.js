@@ -13,23 +13,11 @@ import { dirname, join, relative } from 'node:path';
 const here = dirname(fileURLToPath(import.meta.url));
 const logicRoot = join(here, '..', '..', '..') + '/'; // GameLogic (MVC)/
 
-/**
- * A file is "in scope" if it draws or feeds a colour into a file that does:
- * it touches the canvas colour API directly (fillStyle, strokeStyle,
- * shadowColor, addColorStop), constructs an object with a color/innerColor/
- * particleColor property, or imports the token module.
- *
- * The import check exists because not every construction site matches the
- * keyword patterns: FeedbackManager.js hands a colour to triggerFlash() as a
- * bare function argument (`triggerFlash(colors.accentDanger, 250)`), which
- * has no `.fillStyle`, no `addColorStop(`, and no `color:` property key
- * anywhere in the file. It would silently fall out of a keyword-only
- * derivation. Importing tokens.js is the one thing every one of these files
- * does regardless of which shape its colour reference takes, and nothing in
- * this codebase imports tokens.js for a reason other than drawing or feeding
- * a drawn colour - a scan of every `.js` file under here at the time this
- * was written turned up exactly the ten files already known to need it, and
- * nothing else.
+/*
+ * A file is "in scope" if it draws or feeds a colour into a file that does: it
+ * touches the canvas colour API directly (fillStyle, strokeStyle, shadowColor,
+ * addColorStop), constructs an object with a color/innerColor/ particleColor
+ * property, or imports the token module.
  */
 const DRAW_SIGNAL = /\.(fillStyle|strokeStyle|shadowColor)\b|\baddColorStop\s*\(|\b(color|innerColor|particleColor)\s*:/;
 const TOKEN_IMPORT_SIGNAL = /from\s+['"][^'"]*\/style\/tokens\.js['"]/;
@@ -39,20 +27,9 @@ function stripComments(src) {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 }
 
-/**
+/*
  * Walks every `.js` file under GameLogic (MVC), skipping `__tests__`
- * directories - fixtures, not production drawing code. (A fake canvas
- * context's placeholder `fillStyle: '#000000'` in a test is not a colour
- * this game renders, and scanning it would fail the guard over a value
- * nobody is asking a player to look at.)
- *
- * This replaces a hand-named array of files, which was the actual defect: it
- * had no reason to include GridManager.js (not a Draws/ file), nor
- * EnergyDrop.js/CardPieceDrop.js (never in any task's file list at all), so
- * six literals in the grid-highlight colours and nine more in the drop
- * pickups went unconverted and unguarded simultaneously. Whether a file is
- * in scope is now a property of what the file contains, not of anyone's
- * memory of where drawing code lives.
+ * directories - fixtures, not production drawing code.
  */
 function walkJsFiles(dir, out) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -94,14 +71,7 @@ const CSS_NAMED_COLOURS = [
 ];
 const NAMED_COLOUR_RE = new RegExp(`\\b(${CSS_NAMED_COLOURS.join('|')})\\b`, 'i');
 
-/**
- * Pulls every quoted or templated string out of a JS source file. Comments
- * are stripped first - not as decoration, but because this codebase's
- * comments are full of possessive apostrophes ("the enemy's", "doesn't"),
- * and a naive single-quote scan over an unstripped file would read one of
- * those apostrophes as the start of a string literal and run until the next
- * one, silently swallowing real code in between.
- */
+/* Pulls every quoted or templated string out of a JS source file. */
 function stringLiteralsIn(src) {
   const withoutComments = stripComments(src);
   const literals = [];
@@ -111,12 +81,9 @@ function stringLiteralsIn(src) {
   return literals;
 }
 
-/**
- * A colour literal in *any* quoted string - not only one assigned straight
- * to `ctx.fillStyle`. This is what catches the object-property, ternary,
- * addColorStop and return-value forms in one guard instead of one regex per
- * shape, and is why the file list above matters more than the match logic:
- * a colour hiding in a file this test never reads is still invisible.
+/*
+ * A colour literal in *any* quoted string - not only one assigned straight to
+ * `ctx.fillStyle`.
  */
 function colourLiteralsIn(src) {
   const found = [];

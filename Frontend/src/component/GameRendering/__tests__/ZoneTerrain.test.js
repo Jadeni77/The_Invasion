@@ -1,20 +1,4 @@
-/**
- * The terrain's relationship to the route.
- *
- * This is the assertion nothing made, and its absence is why the map shipped
- * with the terrain escalating backwards. The ground was painted as five
- * equal-width bands in `zoneConfigs` key order; the route ran through the
- * zones in its own order; and with the route folded back on itself from level
- * 13, the two disagreed - the return leg walked right to left back through
- * regions the outbound leg had already climbed, so a level's ground had no
- * particular relationship to the level's own zone. Every layer was individually
- * correct. Nothing owned how they related.
- *
- * So the property under test is the relationship itself: for every level, the
- * region whose span contains that level's x must be the region the level says
- * it belongs to. Arithmetic over the exported data - what the ground actually
- * *looks* like is the owner's judgement, since jsdom has no rasteriser.
- */
+/* The terrain's relationship to the route. */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

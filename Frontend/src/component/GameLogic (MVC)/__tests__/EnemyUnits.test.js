@@ -5,12 +5,9 @@ import { DEFAULT_SETTINGS, saveSettings } from '../Feedback/SettingsStore.js';
 import { setFrameDeltaMs } from '../Animation/FrameTime.js';
 import { colors } from '../../../style/tokens.js';
 
-/**
+/*
  * These tests drive unit.update() by hand, standing in for GameEngine's loop,
- * and count ticks. Movement and every countdown now advance by whatever real
- * time the engine says the frame covered (Animation/FrameTime.js), so the loop
- * is pinned to 60Hz here to give those tick counts the fixed meaning they
- * always assumed.
+ * and count ticks.
  */
 const FRAME_MS_60HZ = 1000 / 60;
 
@@ -20,11 +17,12 @@ beforeEach(() => {
 
 const CARD = { level: 1, image: null };
 
-/**
+/*
  * A minimal fake 2D context, in the style of the fake used in
  * GameEngineBreakDown/__tests__/canvasState.test.js, extended to record the
  * fillStyle in effect at each fillRect call so we can tell the health-bar
- * rects (accentDanger/accentSuccess) apart from the unit's own fallback-body rect.
+ * rects (accentDanger/accentSuccess) apart from the unit's own fallback-body
+ * rect.
  */
 function createRecordingContext() {
   const calls = [];
@@ -96,15 +94,9 @@ describe('Enemy.draw health bar respects showHealthBars', () => {
   });
 });
 
-/**
+/*
  * Enemy targeting must ignore consumable spells (Fire Blast, Ice Bomb) so
- * enemies walk past them as though the cell were empty. This is enforced in
- * three independent places inside EnemyUnits.js:
- *  - the base Enemy.updateBehavior melee bounding-box search (Item 1)
- *  - Enemy.findClosestDefender, used by all ranged/special enemies (Item 2)
- *  - two subclasses that copy-paste their own target search instead of
- *    reusing the above: AssassinEnemy's critical-strike search and
- *    BombEnemy's self-destruct proximity check (Item 3)
+ * enemies walk past them as though the cell were empty.
  */
 describe('melee Enemy.updateBehavior ignores consumable spells (Item 1)', () => {
   function createMeleeEnemy() {
@@ -185,13 +177,9 @@ describe('Enemy.findClosestDefender ignores consumable spells (Item 2)', () => {
   });
 });
 
-/**
+/*
  * Note on isAttacking: RangeEnemy.updateBehavior used to set it on every frame
  * a defender was in range, which is what these tests originally asserted.
- * Task 4 moved that to the moment CombatManager actually fires the shot, so
- * "is it engaged?" is now read from isMoving here, and the attack-animation
- * behaviour lives in EnemyUnits.audioEvents.test.js. The spell-exclusion
- * question these tests exist to answer is unchanged.
  */
 describe('RangeEnemy.updateBehavior ignores consumable spells (Item 2, behavioural)', () => {
   function createRangedEnemy() {

@@ -3,13 +3,7 @@ import { SAMPLE_VARIANTS } from './UnitSamples.js';
 import { soundKeyFor, mixGainFor } from './SoundGroups.js';
 import { colors } from '../../../style/tokens.js';
 
-/**
- * Translates gameplay events into sound and juice.
- *
- * This is the single place that knows an enemy death should make a noise, and
- * the single place settings gate feedback. GameEngine emits semantic events and
- * knows nothing about audio.
- */
+/* Translates gameplay events into sound and juice. */
 export class FeedbackManager {
   constructor(bus, audioManager, juiceManager) {
     this.bus = bus;
@@ -53,13 +47,10 @@ export class FeedbackManager {
 
     on('projectile:fired', ({ defenderType }) => this.playUnitVoice(defenderType, 'fire'));
 
-    /**
+    /*
      * The Mortar's shell landing - additive, not a replacement for the shared
      * 'hit' sound that already plays for every enemy the splash catches (see
-     * GameEngine.addDefenderExplosion's 'enemy:hit' emits). DefenderUnits'
-     * createExplosion emits this BEFORE calling addDefenderExplosion, so this
-     * handler runs and this sound is scheduled first, and the hit sound(s)
-     * that follow are layered on top of it rather than replacing it.
+     * GameEngine.addDefenderExplosion's 'enemy:hit' emits).
      */
     on('defender:shellLanded', ({ defenderType }) => this.playUnitVoice(defenderType, 'landing'));
 
@@ -72,20 +63,9 @@ export class FeedbackManager {
     on('enemy:summon', ({ unitType }) => this.playUnitVoice(unitType, 'fire'));
     on('enemy:heal', ({ unitType }) => this.playUnitVoice(unitType, 'fire'));
 
-    /**
+    /*
      * The Titan's two AoE abilities, which were the loudest things in the game
      * and made no sound at all.
-     *
-     * The wind-up used to also route a separate 'enemy:groundPoundCharge'
-     * event to a rising synth tone 500ms before the impact - dropped per the
-     * owner's ask ("can we only keep the earthquake sound without the initial
-     * beep?"). EnemyUnits.performGroundPound no longer emits that event, so
-     * the wind-up is silent; the Titan's attack animation (unaffected by this
-     * change) is the only warning before damage lands.
-     *
-     * The shake is deliberately below base:damaged's 0.5 for the pound and
-     * level with it for the phase change, and both are gated by the screen
-     * shake setting like every other trauma call here.
      */
     on('enemy:groundPoundImpact', ({ unitType }) => {
       this.playUnitVoice(unitType, 'impact');

@@ -2,13 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { DrawUIs } from '../DrawUIs.js';
 import { GridManager } from '../../InGameManagerHandlers/GridManager.js';
 
-/**
- * A ctx that remembers which fillStyle was in force for each fillRect.
- * fakeCtx() below records fillStyle assignments and fillRect calls in two
- * unrelated lists, which is enough for geometry but says nothing about what
- * colour any given rectangle actually came out - and "what colour was this
- * rectangle" is precisely the question the base/grass regression turns on.
- */
+/* A ctx that remembers which fillStyle was in force for each fillRect. */
 function recordingCtx() {
   const rects = [];
   return {
@@ -74,17 +68,10 @@ function makeGameEngine(levelNumber) {
   };
 }
 
-/**
+/*
  * The base was painted in the grass token twice: Task 4's review caught it,
  * fix round 3 changed the body to a distinct token, and Task 6's rewrite of
- * the whole base block set it back to surfacePanel. Nothing failed either
- * time, because every existing test here asks about geometry.
- *
- * These tests read the colours drawBackground actually hands to fillRect and
- * compare the base's against the terrain it is drawn over, so they do not
- * depend on which token anyone picks - only on the two remaining
- * distinguishable. A rename, a re-tune of the palette, or another wholesale
- * rewrite of the block all stay green as long as the base is still visible.
+ * the whole base block set it back to surfacePanel.
  */
 describe('the base is distinguishable from the terrain it sits on', () => {
   // Not 4.5:1 or 3:1: this is a large filled shape against a background,

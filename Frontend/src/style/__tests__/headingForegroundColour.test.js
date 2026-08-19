@@ -2,77 +2,18 @@ import { describe, it, expect } from 'vitest';
 import { dirname, resolve } from 'node:path';
 import { sourceFiles, relativeToSrc, read } from '../../test/sourceFiles.js';
 
-/**
+/*
  * Closes a specific gap in contrastRatio.test.js: that guard only measures a
  * rule that declares *both* `color` and `background`, so an element with no
- * colour rule at all - not a bad pair, no pair - is invisible to it. That is
- * exactly how `<h2>Card Upgrades</h2>` (UpgradeModal.jsx) shipped with no
- * colour anywhere, rendering in the browser's UA-default near-black on a
- * dark panel: there was no pair for the contrast guard to reject, because
- * there was no rule.
- *
- * This module cannot just widen contrastRatio.test.js's own scan, because
- * the bug is an *absence* - a stylesheet scan alone can never notice a
- * heading that has zero rules written for it, since there is no rule to
- * find. Detecting "nothing was written for this element" requires knowing
- * the element exists at all, which means reading the JSX, not just the CSS.
- *
- * Scope, derived the way sourceFiles.js derives it - by what a file *is*,
- * not by a hand-picked list:
- *  - every `.jsx` file under `src/` (via `sourceFiles`), except a component
- *    that imports zero stylesheets. That is not scope narrowed by directory;
- *    it is a component that has opted out of the CSS layer entirely (inline
- *    `style={}`, as LoginPage.jsx does) and so has nothing for a *CSS*-rule
- *    guard to check - a different, real gap this module does not cover.
- *  - every heading tag (`h1`-`h6`) in each such file, found by scanning the
- *    JSX text itself, not by a list of known modal components.
- *
- * What "has a declared foreground colour" means here, and what it does not:
- *  - if the heading carries its own static `className`, that class's rule
- *    (anywhere in the file's imported stylesheets) must declare `color`.
- *  - otherwise, this walks the stack of `<div className="...">` ancestors
- *    enclosing the heading (nearest first) and accepts either `.ancestor` or
- *    `.ancestor TAG` declaring `color` - i.e. the heading's own rule, or
- *    inheriting from a container the way `.notification-content h3` (Lobby.css)
- *    actually does (colour lives on `.notification-content`, not on the `h3`
- *    rule, which only sets font metrics).
- *
- * What this does NOT cover, plainly:
- *  - only headings - not paragraphs, spans, buttons, labels or list items,
- *    all of which can go unstyled the same way. A broad "every text tag"
- *    version was rejected: most such tags legitimately rely on inheritance
- *    from an ancestor this module cannot see (fragments, non-div wrappers,
- *    multi-class attributes), and a naive per-tag check would have been
- *    false-positive noise, not a guard.
- *  - only a `<div className="literal">` ancestor chain. A non-div wrapper,
- *    a dynamic/templated className, or a selector combinator other than a
- *    single-space descendant (`>` , multiple classes) is invisible to the
- *    ancestor walk, the same documented limit contrastRatio.test.js's own
- *    descendant-pair matching carries.
- *  - "imports zero stylesheets" is judged from the JSX file's *own* import
- *    statements, not from Vite's bundled CSS graph. GameBoard.jsx never
- *    writes `import ".../GameBoard.css"` itself - a sibling it renders
- *    (Card.jsx) does, and Vite's bundler makes that stylesheet apply
- *    globally regardless of which module imported it - so this scan treats
- *    GameBoard.jsx as having no CSS layer and silently skips its four
- *    headings (verified by hand while building this: all four already
- *    declare a colour). A real fix needs a module import graph, not a
- *    single file's text; noted here rather than papered over.
- *  - no colour *value* is checked - only that one is declared. A declared
- *    colour that fails contrast is contrastRatio.test.js's job, not this
- *    one's; the two guards are deliberately non-overlapping.
+ * colour rule at all - not a bad pair, no pair - is invisible to it.
  */
 
 const JSX_FILES = sourceFiles({ extensions: ['.jsx'] });
 
-/**
+/*
  * From `start` (the `<` of an opening tag), returns the index just past the
  * tag's own closing `>` - skipping over `{...}` JS expressions and quoted
  * strings inside attributes, so a `>` used inside e.g.
- * `className={cond ? "a" : "b"}` cannot end the tag early. There is no
- * comparison operator in this codebase's attribute expressions that pairs
- * with an unmatched `{`, so unmatched-brace corruption is not a risk this
- * scan needs to guard against beyond what it already does.
  */
 function endOfOpeningTag(text, start) {
   let j = start;
@@ -187,32 +128,11 @@ function isCovered(rules, heading, ancestorStack) {
   return false;
 }
 
-/**
- * Pre-existing headings this branch's scan finds uncovered but does not fix
- * - pinned by name so a *new* uncovered heading fails the suite instead of
+/*
+ * Pre-existing headings this branch's scan finds uncovered but does not fix -
+ * pinned by name so a *new* uncovered heading fails the suite instead of
  * silently joining an ever-growing exemption list, the same discipline
  * contrastRatio.test.js's EXPECTED_OPT_OUTS applies to contrast opt-outs.
- *
- * Was: ['component/GameRendering/Lobby.jsx:304 <h2>'] - `.loading-screen`
- * (Lobby.jsx's "Loading Game Data..." state) still has no stylesheet rule of
- * its own, but this module's own rule parser (`rulesOf` above) does not strip
- * comments first, and its selector group `[^{}]+` happily swallows whatever
- * comment text precedes a rule along with the real selector. Two of
- * Lobby.css's three `.lobby-container` blocks were immediately preceded by a
- * comment (`/* Lobby Container *\/`, `/* Lobby.css - Enhanced... *\/`), so
- * their captured "selector" was the comment plus `.lobby-container` glued
- * together - a string that never equals `.lobby-container` - and only the
- * file's first block (the one with no preceding comment, and no `color`)
- * was ever found. (Not `@keyframes`, despite what an earlier version of this
- * comment claimed: stripping only comments from the pre-collapse file, with
- * every `@keyframes` block left untouched, was enough to make the parser
- * find all three blocks - verified directly against the pre-collapse
- * source, not inferred.) Collapsing those three into the one required by
- * lobbyCascade.test.js (task 1 of the lobby-campaign-map plan) removed the
- * other two, so the sole remaining `.lobby-container` - which does declare
- * `color: var(--colors-text-primary)` - is now the one this parser finds,
- * and the `<h2>` inherits from it via the ancestor walk. Confirmed by hand:
- * still true after the collapse, not a parser fluke.
  */
 const KNOWN_GAPS = [];
 
