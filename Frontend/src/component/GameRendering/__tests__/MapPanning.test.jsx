@@ -188,7 +188,19 @@ let mockPlayerData;
 let mockStartLevel;
 let mockCollectTreasure;
 
-vi.mock("../../GameLogic (MVC)/GameContext", () => ({
+/*
+ * Partial mock via importOriginal, not a replacement object.
+ *
+ * A mock that lists its exports silently drops every export it does not name, so
+ * the module gaining one breaks this file with "No export is defined on the mock"
+ * - thrown at import, nowhere near the cause. That has now happened twice: once
+ * when DefenderClassUtils gained MAX_DEFENDER_LEVEL, and again when GameContext
+ * gained ENERGY_PACK. Only `useGame` needs stubbing here; everything else should
+ * be whatever the real module exports.
+ */
+vi.mock('../../GameLogic (MVC)/GameContext', async (importOriginal) => ({
+  ...(await importOriginal()),
+
   useGame: () => ({
     gameState: "lobby",
     playerData: mockPlayerData,

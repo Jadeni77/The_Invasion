@@ -329,20 +329,34 @@ const GameBoard = () => {
     }
   };
 
-  //get the cooldown duration for a card type
+  /**
+   * How long a card is unavailable after being played.
+   *
+   * Roughly 200ms per point of energy cost, which is the curve the original four
+   * sit on. The default derives from cost so a defender added later and left out
+   * of the table still gets something proportionate.
+   */
+  const MS_PER_ENERGY = 200;
+  const MIN_COOLDOWN_MS = 5000;
+  const MAX_COOLDOWN_MS = 20000;
+
   const getCooldownDuration = (card) => {
     const cooldowns = {
       Shooter: 5000, //5 second
       Healer: 8000,
       Grenadier: 10000,
-      Barricade: 1000,
       "E-Gen": 5000,
-      Sniper: 1000,
-      "Frost Archer": 1000,
-      "Fire Blast": 1000,
-      "Ice Bomb": 1000,
+      Barricade: 6000,
+      Sniper: 16000,
+      "Frost Archer": 7000,
+      "Fire Blast": 10000,
+      "Ice Bomb": 8000,
+      Mortar: 19000,
     };
-    return cooldowns[card.name] || 5000; //default at 5 seconds
+    if (cooldowns[card.name]) return cooldowns[card.name];
+
+    const derived = (card.cost ?? 25) * MS_PER_ENERGY;
+    return Math.min(MAX_COOLDOWN_MS, Math.max(MIN_COOLDOWN_MS, derived));
   };
 
   const handleQuitClick = () => {

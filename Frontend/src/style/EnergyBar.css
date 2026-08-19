@@ -129,3 +129,40 @@
     font-size: 16px;
   }
 }
+/*
+ * Buying energy rather than waiting for it.
+ *
+ * Gold-on-dark, like every other primary action in the game, and deliberately
+ * quiet when it cannot be used: a disabled buy button that still shouts is a
+ * store front, and this is meant to read as an option rather than a demand.
+ */
+.energy-buy {
+  margin-top: var(--space-xs);
+  width: 100%;
+  padding: 3px var(--space-sm);
+  font-family: var(--type-display);
+  font-size: var(--type-size-sm);
+  letter-spacing: 0.04em;
+  color: var(--colors-edge-outline);
+  background: var(--colors-accent-energy);
+  border: var(--borders-thin) solid var(--colors-edge-outline);
+  border-radius: var(--radii-sm);
+  box-shadow: var(--shadows-drop);
+  cursor: pointer;
+  transition: transform 0.15s ease-out, filter 0.15s ease-out;
+}
+
+.energy-buy:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.energy-buy:disabled {
+  /* text-primary, not text-muted: muted on surface-raised measured 2.78:1 against
+     a 4.5:1 threshold. Disabled still has to be readable - it is telling the
+     player what they cannot afford yet. */
+  background: var(--colors-surface-raised);
+  color: var(--colors-text-primary);
+  box-shadow: none;
+  cursor: not-allowed;
+}

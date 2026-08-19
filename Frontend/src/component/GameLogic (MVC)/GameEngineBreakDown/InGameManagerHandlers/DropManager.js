@@ -17,16 +17,8 @@ export class DropManager {
     handleEnemyDeath(enemy) {
         if (!enemy.isSpawned) {
             if (Math.random() < this.energyDropChance) {
-                /*
-                 * 8, not 5.
-                 *
-                 * At a 35% drop chance, 5 energy per drop is 1.75 expected energy
-                 * per kill against a 20-energy defender - so a Shooter had to kill
-                 * eleven enemies to pay for itself, on a board where an Exploder
-                 * one-shots it. Eight brings that to seven kills, which still asks
-                 * the defender to earn its place without making losses
-                 * unrecoverable.
-                 */
+                // 8 at a 35% chance is ~2.8 per kill, so a 20-cost defender pays
+                // for itself in about seven kills.
                 this.gameEngine.dropEnergy(
                     enemy.x + enemy.width / 2,
                     enemy.y + enemy.height / 2,

@@ -21,7 +21,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 11,
             waves: 3,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 10000,
+            initialEnergy: 100,
             waveConfigurations: [
                 {
                     enemyCount: 1,

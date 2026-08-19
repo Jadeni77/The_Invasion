@@ -28,6 +28,14 @@ export const useGame = () => {
   return useContext(GameContext);
 };
 
+/**
+ * What one energy purchase costs and grants.
+ *
+ * Exported at module scope so a component that only displays the price does not
+ * need the provider mounted to render.
+ */
+export const ENERGY_PACK = { amount: 25, gold: 150 };
+
 export const GameProvider = ({ children }) => {
   const gameEngineRef = useRef(null); // Ref to hold the GameEngine instance
 
@@ -691,6 +699,55 @@ export const GameProvider = ({ children }) => {
   );
 
   // Game State management
+  /**
+   * Buying energy instead of waiting for it.
+   *
+   * Priced in gold, which is also what upgrades cost, so the trade is "play again
+   * now" against "be stronger next time".
+   */
+
+
+  const canBuyEnergy = () => {
+    if (!playerData?.resources) return false;
+    const { lobbyEnergy, maxLobbyEnergy, gold } = playerData.resources;
+    return gold >= ENERGY_PACK.gold && lobbyEnergy < maxLobbyEnergy;
+  };
+
+  const buyEnergy = useCallback(async () => {
+    if (!playerData?.resources) return false;
+    const { lobbyEnergy, maxLobbyEnergy, gold } = playerData.resources;
+
+    if (gold < ENERGY_PACK.gold) return false;
+    if (lobbyEnergy >= maxLobbyEnergy) return false;
+
+    // Capped, not overfilled - a player near the cap pays full price for what fits.
+    const granted = Math.min(ENERGY_PACK.amount, maxLobbyEnergy - lobbyEnergy);
+
+    setPlayerData((prev) => (!prev ? prev : {
+      ...prev,
+      resources: {
+        ...prev.resources,
+        gold: prev.resources.gold - ENERGY_PACK.gold,
+        lobbyEnergy: prev.resources.lobbyEnergy + granted,
+      },
+    }));
+
+    // Persisted after the local change: a failed request must not silently undo
+    // what the player already saw.
+    try {
+      await fetch(apiUrl(`/api/player/update-resources`), {
+        method: "POST",
+        headers: SessionManager.authHeaders(),
+        body: JSON.stringify({
+          resourcesChange: { gold: -ENERGY_PACK.gold, lobbyEnergy: granted },
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to persist an energy purchase:", error);
+    }
+    return true;
+  }, [playerData]);
+
   const startLevel = useCallback(
     async (levelId, selectedCards = null, _options = {}) => {
       if (!playerData) {
@@ -1057,6 +1114,9 @@ export const GameProvider = ({ children }) => {
     collectedCardPieces,
     chestReward,
     setChestReward,
+    buyEnergy,
+    canBuyEnergy,
+    energyPack: ENERGY_PACK,
     handleLogout,
     fetchPlayerData,
     feedback: feedbackRef.current,

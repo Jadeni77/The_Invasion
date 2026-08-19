@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import "../../style/EnergyBar.css";
+import { useGame, ENERGY_PACK } from "../GameLogic (MVC)/GameContext";
 
 const EnergyBar = ({ current, max, rechargeRate, lastRechargeTime }) => {
   const [timeToNextEnergy, setTimeToNextEnergy] = useState('Full');
@@ -33,6 +34,20 @@ const EnergyBar = ({ current, max, rechargeRate, lastRechargeTime }) => {
     
     return () => clearInterval(interval);
   }, [current, max, rechargeRate, lastRechargeTime]);
+
+  const { buyEnergy, canBuyEnergy } = useGame();
+  const [buying, setBuying] = useState(false);
+
+  const handleBuy = async () => {
+    if (buying) return;
+    setBuying(true);
+    await buyEnergy?.();
+    setBuying(false);
+  };
+
+  const full = current >= max;
+  const affordable = canBuyEnergy?.() ?? false;
+  const energyPack = ENERGY_PACK;
 
   return (
     <div className="energy-bar">
@@ -69,6 +84,23 @@ const EnergyBar = ({ current, max, rechargeRate, lastRechargeTime }) => {
       <div className="energy-rate">
         Recharge rate: 1 energy per {Math.round(60 / rechargeRate)} seconds
       </div>
+
+      {/* Always visible, so the price is known before the player is stuck. */}
+      <button
+        type="button"
+        className="energy-buy"
+        onClick={handleBuy}
+        disabled={full || !affordable || buying}
+        title={
+          full
+            ? "Energy is full"
+            : affordable
+              ? `Buy ${energyPack.amount} energy for ${energyPack.gold} gold`
+              : `Needs ${energyPack.gold} gold`
+        }
+      >
+        {full ? "Full" : `+${energyPack.amount} · ${energyPack.gold}g`}
+      </button>
     </div>
   );
 };

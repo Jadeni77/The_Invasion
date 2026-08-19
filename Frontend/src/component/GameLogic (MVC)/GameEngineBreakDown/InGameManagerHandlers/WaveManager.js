@@ -7,18 +7,7 @@
  */
 const MIN_SPAWN_INTERVAL_MS = 200;
 
-/**
- * How long the player gets before the first wave, in milliseconds.
- *
- * It was 1000 - one second between the board appearing and the first enemy
- * spawning, which is not enough time to read a card, pick one and click a cell,
- * let alone plan. A lane-defence game's opening is meant to be a moment of
- * arrangement, and the player was starting every level already behind.
- *
- * Ten seconds. The walk itself is long - roughly 26 seconds at a Basic Zombie's
- * speed across the fixed 1280px playfield - so this is deliberately about the
- * chance to ARRANGE rather than about survival time.
- */
+/** How long the player gets to arrange defenders before the first wave. */
 export const PREP_TIME_MS = 10_000;
 
 export class WaveManager {
@@ -96,8 +85,6 @@ export class WaveManager {
     }
 
     shouldStartNextWave(now, enemyCount) {
-        // Before the first wave, the player gets time to look at their cards and
-        // put something down. See PREP_TIME_MS.
         if (this.currentWave === 0) return now - this.lastWaveStartTime >= PREP_TIME_MS;
         if (!this.isEndlessMode && this.currentWave >= this.config.waves) return false;
 
