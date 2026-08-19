@@ -32,6 +32,14 @@ export const useGame = () => {
 /* What one energy purchase costs and grants. */
 export const ENERGY_PACK = { amount: 10, gold: 150 };
 
+/* What starting a level costs. Level 1 and endless are free. */
+export const LEVEL_ENERGY_COST = 8;
+
+/** The energy `levelId` costs to start. */
+export function energyCostOf(levelId) {
+  return levelId === 1 || levelId === 999 ? 0 : LEVEL_ENERGY_COST;
+}
+
 const getUpgradeCost = (cardName, level) => {
   const baseCosts = {
     Shooter: { gold: 100, iron: 5, water: 3 },
@@ -344,6 +352,73 @@ export const GameProvider = ({ children }) => {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * Pay out an endless run and record how far it got.
+   *
+   * Shared by dying and by quitting. It used to live only in onLoseCb, so a
+   * player who stopped a run voluntarily banked nothing while one who let the
+   * base fall banked everything - the game paid you to lose on purpose, and
+   * endless has no other ending.
+   */
+  const bankEndlessRun = useCallback(
+    async ({ endlessWave, enemiesKilled = 0, defendersDeployed = 0, energyCollected = 0 }) => {
+      const goldEarned = Math.floor(endlessWave * 25);
+      const ironEarned = Math.floor(endlessWave * 10);
+      const grainEarned = Math.floor(endlessWave * 10);
+      const waterEarned = Math.floor(endlessWave * 8);
+      const gemEarned = Math.floor(endlessWave / 10);
+
+      setPlayerData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          resources: {
+            ...prev.resources,
+            gold: prev.resources.gold + goldEarned,
+            iron: prev.resources.iron + ironEarned,
+            grain: prev.resources.grain + grainEarned,
+            water: prev.resources.water + waterEarned,
+            gem: prev.resources.gem + gemEarned,
+          },
+          endlessHighScore: Math.max(prev.endlessHighScore || 0, endlessWave),
+          endlessStats: {
+            ...prev.endlessStats,
+            totalWaves: (prev.endlessStats?.totalWaves || 0) + endlessWave,
+            totalRuns: (prev.endlessStats?.totalRuns || 0) + 1,
+          },
+        };
+      });
+
+      try {
+        await fetch(apiUrl(`/api/player/update-resources`), {
+          method: "POST",
+          headers: SessionManager.authHeaders(),
+          body: JSON.stringify({
+            resourcesChange: {
+              gold: goldEarned, iron: ironEarned, grain: grainEarned,
+              water: waterEarned, gem: gemEarned,
+            },
+          }),
+        });
+
+        await fetch(apiUrl(`/api/player/endless-score`), {
+          method: "POST",
+          headers: SessionManager.authHeaders(),
+          body: JSON.stringify({ waveReached: endlessWave }),
+        });
+
+        await fetch(apiUrl(`/api/player/update-stats`), {
+          method: "POST",
+          headers: SessionManager.authHeaders(),
+          body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
+        });
+      } catch (e) {
+        console.error("Failed to bank an endless run:", e);
+      }
+    },
+    [],
+  );
+
   //handle game loss logic
   const onLoseCb = useCallback(
     async ({ score, level, reason, endlessWave, enemiesKilled = 0, defendersDeployed = 0, energyCollected = 0 }) => {
@@ -354,72 +429,7 @@ export const GameProvider = ({ children }) => {
       );
 
       if (level === 999) {
-        const goldEarned = Math.floor(endlessWave * 25);
-        const ironEarned = Math.floor(endlessWave * 10);
-        const grainEarned = Math.floor(endlessWave * 10);
-        const waterEarned = Math.floor(endlessWave * 8);
-        const gemEarned = Math.floor(endlessWave / 10);
-
-        setPlayerData((prev) => {
-          if (!prev) return prev;
-
-          // Update endless high score
-          const newHighScore = Math.max(
-            prev.endlessHighScore || 0,
-            endlessWave,
-          );
-
-          // Calculate endless rewards based on waves survived
-          return {
-            ...prev,
-            resources: {
-              ...prev.resources,
-              gold: prev.resources.gold + goldEarned,
-              iron: prev.resources.iron + ironEarned,
-              grain: prev.resources.grain + grainEarned,
-              water: prev.resources.water + waterEarned,
-              gem: prev.resources.gem + gemEarned,
-            },
-            endlessHighScore: newHighScore,
-            endlessStats: {
-              ...prev.endlessStats,
-              totalWaves: (prev.endlessStats?.totalWaves || 0) + endlessWave,
-              totalRuns: (prev.endlessStats?.totalRuns || 0) + 1,
-            },
-          };
-        });
-
-        try {
-          await fetch(apiUrl(`/api/player/update-resources`), {
-            method: "POST",
-            headers: SessionManager.authHeaders(),
-            body: JSON.stringify({
-              resourcesChange: {
-                gold: goldEarned,
-                iron: ironEarned,
-                grain: grainEarned,
-                water: waterEarned,
-                gem: gemEarned,
-              },
-            }),
-          });
-
-          await fetch(apiUrl(`/api/player/endless-score`), {
-            method: "POST",
-            headers: SessionManager.authHeaders(),
-            body: JSON.stringify({
-              waveReached: endlessWave,
-            }),
-          });
-
-          await fetch(apiUrl(`/api/player/update-stats`), {
-            method: "POST",
-            headers: SessionManager.authHeaders(),
-            body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
-          });
-        } catch (e) {
-          console.error("Failed to save endless rewards:", e);
-        }
+        await bankEndlessRun({ endlessWave, enemiesKilled, defendersDeployed, energyCollected });
       } else {
         // Deduct resources on loss
         const goldPenalty = 50;
@@ -476,7 +486,7 @@ export const GameProvider = ({ children }) => {
         }
       }
     },
-    [], // Dependencies are handled by the state setters
+    [bankEndlessRun], // Everything else is handled by the state setters
   );
 
   //calculate star base on performance
@@ -836,7 +846,7 @@ export const GameProvider = ({ children }) => {
         setCurrentEndlessWave(0);
       }
 
-      const levelCost = levelId === 1 || levelId === 999 ? 0 : 8; // Level 1 is free
+      const levelCost = energyCostOf(levelId);
       const currentEnergy = playerData.resources.lobbyEnergy;
 
       if (currentEnergy < levelCost) {
@@ -895,7 +905,13 @@ export const GameProvider = ({ children }) => {
       }
 
       if (result === "quit") {
-        // Return to lobby with penalty (with cauze injury worker)
+        /* Endless has no ending but stopping, so quitting banks the run. The
+           campaign keeps its forfeit: the energy is spent and the level pays
+           nothing. */
+        if (selectedLevel === 999 && currentEndlessWave > 0) {
+          await bankEndlessRun({ endlessWave: currentEndlessWave });
+        }
+
         setGameState("lobby");
         setGameOver(false);
         setGameWon(false);
@@ -963,7 +979,8 @@ export const GameProvider = ({ children }) => {
       setCurrentEndlessWave(0);
       await savePlayerData(playerData);
     },
-    [playerData, savePlayerData, collectedCardPieces, fetchPlayerData],
+    [playerData, savePlayerData, collectedCardPieces, fetchPlayerData,
+     selectedLevel, currentEndlessWave, bankEndlessRun],
   );
 
   const deployDefender = useCallback(
@@ -1158,6 +1175,7 @@ export const GameProvider = ({ children }) => {
     currentEndlessWave,
     startLevel,
     endGame,
+    energyCostOf,
     deployDefender,
     removeDefender,
     getGameEngine,

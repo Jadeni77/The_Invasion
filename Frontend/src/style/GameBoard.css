@@ -647,7 +647,16 @@
   color: var(--colors-text-primary);
   font-size: 16px;
   line-height: 1.5;
+  margin-bottom: var(--space-md);
+}
+
+.quit-dialog p:last-of-type {
   margin-bottom: 30px;
+}
+
+/* The energy already spent, which is the part that cannot be undone. */
+.quit-dialog-cost {
+  color: var(--colors-text-muted);
 }
 
 .quit-dialog-buttons {
