@@ -1203,6 +1203,34 @@
   align-items: center;
 }
 
+/* Pieces toward a defender the player already has, the reward chests give now
+   that defenders come from winning levels. */
+.reward-pieces {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--space-sm) 0 0;
+  padding: var(--space-sm) 0 0;
+  list-style: none;
+  border-top: 1px solid var(--colors-surface-raised);
+}
+
+.reward-piece {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: space-between;
+  font-size: var(--type-size-sm);
+}
+
+.reward-piece-name {
+  color: var(--colors-text-primary);
+}
+
+.reward-piece-count {
+  font-family: var(--type-display);
+  color: var(--colors-accent-energy);
+}
+
 .reward-defenders {
   display: flex;
   flex-direction: column;

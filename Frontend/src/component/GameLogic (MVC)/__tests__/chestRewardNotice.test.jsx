@@ -6,7 +6,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act, waitFor } from '@testing-library/react';
 import { GameProvider, useGame } from '../GameContext.jsx';
-import { chestsData, chestDefenders, resourceRewardsOf } from '../../GameRendering/MapLayout.jsx';
+import { chestsData, chestCardPieces, resourceRewardsOf } from '../../GameRendering/MapLayout.jsx';
 import { apiUrl } from '../../../config/api.js';
 
 // Derived from the same helper the app calls, so a base-URL change cannot make
@@ -22,8 +22,11 @@ const ME_RESPONSE = {
   unlockedLevels: [1], completedLevels: [], collectedTreasures: [],
 };
 
-/** A chest that unlocks defenders, and one that does not, if the data has both. */
-const WITH_DEFENDERS = chestsData.find((c) => chestDefenders(c).length > 0);
+/** A chest carrying both halves of a reward: resources and card pieces. */
+const RICH_CHEST = chestsData.find(
+  (c) => Object.keys(chestCardPieces(c)).length > 0
+    && Object.keys(resourceRewardsOf(c)).length > 0,
+);
 
 let api;
 
@@ -51,9 +54,10 @@ afterEach(() => {
 });
 
 describe('a chest always reports what it gave', () => {
-  it('has a chest that unlocks a defender (guards against a vacuous run)', () => {
-    expect(WITH_DEFENDERS, 'no chest unlocks a defender').toBeDefined();
-    expect(chestDefenders(WITH_DEFENDERS).length).toBeGreaterThan(0);
+  it('has a chest carrying both halves (guards against a vacuous run)', () => {
+    expect(RICH_CHEST, 'no chest gives both resources and pieces').toBeDefined();
+    expect(Object.keys(chestCardPieces(RICH_CHEST)).length).toBeGreaterThan(0);
+    expect(Object.keys(resourceRewardsOf(RICH_CHEST)).length).toBeGreaterThan(0);
   });
 
   it('sets the reward notice even when the collect POST rejects', async () => {
@@ -62,15 +66,15 @@ describe('a chest always reports what it gave', () => {
     await waitFor(() => expect(api).not.toBeNull());
 
     await act(async () => {
-      await api.collectTreasure(WITH_DEFENDERS.id);
+      await api.collectTreasure(RICH_CHEST.id);
     });
 
     await waitFor(() => expect(api.chestReward).not.toBeNull());
-    expect(api.chestReward.chestId).toBe(WITH_DEFENDERS.id);
+    expect(api.chestReward.chestId).toBe(RICH_CHEST.id);
     // And it carries both halves: the resources are what the old notification
     // never mentioned, so a chest of pure gold announced nothing.
-    expect(api.chestReward.resources).toEqual(resourceRewardsOf(WITH_DEFENDERS));
-    expect(api.chestReward.defenders).toEqual(chestDefenders(WITH_DEFENDERS));
+    expect(api.chestReward.resources).toEqual(resourceRewardsOf(RICH_CHEST));
+    expect(api.chestReward.cardPieces).toEqual(chestCardPieces(RICH_CHEST));
   });
 
   it('carries every resource the player was actually credited with', async () => {
@@ -79,13 +83,13 @@ describe('a chest always reports what it gave', () => {
     await waitFor(() => expect(api).not.toBeNull());
 
     await act(async () => {
-      await api.collectTreasure(WITH_DEFENDERS.id);
+      await api.collectTreasure(RICH_CHEST.id);
     });
 
     await waitFor(() => expect(api.chestReward).not.toBeNull());
     // The notice reads from the same expansion the credit does, so `all` is
     // spread and the two can never disagree about the number shown.
-    const expected = resourceRewardsOf(WITH_DEFENDERS);
+    const expected = resourceRewardsOf(RICH_CHEST);
     expect(Object.keys(api.chestReward.resources).sort()).toEqual(Object.keys(expected).sort());
     for (const [resource, amount] of Object.entries(expected)) {
       expect(api.chestReward.resources[resource], resource).toBe(amount);
@@ -100,10 +104,28 @@ describe('a chest always reports what it gave', () => {
     await waitFor(() => expect(api).not.toBeNull());
 
     await act(async () => {
-      await api.collectTreasure(WITH_DEFENDERS.id);
+      await api.collectTreasure(RICH_CHEST.id);
     });
 
     await waitFor(() => expect(api.chestReward).not.toBeNull());
-    expect(api.chestReward.defenders).toEqual(chestDefenders(WITH_DEFENDERS));
+    expect(api.chestReward.cardPieces).toEqual(chestCardPieces(RICH_CHEST));
+  });
+
+  it('credits the pieces to the card they are for', async () => {
+    mockFetchWithDeadCollect();
+    render(<GameProvider><Probe /></GameProvider>);
+    await waitFor(() => expect(api.playerData?.cards).toBeTruthy());
+
+    const [cardName, amount] = Object.entries(chestCardPieces(RICH_CHEST))[0];
+    const before = api.playerData.cards.find((c) => c.name === cardName)?.pieces ?? 0;
+
+    await act(async () => {
+      await api.collectTreasure(RICH_CHEST.id);
+    });
+
+    await waitFor(() => {
+      const after = api.playerData.cards.find((c) => c.name === cardName)?.pieces ?? 0;
+      expect(after, `${cardName} pieces`).toBe(before + amount);
+    });
   });
 });

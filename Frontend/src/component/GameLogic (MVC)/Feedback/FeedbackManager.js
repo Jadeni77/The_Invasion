@@ -102,6 +102,12 @@ export class FeedbackManager {
       this.audio.playSfx(key, mixGainFor(key));
     });
 
+    /* Winning a level that grants a defender. The same fanfare a chest gets
+       for the same news - where the defender came from is not the point. */
+    on('defender:unlocked', () => {
+      this.audio.playSfx('defenderUnlocked', mixGainFor('defenderUnlocked'));
+    });
+
     on('energy:collected', () => this.audio.playSfx('energyCollected', mixGainFor('energyCollected')));
 
     on('deploy:rejected', () => this.audio.playSfx('deployRejected', mixGainFor('deployRejected')));
