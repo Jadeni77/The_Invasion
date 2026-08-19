@@ -1,0 +1,48 @@
+/* Sits above the lobby without covering it - this is a courtesy, not a demand. */
+.update-notice {
+  position: fixed;
+  top: var(--space-md);
+  left: 50%;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  transform: translateX(-50%);
+  background: var(--colors-surface-panel);
+  border: var(--borders-outline) solid var(--colors-edge-outline);
+  border-radius: var(--radii-md);
+  box-shadow: var(--shadows-drop);
+  font-family: var(--type-body);
+}
+
+.update-notice-text {
+  font-size: var(--type-size-sm);
+  color: var(--colors-text-primary);
+}
+
+/* Dark on gold, the pairing every primary action in the game uses. */
+.update-notice-button {
+  padding: var(--space-xs) var(--space-md);
+  font-family: var(--type-display);
+  font-size: var(--type-size-sm);
+  color: var(--colors-edge-outline);
+  background: var(--colors-accent-energy);
+  border: var(--borders-outline) solid var(--colors-edge-outline);
+  border-radius: var(--radii-sm);
+  cursor: pointer;
+  transition: filter 0.15s ease-out;
+}
+
+.update-notice-button:hover {
+  filter: brightness(1.08);
+}
+
+/* A phone in landscape has very little height; the notice must not eat the
+   top of the map. */
+@media (max-height: 500px) {
+  .update-notice {
+    top: var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
+  }
+}
