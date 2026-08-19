@@ -31,7 +31,7 @@
     margin: 0;
     font-family: var(--type-display);
     font-size: 2.5rem;
-    color: var(--colors-accent-danger);
+    color: var(--colors-accent-energy);
     text-shadow: 2px 2px 4px color-mix(in srgb, var(--colors-edge-outline) 50%, transparent);
 }
 
@@ -82,12 +82,10 @@
 }
 
 .collection-tab.active {
-    background-color: var(--colors-accent-danger);
-    border-color: var(--colors-accent-danger);
-    /* contrast-ok: 3.48:1, below 4.5:1 - see task-3-report.md, "Systemic
-       contrast opt-outs". */
-    color: var(--colors-text-primary);
-    box-shadow: 0 4px 15px color-mix(in srgb, var(--colors-accent-danger) 30%, transparent);
+    background-color: var(--colors-accent-energy);
+    border-color: var(--colors-edge-outline);
+    color: var(--colors-edge-outline);
+    box-shadow: 0 4px 15px color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
 }
 
 .collection-container {
@@ -99,7 +97,7 @@
 .section-title {
     text-align: center;
     font-family: var(--type-display);
-    color: var(--colors-accent-danger);
+    color: var(--colors-accent-energy);
     margin-bottom: 30px;
     font-size: 1.8rem;
     text-transform: uppercase;
@@ -128,7 +126,7 @@
 
 .collection-unit-card:hover {
     transform: translateY(-5px);
-    border-color: var(--colors-accent-info);
+    border-color: var(--colors-accent-energy);
     box-shadow: 0 10px 30px color-mix(in srgb, var(--colors-accent-info) 30%, transparent);
 }
 
@@ -190,7 +188,7 @@
     font-family: var(--type-display);
     font-size: 1.3rem;
     text-align: center;
-    color: var(--colors-accent-info);
+    color: var(--colors-accent-energy);
 }
 
 .enemy-card .collection-unit-name {
@@ -375,17 +373,15 @@
 .collection-page .back-button {
     margin: 20px auto;
     padding: 15px 40px;
-    background-color: var(--colors-accent-danger);
+    background-color: var(--colors-accent-energy);
     border: none;
     border-radius: 25px;
-    /* contrast-ok: 3.48:1, below 4.5:1 - see task-3-report.md, "Systemic
-       contrast opt-outs". */
-    color: var(--colors-text-primary);
+    color: var(--colors-edge-outline);
     font-size: 1.1rem;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.3s;
-    box-shadow: 0 4px 15px color-mix(in srgb, var(--colors-accent-danger) 30%, transparent);
+    box-shadow: 0 4px 15px color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
 }
 
 .collection-page .back-button:hover {
