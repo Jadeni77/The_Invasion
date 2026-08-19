@@ -19,9 +19,23 @@ import { Enemy } from '../EnemyUnits.js';
 function recordingCtx() {
   const calls = [];
   const track = (name) => (...args) => { calls.push({ name, args }); };
+  /*
+   * save()/restore() actually stack the state they claim to.
+   *
+   * A first version only RECORDED the calls, which made the leak test below
+   * meaningless: `restore()` did nothing, so textAlign stayed modified whether the
+   * code under test balanced its save/restore or not. A mock that cannot tell the
+   * fixed case from the broken one is not a test.
+   */
+  const stack = [];
   return {
     calls,
-    save: track('save'), restore: track('restore'),
+    save() { calls.push({ name: 'save', args: [] }); stack.push({ textAlign: this._textAlign }); },
+    restore() {
+      calls.push({ name: 'restore', args: [] });
+      const prev = stack.pop();
+      if (prev) this._textAlign = prev.textAlign;
+    },
     fillRect: track('fillRect'), fillText: track('fillText'),
     beginPath: track('beginPath'), fill: track('fill'),
     ellipse: track('ellipse'), arc: track('arc'),
@@ -32,6 +46,9 @@ function recordingCtx() {
     get font() { return ''; },
     set globalAlpha(v) { calls.push({ name: 'globalAlpha', args: [v] }); },
     get globalAlpha() { return 1; },
+    _textAlign: 'start',
+    set textAlign(v) { this._textAlign = v; calls.push({ name: 'textAlign', args: [v] }); },
+    get textAlign() { return this._textAlign; },
     set imageSmoothingEnabled(v) {}, set webkitImageSmoothingEnabled(v) {},
     set mozImageSmoothingEnabled(v) {}, set msImageSmoothingEnabled(v) {},
     set strokeStyle(v) {}, set lineWidth(v) {},
@@ -295,5 +312,55 @@ describe('boss scaling respects the lane', () => {
     const overhang = (box.height - LANE) / 2;
     // Was 50px a side at an uncapped 1.4x.
     expect(overhang).toBeLessThanOrEqual(40);
+  });
+});
+
+/**
+ * The name label sits under the unit, and nothing leaks canvas state.
+ *
+ * The name was drawn at `this.x + 2` - the LEFT EDGE of the sprite's box - which
+ * on a 252px-wide boss Titan put it a long way from the unit it labels. Worse,
+ * TitanEnemy's phase readout set `textAlign = "center"` and never restored it, so
+ * once any Titan had drawn, every later name in that frame and the Titan's own on
+ * the next was centred on `x + 2` rather than left-aligned from it - shifting it
+ * further left again. Canvas state is global; the owner saw the compound effect as
+ * "the titan name is still placed to the left".
+ */
+describe('the unit name label', () => {
+  it('is drawn under the middle of the sprite, not at its left edge', () => {
+    const ctx = recordingCtx();
+    const e = enemyAt({ x: 100, width: 252 });
+    e.draw(ctx);
+
+    const label = named(ctx, 'fillText').find((c) => c.args[0] === 'Vampire');
+    expect(label, 'no name drawn').toBeDefined();
+    expect(label.args[1], 'name should sit at the sprite centre').toBe(100 + 252 / 2);
+  });
+
+  it('states its own alignment rather than inheriting one', () => {
+    const ctx = recordingCtx();
+    ctx.textAlign = 'right';           // whatever drew last
+    enemyAt({ x: 100, width: 252 }).draw(ctx);
+
+    // The name must be centred regardless of what the previous draw left behind.
+    const aligns = named(ctx, 'textAlign').map((c) => c.args[0]);
+    expect(aligns).toContain('center');
+  });
+
+  it('leaves textAlign as it found it', async () => {
+    const { TitanEnemy } = await import('../EnemyUnits.js');
+    const ctx = recordingCtx();
+    ctx.textAlign = 'start';
+
+    const titan = new TitanEnemy(100, 100, null);
+    titan.isAlive = true;
+    titan.isBoss = false;
+    titan.animationFrames = null;
+    titan.drawNegativeEffect = { drawAllEffect: () => {} };
+    titan.draw(ctx);
+
+    // A Titan draws a phase readout in centre alignment; the next thing to draw
+    // must not inherit it.
+    expect(ctx.textAlign, 'canvas state leaked out of draw()').toBe('start');
   });
 });
