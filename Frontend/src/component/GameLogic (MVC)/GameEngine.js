@@ -430,11 +430,9 @@ export class GameEngine {
   }
 
   // Resets the game state to its initial values for the current level.
-  // announceWaveStart controls whether the wave-1 horn plays: true for a
-  // genuine new-level start (called from initialize()), false when this is
-  // just end-of-level cleanup (called from GameContext.endGame()) so the
-  // win/loss sting doesn't get a wave horn stacked on top of it.
-  resetGame(announceWaveStart = true) {
+  /* Back to the start of the level. The wave manager owns the wait before
+     wave 1, so nothing here needs to say whether it should be announced. */
+  resetGame() {
     this.stopLoop(); // Stop any active animation loop
     this.defenders = [];
     this.enemies = [];
@@ -453,8 +451,11 @@ export class GameEngine {
     this.lastFrameTime = null;
 
     if (this.waveManager) {
-      this.waveManager.reset(announceWaveStart);
-      this.waveManager.lastSpawnTime = this.gameClock.now + 5000; // 5 second delay
+      /* No `lastSpawnTime = now + 5000` here any more. That line was the real
+         wait before the first enemy - five seconds, from a number nobody chose,
+         quietly overriding the PREP_TIME_MS the level is meant to give. The
+         prep is the wave manager's business now. */
+      this.waveManager.reset();
     }
 
     this.baseHealth = 100;

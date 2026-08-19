@@ -901,7 +901,7 @@ export const GameProvider = ({ children }) => {
         gameEngineRef.current.stopLoop(); // Ensure engine loop stops
         // false: this is end-of-level cleanup, not a new level starting, so
         // don't let the wave-1 horn stack on top of the win/loss sting.
-        gameEngineRef.current.resetGame(false); // Reset engine's internal state
+        gameEngineRef.current.resetGame(); // Reset engine's internal state
       }
 
       if (result === "quit") {

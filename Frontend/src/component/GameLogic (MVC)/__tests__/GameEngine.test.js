@@ -142,18 +142,26 @@ describe('GameEngine.resetGame', () => {
     expect(() => engine.resetGame()).not.toThrow();
   });
 
-  it('defaults to announcing wave 1 (genuine new-level start via initialize())', () => {
+  it('hands the wave manager its own reset, with nothing to announce', () => {
     const waveManager = { reset: vi.fn(), lastSpawnTime: 0 };
     const engine = createFakeResetEngine({ waveManager });
     engine.resetGame();
-    expect(waveManager.reset).toHaveBeenCalledWith(true);
+    expect(waveManager.reset).toHaveBeenCalled();
   });
 
-  it('passes announceWaveStart=false through so end-of-level cleanup stays silent', () => {
+  /*
+   * `lastSpawnTime = gameClock.now + 5000` used to sit here, and it was the real
+   * wait before the first enemy of every level - five seconds, from a number
+   * nobody chose, overriding the PREP_TIME_MS the level is meant to give. The
+   * prep belongs to the wave manager; resetGame must not reach past it.
+   */
+  it('does not push the spawn clock into the future behind the prep time', () => {
     const waveManager = { reset: vi.fn(), lastSpawnTime: 0 };
     const engine = createFakeResetEngine({ waveManager });
-    engine.resetGame(false);
-    expect(waveManager.reset).toHaveBeenCalledWith(false);
+
+    engine.resetGame();
+
+    expect(waveManager.lastSpawnTime, 'resetGame set its own spawn delay').toBe(0);
   });
 });
 
