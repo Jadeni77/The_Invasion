@@ -78,37 +78,9 @@
   transform: translateY(-5px);
 }
 
-.card-name {
-  font-size: 14px;
-  color: var(--colors-text-primary);
-  margin-bottom: 5px;
-}
 
-.card-cost {
-  font-size: 18px;
-  color: var(--colors-accent-energy);
-  font-weight: bold;
-}
 
-.deployment-indicator {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: color-mix(in srgb, var(--colors-edge-outline) 70%, transparent);
-  padding: 10px 20px;
-  border-radius: 8px;
-  color: var(--colors-text-primary);
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
 
-.indicator-icon {
-  font-size: 24px;
-  color: var(--colors-accent-info);
-}
 
 /* Wave animation for energy bar when charging */
 @keyframes pulse {
@@ -258,7 +230,7 @@
   gap: var(--space-xs);
 }
 
-.resource-icon {
+.lobby-container .resource-icon {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
@@ -269,22 +241,22 @@
   border: 1px solid var(--colors-surface-raised);
 }
 
-.resource-symbol {
+.lobby-container .resource-symbol {
   font-size: 24px;
 }
 
-.resource-info {
+.lobby-container .resource-info {
   display: flex;
   flex-direction: column;
 }
 
-.resource-value {
+.lobby-container .resource-value {
   font-family: var(--type-display);
   font-size: 18px;
   font-weight: bold;
 }
 
-.resource-label {
+.lobby-container .resource-label {
   font-size: 12px;
   color: var(--colors-text-muted);
 }
@@ -1541,7 +1513,11 @@
 
 /* Stage 1: shed text, keep one row. */
 @media (max-width: 1300px) {
-  .resource-label {
+  /* Scoped like the rest: `.resource-label` belongs to the shared ResourceIcon
+     component (AllImage.css owns it), and a bare copy here reaches every screen
+     that renders one - which is how the upgrade screen inherited the lobby's chip
+     styling. */
+  .lobby-container .resource-label {
     display: none;
   }
 
@@ -1554,7 +1530,7 @@
     font-size: 12px;
   }
 
-  .resource-icon {
+  .lobby-container .resource-icon {
     padding: var(--space-xs) var(--space-sm);
     gap: var(--space-xs);
   }
@@ -1596,11 +1572,11 @@
     gap: 2px;
   }
 
-  .resource-symbol {
+  .lobby-container .resource-symbol {
     font-size: 15px;
   }
 
-  .resource-value {
+  .lobby-container .resource-value {
     font-size: 13px;
   }
 
@@ -1711,11 +1687,11 @@
     font-size: 10px;
   }
 
-  .resource-icon {
+  .lobby-container .resource-icon {
     padding: 2px 6px;
   }
 
-  .resource-label {
+  .lobby-container .resource-label {
     display: none;
   }
 

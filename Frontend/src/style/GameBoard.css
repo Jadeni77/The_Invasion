@@ -59,7 +59,7 @@
   min-width: 100px; /* Fixed minimum width */
 }
 
-.energy-icon {
+.game-board-container .energy-icon {
   font-size: 24px;
   color: var(--colors-accent-energy);
   margin-right: 8px;
@@ -517,7 +517,7 @@
   color: var(--colors-accent-danger);
 }
 
-.resource-icon {
+.game-board-container .resource-icon {
   font-size: 1.5em;
   margin-right: 10px;
 }
@@ -540,7 +540,7 @@
   font-size: 1.1em;
 }
 
-.pieces-icon {
+.game-board-container .pieces-icon {
   font-size: 1.5em;
   color: var(--decorative-violet);
   margin-right: 10px;
@@ -567,7 +567,7 @@
   color: var(--colors-text-muted);
 }
 
-.action-buttons {
+.game-board-container .action-buttons {
   display: flex;
   gap: 20px;
   margin-top: 20px;
@@ -748,7 +748,7 @@
     font-size: 14px;
   }
 
-  .energy-icon,
+  .game-board-container .energy-icon,
   .base-icon {
     font-size: 20px;
     margin-right: 5px;
@@ -826,7 +826,7 @@
     min-width: 150px;
   }
 
-  .action-buttons {
+  .game-board-container .action-buttons {
     flex-direction: column;
     gap: 15px;
     width: 100%;
@@ -908,7 +908,7 @@
     font-size: 12px;
   }
 
-  .energy-icon,
+  .game-board-container .energy-icon,
   .base-icon {
     font-size: 18px;
     margin-right: 5px;
@@ -987,7 +987,7 @@
     padding: 5px 12px;
   }
 
-  .energy-icon,
+  .game-board-container .energy-icon,
   .base-icon {
     font-size: 22px;
   }

@@ -81,7 +81,7 @@
   font-size: 1.1em;
 }
 
-.energy-icon {
+.card-selection-overlay .energy-icon {
   font-size: 1.5em;
 }
 
@@ -164,7 +164,7 @@
   gap: 20px;
 }
 
-.cancel-button,
+.card-selection-overlay .cancel-button,
 .confirm-button {
   padding: 12px 30px;
   font-size: 1.1em;
@@ -177,12 +177,12 @@
   box-shadow: var(--shadows-drop);
 }
 
-.cancel-button {
+.card-selection-overlay .cancel-button {
   background: var(--colors-surface-raised);
   color: var(--colors-text-primary);
 }
 
-.cancel-button:hover {
+.card-selection-overlay .cancel-button:hover {
   background: var(--colors-surface-raised);
   transform: scale(1.05);
 }

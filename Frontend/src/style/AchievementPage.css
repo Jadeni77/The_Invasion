@@ -275,7 +275,7 @@
     border-color: var(--colors-accent-success);
 }
 
-.back-button {
+.achievement-page .back-button {
     margin: 20px auto;
     padding: 15px 40px;
     background-color: var(--colors-accent-energy);
@@ -289,7 +289,7 @@
     box-shadow: 0 4px 15px color-mix(in srgb, var(--colors-accent-energy) 30%, transparent);
 }
 
-.back-button:hover {
+.achievement-page .back-button:hover {
     background-color: var(--colors-accent-energy);
     transform: translateY(-2px);
     box-shadow: 0 6px 20px color-mix(in srgb, var(--colors-accent-energy) 40%, transparent);

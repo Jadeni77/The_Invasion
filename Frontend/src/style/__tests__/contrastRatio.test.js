@@ -177,13 +177,12 @@ const EXPECTED_OPT_OUTS = [
   'CollectionPage.css .collection-tab.active',
   'CollectionPage.css .unit-sprite',
   'CollectionPage.css .collection-unit-status',
-  'CollectionPage.css .back-button',
+  'CollectionPage.css .collection-page .back-button',
   'GameBoard.css .quit-confirm-button',
   'GameBoard.css .quit-cancel-button',
   'Lobby.css .boss-indicator',
   'Lobby.css .zoom-controls button',
   'SettingModal.css .toggle-button.active',
-  'SettingModal.css .cancel-button',
 ];
 
 function rulesOf(css) {

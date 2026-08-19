@@ -375,7 +375,7 @@
     color: var(--colors-text-muted);
 }
 
-.back-button {
+.collection-page .back-button {
     margin: 20px auto;
     padding: 15px 40px;
     background-color: var(--colors-accent-danger);
@@ -391,7 +391,7 @@
     box-shadow: 0 4px 15px color-mix(in srgb, var(--colors-accent-danger) 30%, transparent);
 }
 
-.back-button:hover {
+.collection-page .back-button:hover {
     background-color: var(--colors-accent-danger);
     transform: translateY(-2px);
     box-shadow: 0 6px 20px color-mix(in srgb, var(--colors-accent-danger) 40%, transparent);
