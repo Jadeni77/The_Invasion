@@ -33,7 +33,7 @@ export class GameLevelConfigs {
                 {
                     enemyCount: 1,
                     spawnInterval: 3000,
-                    enemyTypes: ["Basic Zombie"],
+                    enemyTypes: ["Titan"],
                     spawnPattern: "standard",
                 },  
                 {
