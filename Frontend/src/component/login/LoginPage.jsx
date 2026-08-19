@@ -16,11 +16,20 @@ export default function LoginPage( { onLogin }) {
     const [error, setError] = useState("");
     const [info, setInfo] = useState("");
     const [loading, setLoading] = useState(false);
+    /* The free host spins the backend down when nobody is playing, and the
+       next request waits for it to come back - tens of seconds, against a
+       server that itself starts in about two. Saying so beats a button that
+       sits on "..." long enough to look broken. */
+    const [waking, setWaking] = useState(false);
 
     const resetTransientState = () => {
         setError("");
         setInfo("");
+        setWaking(false);
     };
+
+    /** How long a request may take before it is worth explaining the wait. */
+    const WAKING_AFTER_MS = 4000;
 
     const switchMode = (next) => {
         resetTransientState();
@@ -31,6 +40,8 @@ export default function LoginPage( { onLogin }) {
         e.preventDefault();
         resetTransientState();
         setLoading(true);
+
+        const wakingTimer = setTimeout(() => setWaking(true), WAKING_AFTER_MS);
 
         try {
             if (mode === MODE_LOGIN || mode === MODE_REGISTER) {
@@ -81,6 +92,8 @@ export default function LoginPage( { onLogin }) {
             setError("Cannot connect to server");
         } finally {
             setLoading(false);
+            setWaking(false);
+            clearTimeout(wakingTimer);
         }
     };
 
@@ -164,9 +177,15 @@ export default function LoginPage( { onLogin }) {
 
                 {error && <p style={styles.error}>{error}</p>}
                 {info && <p style={styles.info}>{info}</p>}
+                {waking && (
+                    <p style={styles.info}>
+                        Waking the server &mdash; it sleeps when nobody is playing.
+                        This takes up to a minute the first time.
+                    </p>
+                )}
 
                 <button type="submit" disabled={loading} style={styles.button}>
-                    {loading ? "..." : submitLabel}
+                    {loading ? (waking ? "Waking the server\u2026" : "\u2026") : submitLabel}
                 </button>
 
                 {mode === MODE_LOGIN && (
