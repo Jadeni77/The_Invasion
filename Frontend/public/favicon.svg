@@ -1,0 +1,17 @@
+<!--
+  The tab icon: the energy bolt, in the game's own gold on its own dark panel.
+
+  Energy is the thing the player is always counting - every card costs it, the
+  lobby meters it, and the bolt is already the glyph for it throughout the UI.
+  Drawn chunky on purpose: a favicon is read at 16px, where thin strokes close
+  up into a smudge.
+
+  Colours are tokens.js: surfaceSunken #241f16, edgeOutline #1a160f,
+  accentEnergy #ffd700.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="7" fill="#241f16"/>
+  <rect x="0.75" y="0.75" width="30.5" height="30.5" rx="6.25" fill="none"
+        stroke="#1a160f" stroke-width="1.5"/>
+  <path d="M19.5 3 L7.5 18.5 h6.2 L11.5 29 L24.5 13.2 h-6.2 z" fill="#ffd700"/>
+</svg>

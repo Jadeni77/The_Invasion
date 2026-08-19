@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { API_BASE, apiUrl } from '../api.js';
+import { API_BASE, apiUrl, baseUrlProblem } from '../api.js';
 import { sourceFiles, stripComments } from '../../test/sourceFiles.js';
 
 /* Derived from this file's own location rather than `process.cwd()`, which is not
@@ -74,5 +74,42 @@ describe('no source file names the backend host inline', () => {
       }
     }
     expect(offenders.sort()).toEqual([]);
+  });
+});
+
+/*
+ * The deployed bundle called `the-invasion-api/api/player/me`, because
+ * VITE_API_BASE_URL had been set to the Render service's NAME rather than its
+ * address. A bare name is a relative path, so the browser resolved it against
+ * the frontend's own origin and every request 404'd on the site itself.
+ *
+ * The check that existed only asked whether the variable was set, and a name is
+ * a perfectly truthy string - so it passed, and the mistake reached production.
+ */
+describe('what makes a configured backend address unusable', () => {
+  it('rejects nothing at all', () => {
+    expect(baseUrlProblem(undefined)).toMatch(/not set/i);
+    expect(baseUrlProblem('')).toMatch(/not set/i);
+  });
+
+  it('rejects a bare name, which is the mistake that shipped', () => {
+    expect(baseUrlProblem('the-invasion-api')).toMatch(/relative path/i);
+  });
+
+  it('rejects a host with no scheme', () => {
+    expect(baseUrlProblem('the-invasion-api.onrender.com')).toMatch(/relative path/i);
+  });
+
+  it('rejects a leading-slash path, which is also relative to this site', () => {
+    expect(baseUrlProblem('/api')).toMatch(/relative path/i);
+  });
+
+  it('accepts a real address', () => {
+    expect(baseUrlProblem('https://the-invasion-api.onrender.com')).toBeNull();
+    expect(baseUrlProblem('http://localhost:8080')).toBeNull();
+  });
+
+  it('names the offending value, so the message says what to change', () => {
+    expect(baseUrlProblem('the-invasion-api')).toContain('the-invasion-api');
   });
 });
