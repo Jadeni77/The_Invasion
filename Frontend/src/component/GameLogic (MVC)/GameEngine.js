@@ -713,22 +713,6 @@ export class GameEngine {
         }
       }
     }
-    // Apply reduced damage to defenders within radius (friendly fire)
-    for (const defender of this.defenders) {
-      if (!defender.isAlive) continue;
-
-      const distance = Math.hypot(
-        defender.x + defender.width / 2 - x,
-        defender.y + defender.height / 2 - y,
-      ); // Distance from defender center to explosion center
-      if (distance <= radius) {
-        const friendlyFire = damage * 0.3;
-        console.log(`Defender ${defender.name} in explosion range, 
-        taking ${friendlyFire} damage`); // Fix: Added debug logging
-
-        defender.takeDamage(friendlyFire); // 30% damage to allies
-      }
-    }
   }
 
   addEnemyExplosion(x, y, damage, radius) {
@@ -741,9 +725,6 @@ export class GameEngine {
       );
       if (distance <= radius) {
         defender.takeDamage(damage);
-        console.log(
-          `Enemy explosion: ${defender.name} taking ${damage} damage`,
-        );
       }
     }
   }
