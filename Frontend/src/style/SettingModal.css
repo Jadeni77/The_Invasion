@@ -292,26 +292,39 @@
     transform: translateY(-2px);
 }
 
-.action-buttons {
+.settings-modal .action-buttons {
     display: flex;
     gap: 15px;
 }
 
-.cancel-button {
+/*
+ * Neutral, not danger - and this rule was dead until the selectors were scoped.
+ *
+ * `.cancel-button` was declared bare here and in CardSelectionModal.css, and that
+ * one won globally, so Settings has been rendering its Cancel in CardSelection's
+ * neutral styling for the whole life of the screen while this rule sat unused.
+ * Scoping made it live, which is when it became visible that it asks for
+ * `accent-danger`.
+ *
+ * Cancel discards unsaved changes - it is the SAFE action here, not the
+ * destructive one, and red is the danger accent. The same role error as issues 27
+ * and 32. Matching CardSelection's neutral treatment also retires the 3.48:1
+ * contrast opt-out this carried, which existed only because the text was white on
+ * red.
+ */
+.settings-modal .cancel-button {
     padding: 10px 30px;
-    background-color: var(--colors-accent-danger);
+    background-color: var(--colors-surface-raised);
     border: var(--borders-outline) solid var(--colors-edge-outline);
     border-radius: 20px;
     box-shadow: var(--shadows-drop);
-    /* contrast-ok: 3.48:1, below 4.5:1 - see task-3-report.md, "Systemic
-       contrast opt-outs". */
     color: var(--colors-text-primary);
     cursor: pointer;
     transition: all 0.3s;
     font-weight: bold;
 }
 
-.cancel-button:hover {
+.settings-modal .cancel-button:hover {
     background-color: var(--colors-accent-danger);
     transform: translateY(-2px);
     box-shadow: 0 4px 10px color-mix(in srgb, var(--colors-accent-danger) 30%, transparent);

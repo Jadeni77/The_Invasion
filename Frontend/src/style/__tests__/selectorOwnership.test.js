@@ -32,23 +32,17 @@ import { stylesheetFiles } from '../../test/sourceFiles.js';
  * (issue 31). Shrink this table; do not add to it.
  */
 const KNOWN_COLLISIONS = {
-  '.energy-icon': 4,
-  '.resource-icon': 3,
-  '.progress-bar': 2,
-  '.progress-fill': 2,
-  '.progress-text': 2,
-  '.back-button': 2,
-  '.resource-symbol': 2,
-  '.resource-info': 2,
-  '.resource-value': 2,
-  '.resource-label': 2,
-  '.card-name': 2,
-  '.card-cost': 2,
-  '.cancel-button': 2,
-  '.deployment-indicator': 2,
-  '.indicator-icon': 2,
-  '.pieces-icon': 2,
-  '.action-buttons': 2,
+  // Empty, and it should stay that way.
+  //
+  // All seventeen entries that used to live here are resolved: rules that styled
+  // something their own screen never renders were deleted (Lobby's `.card-name`,
+  // `.card-cost`, `.deployment-indicator`, `.indicator-icon`; UpgradeModal's
+  // `.progress-*`), and the rest are scoped to the screen they belong to. The
+  // shared components - ResourceIcon and Card - keep ONE owning stylesheet each,
+  // and every other stylesheet's version is a scoped override rather than a second
+  // claim on the name.
+  //
+  // A new entry here is a regression, not a to-do.
 };
 
 /** Strip comments so a selector quoted in prose is not read as a declaration. */

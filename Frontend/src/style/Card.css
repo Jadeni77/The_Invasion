@@ -153,7 +153,7 @@
   line-height: 1;
 }
 
-.energy-icon {
+.card-container .energy-icon {
   font-size: 14px;
   color: var(--colors-accent-energy);
   line-height: 1;
