@@ -17,17 +17,17 @@ export class GameLevelConfigs {
             levelName: "The Outbreak",
             description: "The infection begins. Hold the line!",
             enemySpawnInterval: 3000,
-            maxActiveEnemies: 1,
-            totalEnemiesToSpawn: 1,
-            waves: 1,
+            maxActiveEnemies: 3,
+            totalEnemiesToSpawn: 11,
+            waves: 3,
             availableEnemyTypes: availableEnemyTypes,
             initialEnergy: 10000,
             waveConfigurations: [
                 {
                     enemyCount: 1,
                     spawnInterval: 3000,
-                    enemyTypes: ["Necromancer"],
-                    spawnPattern: "standard"
+                    enemyTypes: ["Basic Zombie"],
+                    spawnPattern: "standard",
                 },  
                 {
                     enemyCount: 5,
@@ -93,24 +93,24 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 35,
             waves: 4,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 120,
+            initialEnergy: 160,
             waveConfigurations: [
                 {
                     enemyCount: 8,
                     spawnInterval: 2200,
-                    enemyTypes: ["Basic Zombie", "Fast Zombie"],
+                    enemyTypes: ["Basic Zombie"],
                     spawnPattern: "standard"
                 },
                 {
                     enemyCount: 9,
                     spawnInterval: 2000,
-                    enemyTypes: ["Basic Zombie", "Exploder"],
+                    enemyTypes: ["Basic Zombie", "Fast Zombie"],
                     spawnPattern: "mixed"
                 },
                 {
                     enemyCount: 9,
                     spawnInterval: 1800,
-                    enemyTypes: ["Exploder"],
+                    enemyTypes: ["Basic Zombie", "Exploder"],
                     spawnPattern: "formation"
                 },
                 {
@@ -133,7 +133,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 45,
             waves: 4,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 120,
+            initialEnergy: 200,
             waveConfigurations: [
                 {
                     enemyCount: 8,
@@ -178,7 +178,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 55,
             waves: 5,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 120,
+            initialEnergy: 240,
             waveConfigurations: [
                 {
                     enemyCount: 10,
@@ -223,7 +223,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 65,
             waves: 6,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 120,
+            initialEnergy: 280,
             waveConfigurations: [
                 {
                     enemyCount: 10,
@@ -274,7 +274,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 75,
             waves: 6,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 120,
+            initialEnergy: 320,
             waveConfigurations: [
                 {
                     enemyCount: 12,
@@ -326,7 +326,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 85,
             waves: 7,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 200,
+            initialEnergy: 360,
             waveConfigurations: [
                 {
                     enemyCount: 12,
@@ -383,7 +383,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 95,
             waves: 7,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 200,
+            initialEnergy: 400,
             waveConfigurations: [
                 {
                     enemyCount: 13,
@@ -440,7 +440,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 100,
             waves: 8,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 200,
+            initialEnergy: 440,
             waveConfigurations: [
                 {
                     enemyCount: 12,
@@ -505,7 +505,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 110,
             waves: 8,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 200,
+            initialEnergy: 480,
             waveConfigurations: [
                 {
                     enemyCount: 13,
@@ -568,7 +568,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 120,
             waves: 9,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 200,
+            initialEnergy: 520,
             waveConfigurations: [
                 {
                     enemyCount: 13,
@@ -638,7 +638,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 130,
             waves: 9,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 250,
+            initialEnergy: 560,
             waveConfigurations: [
                 {
                     enemyCount: 14,
@@ -707,7 +707,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 140,
             waves: 10,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 250,
+            initialEnergy: 600,
             waveConfigurations: [
                 {
                     enemyCount: 14,
@@ -782,7 +782,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 150,
             waves: 10,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 250,
+            initialEnergy: 640,
             waveConfigurations: [
                 {
                     enemyCount: 15,
@@ -857,7 +857,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 160,
             waves: 11,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 250,
+            initialEnergy: 680,
             waveConfigurations: [
                 {
                     enemyCount: 14,
@@ -938,7 +938,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 180,
             waves: 12,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 250,
+            initialEnergy: 720,
             waveConfigurations: [
                 {
                     enemyCount: 15,
@@ -1035,7 +1035,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 200,
             waves: 13,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 300,
+            initialEnergy: 760,
             waveConfigurations: [
                 {
                     enemyCount: 15,
@@ -1130,7 +1130,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 250,
             waves: 15,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 300,
+            initialEnergy: 800,
             waveConfigurations: [
                 // 15 increasingly difficult waves with mixed patterns
                 ...Array.from({ length: 15 }, (_, i) => ({
@@ -1159,7 +1159,7 @@ export class GameLevelConfigs {
             totalEnemiesToSpawn: 300,
             waves: 20,
             availableEnemyTypes: availableEnemyTypes,
-            initialEnergy: 3000000000,
+            initialEnergy: 840,
             waveConfigurations: [
                 // 20 waves culminating in an epic boss battle
                 ...Array.from({ length: 19 }, (_, i) => ({

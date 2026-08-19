@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { WaveManager } from '../WaveManager.js';
+import { WaveManager, PREP_TIME_MS } from '../WaveManager.js';
 
 function createLevelConfig(overrides = {}) {
     return {
@@ -97,14 +97,27 @@ describe('WaveManager', () => {
     });
 
     describe('shouldStartNextWave', () => {
-        it('should start first wave after 1 second', () => {
+        /*
+         * Derived from PREP_TIME_MS, not restated. This pair named "1 second"
+         * because that was the value; a test that hardcodes a number the code owns
+         * fails on a deliberate change and says nothing about whether the change
+         * was right - which has happened five times in this project now.
+         */
+        it('starts the first wave once the prep time has elapsed', () => {
             waveManager.lastWaveStartTime = 0;
-            expect(waveManager.shouldStartNextWave(1001, 0)).toBe(true);
+            expect(waveManager.shouldStartNextWave(PREP_TIME_MS + 1, 0)).toBe(true);
         });
 
-        it('should not start first wave before 1 second', () => {
+        it('does not start the first wave before then', () => {
             waveManager.lastWaveStartTime = 0;
-            expect(waveManager.shouldStartNextWave(500, 0)).toBe(false);
+            expect(waveManager.shouldStartNextWave(PREP_TIME_MS - 1, 0)).toBe(false);
+        });
+
+        it('gives the player long enough to actually deploy something', () => {
+            // One second - the old value - is not enough to read a card, choose one
+            // and click a cell. The number matters, so it is asserted, not just
+            // derived away.
+            expect(PREP_TIME_MS).toBeGreaterThanOrEqual(5000);
         });
 
         it('should not start wave beyond max in normal mode', () => {
