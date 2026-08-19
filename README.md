@@ -10,32 +10,105 @@ be a total of 20 challenging levels and an endless level.
 - Progressive difficulty and resource management
 
 ## 🎥 Screenshots
-<img width="400" alt="Screenshot 2025-10-13 at 5 36 55 PM" src="https://github.com/user-attachments/assets/094a0b4d-1251-4cb8-b5ca-b3241832e640" />
-<img width="400" alt="Screenshot 2025-10-13 at 5 38 07 PM" src="https://github.com/user-attachments/assets/c6b23a31-e1c8-4351-bd4e-61a931a4d606" />
-<img width="400" alt="Screenshot 2025-10-13 at 5 39 27 PM" src="https://github.com/user-attachments/assets/d230af22-3cc3-4b89-9128-80e80d95666e" />
+<img width="400" alt="Screenshot 2025-10-13 at 5 36 55 PM" src="https://github.com/user-attachments/assets/094a0b4d-1251-4cb8-b5ca-b3241832e640" />
+<img width="400" alt="Screenshot 2025-10-13 at 5 38 07 PM" src="https://github.com/user-attachments/assets/c6b23a31-e1c8-4351-bd4e-61a931a4d606" />
+<img width="400" alt="Screenshot 2025-10-13 at 5 39 27 PM" src="https://github.com/user-attachments/assets/d230af22-3cc3-4b89-9128-80e80d95666e" />
 
 
 ## 🚀 Play the Game
-Live Demo: ...
+Live Demo: **[the-invasion.pages.dev](https://the-invasion.pages.dev)**
 
-## ⚙️ Setup
-To run the game locally:
-1. Install [Node.js](https://nodejs.org/en/download)
-2. Clone this repository
-3. npm install
-4. Start the development server: npm run dev
-5. Install Homebrew (Mac only):
-   In terminal: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-6. brew install maven
-7. mvn clean install
-8. mvn spring-boot:run
+The backend sleeps when nobody is playing, so the first login after a quiet
+spell waits up to a minute while it wakes. The login screen says so when it
+happens.
+
+## 🗂️ How the project fits together
+
+Three pieces, deployed separately:
+
+| Piece | Lives in | Runs on |
+|---|---|---|
+| Game and UI | `Frontend/` | Cloudflare Pages (static) |
+| Accounts, saves, progress | `backend/` | Render (Docker) |
+| The data itself | — | Neon (Postgres) |
+
+The game logic is entirely in the browser - the backend only stores who you are
+and what you have unlocked. `Frontend/src/component/GameLogic (MVC)/` holds the
+engine, the units and the level configuration; `GameRendering/` holds the
+screens.
+
+## ⚙️ Running it locally
+
+You need [Node.js](https://nodejs.org/en/download) **20.19+** (Vite 7 requires
+it) and a **JDK 17+**. You do *not* need to install Maven - the repository ships
+the Maven wrapper.
+
+**Backend**, on http://localhost:8080:
+
+```bash
+cd backend
+./mvnw spring-boot:run
+```
+
+It starts on an in-memory H2 database, so it needs no setup and forgets
+everything when it stops. To inspect that database while it runs, start it with
+`H2_CONSOLE_ENABLED=true` and open http://localhost:8080/h2-console - it is off
+by default because it is unauthenticated and accepts arbitrary JDBC URLs.
+
+**Frontend**, on http://localhost:5173:
+
+```bash
+cd Frontend
+npm install
+npm run dev
+```
+
+It calls `localhost:8080` unless `VITE_API_BASE_URL` says otherwise, so the two
+find each other with no configuration.
+
+## 🧪 Tests
+
+```bash
+cd Frontend && npm test        # ~1,900 tests
+cd backend  && ./mvnw test     # ~44 tests
+cd Frontend && npm run lint
+```
+
+## 📦 Deploying
+
+Full walkthrough, including the environment variables and the order the three
+services have to be created in: **[docs/deployment.md](docs/deployment.md)**.
+
+The short version - `main` is the release branch, and both hosts deploy from it
+automatically on every merge:
+
+| Variable | Set on | What it is |
+|---|---|---|
+| `VITE_API_BASE_URL` | Cloudflare | the backend's full address, **including `https://`** |
+| `SPRING_DATASOURCE_URL` | Render | `jdbc:postgresql://<host>/<db>?sslmode=require` |
+| `SPRING_DATASOURCE_USERNAME` | Render | from Neon |
+| `SPRING_DATASOURCE_PASSWORD` | Render | from Neon |
+| `JWT_SECRET` | Render | a long random value, `openssl rand -base64 48` |
+| `CORS_ALLOWED_ORIGINS` | Render | the frontend's address, no trailing slash |
+
+Two that bite:
+
+- `VITE_API_BASE_URL` is read at **build** time, so changing it needs a rebuild -
+  and a value without `https://` is a relative path, which silently points the
+  game at itself.
+- `CORS_ALLOWED_ORIGINS` must match the frontend's origin exactly, or the
+  browser discards every response while the server logs look perfectly healthy.
 
 ## Technology Used
 * JavaScript - Core language for game logics and classes communication
 * React.js - Frontend framework
+* Vite - Frontend build tool and dev server
 * Spring Boot - Backend framework for game state and resources
+* PostgreSQL - Player accounts and progress in deployment (H2 in memory locally)
+* Docker - How the backend is built and run in deployment
 * Maven - Build and dependency management for the backend
 * Java - Backend implementation
+* Vitest and JUnit - Test suites for the frontend and backend
 
 ## 🎮 How to Play
 * Click on a level in the Lobby page
@@ -45,6 +118,11 @@ To run the game locally:
 * Defeat all enemies to win
 * Earn resources for each enemy defeated, and use them to upgrade defensive units
 * Have Fun! 🎉
+
+Winning an odd-numbered level up to 17 grants a new defender, so the campaign
+hands you a tool shortly before the level that needs it. Starting a level costs
+energy, which refills over time or can be bought with gold - and leaving a level
+part-way forfeits it, which the quit dialog warns about.
 
 ## 👥 Contributors
 <table>
