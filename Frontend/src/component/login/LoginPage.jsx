@@ -56,7 +56,13 @@ export default function LoginPage( { onLogin }) {
                     body: JSON.stringify(body)
                 });
                 if (!res.ok) {
-                    setError(await res.text() || "Something went wrong");
+                    const text = await res.text();
+                    if (res.status === 403 && /confirm your email/i.test(text)) {
+                        setInfo("This account still needs confirming. Enter the code, or send a new one.");
+                        setMode(MODE_VERIFY_EMAIL);
+                        return;
+                    }
+                    setError(text || "Something went wrong");
                     return;
                 }
                 const data = await res.json();
@@ -260,7 +266,9 @@ export default function LoginPage( { onLogin }) {
                         Already have an account? Login
                     </p>
                 )}
-                {(mode === MODE_FORGOT_REQUEST || mode === MODE_FORGOT_RESET) && (
+                {(mode === MODE_FORGOT_REQUEST
+                  || mode === MODE_FORGOT_RESET
+                  || mode === MODE_VERIFY_EMAIL) && (
                     <p style={styles.toggle} onClick={() => switchMode(MODE_LOGIN)}>
                         Back to login
                     </p>
