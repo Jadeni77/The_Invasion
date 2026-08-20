@@ -22,6 +22,10 @@ jobs:
     name: Send one email to the owner
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # For the failure issue below. Nothing else here writes anything.
+    permissions:
+      contents: read
+      issues: write
     steps:
       - name: Ask the deployment to send one
         env:
@@ -59,3 +63,54 @@ jobs:
 
           echo "::error::The backend never answered. It may be down rather than out of mail."
           exit 1
+
+      # Actions' own notifications go to whoever triggered the run, and for a
+      # cron that is whoever last edited the schedule - so a second maintainer
+      # would never hear about this. An issue does reach everyone: assignees are
+      # emailed, and unlike a notification it stays until somebody closes it.
+      #
+      # One issue, not one a month: a check that fails in February and March has
+      # not found two problems.
+      - name: Say so where both maintainers will see it
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: The game cannot send email
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          open=$(gh issue list --state open --search "$TITLE in:title" \
+                   --json number --jq '.[0].number // empty')
+
+          if [ -n "$open" ]; then
+            gh issue comment "$open" \
+              --body "Still failing as of $(date -u '+%Y-%m-%d %H:%M UTC'). Run log: $RUN"
+            echo "Commented on existing issue #$open."
+            exit 0
+          fi
+
+          # printf rather than a heredoc: a heredoc terminator cannot be
+          # indented, and un-indenting it would end the YAML block it lives in.
+          # Single quotes throughout, so the backticks below stay backticks.
+          body=$(printf '%s\n' \
+            'The monthly mail check failed, so **registration is broken**: a new player' \
+            'is told to check their email and the code never arrives.' \
+            '' \
+            "Run log: $RUN" \
+            '' \
+            'It names the cause. In short:' \
+            '' \
+            '| | |' \
+            '|---|---|' \
+            '| 401 | `ADMIN_TOKEN` on Render and the repository secret disagree |' \
+            '| 404 | `ADMIN_TOKEN` is not set on Render |' \
+            '| 503 | no transport - check `SPRING_MAIL_HOST` and `MAIL_FROM` |' \
+            '| 502 | the provider refused. Most likely the SMTP key expired: Brevo drops keys unused for 90 days |' \
+            '' \
+            'While it is broken, `REQUIRE_EMAIL_VERIFICATION=false` on Render lets people' \
+            'register and play without a code. See docs/deployment.md.' \
+            '' \
+            'Close this once `Mail canary` passes again - it can be re-run by hand from' \
+            'the Actions tab.')
+
+          gh issue create --title "$TITLE" --assignee Jadeni77,marlili --body "$body"
+          echo "Opened an issue."
