@@ -797,6 +797,20 @@ export class GrenadeDefender extends DefenderUnit {
     const statMultiplier = 1 + (level - 1) * 0.25; // Grenadiers get 25% increase per level
 
     this.attackDamage = Math.floor(this.attackDamage * statMultiplier);
+
+    /*
+     * Health and range at the rate every other defender uses, not the 25% this
+     * one gets on damage. The override never set them at all - it does not call
+     * super - so a level-5 Grenadier stood on the same 110 health and 250 range
+     * as a level 1 while Shooter, Sniper, Mortar and Frost Archer all toughened
+     * up. The upgrade screen listed it honestly as "110 -> 110": a player paid
+     * for a change that could not happen.
+     */
+    const survivability = 1 + (level - 1) * 0.15;
+    this.health = Math.floor(this.health * survivability);
+    this.maxHealth = this.health;
+    this.range = Math.floor(this.range * survivability);
+
     this.grenadeRadius = Math.floor(
       GrenadeDefender.BASE.grenadeRadius * (1 + (level - 1) * 0.1),
     ); // 10% radius increase

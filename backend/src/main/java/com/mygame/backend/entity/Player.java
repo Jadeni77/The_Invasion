@@ -29,7 +29,9 @@ public class Player {
   private String sessionId; //this is the browser-generated id store in LocalStorage
 
   private String displayName;
-  private String rank = "Novice Gardener";
+  /* Derived from completed levels on every read - see PlayerRank. Stored so an
+     admin reading the table sees the same title the player does. */
+  private String rank = com.mygame.backend.service.PlayerRank.STARTING_RANK;
 
   //Basic Resource
   private Integer gold = 100;
