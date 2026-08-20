@@ -42,7 +42,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody AuthRequest request) {
+    public ResponseEntity<?> register(@jakarta.validation.Valid @RequestBody AuthRequest request) {
         if (playerRepository.existsByEmail(request.getEmail())) {
             return ResponseEntity.badRequest().body("Email already in use");
         }

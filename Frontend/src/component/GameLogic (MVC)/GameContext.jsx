@@ -22,6 +22,7 @@ import { SOUND_KEYS } from "./Feedback/SoundGroups.js";
 import { apiUrl } from "../../config/api.js";
 import { MAX_DEFENDER_LEVEL } from "./DefenderClassUtils.js";
 import { defenderUnlockedBy, defendersEarnedBy } from "./LevelUnlocks.js";
+import { openPlayerChannel, shouldRefreshOn, PLAYER_CHANGED } from "./crossTabSync.js";
 
 export const GameContext = createContext();
 
@@ -119,6 +120,84 @@ export const withDefender = (cards, defenderName) => {
   }];
 };
 
+/**
+ * The backend's player, in the shape the game reads.
+ *
+ * Two callers set playerData - a fresh login and a refetch - and they used to
+ * build it separately: one stored the raw entity, the other this transform. So
+ * the same player had two shapes depending on how they arrived, and the field
+ * that gave it away was the name. The entity calls it `displayName`; the game
+ * reads `name`; the transform copied `data.name`, which does not exist. Every
+ * player's name came out undefined and the lobby showed only the rank beneath
+ * it, which is why it looked fixed at "Novice Gardener".
+ */
+export function toPlayerData(data) {
+  return {
+    id: data.id,
+    sessionId: data.sessionId,
+    name: data.displayName ?? data.name,
+    rank: data.rank,
+    resources: {
+      gold: data.gold,
+      lobbyEnergy: data.lobbyEnergy,
+      maxLobbyEnergy: data.maxLobbyEnergy,
+      energyRechargeRate: 1,
+      lastEnergyRechargeTime: new Date(
+        data.lastEnergyRechargeTime,
+      ).getTime(),
+      iron: data.iron,
+      grain: data.grain,
+      water: data.water,
+      gem: data.gem,
+    },
+    cards: data.cards
+      ? data.cards.map((card) => ({
+          id: card.cardId,
+          name: card.name,
+          level: card.level,
+          pieces: card.pieces,
+          piecesNeeded: card.piecesNeeded,
+          upgradeCost: getUpgradeCost(card.name, card.level),
+          cost: getCardCost(card.name),
+        }))
+      : [
+          {
+            id: 1,
+            name: "Shooter",
+            level: 1,
+            pieces: 0,
+            piecesNeeded: 10,
+            cost: 20,
+            upgradeCost: { gold: 100, iron: 5, water: 3 },
+          },
+          {
+            id: 2,
+            name: "Grenadier",
+            level: 1,
+            pieces: 0,
+            piecesNeeded: 10,
+            cost: 20,
+            upgradeCost: { gold: 100, iron: 5, water: 3 },
+          },
+        ],
+    unlockedLevels: data.unlockedLevels || [1],
+    completedLevels: data.completedLevels || [],
+    levelStars: data.levelStars || Array(20).fill(0),
+    collectedTreasures: data.collectedTreasures || [],
+    revealedSecrets: [],
+    endlessHighScore: data.endlessHighScore || 0,
+    endlessStats: { totalWaves: 0, totalRuns: 0 },
+    totalStars: data.levelStars
+      ? data.levelStars.reduce((a, b) => a + b, 0)
+      : 0,
+    totalEnemiesKilled: data.totalEnemiesKilled || 0,
+    totalDefendersDeployed: data.totalDefendersDeployed || 0,
+    totalEnergyCollected: data.totalEnergyCollected || 0,
+    claimedAchievements: data.claimedAchievements || [],
+    specialAchievements: data.specialAchievements || [],
+  };
+}
+
 export const GameProvider = ({ children }) => {
   const gameEngineRef = useRef(null); // Ref to hold the GameEngine instance
 
@@ -179,6 +258,16 @@ export const GameProvider = ({ children }) => {
   const [playerData, setPlayerData] = useState(null);
   const playerDataRef = useRef(null);
 
+  /* Opened once. A channel per render would leak a listener per render. */
+  const playerChannelRef = useRef(null);
+  if (playerChannelRef.current === null) {
+    playerChannelRef.current = openPlayerChannel() ?? false;
+  }
+
+  /* Set just before a refetch lands, so applying the server's answer is not
+     mistaken for a local change and echoed back to the tab that sent it. */
+  const appliedFromServerRef = useRef(false);
+
   /* Defenders already back-granted this session. fetchPlayerData runs on mount
      and again after every win, so without this the same catch-up POST goes out
      on each one until the server's copy catches up. */
@@ -204,6 +293,22 @@ export const GameProvider = ({ children }) => {
    */
   const [gateNotice, setGateNotice] = useState(null);
 
+  /*
+   * Tell the other tabs that this player moved.
+   *
+   * Announced here rather than at each of the fourteen calls that write to the
+   * backend: playerData changing is the one fact they all produce, and a
+   * notification bolted onto each is one eventually forgotten on the fifteenth.
+   */
+  useEffect(() => {
+    if (!playerData) return;
+    if (appliedFromServerRef.current) {
+      appliedFromServerRef.current = false;
+      return;
+    }
+    playerChannelRef.current?.postMessage?.({ type: PLAYER_CHANGED });
+  }, [playerData]);
+
   //authentication
   const [isAuthenticated, setIsAuthenticated] = useState(
     SessionManager.isLoggedIn(),
@@ -212,7 +317,11 @@ export const GameProvider = ({ children }) => {
   const handleLogin = (token, player) => {
     SessionManager.setToken(token);
     SessionManager.setUser(player);
-    setPlayerData(player);
+    // Through the same transform as a refetch. Storing the raw entity here gave
+    // a freshly logged-in player a different shape from a returning one - no
+    // `resources`, no `name` - and the lobby sat on its loading screen until a
+    // refetch happened to fix it.
+    setPlayerData(toPlayerData(player));
     setIsAuthenticated(true);
   };
 
@@ -517,71 +626,7 @@ export const GameProvider = ({ children }) => {
       });
       const data = await response.json();
 
-      //transform backend to mathc frontend
-      const playerData = {
-        id: data.id,
-        sessionId: data.sessionId,
-        name: data.name,
-        rank: data.rank,
-        resources: {
-          gold: data.gold,
-          lobbyEnergy: data.lobbyEnergy,
-          maxLobbyEnergy: data.maxLobbyEnergy,
-          energyRechargeRate: 1,
-          lastEnergyRechargeTime: new Date(
-            data.lastEnergyRechargeTime,
-          ).getTime(),
-          iron: data.iron,
-          grain: data.grain,
-          water: data.water,
-          gem: data.gem,
-        },
-        cards: data.cards
-          ? data.cards.map((card) => ({
-              id: card.cardId,
-              name: card.name,
-              level: card.level,
-              pieces: card.pieces,
-              piecesNeeded: card.piecesNeeded,
-              upgradeCost: getUpgradeCost(card.name, card.level),
-              cost: getCardCost(card.name),
-            }))
-          : [
-              {
-                id: 1,
-                name: "Shooter",
-                level: 1,
-                pieces: 0,
-                piecesNeeded: 10,
-                cost: 20,
-                upgradeCost: { gold: 100, iron: 5, water: 3 },
-              },
-              {
-                id: 2,
-                name: "Grenadier",
-                level: 1,
-                pieces: 0,
-                piecesNeeded: 10,
-                cost: 20,
-                upgradeCost: { gold: 100, iron: 5, water: 3 },
-              },
-            ],
-        unlockedLevels: data.unlockedLevels || [1],
-        completedLevels: data.completedLevels || [],
-        levelStars: data.levelStars || Array(20).fill(0),
-        collectedTreasures: data.collectedTreasures || [],
-        revealedSecrets: [],
-        endlessHighScore: data.endlessHighScore || 0,
-        endlessStats: { totalWaves: 0, totalRuns: 0 },
-        totalStars: data.levelStars
-          ? data.levelStars.reduce((a, b) => a + b, 0)
-          : 0,
-        totalEnemiesKilled: data.totalEnemiesKilled || 0,
-        totalDefendersDeployed: data.totalDefendersDeployed || 0,
-        totalEnergyCollected: data.totalEnergyCollected || 0,
-        claimedAchievements: data.claimedAchievements || [],
-        specialAchievements: data.specialAchievements || [],
-      };
+      const playerData = toPlayerData(data);
 
       /*
        * Hand over anything the player's cleared levels earned but never gave
@@ -601,6 +646,7 @@ export const GameProvider = ({ children }) => {
         playerData.cards = withDefender(playerData.cards, name);
       }
 
+      appliedFromServerRef.current = true;
       setPlayerData(playerData);
 
       // The player already has these on screen; a failed save retries next load.
@@ -689,6 +735,34 @@ export const GameProvider = ({ children }) => {
 
     return () => clearInterval(interval);
   }, []);
+
+  /*
+   * Catch up when another tab moved, or when this one is looked at again.
+   *
+   * Only in the lobby. Replacing playerData mid-level would move the ground
+   * under a run in progress for a number nobody is looking at, and the lobby is
+   * the only place these totals are shown anyway.
+   */
+  useEffect(() => {
+    if (!isAuthenticated || !shouldRefreshOn(gameState)) return undefined;
+
+    const catchUp = () => { fetchPlayerData(); };
+    const onMessage = (event) => {
+      if (event?.data?.type === PLAYER_CHANGED) catchUp();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") catchUp();
+    };
+
+    const channel = playerChannelRef.current || null;
+    channel?.addEventListener?.("message", onMessage);
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      channel?.removeEventListener?.("message", onMessage);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [isAuthenticated, gameState, fetchPlayerData]);
 
   const savePlayerData = useCallback(async (_data) => {
     try {

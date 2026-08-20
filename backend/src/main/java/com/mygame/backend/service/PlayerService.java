@@ -47,7 +47,25 @@ public class PlayerService {
   public Player getOrCreatePlayer(String sessionId) {
     return playerRepository.findBySessionId(sessionId)
             .map(this::upgradeEnergyRecharge)
+            .map(this::applyEarnedRank)
             .orElseGet(() -> createNewPlayer(sessionId));
+  }
+
+  /**
+   * Set the rank from the progress the player actually has.
+   *
+   * Done on the way out rather than when a level is completed, because every
+   * read comes through here - so an account created before ranks meant anything
+   * shows the right one immediately, with no migration and no waiting for the
+   * player to finish another level.
+   */
+  private Player applyEarnedRank(Player player) {
+    String earned = PlayerRank.forCompletedLevels(player.getCompletedLevels());
+    if (!earned.equals(player.getRank())) {
+      player.setRank(earned);
+      playerRepository.save(player);
+    }
+    return player;
   }
 
   /**
@@ -335,7 +353,8 @@ public class PlayerService {
     player.setEmail(email);
     player.setPassword(hashedPassword);
     player.setSessionId("email-" + email); //backward compat
-    player.setDisplayName(displayName != null ? displayName : "Defender #" + email.substring(0, 4));
+    boolean chose = displayName != null && !displayName.isBlank();
+    player.setDisplayName(chose ? displayName.trim() : "Defender #" + email.substring(0, 4));
 
     List<CardData> initialCards = new ArrayList<>();
     initialCards.add(new CardData(1, "Shooter", 1, 0, 10));
