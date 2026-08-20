@@ -51,20 +51,21 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody AuthRequest request) {
-        if (playerRepository.existsByEmail(request.getEmail())) {
+        Player existing = playerRepository.findByEmail(request.getEmail()).orElse(null);
+
+        if (existing != null && emailVerification.maySignIn(existing)) {
             return ResponseEntity.badRequest().body("Email already in use");
         }
 
-        Player player = playerService.createPlayerWithEmail(
-            request.getEmail(),
-            passwordEncoder.encode(request.getPassword()),
-            request.getDisplayName()
-        );
+        String hashedPassword = passwordEncoder.encode(request.getPassword());
+        Player player = existing == null
+            ? playerService.createPlayerWithEmail(
+                request.getEmail(), hashedPassword, request.getDisplayName())
+            : playerService.replacePendingRegistration(
+                existing, hashedPassword, request.getDisplayName());
 
         emailVerification.beginVerification(player);
 
-        // No token yet. Handing one out here would make the confirmation
-        // optional, since the game only ever needs a token to play.
         if (!emailVerification.maySignIn(player)) {
             return ResponseEntity.ok(new HashMap<>(Map.of(
                     "verificationRequired", true,
