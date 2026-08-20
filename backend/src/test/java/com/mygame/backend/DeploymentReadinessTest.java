@@ -87,6 +87,21 @@ class DeploymentReadinessTest {
         assertThat(properties()).contains("auth.verification-exempt=${AUTH_VERIFICATION_EXEMPT:}");
     }
 
+    /**
+     * Spring's mail defaults are port 25 with no encryption, which every hosted
+     * provider refuses - so setting only the host and the credentials produces a
+     * server that accepts a registration and silently sends no code, and the
+     * account can never confirm. Pinned here so a deployment needs credentials
+     * and nothing else.
+     */
+    @Test
+    void sendsMailOnAPortAHostedProviderWillAccept() {
+        assertThat(properties()).contains("spring.mail.port=${SPRING_MAIL_PORT:587}");
+        assertThat(properties())
+                .as("port 587 without STARTTLS is refused just as flatly as port 25")
+                .contains("spring.mail.properties.mail.smtp.starttls.enable=");
+    }
+
     @Test
     void carriesNoRealSigningKey() {
         // The committed key was a 64-character hex string. Anyone who could read
