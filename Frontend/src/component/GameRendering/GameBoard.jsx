@@ -362,18 +362,15 @@ const GameBoard = () => {
     };
 
     /*
-     * The same inputs GameContext rates the level on, from the same engine, so
-     * this screen cannot disagree with what was recorded. Read from the engine
-     * rather than passed down: it is the only place defendersLost lives, and it
-     * still holds this level's totals until the next reset.
-     *
-     * Base damage falls back to the health this component watched, so a missing
-     * engine cannot silently hand out three stars.
+     * The same input GameContext rates the level on, so this screen cannot
+     * disagree with what was recorded. Taken from the engine, which still holds
+     * this level's total until the next reset, and falling back to the health
+     * this component watched - so a missing engine cannot silently hand out
+     * three stars.
      */
     const finished = gameEngineRef.current;
     const defence = {
       baseDamageTaken: finished?.baseDamageTaken ?? MAX_BASE_HEALTH - baseHealth,
-      defendersLost: finished?.defendersLost ?? 0,
     };
     const stars = starsFor(defence);
     const gemBonus =

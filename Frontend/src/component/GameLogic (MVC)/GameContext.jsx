@@ -350,10 +350,10 @@ export const GameProvider = ({ children }) => {
     setGameWon(true);
     console.log(`Game won! Level: ${level}, Score: ${score}`);
 
-    /* From how the level was held, not from the score - see LevelStars. The
+    /* From what reached the base, not from the score - see LevelStars. The
        score-based version could not award level 1 more than two stars however
        well it was played. */
-    const stars = starsFor({ baseDamageTaken, defendersLost });
+    const stars = starsFor({ baseDamageTaken });
 
     // Update player data based on win
     setPlayerData((prev) => {
