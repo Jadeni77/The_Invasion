@@ -27,3 +27,70 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* ---------------------------------------------------------------------------
+ * The crash screen, and the "could not load" notice in index.html that borrows
+ * these same classes.
+ *
+ * Tokens only, with no hard-coded fallbacks. The first version had them, on the
+ * theory that a crash screen should not depend on the token sheet - but the
+ * tokens are imported by main.jsx and land in the SAME bundled stylesheet as
+ * this rule. If that file never arrives, these class names do not apply either
+ * and the fallbacks are unreachable. The project's own guards caught it.
+ * ------------------------------------------------------------------------- */
+.crash-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  background: var(--colors-surface-base);
+  color: var(--colors-text-primary);
+  font-family: var(--type-body);
+}
+
+.crash-title {
+  margin: 0;
+  font-family: var(--type-display);
+  font-size: var(--type-size-xl);
+}
+
+.crash-body {
+  margin: 0;
+  max-width: 34rem;
+  line-height: var(--type-line-body);
+}
+
+.crash-reload {
+  margin-top: 4px;
+  padding: 12px 24px;
+  font-family: var(--type-body);
+  font-size: var(--type-size-md);
+  font-weight: 700;
+  /* Dark on the green, not cream: cream is 2.48:1 against it and the contrast
+     guard rightly refused. edge-outline gives 6.19:1. */
+  color: var(--colors-edge-outline);
+  background: var(--colors-accent-success);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.crash-detail {
+  margin: 16px 0 0;
+  font-size: var(--type-size-sm);
+  color: var(--colors-text-muted);
+}
+
+.crash-message {
+  max-width: 90vw;
+  overflow-wrap: anywhere;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--colors-surface-panel);
+  color: var(--colors-text-primary);
+  font-size: var(--type-size-sm);
+}
