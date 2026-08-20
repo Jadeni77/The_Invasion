@@ -240,7 +240,13 @@ export class DefenderUnit {
     const canvasWidth = this.gameEngine.canvasWidth || 800;
 
     for (const enemy of enemies) {
-      if (!enemy.isAlive) return;
+      /* `continue`, not `return`. This said return, which left the whole method
+         on the FIRST corpse it met - answering undefined, read as "no target" -
+         without looking at the live enemies behind it. And a corpse stays in
+         this array until its death animation finishes, so every defender went
+         quiet for the length of one animation after every kill, which is what
+         "it waits a moment before attacking the next one" was. */
+      if (!enemy.isAlive) continue;
       //check if enemy on screen, enemy spawn at -100, attack when they appear
       if (enemy.x < -50 || enemy.x > canvasWidth + 50) continue;
       //check if enemy in range
@@ -423,7 +429,9 @@ export class BasicDefender extends DefenderUnit {
     }
   }
 
-  attack(target, currentTime) {
+  /* `_currentTime` is unused but stays in the signature: this overrides the base
+     class and is called positionally as the projectile's onHit. */
+  attack(target, _currentTime) {
     if (!this.isAlive || !target || !target.isAlive) {
       return;
     }
@@ -443,7 +451,12 @@ export class BasicDefender extends DefenderUnit {
     //   this.gameEngine.dropManager.handleEnemyDeath(target);
     // }
 
-    this.lastAttackTime = currentTime; // ADD THIS
+    /* No lastAttackTime here. This method IS the projectile's onHit, and the
+       `now` its closure carries is the moment the shot was FIRED - which
+       CombatManager already recorded when it created the projectile. Writing it
+       again is at best a no-op, and at worst rewinds the cooldown: fire twice
+       before the first arrow lands, as a fast Shooter can, and the older
+       landing writes the older timestamp back. */
   }
 
   getUpgradeInfo() {

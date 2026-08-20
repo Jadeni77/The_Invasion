@@ -19,6 +19,12 @@ export const PREP_TIME_MS = 10_000;
  */
 export const WAVE_GAP_MS = 8_000;
 
+/** Score for clearing a wave, per wave number: wave 3 pays 30. */
+export const WAVE_CLEAR_SCORE = 10;
+
+/** Energy dropped for clearing a wave, plus one per wave number. */
+export const WAVE_CLEAR_ENERGY = 5;
+
 export class WaveManager {
     constructor(levelConfig, spawnEnemyCallback, gameEngine) {
         this.config = levelConfig;
@@ -35,7 +41,6 @@ export class WaveManager {
         // Timing
         this.lastSpawnTime = 0;
         this.waveStartTime = 0;
-        this.waveCooldown = 0;
         this.nextSpawnDelay = 0;
 
         // Wave state
@@ -52,7 +57,6 @@ export class WaveManager {
         this.currentBoss = null;
 
         this.lastWaveStartTime = 0;
-        this.autoStartNextWave = true; // Enable continuous spawning
 
         this.waveFullySpawned = false;
 
@@ -86,7 +90,6 @@ export class WaveManager {
                 if (!this.isEndlessMode && this.currentWave >= this.config.waves) {
                //     if (this.enemiesSpawnedThisLevel >= this.config.totalEnemiesToSpawn) {
                         this.allWavesComplete = true;
-                        this.autoStartNextWave = false;
                         console.log("All enemies spawned for level!");
              //       }
                 } else {
@@ -95,6 +98,15 @@ export class WaveManager {
                        screen is the number the player waits. */
                     this.nextWaveAt = now + WAVE_GAP_MS;
                 }
+            }
+
+            /* Everything the wave sent is dead, so the wave is over and gets
+               paid for. Once only, and it is completeWave's `waveActive = false`
+               that sees to that - this whole block is inside `if (waveActive)`.
+               A second latch alongside it would be redundant and, worse,
+               untestable: removing it would change nothing observable. */
+            if (this.waveFullySpawned && enemyCount === 0) {
+                this.completeWave();
             }
         }
     }
@@ -392,41 +404,26 @@ export class WaveManager {
 
     completeWave() {
         this.waveActive = false;
-        console.log(`Wave ${this.currentWave} complete!`);
+        console.log(`Wave ${this.currentWave} cleared!`);
 
-        // Award wave completion bonus
-        if (this.gameEngine) {
-            const bonus = this.currentWave * 10;
-            this.gameEngine.inGameScore += bonus;
-            this.gameEngine.updateScoreCb(this.gameEngine.inGameScore);
+        if (!this.gameEngine) return;
 
-            // Drop bonus energy
-            const centerX = this.gameEngine.canvasWidth / 2;
-            const centerY = this.gameEngine.canvasHeight / 2;
-            this.gameEngine.dropEnergy(centerX, centerY, 5 + this.currentWave);
-        }
+        /* Pays for clearing rather than for waiting. The gap between waves is
+           fixed now, so without this there was nothing to gain by killing the
+           last enemy promptly - and this code existed all along, written and
+           tested and called from nowhere, so the reward had never once been
+           paid. */
+        const bonus = this.currentWave * WAVE_CLEAR_SCORE;
+        this.gameEngine.inGameScore += bonus;
+        this.gameEngine.updateScoreCb?.(this.gameEngine.inGameScore);
 
-        // Check if all waves complete
-        if (!this.isEndlessMode && this.currentWave >= this.config.waves) {
-            this.allWavesComplete = true;
-            return;
-        }
-
-        if (this.isEndlessMode && this.gameEngine && this.gameEngine.updateEndlessWaveCb) {
-            this.gameEngine.updateEndlessWaveCb(this.currentWave);
-        }
-
-        // Set cooldown for next wave
-        this.waveCooldown = this.getWaveCooldown();
-        console.log(`Next wave in ${this.waveCooldown / 60} seconds...`);
-    }
-
-    getWaveCooldown() {
-        // Shorter cooldowns in endless mode
-        if (this.isEndlessMode) {
-            return Math.max(60, 180 - (this.currentWave * 2)); // 1-3 seconds
-        }
-        return 180; // 3 seconds for normal mode
+        /* Dropped at the centre, so it has to be collected rather than granted -
+           the same bargain as every other energy pickup. */
+        this.gameEngine.dropEnergy?.(
+            this.gameEngine.canvasWidth / 2,
+            this.gameEngine.canvasHeight / 2,
+            WAVE_CLEAR_ENERGY + this.currentWave,
+        );
     }
 
     // announce (default true) gates only the wave:started horn/banner - the
@@ -478,7 +475,6 @@ export class WaveManager {
         this.waveEnemiesKilled = 0;
         this.enemiesSpawnedThisLevel = 0;
         this.totalEnemiesKilled = 0;
-        this.waveCooldown = 240; // 1 second initial delay
         this.lastSpawnTime = 0;
         this.nextSpawnDelay = 0;
         this.waveActive = false;
