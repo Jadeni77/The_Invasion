@@ -85,7 +85,7 @@ public class PlayerService {
     player.setCardUnlockProgress(1);
 
     //initialize level
-    player.setUnlockedLevels(Arrays.asList(1));
+    player.setUnlockedLevels(new ArrayList<>(List.of(1)));
     player.setCompletedLevels(new ArrayList<>());
     player.setLevelStars(new ArrayList<>(Collections.nCopies(20, 0)));
 
@@ -361,7 +361,7 @@ public class PlayerService {
     player.setCards(initialCards);
     player.setCardUnlockProgress(1);
 
-    player.setUnlockedLevels(Arrays.asList(1));
+    player.setUnlockedLevels(new ArrayList<>(List.of(1)));
     player.setCompletedLevels(new ArrayList<>());
     player.setLevelStars(new ArrayList<>(Collections.nCopies(20, 0)));
     player.setLastEnergyRechargeTime(LocalDateTime.now());  
