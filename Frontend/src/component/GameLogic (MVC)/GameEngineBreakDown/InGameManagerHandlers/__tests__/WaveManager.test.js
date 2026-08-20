@@ -126,13 +126,21 @@ describe('WaveManager', () => {
             expect(waveManager.shouldStartNextWave(999999, 0)).toBe(false);
         });
 
-        it('should force next wave after maxTimeBetweenWaves', () => {
+        /*
+         * This used to assert the opposite: that a wave was forced through
+         * fifteen seconds after it STARTED, spawned out or not. Since
+         * startNextWave resets the spawn counter, that abandoned whatever the
+         * slow wave had left to put on the board - a level could deliver fewer
+         * enemies than it declared. Waves now finish arriving before the next
+         * one is even scheduled. See waveCadence.test.js for the timing.
+         */
+        it('never cuts a wave short while it is still arriving', () => {
             waveManager.currentWave = 1;
             waveManager.waveActive = true;
             waveManager.lastWaveStartTime = 0;
-            // getCurrentWaveConfig needs a valid wave
-            waveManager.waveEnemiesSpawned = 0;
-            expect(waveManager.shouldStartNextWave(waveManager.maxTimeBetweenWaves + 1, 5)).toBe(true);
+            waveManager.waveEnemiesSpawned = 0; // mid-spawn
+
+            expect(waveManager.shouldStartNextWave(999_999)).toBe(false);
         });
     });
 

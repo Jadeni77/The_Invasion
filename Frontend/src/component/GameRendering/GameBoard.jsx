@@ -8,6 +8,7 @@ import Iron from "../../Icons/Iron.png";
 import { useMobileOrientation } from "./UseMobileOrientation.js";
 import { useCardCooldowns } from "./useCardCooldowns.js";
 import { useLeaveWarning } from "./useLeaveWarning.js";
+import { starsFor, starReason, MAX_BASE_HEALTH } from "../GameLogic (MVC)/LevelStars.js";
 
 const GameBoard = () => {
   const canvasRef = useRef(null);
@@ -351,15 +352,6 @@ const GameBoard = () => {
   if (gameOver) {
     const isEndless = selectedLevel === 999;
 
-    // Calculate stars (same logic as GameContext)
-    const calculateStars = (score, level) => {
-      const baseThreshold = 100 * level;
-      if (score >= baseThreshold * 1.5) return 3;
-      if (score >= baseThreshold) return 2;
-      if (score >= baseThreshold * 0.5) return 1;
-      return 0;
-    };
-
     const getLevelMultiplier = (level) => {
       if (level <= 3) return 1.0;
       if (level <= 7) return 1.5;
@@ -369,7 +361,18 @@ const GameBoard = () => {
       return 1.0;
     };
 
-    const stars = calculateStars(inGameScore, selectedLevel);
+    /*
+     * The same input GameContext rates the level on, so this screen cannot
+     * disagree with what was recorded. Taken from the engine, which still holds
+     * this level's total until the next reset, and falling back to the health
+     * this component watched - so a missing engine cannot silently hand out
+     * three stars.
+     */
+    const finished = gameEngineRef.current;
+    const defence = {
+      baseDamageTaken: finished?.baseDamageTaken ?? MAX_BASE_HEALTH - baseHealth,
+    };
+    const stars = starsFor(defence);
     const gemBonus =
       stars === 3 ? Math.ceil(getLevelMultiplier(selectedLevel)) : 0;
 
@@ -430,11 +433,15 @@ const GameBoard = () => {
             )}
 
             {gameWon && !isEndless && (
-              <p>
-                Stars Earned:{" "}
-                {/* U+2605 BLACK STAR, not U+2B50 WHITE MEDIUM STAR. */}
-                <span className="stars-value">{"★".repeat(stars)}</span>
-              </p>
+              <>
+                <p>
+                  Stars Earned:{" "}
+                  {/* U+2605 BLACK STAR, not U+2B50 WHITE MEDIUM STAR. */}
+                  <span className="stars-value">{"★".repeat(stars)}</span>
+                </p>
+                {/* Why that many, so the rating does not look arbitrary. */}
+                <p className="stars-reason">{starReason(defence)}</p>
+              </>
             )}
           </div>
 

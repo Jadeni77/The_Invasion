@@ -468,6 +468,14 @@
   line-height: var(--type-line-tight);
 }
 
+/* Why that many stars. Quieter than the stars themselves - it is a footnote to
+   them, not a second announcement. */
+.stars-reason {
+  color: var(--colors-text-muted);
+  font-size: var(--type-size-sm);
+  margin-top: 2px;
+}
+
 .rewards-section h3 {
   text-align: center;
   margin-bottom: 15px;
