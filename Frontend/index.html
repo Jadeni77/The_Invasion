@@ -23,6 +23,61 @@
   </head>
   <body>
     <div id="root"></div>
+
+    <!--
+      What a page says when the game's own code never arrives.
+
+      A crash inside React is caught by ErrorBoundary. This is for the case
+      before React exists at all: the bundle 404s. That happens when a browser
+      holds a cached index.html from an earlier deploy and asks for a hashed
+      filename the host no longer has - Cloudflare Pages serves only the current
+      deployment's assets. The result is a blank page with no console, no error
+      and nothing to report.
+
+      Inline and before the module, so it cannot itself be the thing that failed
+      to load.
+    -->
+    <script>
+      (function () {
+        var told = false;
+
+        function sayNothingLoaded(reason) {
+          if (told || window.__invasionBooted) return;
+          var root = document.getElementById("root");
+          if (!root || root.children.length > 0) return; // something rendered
+          told = true;
+          root.innerHTML =
+            '<div class="crash-screen" role="alert">' +
+            '<h1 class="crash-title">The game could not load</h1>' +
+            "<p class=\"crash-body\">This is usually an old copy of the page held " +
+            "in the browser's cache. Reloading fixes it.</p>" +
+            '<button type="button" class="crash-reload" onclick="location.reload()">' +
+            "Reload the game</button>" +
+            '<p class="crash-detail">' + reason + "</p></div>";
+        }
+
+        // A failed script or stylesheet fires error on the element, which only
+        // reaches window during the capture phase.
+        addEventListener(
+          "error",
+          function (event) {
+            var el = event.target;
+            if (el && (el.tagName === "SCRIPT" || el.tagName === "LINK")) {
+              sayNothingLoaded("The game files did not download.");
+            }
+          },
+          true
+        );
+
+        // And a backstop for the failures that report nothing at all. Generous,
+        // because a slow phone on a slow connection is not a broken one - and it
+        // gives up the moment anything has rendered.
+        setTimeout(function () {
+          sayNothingLoaded("The game did not start within 15 seconds.");
+        }, 15000);
+      })();
+    </script>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
