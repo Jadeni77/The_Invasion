@@ -22,6 +22,7 @@ import { SOUND_KEYS } from "./Feedback/SoundGroups.js";
 import { apiUrl } from "../../config/api.js";
 import { MAX_DEFENDER_LEVEL } from "./DefenderClassUtils.js";
 import { defenderUnlockedBy, defendersEarnedBy } from "./LevelUnlocks.js";
+import { openPlayerChannel, shouldRefreshOn, PLAYER_CHANGED } from "./crossTabSync.js";
 
 export const GameContext = createContext();
 
@@ -257,6 +258,16 @@ export const GameProvider = ({ children }) => {
   const [playerData, setPlayerData] = useState(null);
   const playerDataRef = useRef(null);
 
+  /* Opened once. A channel per render would leak a listener per render. */
+  const playerChannelRef = useRef(null);
+  if (playerChannelRef.current === null) {
+    playerChannelRef.current = openPlayerChannel() ?? false;
+  }
+
+  /* Set just before a refetch lands, so applying the server's answer is not
+     mistaken for a local change and echoed back to the tab that sent it. */
+  const appliedFromServerRef = useRef(false);
+
   /* Defenders already back-granted this session. fetchPlayerData runs on mount
      and again after every win, so without this the same catch-up POST goes out
      on each one until the server's copy catches up. */
@@ -281,6 +292,22 @@ export const GameProvider = ({ children }) => {
    * browser. `kind` is 'energy' when the shortfall is buyable, 'locked' otherwise.
    */
   const [gateNotice, setGateNotice] = useState(null);
+
+  /*
+   * Tell the other tabs that this player moved.
+   *
+   * Announced here rather than at each of the fourteen calls that write to the
+   * backend: playerData changing is the one fact they all produce, and a
+   * notification bolted onto each is one eventually forgotten on the fifteenth.
+   */
+  useEffect(() => {
+    if (!playerData) return;
+    if (appliedFromServerRef.current) {
+      appliedFromServerRef.current = false;
+      return;
+    }
+    playerChannelRef.current?.postMessage?.({ type: PLAYER_CHANGED });
+  }, [playerData]);
 
   //authentication
   const [isAuthenticated, setIsAuthenticated] = useState(
@@ -619,6 +646,7 @@ export const GameProvider = ({ children }) => {
         playerData.cards = withDefender(playerData.cards, name);
       }
 
+      appliedFromServerRef.current = true;
       setPlayerData(playerData);
 
       // The player already has these on screen; a failed save retries next load.
@@ -707,6 +735,34 @@ export const GameProvider = ({ children }) => {
 
     return () => clearInterval(interval);
   }, []);
+
+  /*
+   * Catch up when another tab moved, or when this one is looked at again.
+   *
+   * Only in the lobby. Replacing playerData mid-level would move the ground
+   * under a run in progress for a number nobody is looking at, and the lobby is
+   * the only place these totals are shown anyway.
+   */
+  useEffect(() => {
+    if (!isAuthenticated || !shouldRefreshOn(gameState)) return undefined;
+
+    const catchUp = () => { fetchPlayerData(); };
+    const onMessage = (event) => {
+      if (event?.data?.type === PLAYER_CHANGED) catchUp();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") catchUp();
+    };
+
+    const channel = playerChannelRef.current || null;
+    channel?.addEventListener?.("message", onMessage);
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      channel?.removeEventListener?.("message", onMessage);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [isAuthenticated, gameState, fetchPlayerData]);
 
   const savePlayerData = useCallback(async (_data) => {
     try {
