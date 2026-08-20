@@ -42,7 +42,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody AuthRequest request) {
+    public ResponseEntity<?> register(@jakarta.validation.Valid @RequestBody AuthRequest request) {
         if (playerRepository.existsByEmail(request.getEmail())) {
             return ResponseEntity.badRequest().body("Email already in use");
         }
@@ -58,7 +58,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody AuthRequest request) {
+    public ResponseEntity<?> login(@jakarta.validation.Valid @RequestBody AuthRequest request) {
         return playerRepository.findByEmail(request.getEmail())
                 .filter(player -> passwordEncoder.matches(request.getPassword(), player.getPassword()))
                 .map(player -> {
