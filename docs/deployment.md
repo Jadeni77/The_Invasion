@@ -202,6 +202,44 @@ Listed addresses are confirmed from the outset and never receive anything, so it
 should be empty otherwise — an exempt address is a way past confirmation
 entirely.
 
+## The mail canary
+
+Brevo expires an SMTP key that has gone **90 days without being used**, and this
+game only sends mail when somebody registers - so a quiet season kills the
+credential. When it dies, registration keeps working and keeps telling players
+to check an inbox nothing will reach: the only evidence is a `WARN` in a log
+nobody is reading.
+
+`.github/workflows/mail-canary.yml` runs on the 1st of each month and asks the
+deployment to send one email to itself. The send keeps the key alive, and a
+failure fails the workflow - which reaches you through GitHub, a channel that
+does not depend on the thing that just broke.
+
+Two values, and they have to match:
+
+```
+ADMIN_TOKEN=<a long random value>          # on Render
+ADMIN_TOKEN=<the same value>               # repository secret, for the workflow
+```
+
+Generate one with `openssl rand -hex 32`. Until both are set the check is off:
+the endpoint answers **404** without a token configured, and the workflow says so
+rather than passing quietly.
+
+What the workflow tells you, by status:
+
+| | means |
+|---|---|
+| 200 | mail works |
+| 401 | the secret and the deployment's `ADMIN_TOKEN` disagree |
+| 404 | `ADMIN_TOKEN` is not set on the deployment |
+| 503 | no transport: check `SPRING_MAIL_HOST` and `MAIL_FROM` |
+| 502 | the provider refused - most likely the SMTP key expired |
+
+`POST /api/admin/mail-check` takes **no recipient**: it can only ever mail
+`MAIL_FROM`, so the token cannot be turned into a relay. Run it by hand any time
+from the Actions tab.
+
 ## Renaming a column in a release
 
 `ddl-auto=update` **adds**; it never renames and never drops. Ship a renamed

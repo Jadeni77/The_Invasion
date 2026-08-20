@@ -152,6 +152,16 @@ class DeploymentReadinessTest {
         assertThat(properties()).contains("app.test-player-password=${TEST_PLAYER_PASSWORD:");
     }
 
+    /**
+     * The mail check is an unauthenticated endpoint that sends mail on request.
+     * It must be off unless a deployment sets a token, rather than live because
+     * somebody deployed the code.
+     */
+    @Test
+    void keepsTheMailCheckOffUntilATokenIsSet() {
+        assertThat(properties()).contains("admin.token=${ADMIN_TOKEN:}");
+    }
+
     @Test
     void carriesNoRealSigningKey() {
         // The committed key was a 64-character hex string. Anyone who could read

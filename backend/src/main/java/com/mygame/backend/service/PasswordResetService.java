@@ -5,10 +5,6 @@ import com.mygame.backend.repository.PlayerRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -35,19 +31,16 @@ public class PasswordResetService {
 
     private final PlayerRepository playerRepository;
     private final PasswordEncoder passwordEncoder;
-    private final ObjectProvider<JavaMailSender> mailSenderProvider;
+    private final Mailer mailer;
     private final SecureRandom random = new SecureRandom();
     private final Map<String, PendingCode> pending = new ConcurrentHashMap<>();
 
-    @Value("${mail.from:}")
-    private String fromAddress;
-
     public PasswordResetService(PlayerRepository playerRepository,
                                 PasswordEncoder passwordEncoder,
-                                ObjectProvider<JavaMailSender> mailSenderProvider) {
+                                Mailer mailer) {
         this.playerRepository = playerRepository;
         this.passwordEncoder = passwordEncoder;
-        this.mailSenderProvider = mailSenderProvider;
+        this.mailer = mailer;
     }
 
     /**
@@ -110,24 +103,12 @@ public class PasswordResetService {
     }
 
     private void sendCode(String email, String code) {
-        JavaMailSender sender = mailSenderProvider.getIfAvailable();
-        boolean configured = sender != null && fromAddress != null && !fromAddress.isBlank();
-        // In dev without SMTP configured, just log the code so the flow is usable.
+        // In dev without SMTP configured, the log is the only place it appears.
         log.info("Password reset code for {}: {}", email, code);
 
-        if (!configured) return;
-
-        try {
-            SimpleMailMessage msg = new SimpleMailMessage();
-            msg.setFrom(fromAddress);
-            msg.setTo(email);
-            msg.setSubject("Your password reset code for The Invasion");
-            msg.setText("Your verification code is: " + code
+        mailer.send(email, "Your password reset code for The Invasion",
+                "Your verification code is: " + code
                         + "\nIt expires in 10 minutes. If you did not request this, ignore this email.");
-            sender.send(msg);
-        } catch (Exception e) {
-            log.warn("Failed to send password reset email to {}: {}", email, e.getMessage());
-        }
     }
 
     private static final class PendingCode {

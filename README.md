@@ -44,7 +44,8 @@ screens.
 
 You need [Node.js](https://nodejs.org/en/download) **20.19+** (Vite 7 requires
 it) and a **JDK 17+**. You do *not* need to install Maven - the repository ships
-the Maven wrapper.
+the Maven wrapper. CI and the deployment image both build on **JDK 21**, which is
+what to match if something compiles for you and not for them.
 
 **Backend**, on http://localhost:8080:
 
@@ -72,10 +73,22 @@ find each other with no configuration.
 ## 🧪 Tests
 
 ```bash
-cd Frontend && npm test        # ~1,900 tests
-cd backend  && ./mvnw test     # ~44 tests
+cd Frontend && npm test        # ~2,070 tests
+cd backend  && ./mvnw test     # ~114 tests
 cd Frontend && npm run lint
 ```
+
+Every push and pull request runs both, plus a production build and a
+`docker build` of the backend image - the last of these because `mvnw test`
+cannot see a Dockerfile that no longer builds, and a broken one only shows up
+at deploy time otherwise. See [.github/workflows/](.github/workflows/).
+
+A third workflow, `mail-canary.yml`, runs monthly rather than on a push: it asks
+the deployment to send one email to itself. Mail providers expire a key that has
+gone unused for 90 days, and this game only sends when somebody registers - so
+the check keeps the credential alive and, more importantly, fails loudly if the
+transport has broken. Without it, a dead mailer looks exactly like a working one
+until a player tells you they never got a code.
 
 ## 📦 Deploying
 
@@ -84,6 +97,8 @@ services have to be created in: **[docs/deployment.md](docs/deployment.md)**.
 
 The short version - `main` is the release branch, and both hosts deploy from it
 automatically on every merge:
+
+**Required:**
 
 | Variable | Set on | What it is |
 |---|---|---|
@@ -94,13 +109,38 @@ automatically on every merge:
 | `JWT_SECRET` | Render | a long random value, `openssl rand -base64 48` |
 | `CORS_ALLOWED_ORIGINS` | Render | the frontend's address, no trailing slash |
 
-Two that bite:
+**Mail** - without these, registration completes and the confirmation code goes
+nowhere, so nobody new can play:
+
+| Variable | Set on | What it is |
+|---|---|---|
+| `SPRING_MAIL_HOST` | Render | e.g. `smtp-relay.brevo.com` |
+| `SPRING_MAIL_PORT` | Render | **`2525`** on a free Render instance - see below |
+| `SPRING_MAIL_USERNAME` | Render | the provider's SMTP login, often *not* your account email |
+| `SPRING_MAIL_PASSWORD` | Render | the provider's SMTP key |
+| `MAIL_FROM` | Render | a sender address verified with the provider |
+
+**Optional:**
+
+| Variable | Set on | What it is |
+|---|---|---|
+| `TEST_PLAYER_PASSWORD` | Render | password for the two seeded test accounts. This repository is public, so a deployment must set its own |
+| `SEED_TEST_PLAYERS` | Render | `false` to seed no test accounts at all |
+| `ADMIN_TOKEN` | Render **and** as a repository secret | enables the monthly mail check; both values must match |
+| `REQUIRE_EMAIL_VERIFICATION` | Render | `false` lets any well-formed address play at once. A retreat for when mail is broken, not a default |
+
+Three that bite:
 
 - `VITE_API_BASE_URL` is read at **build** time, so changing it needs a rebuild -
   and a value without `https://` is a relative path, which silently points the
   game at itself.
 - `CORS_ALLOWED_ORIGINS` must match the frontend's origin exactly, or the
   browser discards every response while the server logs look perfectly healthy.
+- **A free Render instance blocks outbound SMTP on ports 25, 465 and 587.** The
+  failure reads as a credentials problem and is not one: the connection is
+  refused before authentication, while the same instance reaches Postgres on 5432
+  without trouble. Use **2525**, which Brevo and Mailjet both accept. Gmail
+  offers neither and cannot be used from that host at all.
 
 ## Technology Used
 * JavaScript - Core language for game logics and classes communication
