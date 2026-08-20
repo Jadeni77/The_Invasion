@@ -136,15 +136,27 @@ means the account was made before confirmation was asked for, and it counts as
 confirmed — nobody is locked out of their own save by a rule that did not exist
 when they registered.
 
-For a test account on an address that has no inbox:
+**The test accounts need none of this.** Both are seeded at boot already
+confirmed — `test@example.com` with every defender maxed, `test2@example.com` at
+the start of the game — so end-to-end testing needs no mailbox at all. Which
+also means they are credentials anyone reading this repository holds, since both
+addresses and the password are in `DataInitializer`. Before the game has players
+who are not you:
 
 ```
-AUTH_VERIFICATION_EXEMPT=test@example.com,test2@example.com
+SEED_TEST_PLAYERS=false
 ```
 
-Listed addresses are confirmed from the outset and never receive anything. This
-is the escape hatch for an SMTP outage as well. It should be empty otherwise —
-an exempt address is a way past confirmation entirely.
+`AUTH_VERIFICATION_EXEMPT` is what remains for an address that has to register
+by hand without a working inbox, and for getting back in during an SMTP outage:
+
+```
+AUTH_VERIFICATION_EXEMPT=someone@example.com
+```
+
+Listed addresses are confirmed from the outset and never receive anything, so it
+should be empty otherwise — an exempt address is a way past confirmation
+entirely.
 
 ## Renaming a column in a release
 

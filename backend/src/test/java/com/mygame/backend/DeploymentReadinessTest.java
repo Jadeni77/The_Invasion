@@ -102,6 +102,17 @@ class DeploymentReadinessTest {
                 .contains("spring.mail.properties.mail.smtp.starttls.enable=");
     }
 
+    /**
+     * Two test accounts are seeded at boot, and both addresses and the password
+     * are in DataInitializer - so they are credentials anyone reading this
+     * repository holds, on whatever this is deployed to. Turning that off has to
+     * be possible without a code change.
+     */
+    @Test
+    void canStopSeedingTestAccountsFromTheEnvironment() {
+        assertThat(properties()).contains("app.seed-test-players=${SEED_TEST_PLAYERS:true}");
+    }
+
     @Test
     void carriesNoRealSigningKey() {
         // The committed key was a 64-character hex string. Anyone who could read
