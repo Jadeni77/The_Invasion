@@ -18,7 +18,9 @@
  * when a wave finishes arriving, that nothing shortens.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { WaveManager, PREP_TIME_MS, WAVE_GAP_MS } from '../WaveManager.js';
+import {
+    WaveManager, PREP_TIME_MS, WAVE_GAP_MS, WAVE_CLEAR_SCORE,
+} from '../WaveManager.js';
 
 /** Level 1's real shape: a single zombie first, then five, then five. */
 function levelOne() {
@@ -177,5 +179,58 @@ describe('the gap between waves', () => {
         // The number matters, so it is asserted rather than derived away.
         expect(WAVE_GAP_MS).toBeGreaterThanOrEqual(5000);
         expect(WAVE_GAP_MS).toBeLessThanOrEqual(15000);
+    });
+
+    /*
+     * Clearing a wave pays. completeWave() has existed all along - written,
+     * tested, and called from nowhere - so no player had ever received the
+     * score or the energy it grants. With the gap between waves now fixed,
+     * killing the last enemy promptly earned nothing at all without it.
+     */
+    describe('clearing a wave', () => {
+        it('pays nothing while an enemy is still alive', () => {
+            tick(PREP_TIME_MS);            // wave 1 begins and spawns its zombie
+            tick(PREP_TIME_MS + 16, 1);    // fully spawned, one still up
+            tick(PREP_TIME_MS + 32, 1);
+
+            expect(engine.inGameScore).toBe(0);
+            expect(engine.dropEnergy).not.toHaveBeenCalled();
+        });
+
+        it('pays when the last one dies', () => {
+            tick(PREP_TIME_MS);
+            tick(PREP_TIME_MS + 16, 1);
+            tick(PREP_TIME_MS + 32, 0);    // killed
+
+            expect(engine.inGameScore).toBe(WAVE_CLEAR_SCORE * 1);
+            expect(engine.dropEnergy).toHaveBeenCalledTimes(1);
+        });
+
+        /* update() runs every frame, and the board stays empty for the whole
+           eight-second gap. Without a latch this pays hundreds of times. */
+        it('pays exactly once, however long the board stays empty', () => {
+            tick(PREP_TIME_MS);
+            tick(PREP_TIME_MS + 16, 1);
+            tick(PREP_TIME_MS + 32, 0);
+            const afterFirstClear = engine.inGameScore;
+
+            for (let t = 48; t < WAVE_GAP_MS; t += 100) tick(PREP_TIME_MS + t, 0);
+
+            expect(engine.inGameScore).toBe(afterFirstClear);
+            expect(engine.dropEnergy).toHaveBeenCalledTimes(1);
+        });
+
+        it('pays again for the next wave, scaled to it', () => {
+            tick(PREP_TIME_MS);
+            tick(PREP_TIME_MS + 16, 1);
+            tick(PREP_TIME_MS + 32, 0);            // wave 1 cleared: 10
+            const due = wm.nextWaveAt;
+            tick(due, 0);                          // wave 2 begins
+            for (let t = 0; t <= 15_000; t += 250) tick(due + t, 0);
+
+            // Wave 2 is worth twice wave 1, and its five enemies never appear on
+            // the board in this harness, so it clears as soon as it is spawned.
+            expect(engine.inGameScore).toBe(WAVE_CLEAR_SCORE * 1 + WAVE_CLEAR_SCORE * 2);
+        });
     });
 });

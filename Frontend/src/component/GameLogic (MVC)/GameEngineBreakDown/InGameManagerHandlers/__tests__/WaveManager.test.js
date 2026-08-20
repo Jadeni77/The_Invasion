@@ -267,30 +267,32 @@ describe('WaveManager', () => {
     });
 
     describe('completeWave', () => {
-        it('should set waveActive to false', () => {
-            waveManager.waveActive = true;
-            waveManager.currentWave = 1;
-            waveManager.completeWave();
-            expect(waveManager.waveActive).toBe(false);
-        });
-
-        it('should award score bonus based on wave number', () => {
+        /* Called when a wave's last enemy dies. It pays for CLEARING, which
+           until now was written, tested and called from nowhere - so no player
+           had ever received it. */
+        it('awards score scaled by the wave number', () => {
             waveManager.currentWave = 3;
             waveManager.completeWave();
-            expect(mockGameEngine.inGameScore).toBe(30); // wave 3 * 10
+
+            expect(mockGameEngine.inGameScore).toBe(30);
             expect(mockGameEngine.updateScoreCb).toHaveBeenCalledWith(30);
         });
 
-        it('should mark allWavesComplete when last wave is done', () => {
-            waveManager.currentWave = 3; // config.waves = 3
+        it('drops energy to be collected, rather than granting it', () => {
+            waveManager.currentWave = 2;
             waveManager.completeWave();
-            expect(waveManager.allWavesComplete).toBe(true);
+
+            expect(mockGameEngine.dropEnergy).toHaveBeenCalled();
+            const [, , amount] = mockGameEngine.dropEnergy.mock.calls[0];
+            expect(amount).toBeGreaterThan(0);
         });
 
-        it('should not mark complete if more waves remain', () => {
+        it('ends the wave', () => {
+            waveManager.waveActive = true;
             waveManager.currentWave = 1;
             waveManager.completeWave();
-            expect(waveManager.allWavesComplete).toBe(false);
+
+            expect(waveManager.waveActive).toBe(false);
         });
     });
 
@@ -339,27 +341,8 @@ describe('WaveManager', () => {
         });
     });
 
-    describe('getWaveCooldown', () => {
-        it('should return 180 for normal mode', () => {
-            expect(waveManager.getWaveCooldown()).toBe(180);
-        });
-
-        it('should return shorter cooldown for endless mode', () => {
-            const endlessWM = new WaveManager(
-                createLevelConfig({ isEndless: true }), spawnCallback, mockGameEngine
-            );
-            endlessWM.currentWave = 1;
-            expect(endlessWM.getWaveCooldown()).toBeLessThanOrEqual(180);
-        });
-
-        it('should enforce minimum of 60 for endless mode', () => {
-            const endlessWM = new WaveManager(
-                createLevelConfig({ isEndless: true }), spawnCallback, mockGameEngine
-            );
-            endlessWM.currentWave = 100;
-            expect(endlessWM.getWaveCooldown()).toBeGreaterThanOrEqual(60);
-        });
-    });
+    /* getWaveCooldown is gone: WAVE_GAP_MS owns the time between waves now,
+       and waveCadence.test.js covers it. */
 
     describe('update', () => {
         it('should not do anything when game is over', () => {

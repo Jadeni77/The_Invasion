@@ -37,9 +37,16 @@ COPY --from=build --chown=invasion:invasion /build/target/*.jar app.jar
 ENV PORT=8080
 EXPOSE 8080
 
-# MaxRAMPercentage, because the JVM's default heap sizing reads the machine and
-# not the container limit. On a 512MB free instance that means it can size a
-# heap it is not allowed to have and be killed for using it.
+# MaxRAMPercentage, and NOT because the JVM mistakes the host for the container:
+# it has read cgroup limits since Java 10, and container support is on by
+# default. The problem is the default share. 25% of a 512MB instance is a ~128MB
+# heap, which leaves most of the box unused and the app hitting GC pressure it
+# has the memory to avoid. 70% claims the room while still leaving space for the
+# JVM's own non-heap use - metaspace, thread stacks, code cache - which is why
+# this is not higher.
+#
+# SerialGC because a free instance gets a fraction of a core: a parallel
+# collector spends more on coordinating threads than it recovers.
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=70 -XX:+UseSerialGC"
 
 # Shell form, so ${JAVA_OPTS} is expanded rather than passed as one literal word.
