@@ -127,6 +127,28 @@ describe('a tab that has left the lobby', () => {
 
 describe('announcing a change', () => {
   /*
+   * The half the first version of this file missed: it proved a tab REACTS to a
+   * message, and posted that message by hand. Nothing checked that playing the
+   * game produces one - so the announcing side could have been broken and every
+   * test here would still have passed.
+   */
+  it('announces when the player actually does something', async () => {
+    await mount();
+
+    const heard = [];
+    const listener = new BroadcastChannel(CHANNEL_NAME);
+    listener.onmessage = (event) => heard.push(event.data);
+
+    await act(async () => {
+      await api.collectTreasure('chest-1');
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    listener.close();
+
+    expect(heard.map((m) => m.type)).toContain(PLAYER_CHANGED);
+  });
+
+  /*
    * The loop this has to avoid: tab A announces, tab B refetches, B announces
    * the result, A refetches, and so on forever.
    */
