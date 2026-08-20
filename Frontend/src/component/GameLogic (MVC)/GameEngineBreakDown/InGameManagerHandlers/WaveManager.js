@@ -5,6 +5,20 @@ const MIN_SPAWN_INTERVAL_MS = 200;
 /** How long the player gets to arrange defenders before the first wave. */
 export const PREP_TIME_MS = 10_000;
 
+/**
+ * The gap between one wave finishing its arrival and the next beginning.
+ *
+ * A set amount of time, and nothing shortens it. Waves used to arrive on
+ * whichever of three racing conditions won: the board being clear three seconds
+ * after the wave started, two or fewer enemies left after six, or fifteen
+ * seconds elapsed regardless. The first of those fires the instant the last
+ * enemy dies, so killing the one zombie in level 1's opening wave summoned the
+ * next immediately - while the countdown on screen still read ten.
+ *
+ * A countdown cannot be honest about a race. This is the whole rule now.
+ */
+export const WAVE_GAP_MS = 8_000;
+
 export class WaveManager {
     constructor(levelConfig, spawnEnemyCallback, gameEngine) {
         this.config = levelConfig;
@@ -37,22 +51,23 @@ export class WaveManager {
         this.bossSpawned = false;
         this.currentBoss = null;
 
-        this.waveInterval = 15000;
         this.lastWaveStartTime = 0;
         this.autoStartNextWave = true; // Enable continuous spawning
 
         this.waveFullySpawned = false;
-        this.minTimeBetweenWaves = 3000;
-        this.maxTimeBetweenWaves = 15000;
 
+        /* When the next wave is due, or null while one is still arriving. Set
+           once, from WAVE_GAP_MS, and never moved. */
+        this.nextWaveAt = null;
     }
 
     update(now, enemyCount, gameOver) {
         if (gameOver || this.allWavesComplete) return;
 
-        if (this.shouldStartNextWave(now, enemyCount)) {
+        if (this.shouldStartNextWave(now)) {
             this.startNextWave();
             this.lastWaveStartTime = now;
+            this.nextWaveAt = null;
         }
 
         // Continue spawning current wave enemies
@@ -74,37 +89,33 @@ export class WaveManager {
                         this.autoStartNextWave = false;
                         console.log("All enemies spawned for level!");
              //       }
+                } else {
+                    /* The only place the gap is set: the moment this wave stops
+                       arriving. Not when the board clears, so the number on
+                       screen is the number the player waits. */
+                    this.nextWaveAt = now + WAVE_GAP_MS;
                 }
             }
         }
     }
 
-    shouldStartNextWave(now, enemyCount) {
+    /**
+     * Whether the next wave is due.
+     *
+     * One rule per state, and no races. Wave 1 waits out the prep; every wave
+     * after it waits the gap armed when the previous one finished arriving.
+     *
+     * What this deliberately no longer does is cut a wave short. Progression
+     * used to be forced fifteen seconds after a wave STARTED, whether or not it
+     * had finished spawning - and startNextWave resets the spawn counter, so the
+     * enemies a slow wave had not yet put on the board were simply never spawned.
+     * A level could quietly deliver fewer enemies than it declared.
+     */
+    shouldStartNextWave(now) {
         if (this.currentWave === 0) return now - this.lastWaveStartTime >= PREP_TIME_MS;
         if (!this.isEndlessMode && this.currentWave >= this.config.waves) return false;
 
-        const timeSinceLastWave = now - this.lastWaveStartTime;
-        const waveConfig = this.getCurrentWaveConfig();
-        // 1. Current wave is fully spawned AND no enemies remain (immediate progression)
-        // 2. OR minimum time passed AND enemies below threshold
-        // 3. OR maximum time has passed (force progression)
-        if (waveConfig && this.waveEnemiesSpawned >= waveConfig.enemyCount) {
-            // Wave fully spawned
-            if (enemyCount === 0 && timeSinceLastWave >= this.minTimeBetweenWaves) {
-                console.log("Wave cleared! Starting next wave immediately.");
-                return true;
-            }
-            // Few enemies remain and enough time passed
-            if (enemyCount <= 2 && timeSinceLastWave >= this.minTimeBetweenWaves * 2) {
-                console.log("Few enemies remain, progressing to next wave.");
-                return true;
-            }
-        }
-        if (timeSinceLastWave >= this.maxTimeBetweenWaves) {
-            console.log("Max time reached, forcing next wave.");
-            return true;
-        }
-        return false;
+        return this.nextWaveAt !== null && now >= this.nextWaveAt;
     }
 
     getCurrentWaveConfig() {
@@ -481,15 +492,26 @@ export class WaveManager {
            back to zero - `0 - 90000 >= 10000` is false, so wave 1 was owed a
            hundred seconds on the second level of a session. */
         this.lastWaveStartTime = 0;
+
+        /* Nothing is due until a wave has arrived and finished. */
+        this.nextWaveAt = null;
+        this.waveFullySpawned = false;
     }
 
     /**
-     * Seconds until the next wave arrives, or 0 when it is not waiting on time.
+     * Seconds until the next wave arrives, or 0 when nothing is being waited on.
      *
-     * DrawUIs has always called this to draw the "Next Wave" countdown, and it
-     * has never existed - so the countdown never drew and the player had no idea
-     * how long the wait was. That matters most during the prep before wave 1,
-     * which is the longest deliberate pause in a level.
+     * DrawUIs has always called this to draw the "Next Wave" countdown, and for
+     * a long time it did not exist - so the countdown never drew at all.
+     *
+     * Now it reads the one clock that decides: the prep before wave 1, or the
+     * gap after a wave finishes arriving. It returns 0 while a wave is still
+     * spawning, and the UI draws nothing then, because enemies are arriving
+     * already and there is no wait to report.
+     *
+     * Every number this returns is a number the wave honours. The version before
+     * this counted toward a fifteen-second cap that three other rules could beat
+     * to the punch, so it read ten while the wave began.
      */
     getTimeUntilNextWave() {
         if (this.allWavesComplete) return 0;
@@ -500,12 +522,8 @@ export class WaveManager {
             return Math.max(0, Math.ceil((PREP_TIME_MS - (now - this.lastWaveStartTime)) / 1000));
         }
 
-        // Mid-level, a wave only waits on the clock once it is fully spawned.
-        const waveConfig = this.getCurrentWaveConfig();
-        if (!waveConfig || this.waveEnemiesSpawned < waveConfig.enemyCount) return 0;
-
-        const due = this.lastWaveStartTime + this.maxTimeBetweenWaves;
-        return Math.max(0, Math.ceil((due - now) / 1000));
+        if (this.nextWaveAt === null) return 0;
+        return Math.max(0, Math.ceil((this.nextWaveAt - now) / 1000));
     }
 
 }
