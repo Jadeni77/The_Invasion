@@ -39,7 +39,7 @@ public class PasswordResetService {
     private final SecureRandom random = new SecureRandom();
     private final Map<String, PendingCode> pending = new ConcurrentHashMap<>();
 
-    @Value("${app.mail.from:no-reply@mygame.local}")
+    @Value("${mail.from:}")
     private String fromAddress;
 
     public PasswordResetService(PlayerRepository playerRepository,
@@ -121,7 +121,7 @@ public class PasswordResetService {
             SimpleMailMessage msg = new SimpleMailMessage();
             msg.setFrom(fromAddress);
             msg.setTo(email);
-            msg.setSubject("Your MyGame password reset code");
+            msg.setSubject("Your password reset code for The Invasion");
             msg.setText("Your verification code is: " + code
                         + "\nIt expires in 10 minutes. If you did not request this, ignore this email.");
             sender.send(msg);
