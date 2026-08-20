@@ -33,6 +33,9 @@ class RegistrationValidationTest {
     @Autowired
     private PlayerService playerService;
 
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder encoder;
+
     private int register(String body) throws Exception {
         return mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -77,6 +80,42 @@ class RegistrationValidationTest {
                 "blankname-" + System.nanoTime() + "@example.com", "hash", "");
 
         assertThat(player.getDisplayName()).isNotBlank();
+    }
+
+    /*
+     * The rules describe what a password must be when it is CHOSEN. Enforced at
+     * login as well, they check an existing password against a rule that did not
+     * exist when it was set - which locked the owner out of a test account whose
+     * seven-character password had worked for weeks.
+     *
+     * A login needs no rules: wrong credentials fail to match, and an address
+     * that is not an address matches no account.
+     */
+    @Test
+    void letsAnOlderShorterPasswordStillSignIn() throws Exception {
+        String email = "legacy-" + System.nanoTime() + "@example.com";
+        playerService.createPlayerWithEmail(email, encoder.encode("test123"), "Legacy");
+
+        int status = mvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(email, "test123")))
+                .andReturn().getResponse().getStatus();
+
+        assertThat(status).as("seven characters, set before the rule existed").isEqualTo(200);
+    }
+
+    @Test
+    void stillRefusesTheWrongPasswordAtLogin() throws Exception {
+        String email = "wrongpw-" + System.nanoTime() + "@example.com";
+        playerService.createPlayerWithEmail(email, encoder.encode("test123"), "Legacy");
+
+        assertThat(register(json(email, "test123"))).as("already registered").isNotEqualTo(200);
+        int status = mvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(email, "not-the-password")))
+                .andReturn().getResponse().getStatus();
+
+        assertThat(status).isNotEqualTo(200);
     }
 
     @Test
