@@ -6,7 +6,11 @@
 name: Backend
 
 on:
+  # Only the long-lived branches on push: that covers a release pushed straight
+  # to main, while a feature branch is covered by its pull request instead of
+  # running everything twice.
   push:
+    branches: [main, develop]
     paths:
       - 'backend/**'
       - '.github/workflows/backend.yml'
