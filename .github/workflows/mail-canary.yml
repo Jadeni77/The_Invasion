@@ -1,0 +1,61 @@
+# Proves the game can still send mail, once a month.
+#
+# Two problems, one job. Brevo expires an SMTP key that has gone 90 days without
+# being used, and this game only sends when somebody registers - so a quiet
+# season kills the credential. And a broken transport is otherwise invisible:
+# registration carries on telling players to check an inbox nothing will reach,
+# while the only evidence is a WARN in a log nobody reads.
+#
+# So: the send keeps the key alive, and a failure fails this workflow - which
+# emails you through GitHub, a channel that does not depend on the thing that
+# just broke.
+name: Mail canary
+
+on:
+  schedule:
+    # 09:00 UTC on the 1st. Well inside 90 days, and no rush about the hour.
+    - cron: '0 9 1 * *'
+  workflow_dispatch:
+
+jobs:
+  canary:
+    name: Send one email to the owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Ask the deployment to send one
+        env:
+          # Public knowledge, and only useful with the token below.
+          API: https://the-invasion.onrender.com
+          TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::ADMIN_TOKEN is not set as a repository secret, so this check cannot run."
+            exit 1
+          fi
+
+          # The free instance sleeps when nobody is playing, and waking it takes
+          # the better part of a minute. Two attempts with a long timeout each,
+          # so a cold start is not reported as broken mail.
+          for attempt in 1 2; do
+            echo "Attempt $attempt..."
+            body=$(mktemp)
+            code=$(curl -s -o "$body" -w '%{http_code}' -m 180 \
+              -X POST "$API/api/admin/mail-check" \
+              -H "X-Admin-Token: $TOKEN")
+
+            echo "HTTP $code: $(cat "$body")"
+
+            case "$code" in
+              200) echo "Mail is working."; exit 0 ;;
+              401) echo "::error::The deployment rejected ADMIN_TOKEN. The secret and the environment variable disagree."; exit 1 ;;
+              404) echo "::error::ADMIN_TOKEN is not set on the deployment, so the check is disabled there."; exit 1 ;;
+              503) echo "::error::No mail transport configured: check SPRING_MAIL_HOST and MAIL_FROM."; exit 1 ;;
+              502) echo "::error::The mail provider refused the message. The SMTP key may have expired - Brevo drops keys unused for 90 days."; exit 1 ;;
+              000) echo "The instance did not answer in time; trying once more." ;;
+              *)   echo "::error::Unexpected response $code."; exit 1 ;;
+            esac
+          done
+
+          echo "::error::The backend never answered. It may be down rather than out of mail."
+          exit 1

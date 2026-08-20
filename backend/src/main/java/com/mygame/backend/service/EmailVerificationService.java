@@ -4,10 +4,7 @@ import com.mygame.backend.entity.Player;
 import com.mygame.backend.repository.PlayerRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -42,11 +39,8 @@ public class EmailVerificationService {
     static final long CODE_TTL_MS = 24 * 60 * 60 * 1000L;
 
     private final PlayerRepository playerRepository;
-    private final ObjectProvider<JavaMailSender> mailSenderProvider;
+    private final Mailer mailer;
     private final SecureRandom random = new SecureRandom();
-
-    @Value("${mail.from:}")
-    private String fromAddress;
 
     /**
      * Addresses that never need to prove anything, comma separated.
@@ -74,10 +68,9 @@ public class EmailVerificationService {
     @Value("${auth.require-email-verification:true}")
     private boolean verificationRequired;
 
-    public EmailVerificationService(PlayerRepository playerRepository,
-                                    ObjectProvider<JavaMailSender> mailSenderProvider) {
+    public EmailVerificationService(PlayerRepository playerRepository, Mailer mailer) {
         this.playerRepository = playerRepository;
-        this.mailSenderProvider = mailSenderProvider;
+        this.mailer = mailer;
     }
 
     private Set<String> exemptAddresses() {
@@ -159,23 +152,12 @@ public class EmailVerificationService {
     }
 
     private void send(String email, String code) {
-        JavaMailSender sender = mailSenderProvider.getIfAvailable();
-        boolean configured = sender != null && fromAddress != null && !fromAddress.isBlank();
-
-        // Logged either way, so the flow is usable on a machine with no SMTP.
+        // Logged either way, so the flow is usable on a machine with no SMTP -
+        // and so a player who never receives the mail can still be helped.
         log.info("Email verification code for {}: {}", email, code);
-        if (!configured) return;
 
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromAddress);
-            message.setTo(email);
-            message.setSubject("Confirm your email for The Invasion");
-            message.setText("Your confirmation code is: " + code
-                    + "\nIt expires in 24 hours. If you did not sign up, ignore this email.");
-            sender.send(message);
-        } catch (Exception e) {
-            log.warn("Failed to send a verification email to {}: {}", email, e.getMessage());
-        }
+        mailer.send(email, "Confirm your email for The Invasion",
+                "Your confirmation code is: " + code
+                        + "\nIt expires in 24 hours. If you did not sign up, ignore this email.");
     }
 }

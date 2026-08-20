@@ -35,6 +35,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/player/test").permitAll()
+                // Guards itself with ADMIN_TOKEN, and is 404 unless that is set.
+                .requestMatchers("/api/admin/mail-check").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
                 .anyRequest().authenticated())
             .headers(headers -> headers.frameOptions(frame -> frame.disable())) // for H2 console
