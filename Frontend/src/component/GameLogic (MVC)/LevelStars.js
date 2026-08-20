@@ -27,14 +27,22 @@ export const MAX_BASE_HEALTH = 100;
 export const HALF_BASE_HEALTH = MAX_BASE_HEALTH / 2;
 
 /**
- * Stars for a won level.
+ * Stars for a won level, from what reached the base and nothing else.
  *
  * Only ever called on a win, so one star is the floor: surviving is worth
- * something. Three asks for a clean sheet on both counts, which is what a
- * player who watched nothing get through expects to see.
+ * something.
+ *
+ * Losing defenders deliberately does NOT cost a star. The first version of this
+ * asked for a clean sheet on both counts, which put three stars out of reach on
+ * every level fielding a Titan - 5000 health, hitting for 50 every two seconds,
+ * so whatever stands in front of one dies while it is being worn down. That is
+ * the same unreachable-tier bug this file exists to fix, one layer further in.
+ *
+ * Defenders lost is not ignored by the game: it is what the `perfect_defense`
+ * achievement is for. It is just not what a star means.
  */
-export function starsFor({ baseDamageTaken = 0, defendersLost = 0 } = {}) {
-    if (baseDamageTaken <= 0 && defendersLost <= 0) return 3;
+export function starsFor({ baseDamageTaken = 0 } = {}) {
+    if (baseDamageTaken <= 0) return 3;
     if (baseDamageTaken <= HALF_BASE_HEALTH) return 2;
     return 1;
 }
@@ -44,14 +52,8 @@ export function starsFor({ baseDamageTaken = 0, defendersLost = 0 } = {}) {
  * screen rather than looking arbitrary - which is exactly how the old one
  * looked, because it was.
  */
-export function starReason({ baseDamageTaken = 0, defendersLost = 0 } = {}) {
-    if (baseDamageTaken <= 0 && defendersLost <= 0) {
-        return "Nothing got through, and nothing was lost.";
-    }
-    if (baseDamageTaken <= 0) {
-        const fell = defendersLost === 1 ? "1 defender fell" : `${defendersLost} defenders fell`;
-        return `Nothing reached the base, but ${fell}.`;
-    }
+export function starReason({ baseDamageTaken = 0 } = {}) {
+    if (baseDamageTaken <= 0) return "Nothing reached your base.";
     if (baseDamageTaken <= HALF_BASE_HEALTH) {
         return "The base took damage but held above half.";
     }

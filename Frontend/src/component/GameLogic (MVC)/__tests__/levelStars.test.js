@@ -21,39 +21,45 @@ import {
 const leaks = (n) => ({ baseDamageTaken: n * 10, defendersLost: 0 });
 
 describe('stars for a level', () => {
-    it('gives three for a level nothing got through', () => {
-        expect(starsFor({ baseDamageTaken: 0, defendersLost: 0 })).toBe(3);
+    it('gives three when nothing reached the base', () => {
+        expect(starsFor({ baseDamageTaken: 0 })).toBe(3);
     });
 
     /* The reported case - level 1 played perfectly, rated two - is guarded
        through the path that records it, in starsAwarded.test.jsx. Repeating it
        here would only restate the case above. */
 
-    it('drops to two when a defender is lost, even with the base untouched', () => {
-        expect(starsFor({ baseDamageTaken: 0, defendersLost: 1 })).toBe(2);
+    /*
+     * Losing defenders must not cost a star. Requiring a clean sheet on both
+     * counts - which the first version of this did - put three stars out of
+     * reach on every level fielding a Titan: 5000 health, hitting for 50 every
+     * two seconds, so whatever holds it dies while it is worn down. That is the
+     * same unreachable tier this file exists to remove.
+     */
+    it('does not dock a star for defenders lost, which some levels force', () => {
+        expect(starsFor({ baseDamageTaken: 0, defendersLost: 1 })).toBe(3);
+        expect(starsFor({ baseDamageTaken: 0, defendersLost: 12 })).toBe(3);
     });
 
     it('gives two while the base is above half', () => {
         expect(starsFor(leaks(1))).toBe(2);
-        expect(starsFor({ baseDamageTaken: HALF_BASE_HEALTH, defendersLost: 0 })).toBe(2);
+        expect(starsFor({ baseDamageTaken: HALF_BASE_HEALTH })).toBe(2);
     });
 
     it('gives one when the base is past half', () => {
-        expect(starsFor({ baseDamageTaken: HALF_BASE_HEALTH + 10, defendersLost: 0 })).toBe(1);
+        expect(starsFor({ baseDamageTaken: HALF_BASE_HEALTH + 10 })).toBe(1);
         expect(starsFor(leaks(9))).toBe(1);
     });
 
     /* Called only on a win, and a win is worth something. */
     it('never gives zero', () => {
-        expect(starsFor({ baseDamageTaken: MAX_BASE_HEALTH - 10, defendersLost: 20 }))
-            .toBeGreaterThan(0);
+        expect(starsFor({ baseDamageTaken: MAX_BASE_HEALTH - 10 })).toBeGreaterThan(0);
     });
 
     it('rates the defence, not the score', () => {
         // Two runs of the same level: one flawless, one leaky. Score does not
         // appear in the call at all, which is the point.
-        expect(starsFor({ baseDamageTaken: 0, defendersLost: 0 }))
-            .toBeGreaterThan(starsFor(leaks(8)));
+        expect(starsFor({ baseDamageTaken: 0 })).toBeGreaterThan(starsFor(leaks(8)));
     });
 
     it('rises as the defence improves, never falls', () => {
@@ -65,13 +71,12 @@ describe('stars for a level', () => {
 
 describe('the line that explains it', () => {
     it('says what earned three', () => {
-        expect(starReason({ baseDamageTaken: 0, defendersLost: 0 }))
-            .toMatch(/nothing got through/i);
+        expect(starReason({ baseDamageTaken: 0 })).toMatch(/nothing reached your base/i);
     });
 
-    it('names the defender that cost the third star', () => {
-        expect(starReason({ baseDamageTaken: 0, defendersLost: 1 })).toContain('1 defender fell');
-        expect(starReason({ baseDamageTaken: 0, defendersLost: 3 })).toContain('3 defenders fell');
+    it('says the same thing however many defenders were lost', () => {
+        expect(starReason({ baseDamageTaken: 0, defendersLost: 4 }))
+            .toEqual(starReason({ baseDamageTaken: 0 }));
     });
 
     it('distinguishes a comfortable win from a bare one', () => {

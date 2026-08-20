@@ -103,10 +103,15 @@ describe('the stars a win records', () => {
     expect(await win(3, { score: 99999, baseDamageTaken: 60 })).toBe(1);
   });
 
-  /* Both signals have to be clean, and the base is the harsher of the two. */
-  it('gives two when the base is untouched but a defender falls', async () => {
+  /*
+   * Defenders lost cannot cost a star: a Titan has 5000 health and hits for 50
+   * every two seconds, so whatever holds one dies while it is worn down, and
+   * levels 14 and 18-20 field them. Docking a star for that would put three out
+   * of reach on those levels - the exact problem this change removed.
+   */
+  it('gives three with the base untouched even when defenders fell', async () => {
     await mount();
 
-    expect(await win(2, { score: 500, defendersLost: 1 })).toBe(2);
+    expect(await win(2, { score: 500, defendersLost: 6 })).toBe(3);
   });
 });
