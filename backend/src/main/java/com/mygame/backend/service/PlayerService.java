@@ -335,7 +335,8 @@ public class PlayerService {
     player.setEmail(email);
     player.setPassword(hashedPassword);
     player.setSessionId("email-" + email); //backward compat
-    player.setDisplayName(displayName != null ? displayName : "Defender #" + email.substring(0, 4));
+    boolean chose = displayName != null && !displayName.isBlank();
+    player.setDisplayName(chose ? displayName.trim() : "Defender #" + email.substring(0, 4));
 
     List<CardData> initialCards = new ArrayList<>();
     initialCards.add(new CardData(1, "Shooter", 1, 0, 10));
