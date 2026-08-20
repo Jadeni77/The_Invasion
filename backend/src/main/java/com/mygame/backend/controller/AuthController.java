@@ -58,7 +58,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@jakarta.validation.Valid @RequestBody AuthRequest request) {
+    public ResponseEntity<?> login(@RequestBody AuthRequest request) {
         return playerRepository.findByEmail(request.getEmail())
                 .filter(player -> passwordEncoder.matches(request.getPassword(), player.getPassword()))
                 .map(player -> {
