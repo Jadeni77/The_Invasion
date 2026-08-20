@@ -138,14 +138,28 @@ when they registered.
 
 **The test accounts need none of this.** Both are seeded at boot already
 confirmed — `test@example.com` with every defender maxed, `test2@example.com` at
-the start of the game — so end-to-end testing needs no mailbox at all. Which
-also means they are credentials anyone reading this repository holds, since both
-addresses and the password are in `DataInitializer`. Before the game has players
-who are not you:
+the start of the game — so end-to-end testing needs no mailbox at all.
+
+Their addresses are in `DataInitializer` and this repository is public, so
+**every deployment must set a password of its own**:
+
+```
+TEST_PLAYER_PASSWORD=<something only you know>
+```
+
+Without it they are seeded with the development default, which anyone reading
+the source can look up. The change takes effect on the next boot: the maxed
+account is rebuilt regardless, and the start-of-game account keeps its progress
+and has only its password brought in line.
+
+To do without the accounts entirely:
 
 ```
 SEED_TEST_PLAYERS=false
 ```
+
+Note that this stops them being *recreated*; rows already in the database stay,
+with whatever password they were last given.
 
 `AUTH_VERIFICATION_EXEMPT` is what remains for an address that has to register
 by hand without a working inbox, and for getting back in during an SMTP outage:
