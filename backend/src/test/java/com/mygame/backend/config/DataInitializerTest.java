@@ -4,6 +4,7 @@ import com.mygame.backend.entity.CardData;
 import com.mygame.backend.entity.Player;
 import com.mygame.backend.repository.PlayerRepository;
 import com.mygame.backend.service.PlayerService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,12 @@ class DataInitializerTest {
     @Autowired
     private PlayerService playerService;
 
+    @Autowired
+    private PasswordEncoder encoder;
+
+    /** What the seeded accounts are given locally, per application.properties. */
+    private static final String PASSWORD = "test123";
+
     /**
      * Deliberately a plain instance, not the injected bean.
      *
@@ -45,7 +52,7 @@ class DataInitializerTest {
 
     /** What the runner does at boot, on demand. */
     private void boot() throws Exception {
-        initializer.init(players, playerService, true).run();
+        initializer.init(players, playerService, encoder, true, PASSWORD).run();
     }
 
     /** Leave the database as the application's own boot left it. */
@@ -81,6 +88,42 @@ class DataInitializerTest {
         assertThat(fresh.getLevelStars())
                 .containsExactlyElementsOf(justRegistered.getLevelStars());
         assertThat(fresh.getGold()).isEqualTo(justRegistered.getGold());
+    }
+
+    /**
+     * The password comes from configuration, so a public repository does not
+     * hand out a working login on every deployment built from it.
+     */
+    @Test
+    void seedsBothAccountsWithTheConfiguredPassword() throws Exception {
+        boot();
+
+        for (String email : new String[] { DataInitializer.MAXED_EMAIL, DataInitializer.FRESH_EMAIL }) {
+            String stored = players.findByEmail(email).orElseThrow().getPassword();
+            assertThat(encoder.matches(PASSWORD, stored)).as(email).isTrue();
+            assertThat(stored).as("stored hashed, never in the clear").isNotEqualTo(PASSWORD);
+        }
+    }
+
+    /**
+     * Changing the password must not cost the account its progress - otherwise
+     * rotating it means deleting the very thing being tested with.
+     */
+    @Test
+    void bringsAnExistingAccountsPasswordInLineWithoutTouchingItsProgress() throws Exception {
+        boot();
+        Player played = players.findByEmail(DataInitializer.FRESH_EMAIL).orElseThrow();
+        played.setGold(4242);
+        players.save(played);
+
+        initializer.init(players, playerService, encoder, true, "a-different-password").run();
+
+        Player after = players.findByEmail(DataInitializer.FRESH_EMAIL).orElseThrow();
+        assertThat(encoder.matches("a-different-password", after.getPassword()))
+                .as("the new password works").isTrue();
+        assertThat(encoder.matches(PASSWORD, after.getPassword()))
+                .as("and the old one does not").isFalse();
+        assertThat(after.getGold()).as("progress survived the rotation").isEqualTo(4242);
     }
 
     /** Neither account can be locked out waiting for mail nobody can read. */
@@ -139,7 +182,7 @@ class DataInitializerTest {
         players.findByEmail(DataInitializer.FRESH_EMAIL).ifPresent(players::delete);
         players.findByEmail(DataInitializer.MAXED_EMAIL).ifPresent(players::delete);
 
-        initializer.init(players, playerService, false).run();
+        initializer.init(players, playerService, encoder, false, PASSWORD).run();
 
         assertThat(players.findByEmail(DataInitializer.FRESH_EMAIL)).isEmpty();
         assertThat(players.findByEmail(DataInitializer.MAXED_EMAIL)).isEmpty();
