@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,8 +28,13 @@ import java.util.stream.IntStream;
  * that is reachable from an account that finished the campaign.
  *
  * This runs wherever the application runs, including a real deployment, and both
- * addresses and the password are in this file. Set SEED_TEST_PLAYERS=false to
- * stop it before the game has players who are not us.
+ * addresses are in this file - so in a public repository they are public
+ * knowledge. The password deliberately is NOT: it comes from
+ * app.test-player-password, whose default is only good enough for a machine
+ * nobody else can reach.
+ *
+ * A deployment therefore needs TEST_PLAYER_PASSWORD set to something of its
+ * own, or SEED_TEST_PLAYERS=false to do without these accounts entirely.
  */
 @Configuration
 public class DataInitializer {
@@ -42,20 +48,19 @@ public class DataInitializer {
   /** The game as a new player meets it: one Shooter, level 1, and nothing else. */
   static final String FRESH_EMAIL = "test2@example.com";
 
-  /** BCrypt of "test123" - committed, so both accounts are public knowledge. */
-  private static final String TEST_PASSWORD_HASH =
-          "$2y$10$XtsxFOaZ02GHyYoHnpAN3.FJ1gv.xYHX7gQIRXFAWUEAvqijFRdHy";
-
   @Bean
   CommandLineRunner init(PlayerRepository playerRepository, PlayerService playerService,
-                         @Value("${app.seed-test-players:true}") boolean seedTestPlayers) {
+                         PasswordEncoder passwordEncoder,
+                         @Value("${app.seed-test-players:true}") boolean seedTestPlayers,
+                         @Value("${app.test-player-password:test123}") String testPassword) {
     return args -> {
       if (!seedTestPlayers) {
         log.info("Test accounts not seeded: app.seed-test-players is false");
         return;
       }
-      seedMaxedAccount(playerRepository);
-      seedFreshAccount(playerRepository, playerService);
+      String hash = passwordEncoder.encode(testPassword);
+      seedMaxedAccount(playerRepository, hash);
+      seedFreshAccount(playerRepository, playerService, passwordEncoder, testPassword, hash);
     };
   }
 
@@ -66,13 +71,13 @@ public class DataInitializer {
    * host restarts whenever it wakes from idle. That is this method, not a save
    * being lost.
    */
-  private void seedMaxedAccount(PlayerRepository playerRepository) {
+  private void seedMaxedAccount(PlayerRepository playerRepository, String passwordHash) {
     playerRepository.findBySessionId(MAXED_SESSION).ifPresent(playerRepository::delete);
 
     Player player = new Player();
     player.setSessionId(MAXED_SESSION);
     player.setEmail(MAXED_EMAIL);
-    player.setPassword(TEST_PASSWORD_HASH);
+    player.setPassword(passwordHash);
     player.setDisplayName("Test Player");
     // Seeded accounts never have to prove an address that was never real.
     player.setEmailVerified(true);
@@ -114,17 +119,30 @@ public class DataInitializer {
    * account in a state a real new player can actually be in. A copied list
    * drifts the first time registration changes and stops testing anything.
    *
-   * Left alone if it already exists. Rebuilding it on every boot would erase
-   * progress mid-playthrough, which on a host that restarts whenever it wakes
-   * would look exactly like the game losing a save.
+   * Its PROGRESS is left alone if it already exists. Rebuilding it on every boot
+   * would erase a playthrough halfway through, which on a host that restarts
+   * whenever it wakes would look exactly like the game losing a save.
+   *
+   * Its PASSWORD is not: that follows the configuration, so changing
+   * app.test-player-password takes effect on the next boot without anyone having
+   * to delete the account and lose what it was holding.
    */
-  private void seedFreshAccount(PlayerRepository playerRepository, PlayerService playerService) {
-    if (playerRepository.findByEmail(FRESH_EMAIL).isPresent()) {
-      log.info("Start-of-game test account already exists, left as it is: {}", FRESH_EMAIL);
+  private void seedFreshAccount(PlayerRepository playerRepository, PlayerService playerService,
+                                PasswordEncoder passwordEncoder, String password,
+                                String passwordHash) {
+    Player existing = playerRepository.findByEmail(FRESH_EMAIL).orElse(null);
+    if (existing != null) {
+      if (!passwordEncoder.matches(password, existing.getPassword())) {
+        existing.setPassword(passwordHash);
+        playerRepository.save(existing);
+        log.info("Start-of-game test account kept, password brought in line: {}", FRESH_EMAIL);
+      } else {
+        log.info("Start-of-game test account already exists, left as it is: {}", FRESH_EMAIL);
+      }
       return;
     }
 
-    Player player = playerService.createPlayerWithEmail(FRESH_EMAIL, TEST_PASSWORD_HASH, "New Recruit");
+    Player player = playerService.createPlayerWithEmail(FRESH_EMAIL, passwordHash, "New Recruit");
     player.setEmailVerified(true);
     playerRepository.save(player);
 

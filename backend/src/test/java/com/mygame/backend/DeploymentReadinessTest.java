@@ -113,6 +113,31 @@ class DeploymentReadinessTest {
         assertThat(properties()).contains("app.seed-test-players=${SEED_TEST_PLAYERS:true}");
     }
 
+    /**
+     * The seeded accounts' password must not live in the source.
+     *
+     * A committed hash is a working login on every deployment built from that
+     * source, which is harmless only while nobody can read it - and this
+     * repository is public. The addresses are unavoidably public; the password
+     * comes from the environment.
+     */
+    @Test
+    void carriesNoPasswordHashForTheSeededAccounts() {
+        String seeder;
+        try {
+            seeder = Files.readString(
+                    Path.of("src/main/java/com/mygame/backend/config/DataInitializer.java"),
+                    StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("DataInitializer is not where the test expects", e);
+        }
+
+        assertThat(seeder)
+                .as("a BCrypt hash here is a login anyone reading the repository has")
+                .doesNotContainPattern("\\$2[aby]\\$\\d\\d\\$");
+        assertThat(properties()).contains("app.test-player-password=${TEST_PLAYER_PASSWORD:");
+    }
+
     @Test
     void carriesNoRealSigningKey() {
         // The committed key was a 64-character hex string. Anyone who could read
