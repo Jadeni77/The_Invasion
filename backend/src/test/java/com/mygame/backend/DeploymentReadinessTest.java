@@ -88,6 +88,20 @@ class DeploymentReadinessTest {
     }
 
     /**
+     * Confirmation is asked for unless a deployment says otherwise.
+     *
+     * The switch exists because mail depends on a provider's anti-spam review
+     * and a host's port policy, and an enforced rule with no working mail keeps
+     * every new player out rather than keeping bad addresses out. But off is a
+     * retreat, so it cannot be what you get by saying nothing.
+     */
+    @Test
+    void asksForEmailConfirmationByDefault() {
+        assertThat(properties())
+                .contains("auth.require-email-verification=${REQUIRE_EMAIL_VERIFICATION:true}");
+    }
+
+    /**
      * Spring's mail defaults are port 25 with no encryption, which every hosted
      * provider refuses - so setting only the host and the credentials produces a
      * server that accepts a registration and silently sends no code, and the

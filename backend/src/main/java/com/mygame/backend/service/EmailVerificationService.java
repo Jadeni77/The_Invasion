@@ -56,6 +56,24 @@ public class EmailVerificationService {
     @Value("${auth.verification-exempt:}")
     private String exemptList;
 
+    /**
+     * Whether an address has to prove itself at all.
+     *
+     * On by default, and off is a deliberate retreat rather than a shortcut:
+     * with it off, any correctly formatted address registers and plays at once,
+     * which is exactly the state confirmation was added to end.
+     *
+     * It exists because the alternative is worse. Confirmation depends on mail
+     * actually leaving the building, and that depends on a provider's anti-spam
+     * review, a host's port policy and a verified sender - none of which are
+     * ours. When any of them is down, an enforced rule does not keep bad
+     * addresses out; it keeps EVERYONE out, since registration completes and
+     * the code goes nowhere the player can read. A dead end for every new
+     * player is a worse failure than a weak check.
+     */
+    @Value("${auth.require-email-verification:true}")
+    private boolean verificationRequired;
+
     public EmailVerificationService(PlayerRepository playerRepository,
                                     ObjectProvider<JavaMailSender> mailSenderProvider) {
         this.playerRepository = playerRepository;
@@ -82,14 +100,22 @@ public class EmailVerificationService {
      */
     public boolean maySignIn(Player player) {
         if (player == null) return false;
+        // Switched off: nobody is held back, including accounts already stuck
+        // unverified because no code ever reached them.
+        if (!verificationRequired) return true;
         if (player.getEmailVerified() == null) return true;
         if (player.getEmailVerified()) return true;
         return isExempt(player.getEmail());
     }
 
-    /** Start a new account off: exempt addresses are verified from the outset. */
+    /**
+     * Start a new account off.
+     *
+     * Verified from the outset when confirmation is switched off or the address
+     * is exempt - no code stored, and nothing sent that nobody would read.
+     */
     public void beginVerification(Player player) {
-        if (isExempt(player.getEmail())) {
+        if (!verificationRequired || isExempt(player.getEmail())) {
             player.setEmailVerified(true);
             playerRepository.save(player);
             return;
