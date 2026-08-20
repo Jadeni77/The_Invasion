@@ -85,7 +85,7 @@ public class PlayerService {
     player.setCardUnlockProgress(1);
 
     //initialize level
-    player.setUnlockedLevels(Arrays.asList(1));
+    player.setUnlockedLevels(new ArrayList<>(List.of(1)));
     player.setCompletedLevels(new ArrayList<>());
     player.setLevelStars(new ArrayList<>(Collections.nCopies(20, 0)));
 
@@ -353,20 +353,44 @@ public class PlayerService {
     player.setEmail(email);
     player.setPassword(hashedPassword);
     player.setSessionId("email-" + email); //backward compat
-    boolean chose = displayName != null && !displayName.isBlank();
-    player.setDisplayName(chose ? displayName.trim() : "Defender #" + email.substring(0, 4));
+    player.setDisplayName(nameFor(email, displayName));
 
     List<CardData> initialCards = new ArrayList<>();
     initialCards.add(new CardData(1, "Shooter", 1, 0, 10));
     player.setCards(initialCards);
     player.setCardUnlockProgress(1);
 
-    player.setUnlockedLevels(Arrays.asList(1));
+    player.setUnlockedLevels(new ArrayList<>(List.of(1)));
     player.setCompletedLevels(new ArrayList<>());
     player.setLevelStars(new ArrayList<>(Collections.nCopies(20, 0)));
-    player.setLastEnergyRechargeTime(LocalDateTime.now());  
+    player.setLastEnergyRechargeTime(LocalDateTime.now());
 
     return playerRepository.save(player);
+  }
+
+  /** The name the player chose, or one derived from the address if they left it blank. */
+  private static String nameFor(String email, String displayName) {
+    boolean chose = displayName != null && !displayName.isBlank();
+    return chose ? displayName.trim() : "Defender #" + email.substring(0, 4);
+  }
+
+  /**
+   * Hand a registration nobody ever confirmed to whoever is registering now.
+   *
+   * The account row is written before the address is proven, so an abandoned
+   * attempt leaves one behind. Nothing in it is worth keeping - an unconfirmed
+   * account cannot be signed into, so it has never been played - and nobody can
+   * be displaced by replacing it, because nobody has shown the address is
+   * theirs. Only the credentials change; the row, and its id, stay.
+   *
+   * The caller decides whether this account is replaceable. See
+   * AuthController.register.
+   */
+  public Player replacePendingRegistration(Player pending, String hashedPassword,
+                                           String displayName) {
+    pending.setPassword(hashedPassword);
+    pending.setDisplayName(nameFor(pending.getEmail(), displayName));
+    return playerRepository.save(pending);
   }
 
 

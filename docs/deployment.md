@@ -59,7 +59,8 @@ it use the Dockerfile. Then set five environment variables:
 | `JWT_SECRET` | a long random value — see below |
 | `CORS_ALLOWED_ORIGINS` | the frontend's address, filled in at step 4 |
 
-`PORT` is set by Render; the application reads it.
+`PORT` is set by Render; the application reads it. Email confirmation needs four
+more — step 5, and without them nobody can register.
 
 Generate the signing key with something that is actually random:
 
@@ -104,6 +105,99 @@ Several origins are comma separated. Without this the browser refuses every
 response the backend sends and the game looks broken while the server logs look
 perfectly healthy — the request arrives and is answered, and the browser throws
 the answer away.
+
+## 5. Email confirmation
+
+A registered address has to prove it exists before the account can play:
+registration sends a six-digit code and login is refused until it is entered.
+That needs somewhere to send mail from. **With no SMTP configured the code is
+only written to the server log, which means nobody can register** — the
+registration succeeds and the code goes nowhere the player can read it.
+
+Four more variables:
+
+| Variable | Value |
+|---|---|
+| `SPRING_MAIL_HOST` | e.g. `smtp-relay.brevo.com` |
+| `SPRING_MAIL_USERNAME` | from the mail provider |
+| `SPRING_MAIL_PASSWORD` | from the mail provider — an API key or app password, not an account password |
+| `MAIL_FROM` | the address mail appears to come from |
+
+Four, and not six: the port and STARTTLS are set in `application.properties`
+because Spring's defaults are port 25 with no encryption, which every hosted
+provider refuses. `SPRING_MAIL_PORT` and `SPRING_MAIL_STARTTLS` exist to
+override them and should not need to be.
+
+Any SMTP provider works. Brevo's free tier sends 300 a day without a card;
+a Gmail app password also works and is rate-limited more tightly.
+
+**Accounts that predate this are grandfathered.** `email_verified` being null
+means the account was made before confirmation was asked for, and it counts as
+confirmed — nobody is locked out of their own save by a rule that did not exist
+when they registered.
+
+**The test accounts need none of this.** Both are seeded at boot already
+confirmed — `test@example.com` with every defender maxed, `test2@example.com` at
+the start of the game — so end-to-end testing needs no mailbox at all. Which
+also means they are credentials anyone reading this repository holds, since both
+addresses and the password are in `DataInitializer`. Before the game has players
+who are not you:
+
+```
+SEED_TEST_PLAYERS=false
+```
+
+`AUTH_VERIFICATION_EXEMPT` is what remains for an address that has to register
+by hand without a working inbox, and for getting back in during an SMTP outage:
+
+```
+AUTH_VERIFICATION_EXEMPT=someone@example.com
+```
+
+Listed addresses are confirmed from the outset and never receive anything, so it
+should be empty otherwise — an exempt address is a way past confirmation
+entirely.
+
+## Renaming a column in a release
+
+`ddl-auto=update` **adds**; it never renames and never drops. Ship a renamed
+column and Hibernate adds the new name as nullable, leaves the old one full of
+the data, and reads nulls back — so the release looks fine and the accounts read
+as empty.
+
+The SQL therefore runs **before** the deploy that needs it. Afterwards the new
+column already exists and the rename collides with it.
+
+Check what is actually there first:
+
+```sql
+SELECT table_name, column_name FROM information_schema.columns
+WHERE table_name IN ('unlocked_levels', 'completed_levels', 'level_stars',
+                     'player_collected_treasures', 'claimed_achievements',
+                     'special_achievements')
+ORDER BY table_name, ordinal_position;
+```
+
+The release that gave these columns explicit names — `unlocked_levels` held a
+column also called `unlocked_levels`, which said nothing about what a row meant
+— needed this:
+
+```sql
+ALTER TABLE unlocked_levels RENAME COLUMN unlocked_levels TO level_number;
+ALTER TABLE completed_levels RENAME COLUMN completed_levels TO level_number;
+ALTER TABLE player_collected_treasures RENAME COLUMN collected_treasures TO treasure_id;
+ALTER TABLE claimed_achievements RENAME COLUMN claimed_achievements TO achievement_id;
+ALTER TABLE special_achievements RENAME COLUMN special_achievements TO achievement_id;
+
+-- Not renamed. The old rows were (player_id, level_stars): a star count with no
+-- level attached, in an order SQL never promised - which is the bug @OrderColumn
+-- fixed. Which score belonged to which level cannot be recovered, so the table
+-- is recreated empty and the stars are re-earned by replaying.
+DROP TABLE level_stars;
+```
+
+Nullable columns added by a release — `email_verified` and its two companions —
+need nothing. Hibernate adds them and null carries the right meaning.
 
 ## Checking it worked
 

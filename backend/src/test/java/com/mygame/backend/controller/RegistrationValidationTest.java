@@ -2,6 +2,7 @@ package com.mygame.backend.controller;
 
 import com.mygame.backend.service.PlayerService;
 import com.mygame.backend.entity.Player;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -34,7 +35,7 @@ class RegistrationValidationTest {
     private PlayerService playerService;
 
     @Autowired
-    private org.springframework.security.crypto.password.PasswordEncoder encoder;
+    private PasswordEncoder encoder;
 
     private int register(String body) throws Exception {
         return mvc.perform(post("/api/auth/register")

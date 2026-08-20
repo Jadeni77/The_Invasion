@@ -3,6 +3,8 @@ package com.mygame.backend.entity;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.mygame.backend.service.PlayerRank;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -29,9 +31,24 @@ public class Player {
   private String sessionId; //this is the browser-generated id store in LocalStorage
 
   private String displayName;
+
+  /**
+   * Whether the address on this account has been proved to belong to whoever
+   * registered it.
+   *
+   * NULLABLE on purpose, and null means yes. An account created before
+   * verification was asked for has no way to prove anything, and refusing it
+   * entry would lock a player out of their own save for a rule that did not
+   * exist when they signed up.
+   */
+  private Boolean emailVerified;
+
+  private String verificationCode;
+
+  private Long verificationCodeExpiresAt;
   /* Derived from completed levels on every read - see PlayerRank. Stored so an
      admin reading the table sees the same title the player does. */
-  private String rank = com.mygame.backend.service.PlayerRank.STARTING_RANK;
+  private String rank = PlayerRank.STARTING_RANK;
 
   //Basic Resource
   private Integer gold = 100;
@@ -117,7 +134,7 @@ public class Player {
     updatedAt = LocalDateTime.now();
   }
 
-  @com.fasterxml.jackson.annotation.JsonIgnore
+  @JsonIgnore
   public String getPassword() {
     return password;
   }

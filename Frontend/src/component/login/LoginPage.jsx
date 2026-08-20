@@ -5,6 +5,7 @@ const MODE_LOGIN = "login";
 const MODE_REGISTER = "register";
 const MODE_FORGOT_REQUEST = "forgot-request";  // ask for email
 const MODE_FORGOT_RESET = "forgot-reset";      // submit code + new password
+const MODE_VERIFY_EMAIL = "verify-email";      // confirm a new account's address
 
 export default function LoginPage( { onLogin }) {
     const [mode, setMode] = useState(MODE_LOGIN);
@@ -55,7 +56,30 @@ export default function LoginPage( { onLogin }) {
                     body: JSON.stringify(body)
                 });
                 if (!res.ok) {
-                    setError(await res.text() || "Something went wrong");
+                    const text = await res.text();
+                    if (res.status === 403 && /confirm your email/i.test(text)) {
+                        setInfo("This account still needs confirming. Enter the code, or send a new one.");
+                        setMode(MODE_VERIFY_EMAIL);
+                        return;
+                    }
+                    setError(text || "Something went wrong");
+                    return;
+                }
+                const data = await res.json();
+                if (data.verificationRequired) {
+                    setInfo(data.message || "Check your email for a confirmation code.");
+                    setMode(MODE_VERIFY_EMAIL);
+                    return;
+                }
+                onLogin(data.token, data.player);
+            } else if (mode === MODE_VERIFY_EMAIL) {
+                const res = await fetch(apiUrl("/api/auth/verify-email"), {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, code }),
+                });
+                if (!res.ok) {
+                    setError(await res.text() || "That code did not work");
                     return;
                 }
                 const data = await res.json();
@@ -101,14 +125,16 @@ export default function LoginPage( { onLogin }) {
         [MODE_LOGIN]: "Login",
         [MODE_REGISTER]: "Create Account",
         [MODE_FORGOT_REQUEST]: "Reset Password",
-        [MODE_FORGOT_RESET]: "Enter Verification Code"
+        [MODE_FORGOT_RESET]: "Enter Verification Code",
+        [MODE_VERIFY_EMAIL]: "Confirm Your Email"
     }[mode];
 
     const submitLabel = {
         [MODE_LOGIN]: "Login",
         [MODE_REGISTER]: "Register",
         [MODE_FORGOT_REQUEST]: "Send Code",
-        [MODE_FORGOT_RESET]: "Reset Password"
+        [MODE_FORGOT_RESET]: "Reset Password",
+        [MODE_VERIFY_EMAIL]: "Confirm"
     }[mode];
 
     return (
@@ -138,6 +164,43 @@ export default function LoginPage( { onLogin }) {
                         required
                         style={styles.input}
                     />
+                )}
+
+                {mode === MODE_VERIFY_EMAIL && (
+                    <>
+                        {/* Read-only: the code went to this address, so letting
+                            it be edited here would only produce a code that
+                            cannot match. */}
+                        <input
+                            type="email"
+                            value={email}
+                            readOnly
+                            style={{ ...styles.input, opacity: 0.7 }}
+                        />
+                        <input
+                            type="text"
+                            placeholder="6-digit Code"
+                            value={code}
+                            onChange={(e) => setCode(e.target.value)}
+                            required
+                            maxLength={6}
+                            style={styles.input}
+                        />
+                        <p
+                            style={{ ...styles.toggle, marginTop: 0 }}
+                            onClick={async () => {
+                                resetTransientState();
+                                await fetch(apiUrl("/api/auth/resend-verification"), {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ email }),
+                                });
+                                setInfo("Another code is on its way.");
+                            }}
+                        >
+                            Didn't get it? Send another
+                        </p>
+                    </>
                 )}
 
                 {(mode === MODE_LOGIN || mode === MODE_REGISTER) && (
@@ -203,7 +266,9 @@ export default function LoginPage( { onLogin }) {
                         Already have an account? Login
                     </p>
                 )}
-                {(mode === MODE_FORGOT_REQUEST || mode === MODE_FORGOT_RESET) && (
+                {(mode === MODE_FORGOT_REQUEST
+                  || mode === MODE_FORGOT_RESET
+                  || mode === MODE_VERIFY_EMAIL) && (
                     <p style={styles.toggle} onClick={() => switchMode(MODE_LOGIN)}>
                         Back to login
                     </p>
