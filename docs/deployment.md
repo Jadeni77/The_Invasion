@@ -126,10 +126,40 @@ Four more variables:
 Four, and not six: the port and STARTTLS are set in `application.properties`
 because Spring's defaults are port 25 with no encryption, which every hosted
 provider refuses. `SPRING_MAIL_PORT` and `SPRING_MAIL_STARTTLS` exist to
-override them and should not need to be.
+override them — and on a free Render instance, the port has to be.
 
-Any SMTP provider works. Brevo's free tier sends 300 a day without a card;
-a Gmail app password also works and is rate-limited more tightly.
+### On Render's free tier, 587 does not work
+
+**Free Render web services block outbound traffic to ports 25, 465 and 587**,
+since September 2025. The failure looks nothing like a credentials problem:
+
+```
+MailConnectException: Couldn't connect to host, port: smtp.gmail.com, 587
+```
+
+A refused TCP connection, so the credentials are never even tried. The same
+instance reaches Postgres on 5432 without trouble, which is the tell: this is
+port-specific, not a network fault.
+
+Render's block list is exactly those three ports, and **2525 is not on it**.
+Brevo and Mailjet both accept STARTTLS there:
+
+```
+SPRING_MAIL_HOST=in-v3.mailjet.com     # or smtp-relay.brevo.com
+SPRING_MAIL_PORT=2525
+```
+
+**Gmail cannot be used from a free Render instance at all.** It offers 465 and
+587 and nothing else, and both are blocked. An app password does not help.
+
+If 2525 is ever blocked too, the ways out are a paid instance, which lifts the
+restriction, or sending over the provider's HTTPS API instead of SMTP — port
+443, which no host blocks. The second needs code: both senders currently use
+`JavaMailSender` directly.
+
+Otherwise any SMTP provider works. Brevo's free tier sends 300 a day without a
+card, and both it and Mailjet verify a single sender address, so neither needs a
+domain of your own.
 
 **Accounts that predate this are grandfathered.** `email_verified` being null
 means the account was made before confirmation was asked for, and it counts as

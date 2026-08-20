@@ -42,6 +42,9 @@ class EmailVerificationServiceTest {
     @BeforeEach
     void noExemptionsUnlessATestAsksForOne() {
         ReflectionTestUtils.setField(verification, "exemptList", "");
+        // Enforced unless a test says otherwise: the field is shared across a
+        // cached context, so a test that switches it off would leak into the rest.
+        ReflectionTestUtils.setField(verification, "verificationRequired", true);
     }
 
     /**
@@ -134,6 +137,43 @@ class EmailVerificationServiceTest {
         assertThat(verification.isExempt(exempt.toUpperCase())).as("case does not matter").isTrue();
         assertThat(verification.isExempt("someone-else@example.com")).isFalse();
     }
+
+    /*
+     * The retreat: confirmation switched off entirely.
+     *
+     * Needed because confirmation depends on mail actually leaving, which
+     * depends on a provider's review and a host's port policy. When it cannot,
+     * an enforced rule keeps every new player out rather than keeping bad
+     * addresses out - registration completes and the code goes nowhere.
+     */
+    @Test
+    void letsEveryoneInWhenConfirmationIsSwitchedOff() {
+        Player stuck = saved(uniqueEmail(), false);
+        assertThat(verification.maySignIn(stuck)).as("enforced, so held back").isFalse();
+
+        ReflectionTestUtils.setField(verification, "verificationRequired", false);
+
+        assertThat(verification.maySignIn(stuck))
+                .as("an account that never got a code is no longer stranded")
+                .isTrue();
+    }
+
+    @Test
+    void issuesNoCodeWhenConfirmationIsSwitchedOff() {
+        ReflectionTestUtils.setField(verification, "verificationRequired", false);
+        String email = uniqueEmail();
+
+        verification.beginVerification(saved(email, null));
+
+        Player stored = players.findByEmail(email).orElseThrow();
+        assertThat(stored.getEmailVerified()).isTrue();
+        assertThat(stored.getVerificationCode())
+                .as("nothing to send, so nothing stored").isNull();
+    }
+
+    /* That the default is the enforced one is pinned in DeploymentReadinessTest,
+       against the property itself. Asserting it here would only re-read what
+       this class's own @BeforeEach just wrote. */
 
     @Test
     void exemptsNobodyWhenTheListIsEmpty() {
