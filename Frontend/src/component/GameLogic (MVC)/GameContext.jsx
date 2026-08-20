@@ -18,6 +18,7 @@ import { MusicPlayer } from "./Feedback/MusicPlayer.js";
 import { FeedbackManager } from "./Feedback/FeedbackManager.js";
 import { loadSettings, subscribe } from "./Feedback/SettingsStore.js";
 import { SAMPLE_URLS, unknownSampleNames } from "./Feedback/UnitSamples.js";
+import { starsFor } from "./LevelStars.js";
 import { SOUND_KEYS } from "./Feedback/SoundGroups.js";
 import { apiUrl } from "../../config/api.js";
 import { MAX_DEFENDER_LEVEL } from "./DefenderClassUtils.js";
@@ -349,7 +350,10 @@ export const GameProvider = ({ children }) => {
     setGameWon(true);
     console.log(`Game won! Level: ${level}, Score: ${score}`);
 
-    const stars = calculateStars(score, level);
+    /* From how the level was held, not from the score - see LevelStars. The
+       score-based version could not award level 1 more than two stars however
+       well it was played. */
+    const stars = starsFor({ baseDamageTaken, defendersLost });
 
     // Update player data based on win
     setPlayerData((prev) => {
@@ -597,15 +601,6 @@ export const GameProvider = ({ children }) => {
     },
     [bankEndlessRun], // Everything else is handled by the state setters
   );
-
-  //calculate star base on performance
-  const calculateStars = (score, level) => {
-    const baseThreshold = 100 * level;
-    if (score >= baseThreshold * 1.5) return 3;
-    if (score >= baseThreshold) return 2;
-    if (score >= baseThreshold * 0.5) return 1;
-    return 0;
-  };
 
   const getLevelRewardMultiplier = (level) => {
     if (level === 999) return 1.0; // Endless has its own reward system
