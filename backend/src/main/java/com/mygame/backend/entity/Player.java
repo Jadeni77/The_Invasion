@@ -47,19 +47,38 @@ public class Player {
   @CollectionTable(name = "player_cards", joinColumns = @JoinColumn(name = "player_id"))
   private List<CardData> cards;
 
+  /* The value IS the level number, so the column says so. */
   @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
   @CollectionTable(name = "unlocked_levels", joinColumns = @JoinColumn(name = "player_id"))
+  @Column(name = "level_number")
   private List<Integer> unlockedLevels;
 
   @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
   @CollectionTable(name = "completed_levels", joinColumns = @JoinColumn(name = "player_id"))
+  @Column(name = "level_number")
   private List<Integer> completedLevels;
 
+  /**
+   * Stars per level, indexed by level - the game reads levelStars[level - 1].
+   *
+   * @OrderColumn is what makes that true rather than hoped for. Without it the
+   * table was (player_id, level_stars): a bag of star counts with no level
+   * attached, whose order SQL never promised. It read back correctly only
+   * because Postgres usually returns rows in heap order, which is not a
+   * guarantee and stops holding after updates, vacuums or a parallel scan.
+   *
+   * It also means an admin can now see which level a score belongs to, instead
+   * of a column of loose numbers.
+   */
   @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
   @CollectionTable(name = "level_stars", joinColumns = @JoinColumn(name = "player_id"))
+  @OrderColumn(name = "level_index")
+  @Column(name = "stars")
   private List<Integer> levelStars;
 
   @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
+  @CollectionTable(name = "player_collected_treasures", joinColumns = @JoinColumn(name = "player_id"))
+  @Column(name = "treasure_id")
   private List<String> collectedTreasures = new ArrayList<>();
 
   private LocalDateTime createdAt;
@@ -76,10 +95,12 @@ public class Player {
 
   @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
   @CollectionTable(name = "claimed_achievements", joinColumns = @JoinColumn(name = "player_id"))
+  @Column(name = "achievement_id")
   private List<String> claimedAchievements = new ArrayList<>();
 
   @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
   @CollectionTable(name = "special_achievements", joinColumns = @JoinColumn(name = "player_id"))
+  @Column(name = "achievement_id")
   private List<String> specialAchievements = new ArrayList<>();
 
   @PrePersist
