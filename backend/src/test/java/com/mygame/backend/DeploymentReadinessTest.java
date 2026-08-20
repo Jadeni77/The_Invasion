@@ -81,6 +81,12 @@ class DeploymentReadinessTest {
                 .contains("spring.h2.console.enabled=${H2_CONSOLE_ENABLED:false}");
     }
 
+    /* Empty here, or the exemption is the way past email confirmation. */
+    @Test
+    void exemptsNobodyFromEmailConfirmationByDefault() {
+        assertThat(properties()).contains("auth.verification-exempt=${AUTH_VERIFICATION_EXEMPT:}");
+    }
+
     @Test
     void carriesNoRealSigningKey() {
         // The committed key was a 64-character hex string. Anyone who could read
