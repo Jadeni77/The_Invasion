@@ -220,6 +220,49 @@ export function winRewards(score, stars) {
   };
 }
 
+/**
+ * Accumulate the lifetime counters a run produced.
+ *
+ * These used to live only on the server: the frontend posted a delta and read
+ * the totals back on the next refetch, so nothing here ever held them. A guest
+ * has no server to read back from, and the achievements that watch these
+ * counters would have sat at zero forever.
+ */
+export function applyStats(playerData, { enemiesKilled = 0, defendersDeployed = 0, energyCollected = 0 }) {
+  return {
+    ...playerData,
+    totalEnemiesKilled: (playerData.totalEnemiesKilled || 0) + enemiesKilled,
+    totalDefendersDeployed: (playerData.totalDefendersDeployed || 0) + defendersDeployed,
+    totalEnergyCollected: (playerData.totalEnergyCollected || 0) + energyCollected,
+  };
+}
+
+/** Record a special achievement, once. */
+export function applySpecialAchievement(playerData, achievementId) {
+  const held = playerData.specialAchievements || [];
+  if (held.includes(achievementId)) return playerData;
+  return { ...playerData, specialAchievements: [...held, achievementId] };
+}
+
+/**
+ * Pay out a claimed achievement from local state.
+ *
+ * The claim handler used to read `updated.gold` and friends out of the HTTP
+ * response, which is the one path in the game that could not work offline at
+ * all - a guest would have had every resource replaced with undefined.
+ */
+export function applyClaimedAchievement(playerData, achievementId, rewards = {}) {
+  const claimed = playerData.claimedAchievements || [];
+  if (claimed.includes(achievementId)) return playerData;
+
+  const resources = { ...playerData.resources };
+  for (const [name, amount] of Object.entries(rewards)) {
+    resources[name] = (resources[name] || 0) + amount;
+  }
+
+  return { ...playerData, resources, claimedAchievements: [...claimed, achievementId] };
+}
+
 export const GameProvider = ({ children }) => {
   const gameEngineRef = useRef(null); // Ref to hold the GameEngine instance
 
@@ -376,6 +419,14 @@ export const GameProvider = ({ children }) => {
        well it was played. */
     const stars = starsFor({ baseDamageTaken });
 
+    // Built once, here, so the try block below can reuse it rather than
+    // recomputing - and so the local special-achievement update below and the
+    // POST loop that follows can never disagree about which ids were earned.
+    const specialUnlocks = [];
+    if (defendersLost === 0) specialUnlocks.push('perfect_defense');
+    if (baseDamageTaken === 0) specialUnlocks.push('untouchable');
+    if (timeElapsed < 120000 && level !== 999) specialUnlocks.push('speed_demon');
+
     // Update player data based on win
     setPlayerData((prev) => {
       if (!prev) return prev;
@@ -431,6 +482,15 @@ export const GameProvider = ({ children }) => {
       };
     });
 
+    // These used to be server-only: read back on the next refetch rather than
+    // held here. A guest has no refetch to read them back from.
+    setPlayerData((prev) => {
+      if (!prev) return prev;
+      let next = applyStats(prev, { enemiesKilled, defendersDeployed, energyCollected });
+      for (const id of specialUnlocks) next = applySpecialAchievement(next, id);
+      return next;
+    });
+
     /*
      * Tell the player, on the same notice a chest uses. `playerDataRef` still
      * holds the save as it was before this win, which is what makes "did they
@@ -463,10 +523,7 @@ export const GameProvider = ({ children }) => {
       // The same helper the chest path uses; no backend change needed.
       if (isNewDefender) await saveUnlockedDefender(wonDefender);
 
-      const specialUnlocks = [];
-      if (defendersLost === 0) specialUnlocks.push('perfect_defense');
-      if (baseDamageTaken === 0) specialUnlocks.push('untouchable');
-      if (timeElapsed < 120000 && level !== 999) specialUnlocks.push('speed_demon');
+      // Built once, above, so this loop and the local update cannot disagree.
       for (const id of specialUnlocks) {
         await fetch(apiUrl(`/api/player/unlock-special-achievement`), {
           method: "POST",
@@ -499,21 +556,24 @@ export const GameProvider = ({ children }) => {
 
       setPlayerData((prev) => {
         if (!prev) return prev;
+        // Stat counters were server-only before this task; folded in here so
+        // an endless run banks them the same way a level win does.
+        const next = applyStats(prev, { enemiesKilled, defendersDeployed, energyCollected });
         return {
-          ...prev,
+          ...next,
           resources: {
-            ...prev.resources,
-            gold: prev.resources.gold + goldEarned,
-            iron: prev.resources.iron + ironEarned,
-            grain: prev.resources.grain + grainEarned,
-            water: prev.resources.water + waterEarned,
-            gem: prev.resources.gem + gemEarned,
+            ...next.resources,
+            gold: next.resources.gold + goldEarned,
+            iron: next.resources.iron + ironEarned,
+            grain: next.resources.grain + grainEarned,
+            water: next.resources.water + waterEarned,
+            gem: next.resources.gem + gemEarned,
           },
-          endlessHighScore: Math.max(prev.endlessHighScore || 0, endlessWave),
+          endlessHighScore: Math.max(next.endlessHighScore || 0, endlessWave),
           endlessStats: {
-            ...prev.endlessStats,
-            totalWaves: (prev.endlessStats?.totalWaves || 0) + endlessWave,
-            totalRuns: (prev.endlessStats?.totalRuns || 0) + 1,
+            ...next.endlessStats,
+            totalWaves: (next.endlessStats?.totalWaves || 0) + endlessWave,
+            totalRuns: (next.endlessStats?.totalRuns || 0) + 1,
           },
         };
       });
@@ -578,10 +638,14 @@ export const GameProvider = ({ children }) => {
           const newWater = Math.max(0, prev.resources.water - waterPenalty);
           const newGem = Math.max(0, prev.resources.gem - gemPenalty);
 
+          // Stat counters were server-only before this task; a loss still
+          // reports kills/deploys/energy for the run, so it still needs them.
+          const next = applyStats(prev, { enemiesKilled, defendersDeployed, energyCollected });
+
           return {
-            ...prev,
+            ...next,
             resources: {
-              ...prev.resources,
+              ...next.resources,
               gold: newGold,
               iron: newIron,
               grain: newGrain,
