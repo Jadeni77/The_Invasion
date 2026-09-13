@@ -618,23 +618,6 @@ export const GameProvider = ({ children }) => {
     [bankEndlessRun], // Everything else is handled by the state setters
   );
 
-  // Left in place per the guest-mode plan's task-1 brief, which took it as
-  // read that the endless path still calls this. It doesn't: endless scales
-  // rewards from GameLevelConfigs.js's own rewardMultiplier/waveRewardMultiplier
-  // fields instead, and onWinCb (its only caller) now gets gem/gold/iron/grain/
-  // water from winRewards. Deleting it wasn't this task's call to make, so it
-  // stays, unused, with lint quieted rather than the dead code removed.
-  // eslint-disable-next-line no-unused-vars
-  const getLevelRewardMultiplier = (level) => {
-    if (level === 999) return 1.0; // Endless has its own reward system
-    if (level <= 3) return 1.0;
-    if (level <= 7) return 1.5;
-    if (level <= 12) return 2.0;
-    if (level <= 17) return 3.0;
-    if (level <= 20) return 4.0;
-    return 1.0;
-  };
-
   // Backend API integration points
   const fetchPlayerData = useCallback(async () => {
     try {
