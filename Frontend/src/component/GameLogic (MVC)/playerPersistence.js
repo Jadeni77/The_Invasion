@@ -56,6 +56,72 @@ async function post(path, body) {
   }
 }
 
+/**
+ * A playerData in the flat shape `/api/player/import` binds against.
+ *
+ * THE WIRE CONTRACT. GuestSaveRequest.java is a flat projection of the Player
+ * entity, and playerData is not that shape. Posting playerData directly - which
+ * this module did until the contract was written down - fails silently on both
+ * sides: Jackson binds the fields it recognises, leaves the rest null, and
+ * PlayerService.importGuestSave replaces each null with the new account's own
+ * default. No exception anywhere, and the player only finds out by counting
+ * their gold.
+ *
+ * Three differences, all of them silent:
+ *
+ * - gold, iron, grain, water, gem and lobbyEnergy are top-level fields on the
+ *   DTO, because they are top-level fields on Player. Here they live under
+ *   `playerData.resources`, so they are lifted out. Nested, every resource a
+ *   guest earned is dropped while levels, stars and treasures - already
+ *   top-level on both shapes - arrive fine, which is what makes the bug look
+ *   like a partial success rather than a mapping error.
+ * - a card's `id` is the entity's `cardId`.
+ * - a card's `upgradeCost` and `cost` are derived here from lookup tables
+ *   rather than stored, so the DTO has no field for either; Jackson ignores
+ *   unknown properties rather than erroring, so sending them does nothing.
+ *
+ * `piecesNeeded` is deliberately not sent: the server recomputes it from the
+ * card's name, so a forged save cannot claim a card upgrades for one piece.
+ * `cardUnlockProgress` is the one DTO field with no counterpart here - the
+ * frontend has never tracked it - so it is left out and the server keeps the
+ * account's own value.
+ *
+ * Fields the save happens not to hold are left undefined and drop out of the
+ * JSON, which the server reads as "not given" and answers with the account's
+ * default. That is the right answer for a save written by an older build.
+ */
+function toGuestSaveRequest(playerData) {
+  const resources = playerData?.resources ?? {};
+
+  return {
+    gold: resources.gold,
+    iron: resources.iron,
+    grain: resources.grain,
+    water: resources.water,
+    gem: resources.gem,
+    lobbyEnergy: resources.lobbyEnergy,
+
+    endlessHighScore: playerData?.endlessHighScore,
+    totalEnemiesKilled: playerData?.totalEnemiesKilled,
+    totalDefendersDeployed: playerData?.totalDefendersDeployed,
+    totalEnergyCollected: playerData?.totalEnergyCollected,
+
+    unlockedLevels: playerData?.unlockedLevels,
+    completedLevels: playerData?.completedLevels,
+    levelStars: playerData?.levelStars,
+    collectedTreasures: playerData?.collectedTreasures,
+    claimedAchievements: playerData?.claimedAchievements,
+    specialAchievements: playerData?.specialAchievements,
+
+    cards: playerData?.cards?.map((card) => ({
+      cardId: card.id,
+      name: card.name,
+      level: card.level,
+      pieces: card.pieces,
+    })),
+  };
+}
+
 const accountPersistence = {
   /*
    * NOTE: this returns the RAW backend entity, while guestPersistence.loadPlayer
@@ -110,13 +176,19 @@ const accountPersistence = {
    *
    * The server applies it only to a pristine account, so logging into an
    * account that has been played rejects this and keeps its own progress.
+   *
+   * The body is built by toGuestSaveRequest rather than from playerData
+   * directly - see that function for why the two shapes are not the same one.
+   * Building it inside the try means a save malformed enough to break the
+   * mapper is reported as a failed import, which keeps the slot, rather than
+   * throwing into a caller that is mid-login.
    */
   async importGuestSave(playerData) {
     try {
       const response = await fetch(apiUrl('/api/player/import'), {
         method: 'POST',
         headers: SessionManager.authHeaders(),
-        body: JSON.stringify(playerData),
+        body: JSON.stringify(toGuestSaveRequest(playerData)),
       });
       return response.ok;
     } catch (e) {

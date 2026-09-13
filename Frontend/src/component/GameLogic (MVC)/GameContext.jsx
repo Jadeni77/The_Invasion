@@ -23,7 +23,13 @@ import { SOUND_KEYS } from "./Feedback/SoundGroups.js";
 import { MAX_DEFENDER_LEVEL } from "./DefenderClassUtils.js";
 import { defenderUnlockedBy, defendersEarnedBy } from "./LevelUnlocks.js";
 import { openPlayerChannel, shouldRefreshOn, PLAYER_CHANGED } from "./crossTabSync.js";
-import { getDefaultPlayerData, writeGuestSave, hasGuestSave } from "./guestSave.js";
+import {
+  getDefaultPlayerData,
+  writeGuestSave,
+  readGuestSave,
+  clearGuestSave,
+  hasGuestSave,
+} from "./guestSave.js";
 import {
   createPersistence,
   MODE_ACCOUNT,
@@ -430,15 +436,44 @@ export const GameProvider = ({ children }) => {
     writeGuestSave(playerData);
   }, [mode, playerData]);
 
-  const handleLogin = (token, player) => {
+  /**
+   * Take an account session, carrying any guest progress into it.
+   *
+   * The import is attempted on every login rather than only on registration,
+   * because registration cannot carry it: /api/auth/register issues no token,
+   * so there is nothing to authenticate an upload with until the address has
+   * been verified and a login has happened. The server decides whether to
+   * accept it - only a pristine account does - which is also what makes
+   * logging into an account you have played leave that account alone.
+   */
+  const handleLogin = async (token, player) => {
     SessionManager.setToken(token);
     SessionManager.setUser(player);
+    setMode(MODE_ACCOUNT);
+
+    const pending = readGuestSave();
+    if (pending) {
+      /* The account persistence, named rather than read off persistenceRef:
+         that ref is derived from the `mode` state, and the setMode above does
+         not apply until the next render - so here it still reflects the mode
+         being left. Today that is `anonymous`, which falls through to this same
+         instance, but a `guest` one imports nothing at all and the difference
+         between working and working by coincidence is one render. */
+      const accepted = await createPersistence(MODE_ACCOUNT).importGuestSave(pending);
+      /* Only on success. A refusal or a dead backend keeps the save on the
+         device, so the next login tries again rather than losing it. */
+      if (accepted) clearGuestSave();
+    }
+
     // Through the same transform as a refetch. Storing the raw entity here gave
     // a freshly logged-in player a different shape from a returning one - no
     // `resources`, no `name` - and the lobby sat on its loading screen until a
     // refetch happened to fix it.
     setPlayerData(toPlayerData(player));
-    setMode(MODE_ACCOUNT);
+
+    /* The import changed the server's copy, so the entity we were handed at
+       login is already stale. Refetching is how the player sees what moved. */
+    if (pending) await fetchPlayerData();
   };
 
   /*

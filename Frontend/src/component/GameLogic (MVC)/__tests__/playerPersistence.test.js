@@ -140,6 +140,145 @@ describe('the shape the backend is expecting', () => {
   });
 });
 
+/*
+ * The one request that posts a whole player rather than a delta.
+ *
+ * /api/player/import binds against GuestSaveRequest, which is a FLAT projection
+ * of the Player entity - and playerData is not that shape. Three differences,
+ * every one of them silent:
+ *
+ *   - gold, iron, grain, water, gem and lobbyEnergy live under
+ *     `playerData.resources` and must be sent at the top level. Nested, they
+ *     arrive null, PlayerService.importGuestSave falls back to the new
+ *     account's defaults for each, and every resource the guest earned is gone
+ *     while levels and stars come through fine.
+ *   - a card's `id` is the entity's `cardId`.
+ *   - a card's `upgradeCost` and `cost` are derived here from lookup tables and
+ *     have no field to bind to; Jackson ignores unknown properties rather than
+ *     erroring, so sending them looks fine and does nothing.
+ *
+ * Nothing throws in any of those cases, on either side. These tests are the
+ * only thing between a guest and losing their progress at the moment they
+ * decide to sign up.
+ */
+describe('the guest save on the wire', () => {
+  /** A guest who has actually played: resources spent and earned, two cards. */
+  function playedGuest() {
+    const player = newGuestPlayer();
+    return {
+      ...player,
+      resources: {
+        ...player.resources,
+        gold: 640, iron: 22, grain: 51, water: 73, gem: 7, lobbyEnergy: 37,
+      },
+      cards: [
+        { id: 1, name: 'Shooter', level: 3, pieces: 4, piecesNeeded: 10,
+          upgradeCost: { gold: 100, iron: 5, water: 3 }, cost: 20 },
+        { id: 2, name: 'Sniper', level: 1, pieces: 9, piecesNeeded: 25,
+          upgradeCost: { gold: 400, water: 60, grain: 35, gem: 3 }, cost: 50 },
+      ],
+      unlockedLevels: [1, 2, 3],
+      completedLevels: [1, 2],
+      levelStars: [3, 2, ...Array(18).fill(0)],
+      collectedTreasures: ['chest-1'],
+      claimedAchievements: ['first_win'],
+      specialAchievements: ['untouchable'],
+      endlessHighScore: 12,
+      totalEnemiesKilled: 140,
+      totalDefendersDeployed: 31,
+      totalEnergyCollected: 900,
+    };
+  }
+
+  /** Post `playerData` and hand back what came out on the wire. */
+  async function imported(playerData) {
+    const fetchMock = stubFetch();
+    await createPersistence('account').importGuestSave(playerData);
+    return bodySentTo(fetchMock, '/api/player/import');
+  }
+
+  it('lifts the resources out of `resources` and sends them flat', async () => {
+    const body = await imported(playedGuest());
+
+    expect(body).toMatchObject({
+      gold: 640, iron: 22, grain: 51, water: 73, gem: 7, lobbyEnergy: 37,
+    });
+    expect(body.resources, 'the endpoint has no `resources` to bind').toBeUndefined();
+  });
+
+  it('names a card id the way the entity does', async () => {
+    const body = await imported(playedGuest());
+
+    expect(body.cards.map((card) => card.cardId)).toEqual([1, 2]);
+    for (const card of body.cards) {
+      expect(Object.keys(card)).not.toContain('id');
+    }
+  });
+
+  /* piecesNeeded is recomputed server-side from the card's name, so a forged
+     save cannot claim a card upgrades for one piece; upgradeCost and cost are
+     derived from lookup tables here and have no field on the DTO at all. */
+  it('leaves the derived card fields at home', async () => {
+    const body = await imported(playedGuest());
+
+    for (const card of body.cards) {
+      expect(Object.keys(card).sort()).toEqual(['cardId', 'level', 'name', 'pieces']);
+    }
+  });
+
+  it('carries the progress lists and the lifetime counters', async () => {
+    const body = await imported(playedGuest());
+
+    expect(body).toMatchObject({
+      unlockedLevels: [1, 2, 3],
+      completedLevels: [1, 2],
+      levelStars: [3, 2, ...Array(18).fill(0)],
+      collectedTreasures: ['chest-1'],
+      claimedAchievements: ['first_win'],
+      specialAchievements: ['untouchable'],
+      endlessHighScore: 12,
+      totalEnemiesKilled: 140,
+      totalDefendersDeployed: 31,
+      totalEnergyCollected: 900,
+    });
+    expect(body.cards[0]).toEqual({ cardId: 1, name: 'Shooter', level: 3, pieces: 4 });
+  });
+
+  /*
+   * Every field GuestSaveRequest.java declares, minus the one the frontend has
+   * no source for: `cardUnlockProgress` is a backend-only counter - nothing in
+   * playerData has ever held it - so it is left out and the server keeps the
+   * account's own value.
+   *
+   * Pinned as a set so that a field added to the DTO without a mapper change,
+   * or a field the mapper invents, fails here rather than being noticed by a
+   * player whose progress arrived incomplete.
+   */
+  it('sends the fields the DTO declares, and nothing else', async () => {
+    const body = await imported(playedGuest());
+
+    expect(Object.keys(body).sort()).toEqual([
+      'cards',
+      'claimedAchievements',
+      'collectedTreasures',
+      'completedLevels',
+      'endlessHighScore',
+      'gem',
+      'gold',
+      'grain',
+      'iron',
+      'levelStars',
+      'lobbyEnergy',
+      'specialAchievements',
+      'totalDefendersDeployed',
+      'totalEnemiesKilled',
+      'totalEnergyCollected',
+      'unlockedLevels',
+      'water',
+    ]);
+  });
+});
+
 describe('a guest', () => {
   it('never touches the network, on any operation', async () => {
     const fetchMock = vi.fn();
