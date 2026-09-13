@@ -100,6 +100,11 @@ public class GuestSaveRequest {
         Ice Bomb) could ever call for, and far below overflow. */
     public static final int MAX_CARD_PIECES = 999;
 
+    /** Comfortably more ids than the game has to hand out - the chests and both
+        achievement lists together are well under this - and few enough that a
+        forged list cannot fill a table. */
+    public static final int MAX_IDS = 200;
+
     private Integer gold;
     private Integer iron;
     private Integer grain;
@@ -202,13 +207,6 @@ public class GuestSaveRequest {
         }
         return kept;
     }
-
-    /**
-     * Comfortably more ids than the game has to hand out - twenty-four chests
-     * and the achievement lists together are well under this - and few enough
-     * that a forged list cannot fill a table.
-     */
-    public static final int MAX_IDS = 200;
 
     /** A list of ids, never null, never longer than {@link #MAX_IDS}. */
     public static List<String> ids(List<String> value) {

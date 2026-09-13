@@ -55,6 +55,23 @@ public class PlayerService {
   }
 
   /**
+   * Set the rank from the progress the player actually has.
+   *
+   * Done on the way out rather than when a level is completed, because every
+   * read comes through here - so an account created before ranks meant anything
+   * shows the right one immediately, with no migration and no waiting for the
+   * player to finish another level.
+   */
+  private Player applyEarnedRank(Player player) {
+    String earned = PlayerRank.forCompletedLevels(player.getCompletedLevels());
+    if (!earned.equals(player.getRank())) {
+      player.setRank(earned);
+      playerRepository.save(player);
+    }
+    return player;
+  }
+
+  /**
    * Open endless for anyone who has already earned it.
    *
    * completeLevel writes 999 when level 10 is finished, which only ever helped
@@ -73,23 +90,6 @@ public class PlayerService {
             && player.getCompletedLevels().contains(10)
             && !player.getUnlockedLevels().contains(999)) {
       player.getUnlockedLevels().add(999);
-      playerRepository.save(player);
-    }
-    return player;
-  }
-
-  /**
-   * Set the rank from the progress the player actually has.
-   *
-   * Done on the way out rather than when a level is completed, because every
-   * read comes through here - so an account created before ranks meant anything
-   * shows the right one immediately, with no migration and no waiting for the
-   * player to finish another level.
-   */
-  private Player applyEarnedRank(Player player) {
-    String earned = PlayerRank.forCompletedLevels(player.getCompletedLevels());
-    if (!earned.equals(player.getRank())) {
-      player.setRank(earned);
       playerRepository.save(player);
     }
     return player;
