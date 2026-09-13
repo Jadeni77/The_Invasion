@@ -11,9 +11,12 @@
  * Tested standalone rather than through Lobby: rendering the lobby needs a
  * fully populated player and would be testing the lobby, not this.
  */
+import { join } from 'node:path';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import AccountButton from '../AccountButton.jsx';
+import { MODE_GUEST } from '../../../GameLogic (MVC)/playerPersistence.js';
+import { SRC_ROOT, read, stripComments } from '../../../../test/sourceFiles.js';
 
 describe('the account button', () => {
   it('offers a guest a way to keep their progress', () => {
@@ -29,6 +32,27 @@ describe('the account button', () => {
   it('does not offer a signed-in player the guest wording', () => {
     render(<AccountButton mode="account" onClick={() => {}} />);
     expect(screen.queryByRole('button', { name: /save your progress/i })).not.toBeInTheDocument();
+  });
+
+  /*
+   * The modes are named once, in playerPersistence.js - the file whose comment
+   * calls itself "the only place the mode is chosen". This component held the
+   * codebase's one string-literal mode comparison, so renaming MODE_GUEST
+   * would have left it testing against a word nothing produces any more, and
+   * every guest would quietly have been offered the logout wording instead.
+   */
+  it('follows the mode the module exports', () => {
+    render(<AccountButton mode={MODE_GUEST} onClick={() => {}} />);
+    expect(screen.getByRole('button', { name: /save your progress/i })).toBeInTheDocument();
+  });
+
+  it('names no mode of its own', () => {
+    const source = stripComments(read(
+      join(SRC_ROOT, 'component', 'GameRendering', 'LobbyButton', 'AccountButton.jsx'),
+    ));
+
+    expect(source, 'import MODE_GUEST rather than repeating the value it holds')
+      .not.toMatch(/['"]guest['"]/);
   });
 
   it('calls its handler in either mode', () => {

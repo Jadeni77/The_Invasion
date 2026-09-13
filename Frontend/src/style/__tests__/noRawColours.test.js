@@ -150,10 +150,16 @@ describe('component source uses tokens, not raw colours', () => {
    * itself entirely from a local inline-style object in a different idiom
    * (dark blue-violet gradients, #4CAF50 buttons).
    *
-   * The last four are the "Play as guest" button and the note under it, added
+   * The last three are the "Play as guest" button and the note under it, added
    * when guest mode became reachable. Extended rather than converted: half a
    * tokenized file would be a worse seam than a pinned one, and converting the
    * login screen is its own piece of work.
+   *
+   * That button used to be four literals, not three: it copied `input`'s
+   * rgba(255,255,255,0.2) border and rgba(255,255,255,0.08) background exactly,
+   * which is why the feature's front door rendered as a third text field under
+   * email and password. It is now a transparent fill - a named value this guard
+   * allows, so it contributes no literal - behind a brighter 0.55 edge.
    */
   const PINNED = new Map([
     ['component/login/LoginPage.jsx', [
@@ -161,7 +167,7 @@ describe('component source uses tokens, not raw colours', () => {
       'rgba(255,255,255,0.05)', 'rgba(255,255,255,0.1)',
       '#fff', 'rgba(255,255,255,0.2)', 'rgba(255,255,255,0.08)', '#fff',
       '#4CAF50', '#fff',
-      'rgba(255,255,255,0.2)', 'rgba(255,255,255,0.08)', '#fff',
+      'rgba(255,255,255,0.55)', '#fff',
       'rgba(255,255,255,0.6)',
       '#ff6b6b', '#7fffa4', '#88aaff',
     ]],

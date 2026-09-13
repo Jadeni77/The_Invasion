@@ -320,12 +320,19 @@ const styles = {
         background: "#4CAF50", color: "#fff", fontSize: "16px",
         cursor: "pointer", fontWeight: "bold",
     },
-    /* The same shape as the submit button, in the outline the rest of the form
-       uses for things that are not the main action. */
+    /* The same shape as the submit button, outlined instead of filled: this is
+       the second way in, not the main one.
+
+       It used to copy `input`'s border and background literally, so the
+       feature's front door rendered as a third text field beneath email and
+       password - while the comment here claimed an outline "the rest of the
+       form uses for things that are not the main action", which no other
+       button in this form has. That outline WAS the input style. Transparent
+       and a brighter edge is what makes it read as a control you press. */
     secondaryButton: {
         padding: "10px", borderRadius: "8px",
-        border: "1px solid rgba(255,255,255,0.2)",
-        background: "rgba(255,255,255,0.08)", color: "#fff", fontSize: "16px",
+        border: "1px solid rgba(255,255,255,0.55)",
+        background: "transparent", color: "#fff", fontSize: "16px",
         cursor: "pointer", fontWeight: "bold",
     },
     guestNote: {

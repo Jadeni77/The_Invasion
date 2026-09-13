@@ -10,8 +10,14 @@
  * reuses `icon-logout` for both rather than inventing a glyph that would be
  * just as unstyled but harder to account for later.
  */
+import { MODE_GUEST } from '../../GameLogic (MVC)/playerPersistence.js';
+
 export default function AccountButton({ mode, onClick }) {
-  const isGuest = mode === 'guest';
+  /* The exported constant, not the word it happens to hold. playerPersistence
+     is where the mode vocabulary lives; a literal here was a second copy of it,
+     and a rename there would have left this quietly offering every guest the
+     logout wording. */
+  const isGuest = mode === MODE_GUEST;
 
   return (
     /*

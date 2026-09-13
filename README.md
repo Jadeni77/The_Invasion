@@ -24,7 +24,10 @@ Live Demo: **[the-invasion.pages.dev](https://the-invasion.pages.dev)**
 You can play without an account - **Play as guest** on the login screen starts
 straight away, on a save kept in your browser. Signing up later moves that save
 into the new account; logging into an account you already have uses that
-account's progress and leaves the guest save where it is.
+account's progress and leaves the guest save where it is. Signing up *moves*
+the save rather than copying it, so logging straight back out afterwards starts
+a fresh guest game - your progress is not gone, it is in the account you just
+made.
 
 Because a guest never calls the backend, they never wait for it. The backend
 sleeps when nobody is signed in, so the first *login* after a quiet spell waits
