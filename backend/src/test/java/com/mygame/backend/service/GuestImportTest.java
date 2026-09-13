@@ -1,6 +1,7 @@
 package com.mygame.backend.service;
 
 import com.mygame.backend.dto.GuestSaveRequest;
+import com.mygame.backend.entity.CardData;
 import com.mygame.backend.entity.Player;
 import com.mygame.backend.repository.PlayerRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,6 +68,9 @@ class GuestImportTest {
         fresh.setCollectedTreasures(new ArrayList<>());
         fresh.setClaimedAchievements(new ArrayList<>());
         fresh.setSpecialAchievements(new ArrayList<>());
+        // Matches createNewPlayer(): a fresh account always starts with one card.
+        fresh.setCards(new ArrayList<>(List.of(new CardData(1, "Shooter", 1, 0, 10))));
+        fresh.setCardUnlockProgress(1);
     }
 
     private GuestSaveRequest save() {
@@ -145,5 +149,142 @@ class GuestImportTest {
 
         assertThat(result).isPresent();
         assertThat(result.get().getCompletedLevels()).isEmpty();
+    }
+
+    /*
+     * Fix round 1: cards and cardUnlockProgress were silently dropped on every
+     * import. defendersEarnedBy()'s back-grant re-derives *ownership* from
+     * completedLevels on the way out, so the roster looked fine after signup
+     * while every upgrade level and piece count the guest earned quietly
+     * vanished - the same "partial, plausible-looking data loss" the resource
+     * nesting note was written to prevent, for a set of fields that ruling
+     * never examined.
+     */
+    @Test
+    void importsCardsAndCardUnlockProgress() {
+        GuestSaveRequest save = save();
+        GuestSaveRequest.GuestCard shooter = new GuestSaveRequest.GuestCard();
+        shooter.setCardId(1);
+        shooter.setName("Shooter");
+        shooter.setLevel(3);
+        shooter.setPieces(7);
+        GuestSaveRequest.GuestCard mortar = new GuestSaveRequest.GuestCard();
+        mortar.setCardId(99); // forged id - must not survive, see cardId note below
+        mortar.setName("Mortar");
+        mortar.setLevel(2);
+        mortar.setPieces(4);
+        save.setCards(new ArrayList<>(List.of(shooter, mortar)));
+        save.setCardUnlockProgress(6);
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", save);
+
+        List<CardData> cards = result.get().getCards();
+        assertThat(cards).hasSize(2);
+        assertThat(cards.get(0).getName()).isEqualTo("Shooter");
+        assertThat(cards.get(0).getLevel()).isEqualTo(3);
+        assertThat(cards.get(0).getPieces()).isEqualTo(7);
+        // piecesNeeded is recomputed from name, never trusted from the wire.
+        assertThat(cards.get(0).getPiecesNeeded()).isEqualTo(10);
+        // cardId is reassigned sequentially, not taken from the forged value 99.
+        assertThat(cards.get(0).getCardId()).isEqualTo(1);
+        assertThat(cards.get(1).getName()).isEqualTo("Mortar");
+        assertThat(cards.get(1).getCardId()).isEqualTo(2);
+        assertThat(cards.get(1).getPiecesNeeded()).isEqualTo(15);
+        assertThat(result.get().getCardUnlockProgress()).isEqualTo(6);
+    }
+
+    @Test
+    void clampsCardLevelAndPieces() {
+        GuestSaveRequest save = save();
+        GuestSaveRequest.GuestCard forged = new GuestSaveRequest.GuestCard();
+        forged.setName("Shooter");
+        forged.setLevel(99);
+        forged.setPieces(-5);
+        save.setCards(new ArrayList<>(List.of(forged)));
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", save);
+
+        CardData card = result.get().getCards().get(0);
+        assertThat(card.getLevel()).isEqualTo(GuestSaveRequest.MAX_CARD_LEVEL);
+        assertThat(card.getPieces()).isEqualTo(0);
+    }
+
+    @Test
+    void keepsTheAccountsCardsWhenTheSaveHasNone() {
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", new GuestSaveRequest());
+
+        assertThat(result.get().getCards()).extracting(CardData::getName).containsExactly("Shooter");
+    }
+
+    @Test
+    void fallsBackToTheAccountsStatsWhenTheSaveOmitsThem() {
+        fresh.setTotalEnemiesKilled(42);
+        fresh.setTotalDefendersDeployed(11);
+        fresh.setTotalEnergyCollected(500);
+        fresh.setEndlessHighScore(7);
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", save());
+
+        assertThat(result.get().getTotalEnemiesKilled()).isEqualTo(42);
+        assertThat(result.get().getTotalDefendersDeployed()).isEqualTo(11);
+        assertThat(result.get().getTotalEnergyCollected()).isEqualTo(500);
+        assertThat(result.get().getEndlessHighScore()).isEqualTo(7);
+    }
+
+    @Test
+    void keepsTheEndlessSentinelInUnlockedLevels() {
+        GuestSaveRequest save = save();
+        save.setUnlockedLevels(new ArrayList<>(List.of(1, 2, 3, 999)));
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", save);
+
+        assertThat(result.get().getUnlockedLevels()).contains(999);
+    }
+
+    @Test
+    void forceIncludesLevelOneInUnlockedLevels() {
+        GuestSaveRequest save = save();
+        save.setUnlockedLevels(new ArrayList<>(List.of(2, 3)));
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", save);
+
+        assertThat(result.get().getUnlockedLevels()).contains(1);
+    }
+
+    @Test
+    void keepsLevelTwentyButDropsLevelTwentyOne() {
+        GuestSaveRequest save = save();
+        save.setCompletedLevels(new ArrayList<>(List.of(20, 21)));
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", save);
+
+        assertThat(result.get().getCompletedLevels()).containsExactly(20);
+    }
+
+    @Test
+    void clampsANegativeResourceToZero() {
+        GuestSaveRequest save = save();
+        save.setGold(-500);
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", save);
+
+        assertThat(result.get().getGold()).isEqualTo(0);
     }
 }

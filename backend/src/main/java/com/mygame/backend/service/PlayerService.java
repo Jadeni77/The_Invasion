@@ -165,6 +165,20 @@ public class PlayerService {
     player.setCardUnlockProgress(unlockProgress + 1);
   }
 
+  //key = name of the card, value = pieces needed per upgrade
+  private static final Map<String, Integer> PIECES_NEEDED_BY_CARD = Map.of(
+          "Shooter", 10,
+          "E-Gen", 10,
+          "Barricade", 10,
+          "Grenadier", 10,
+          "Healer", 10,
+          "Mortar", 15,
+          "Frost Archer", 25,
+          "Ice Bomb", 25,
+          "Sniper", 25,
+          "Fire Blast", 25
+  );
+
   /**
    * Return a new card data instance with the given name of the card
    * @param id the card id
@@ -172,20 +186,18 @@ public class PlayerService {
    * @return a new card instance
    */
   private CardData createCardData(int id, String name) {
-    //key = name of the card, value = pieces need for upgrade
-    Map<String, Integer> piecesNeeded = Map.of(
-            "Shooter", 10,
-            "E-Gen", 10,
-            "Barricade", 10,
-            "Grenadier", 10,
-            "Healer", 10,
-            "Mortar", 15,
-            "Frost Archer", 25,
-            "Ice Bomb", 25,
-            "Sniper", 25,
-            "Fire Blast", 25
-    );
-    return new CardData(id, name, 1, 0, piecesNeeded.getOrDefault(name, 10));
+    return new CardData(id, name, 1, 0, piecesNeededFor(name));
+  }
+
+  /**
+   * Pieces required to upgrade a card of this name, once.
+   *
+   * Pulled out of createCardData so importGuestSave can reuse the same
+   * lookup instead of trusting a guest save's own piecesNeeded - a forged
+   * save claiming a card needs only one piece would otherwise sail through.
+   */
+  private int piecesNeededFor(String name) {
+    return PIECES_NEEDED_BY_CARD.getOrDefault(name, 10);
   }
 
   //TODO: Amount gain in UI does not match actual in Lobby
@@ -429,10 +441,14 @@ public class PlayerService {
         player.getMaxLobbyEnergy(),
         GuestSaveRequest.resource(save.getLobbyEnergy(), player.getLobbyEnergy())));
 
-    player.setEndlessHighScore(GuestSaveRequest.resource(save.getEndlessHighScore(), 0));
-    player.setTotalEnemiesKilled(GuestSaveRequest.resource(save.getTotalEnemiesKilled(), 0));
-    player.setTotalDefendersDeployed(GuestSaveRequest.resource(save.getTotalDefendersDeployed(), 0));
-    player.setTotalEnergyCollected(GuestSaveRequest.resource(save.getTotalEnergyCollected(), 0));
+    /* Fall back to the account's own count, not zero. "Pristine" only requires
+       completedLevels to be empty - an account that failed every attempt at
+       level 1 has real kills and deployments on record and is still pristine,
+       and a guest save that simply omits these fields must not erase them. */
+    player.setEndlessHighScore(GuestSaveRequest.resource(save.getEndlessHighScore(), player.getEndlessHighScore()));
+    player.setTotalEnemiesKilled(GuestSaveRequest.resource(save.getTotalEnemiesKilled(), player.getTotalEnemiesKilled()));
+    player.setTotalDefendersDeployed(GuestSaveRequest.resource(save.getTotalDefendersDeployed(), player.getTotalDefendersDeployed()));
+    player.setTotalEnergyCollected(GuestSaveRequest.resource(save.getTotalEnergyCollected(), player.getTotalEnergyCollected()));
 
     List<Integer> unlocked = GuestSaveRequest.levels(save.getUnlockedLevels());
     if (!unlocked.contains(1)) unlocked.add(1); // Level 1 is always open.
@@ -443,6 +459,33 @@ public class PlayerService {
     player.setCollectedTreasures(GuestSaveRequest.ids(save.getCollectedTreasures()));
     player.setClaimedAchievements(GuestSaveRequest.ids(save.getClaimedAchievements()));
     player.setSpecialAchievements(GuestSaveRequest.ids(save.getSpecialAchievements()));
+
+    /* A guest genuinely accumulates cards and pieces toward upgrading them -
+       both are dropped on the floor if this method does not touch them, and
+       fetchPlayerData's defendersEarnedBy() back-grant partially hides the
+       loss by re-deriving *ownership* from completedLevels, so the roster
+       looks fine while every upgrade level and piece count is quietly gone.
+       Only replace the starter card if the save actually yields a well-formed
+       one - a null, empty, or all-malformed `cards` list must not leave a
+       fresh account with zero defenders to place. */
+    if (save.getCards() != null) {
+      List<CardData> imported = new ArrayList<>();
+      int nextCardId = 1;
+      for (GuestSaveRequest.GuestCard card : save.getCards()) {
+        if (card == null || card.getName() == null || card.getName().isBlank()) continue;
+        imported.add(new CardData(
+            nextCardId++,
+            card.getName(),
+            GuestSaveRequest.cardLevel(card.getLevel()),
+            GuestSaveRequest.cardPieces(card.getPieces()),
+            piecesNeededFor(card.getName())));
+      }
+      if (!imported.isEmpty()) {
+        player.setCards(imported);
+      }
+    }
+    player.setCardUnlockProgress(
+        GuestSaveRequest.cardUnlockProgress(save.getCardUnlockProgress(), player.getCardUnlockProgress()));
 
     player.setRank(PlayerRank.forCompletedLevels(player.getCompletedLevels()));
 

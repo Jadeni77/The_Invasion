@@ -34,6 +34,35 @@ import lombok.Data;
  * `resources` object here instead - Player is flat, and this DTO mirrors
  * Player.
  *
+ * Cards carry a second, independent shape mismatch on top of the one above.
+ * The entity's card shape ({@link com.mygame.backend.entity.CardData}) is
+ * {cardId, name, level, pieces, piecesNeeded}. The frontend's card shape
+ * (built by `toPlayerData` in GameContext.jsx) is {id, name, level, pieces,
+ * piecesNeeded, upgradeCost, cost} - `cardId` is renamed to `id`, and
+ * `upgradeCost`/`cost` are derived client-side from lookup tables
+ * (getUpgradeCost/getCardCost), not stored per-card. The mapper that builds
+ * this DTO's body must rename `id` back to `cardId` and drop `upgradeCost`
+ * and `cost` - {@link GuestCard} has no field for either, and Jackson ignores
+ * unknown properties rather than erroring, so sending them through does
+ * nothing and looks fine until someone checks.
+ *
+ * `piecesNeeded` is accepted from neither shape: {@code importGuestSave}
+ * recomputes it from `name` against the same lookup PlayerService already
+ * uses whenever it creates a card by any other path, so a forged save cannot
+ * claim a card needs only one piece to upgrade. `cardId` is not trusted
+ * verbatim either - cards are reassigned sequential ids on the way in,
+ * because PlayerService.unlockDefender's next-id logic
+ * (`max(existing cardId) + 1`) assumes a dense id sequence starting at 1,
+ * which nothing obliges a forged save to provide.
+ *
+ * Card names are NOT checked against PlayerService.CARD_UNLOCK_ORDER. That
+ * matches every other free-form id already accepted here without a
+ * whitelist - collectedTreasures, claimedAchievements, specialAchievements -
+ * and matches unlockDefender, the only other place a card is created from a
+ * client-supplied name, which has never validated it either. An unrecognized
+ * name renders as a card the UI has no art for; it is not a resource exploit,
+ * because level and pieces are clamped independently of what the name is.
+ *
  * Every field arrives from a client and is therefore forgeable. That is not a
  * new exposure: every write in this API is already a client-computed delta the
  * server applies without checking whether the player earned it. The clamps
@@ -54,6 +83,19 @@ public class GuestSaveRequest {
     public static final int ENDLESS_LEVEL = 999;
     public static final int MAX_STARS = 3;
 
+    /** The upgrade cap: no card has a fifth upgrade to buy. */
+    public static final int MAX_CARD_LEVEL = 5;
+
+    /** More than five levels at the priciest piecesNeeded (25, Fire Blast and
+        Ice Bomb) could ever call for, and far below overflow. */
+    public static final int MAX_CARD_PIECES = 999;
+
+    /** The number of defenders that unlock through progression rather than a
+        level win - mirrors PlayerService.CARD_UNLOCK_ORDER.size(), kept in
+        sync by hand since one is a DTO constant and the other a service
+        constant with nothing importable between them. */
+    public static final int MAX_CARD_UNLOCK_PROGRESS = 10;
+
     private Integer gold;
     private Integer iron;
     private Integer grain;
@@ -71,6 +113,24 @@ public class GuestSaveRequest {
     private List<String> collectedTreasures;
     private List<String> claimedAchievements;
     private List<String> specialAchievements;
+    private List<GuestCard> cards;
+    private Integer cardUnlockProgress;
+
+    /**
+     * A card the browser held on a guest's save.
+     *
+     * See the class comment above for how this shape differs from both
+     * {@link com.mygame.backend.entity.CardData} and the frontend's own card
+     * object - `piecesNeeded`, `upgradeCost` and `cost` are deliberately
+     * absent here, not merely unused.
+     */
+    @Data
+    public static class GuestCard {
+        private Integer cardId;
+        private String name;
+        private Integer level;
+        private Integer pieces;
+    }
 
     /** A resource count, held between zero and the ceiling. */
     public static int resource(Integer value, int fallback) {
@@ -129,5 +189,23 @@ public class GuestSaveRequest {
     /** A list of ids, never null. */
     public static List<String> ids(List<String> value) {
         return value == null ? new ArrayList<>() : new ArrayList<>(value);
+    }
+
+    /** A card's level, held between one (never zero - level 0 does not exist) and the upgrade cap. */
+    public static int cardLevel(Integer value) {
+        if (value == null) return 1;
+        return Math.max(1, Math.min(MAX_CARD_LEVEL, value));
+    }
+
+    /** A card's piece count, held between zero and the ceiling. */
+    public static int cardPieces(Integer value) {
+        if (value == null) return 0;
+        return Math.max(0, Math.min(MAX_CARD_PIECES, value));
+    }
+
+    /** cardUnlockProgress, held between zero and the number of defenders that unlock this way. */
+    public static int cardUnlockProgress(Integer value, int fallback) {
+        if (value == null) return fallback;
+        return Math.max(0, Math.min(MAX_CARD_UNLOCK_PROGRESS, value));
     }
 }
