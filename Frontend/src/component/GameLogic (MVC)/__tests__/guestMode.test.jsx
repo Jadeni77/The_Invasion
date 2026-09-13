@@ -156,6 +156,52 @@ describe('a guest finishing a level', () => {
     expect(api.playerData.resources.iron).toBe(60);
     expect(readGuestSave().resources).toMatchObject({ gold: 200, iron: 60, gem: 6 });
   });
+
+  /*
+   * The defender that win hands over has to arrive deployable.
+   *
+   * withDefender builds a provisional card and toPlayerData is what fills
+   * `cost` in - which for an account happens on the refetch that ends onWinCb.
+   * A guest's refetch returns early, so nothing ever re-transforms the card and
+   * the cost-less version is what the persist effect writes to the slot. With
+   * `cost` undefined the deploy gate (`inGameEnergy < cardData.cost`) is false
+   * however little energy is left, the deploy is charged for anyway, and
+   * in-game energy goes negative for the rest of that guest's account.
+   */
+  it('wins a defender that knows what it costs to deploy', async () => {
+    renderGame();
+    await clickPlayAsGuest();
+    await waitFor(() => expect(api.playerData?.cards?.length).toBe(1));
+
+    await act(async () => { await api.onWinCb({ score: 500, level: 1 }); });
+
+    const onScreen = api.playerData.cards.find((card) => card.name === 'E-Gen');
+    expect(onScreen.cost).toBe(25);
+
+    const inTheSlot = readGuestSave().cards.find((card) => card.name === 'E-Gen');
+    expect(inTheSlot.cost).toBe(25);
+  });
+
+  /*
+   * The title under the player's name, which for a guest was frozen for the
+   * whole session.
+   *
+   * guestPersistence.loadPlayer derives it once, at load. An account gets it
+   * re-derived server-side on every read of /api/player/me; a guest's
+   * fetchPlayerData short-circuits after the first load, so nothing recomputed
+   * it and a guest who finished level 1, 5, 10, 15 or 20 kept the old title
+   * until they reloaded the page.
+   */
+  it('is promoted as soon as the level is won, without a reload', async () => {
+    renderGame();
+    await clickPlayAsGuest();
+    await waitFor(() => expect(api.playerData?.rank).toBe('Novice'));
+
+    await act(async () => { await api.onWinCb({ score: 500, level: 1 }); });
+
+    expect(api.playerData.rank).toBe('Volunteer');
+    expect(readGuestSave().rank).toBe('Volunteer');
+  });
 });
 
 describe('leaving a session', () => {
@@ -168,6 +214,28 @@ describe('leaving a session', () => {
     renderGame();
     await waitFor(() => expect(screen.getByTestId('levels')).toHaveTextContent('[7]'));
 
+    expect(readGuestSave().completedLevels).toEqual([1, 2, 3]);
+  });
+
+  /*
+   * The one place "an account never writes the guest slot" was enforced by
+   * nothing. startGuestSession is on gameAPI and only the login screen calls it
+   * today, but called from an account session it set the mode to guest while
+   * playerData still held the account's player - and the persist effect watches
+   * the mode as well as the player, so it fired and wrote the account into the
+   * guest slot. fetchPlayerData's guest guard means the real save is never read
+   * back afterwards, so the loss is silent and permanent.
+   */
+  it('cannot be talked into overwriting the guest slot from an account', async () => {
+    writeGuestSave({ ...newGuestPlayer(), completedLevels: [1, 2, 3] });
+    signedInAccount();
+
+    renderGame();
+    await waitFor(() => expect(screen.getByTestId('mode')).toHaveTextContent('account'));
+
+    await act(async () => { api.startGuestSession(); });
+
+    expect(screen.getByTestId('mode')).toHaveTextContent('account');
     expect(readGuestSave().completedLevels).toEqual([1, 2, 3]);
   });
 

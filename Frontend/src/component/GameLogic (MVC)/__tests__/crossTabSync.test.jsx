@@ -11,7 +11,7 @@
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, act, waitFor } from '@testing-library/react';
+import { render, act, waitFor, screen, fireEvent } from '@testing-library/react';
 import { GameProvider, useGame } from '../GameContext.jsx';
 import { shouldRefreshOn, PLAYER_CHANGED, CHANNEL_NAME } from '../crossTabSync.js';
 import { apiUrl } from '../../../config/api.js';
@@ -166,5 +166,38 @@ describe('announcing a change', () => {
     listener.close();
 
     expect(heard, 'a refetch is not a change worth broadcasting').toEqual([]);
+  });
+});
+
+/*
+ * The broadcast is an account's business. Its two neighbouring effects - the
+ * guest-slot write and the catch-up listener - are both gated on the mode, and
+ * this one was not: a guest's once-a-minute energy tick is a playerData change
+ * like any other, so it announced itself, and a sibling ACCOUNT tab in the same
+ * browser refetched /api/player/me once a minute because a guest tab happened
+ * to be open. An odd footnote under "a guest never calls the backend".
+ */
+describe('a guest tab', () => {
+  it('announces nothing, having nothing another tab could read back', async () => {
+    localStorage.removeItem('auth_token');
+    globalThis.fetch = vi.fn(() => Promise.reject(new Error('no backend in this test')));
+    render(<GameProvider><Probe /></GameProvider>);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /play as guest/i }));
+    });
+    await waitFor(() => expect(api?.playerData?.resources).toBeTruthy());
+
+    const heard = [];
+    const listener = new BroadcastChannel(CHANNEL_NAME);
+    listener.onmessage = (event) => heard.push(event.data);
+
+    await act(async () => {
+      await api.collectTreasure('chest-1');
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    listener.close();
+
+    expect(heard, 'a guest has no server copy for another tab to fetch').toEqual([]);
   });
 });

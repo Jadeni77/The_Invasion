@@ -82,3 +82,50 @@ describe('the optimistic endless unlock, on a level win', () => {
     expect(api.playerData.unlockedLevels).toContain(999);
   });
 });
+
+/*
+ * The sixth restatement, and the one with teeth: the gate that actually starts
+ * the level.
+ *
+ * getLevelStatus(999) delegates to isEndlessUnlocked, which RECOMPUTES the star
+ * total from levelStars. startLevel restated the same rule against the STORED
+ * totalStars. Nothing keeps the stored copy in step - applyStats and
+ * applyClaimedAchievement both return a new player without touching it - so the
+ * two can disagree, and when they do the portal lights up on the map and then
+ * refuses entry when it is pressed.
+ *
+ * Pinned to the derived answer. The map node is what the player can see, so it
+ * is the one the gate has to match, and one shared function is what makes a
+ * seventh restatement impossible.
+ */
+describe('the endless gate, on pressing the node', () => {
+  /** A player with `stars` spread over levelStars, and a stored total that is wrong. */
+  async function withStaleTotal(stars) {
+    await mount();
+    await act(async () => {
+      api.setPlayerData((prev) => ({
+        ...prev,
+        completedLevels: [],
+        levelStars: Array.from({ length: 20 }, (_, i) => Math.max(0, Math.min(3, stars - i * 3))),
+        totalStars: 0,
+      }));
+    });
+  }
+
+  it('lets a player in on stars the stored total has lost track of', async () => {
+    await withStaleTotal(50);
+
+    await act(async () => { await api.startLevel(999); });
+
+    expect(api.gateNotice, 'the map node was already lit; the gate has to agree').toBeNull();
+    expect(api.gameState).toBe('inGame');
+  });
+
+  it('still refuses a player who has neither ten levels nor fifty stars', async () => {
+    await withStaleTotal(49);
+
+    await act(async () => { await api.startLevel(999); });
+
+    expect(api.gateNotice?.kind).toBe('locked');
+  });
+});

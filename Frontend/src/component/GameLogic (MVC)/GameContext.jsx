@@ -8,7 +8,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { chestsData, chestDefenders, resourceRewardsOf, chestCardPieces } from "../GameRendering/MapLayout.jsx";
+import { chestsData, chestDefenders, resourceRewardsOf, chestCardPieces, isEndlessUnlocked } from "../GameRendering/MapLayout.jsx";
 import { SessionManager } from "./SessionManager.js";
 import LoginPage from "../login/LoginPage.jsx";
 import { FeedbackBus } from "./Feedback/FeedbackBus.js";
@@ -29,6 +29,7 @@ import {
   readGuestSave,
   clearGuestSave,
   hasGuestSave,
+  rankForCompletedLevels,
 } from "./guestSave.js";
 import {
   createPersistence,
@@ -118,6 +119,16 @@ const getPiecesNeeded = (defenderName) => {
  *
  * The id is computed from the list being built rather than from the player's
  * saved cards, so two defenders granted in the same update cannot collide.
+ *
+ * The card is FINISHED here, not provisional. `cost` used to be left out on the
+ * grounds that toPlayerData would fill it in - true for an account, whose
+ * refetch at the end of onWinCb re-transforms the whole roster moments later,
+ * and false for a guest, whose refetch returns early by design. So the
+ * cost-less card was what the persist effect wrote to a guest's slot, and it
+ * stayed there: `inGameEnergy < cardData.cost` is false against undefined, so
+ * the deploy gate passed, the real cost was charged anyway, and in-game energy
+ * went negative. Keep this object's keys matching toPlayerData's card - there
+ * is a test on exactly that.
  */
 export const withDefender = (cards, defenderName) => {
   if (!defenderName) return cards;
@@ -130,6 +141,7 @@ export const withDefender = (cards, defenderName) => {
     pieces: 0,
     piecesNeeded: getPiecesNeeded(defenderName),
     upgradeCost: getUpgradeCost(defenderName, 1),
+    cost: getCardCost(defenderName),
   }];
 };
 
@@ -420,8 +432,19 @@ export const GameProvider = ({ children }) => {
       appliedFromServerRef.current = false;
       return;
     }
+    /*
+     * Accounts only, like both neighbouring effects. A guest's once-a-minute
+     * energy tick is a playerData change like any other, so it announced
+     * itself - and a sibling ACCOUNT tab in the same browser then refetched
+     * /api/player/me once a minute because a guest tab happened to be open.
+     *
+     * Below the appliedFromServerRef check rather than above it, so a guest's
+     * one load does not leave that flag set for a later account session to
+     * mistake for a refetch of its own and swallow a real broadcast.
+     */
+    if (mode !== MODE_ACCOUNT) return;
     playerChannelRef.current?.postMessage?.({ type: PLAYER_CHANGED });
-  }, [playerData]);
+  }, [mode, playerData]);
 
   /*
    * A guest's save, written where the broadcast is announced and for the same
@@ -482,6 +505,13 @@ export const GameProvider = ({ children }) => {
    * than two that have to keep agreeing.
    */
   const startGuestSession = useCallback(() => {
+    /* Only from the login form. This is on gameAPI, so anything holding the
+       context can call it - and from an account session it would flip the mode
+       to guest while playerData still held the account's player. The persist
+       effect watches the mode as well as the player, so it would fire and
+       write that account straight over the guest slot, and fetchPlayerData's
+       guest guard means the real save is never read back to notice. */
+    if (modeRef.current !== MODE_ANONYMOUS) return;
     setMode(MODE_GUEST);
   }, []);
 
@@ -598,7 +628,21 @@ export const GameProvider = ({ children }) => {
       if (!prev) return prev;
       let next = applyStats(prev, { enemiesKilled, defendersDeployed, energyCollected });
       for (const id of specialUnlocks) next = applySpecialAchievement(next, id);
-      return next;
+
+      /*
+       * The rank, for the same reason. The backend re-derives it on every read
+       * of /api/player/me (applyEarnedRank), but guestPersistence.loadPlayer
+       * derives it once at load and a guest's fetchPlayerData short-circuits
+       * after that - so a guest's title was frozen for the whole session and a
+       * win on level 1, 5, 10, 15 or 20 showed the old one until they reloaded.
+       *
+       * Not branched on the mode: rankForCompletedLevels is the port of
+       * PlayerRank.forCompletedLevels and guestSave.test.js pins the two to the
+       * same thresholds, so for an account this is the answer the refetch a few
+       * lines below is about to bring back anyway, just sooner. `prev` here is
+       * the result of the updater above, so the level just won is counted.
+       */
+      return { ...next, rank: rankForCompletedLevels(next.completedLevels) };
     });
 
     /*
@@ -1050,10 +1094,16 @@ export const GameProvider = ({ children }) => {
       }
 
       if (levelId === 999) {
-        const isUnlocked =
-          playerData.completedLevels?.includes(10) ||
-          playerData.totalStars >= 50;
-        if (!isUnlocked) {
+        /*
+         * The same function the map node asks, not a restatement of the rule.
+         * This used to read the STORED totalStars while getLevelStatus(999)
+         * delegates to isEndlessUnlocked, which recomputes the sum from
+         * levelStars - and nothing keeps the stored copy in step, since
+         * applyStats and applyClaimedAchievement both return a new player
+         * without touching it. Two numbers, one rule: when they disagreed the
+         * portal lit up on the map and then refused entry when it was pressed.
+         */
+        if (!isEndlessUnlocked(playerData)) {
           setGateNotice({
             kind: "locked",
             title: "Endless Mode is locked",
