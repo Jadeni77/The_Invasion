@@ -460,10 +460,12 @@ export const mapAchievements = [
  * Whether endless mode is open to this player.
  *
  * Ten completed levels, not twenty. The comment here used to say twenty while
- * the code said ten, and so did the locked-gate message, the map edge and the
- * optimistic unlock - four statements of a rule the gate did not implement.
- * Ten is the intended one: endless is a release valve partway through the
- * campaign, not a reward for finishing it.
+ * the code said ten, and so did the locked-gate message and the optimistic
+ * unlock - three statements of a rule the gate did not implement. (The map's
+ * rainbow edge also read twenty, but that number was never this rule - see
+ * the connector's own comment on connectionsData's `connectionBetween(20,
+ * 999)` for why it stays 20.) Ten is the intended one: endless is a release
+ * valve partway through the campaign, not a reward for finishing it.
  */
 export function isEndlessUnlocked(playerData) {
   // Primary unlock: complete ten levels.
