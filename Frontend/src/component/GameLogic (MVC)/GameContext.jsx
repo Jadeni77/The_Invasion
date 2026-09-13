@@ -23,24 +23,15 @@ import { SOUND_KEYS } from "./Feedback/SoundGroups.js";
 import { MAX_DEFENDER_LEVEL } from "./DefenderClassUtils.js";
 import { defenderUnlockedBy, defendersEarnedBy } from "./LevelUnlocks.js";
 import { openPlayerChannel, shouldRefreshOn, PLAYER_CHANGED } from "./crossTabSync.js";
-import { getDefaultPlayerData } from "./guestSave.js";
-import { createPersistence, MODE_ACCOUNT } from "./playerPersistence.js";
+import { getDefaultPlayerData, writeGuestSave, hasGuestSave } from "./guestSave.js";
+import {
+  createPersistence,
+  MODE_ACCOUNT,
+  MODE_GUEST,
+  MODE_ANONYMOUS,
+} from "./playerPersistence.js";
 
 export const GameContext = createContext();
-
-/*
- * Every save the game makes goes through here rather than through a fetch at
- * the call site - see playerPersistence.js for why. Fixed to the account mode
- * for now, so this refactor changes nothing; Task 6 makes it follow the
- * player's actual mode.
- *
- * THE ONLY PLACE THE MODE IS CHOSEN. It is handed to components through
- * `gameAPI.persistence` rather than each one calling createPersistence itself,
- * because a second call site is a second thing Task 6 has to remember to flip -
- * and the one it forgot would leave a guest quietly POSTing to a backend they
- * are supposed to never touch, swallowing the 401 and looking fine.
- */
-const persistence = createPersistence(MODE_ACCOUNT);
 
 export const useGame = () => {
   return useContext(GameContext);
@@ -374,6 +365,43 @@ export const GameProvider = ({ children }) => {
   const [gateNotice, setGateNotice] = useState(null);
 
   /*
+   * Three states, not two. `anonymous` is looking at the login form; `guest` is
+   * playing against the browser; `account` is playing against the backend. The
+   * boolean this replaced could not express the middle one.
+   */
+  const [mode, setMode] = useState(() =>
+    SessionManager.isLoggedIn() ? MODE_ACCOUNT : MODE_ANONYMOUS,
+  );
+
+  /*
+   * The session's persistence, and the mode the long-lived callbacks read.
+   *
+   * THE ONLY PLACE THE MODE IS CHOSEN. It reaches components through
+   * `gameAPI.persistence` rather than each one calling createPersistence
+   * itself, because a second call site is a second thing to remember to flip -
+   * and the one that was forgotten would leave a guest quietly POSTing to a
+   * backend they are supposed to never touch, swallowing the 401 and looking
+   * fine.
+   *
+   * Refs, because onWinCb, fetchPlayerData and their neighbours are memoised
+   * with [] deps: a `mode` read straight from state is frozen at the render
+   * that first built them, which for a visitor who arrives anonymous and then
+   * chooses guest would be 'anonymous' for the rest of the session.
+   *
+   * Derived during render rather than in an effect, because `gameAPI` is built
+   * on this render and a ref written in an effect is one render behind - for
+   * that one render a guest would be handed the account persistence.
+   * createPersistence returns one of two module singletons, so repeating it for
+   * an unchanged mode costs nothing and cannot produce a different answer.
+   */
+  const modeRef = useRef(mode);
+  const persistenceRef = useRef(null);
+  if (persistenceRef.current === null || modeRef.current !== mode) {
+    modeRef.current = mode;
+    persistenceRef.current = createPersistence(mode);
+  }
+
+  /*
    * Tell the other tabs that this player moved.
    *
    * Announced here rather than at each of the fourteen calls that write to the
@@ -389,10 +417,18 @@ export const GameProvider = ({ children }) => {
     playerChannelRef.current?.postMessage?.({ type: PLAYER_CHANGED });
   }, [playerData]);
 
-  //authentication
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    SessionManager.isLoggedIn(),
-  );
+  /*
+   * A guest's save, written where the broadcast is announced and for the same
+   * reason: playerData changing is the one fact every write path produces, and
+   * a save bolted onto each is a save eventually forgotten on the next one.
+   *
+   * Gated on the mode so an account session never writes to the guest slot -
+   * logging out has to find that slot exactly as the guest left it.
+   */
+  useEffect(() => {
+    if (mode !== MODE_GUEST || !playerData) return;
+    writeGuestSave(playerData);
+  }, [mode, playerData]);
 
   const handleLogin = (token, player) => {
     SessionManager.setToken(token);
@@ -402,14 +438,38 @@ export const GameProvider = ({ children }) => {
     // `resources`, no `name` - and the lobby sat on its loading screen until a
     // refetch happened to fix it.
     setPlayerData(toPlayerData(player));
-    setIsAuthenticated(true);
+    setMode(MODE_ACCOUNT);
   };
+
+  /*
+   * Play without an account. The load itself is left to the effect that watches
+   * the mode, so there is one place a session's player is fetched from rather
+   * than two that have to keep agreeing.
+   */
+  const startGuestSession = useCallback(() => {
+    setMode(MODE_GUEST);
+  }, []);
 
   const handleLogout = () => {
     backGrantedRef.current.clear();
     SessionManager.clearSession();
     setPlayerData(null);
-    setIsAuthenticated(false);
+
+    /*
+     * A guest pressing the same button has no account to leave, so it means
+     * "show me the login screen". Sending them back to `guest` would clear
+     * playerData without changing the mode, and nothing would reload it - the
+     * lobby would sit on its loading screen forever. Their save is untouched,
+     * and "Play as guest" resumes it.
+     */
+    if (mode === MODE_GUEST) {
+      setMode(MODE_ANONYMOUS);
+      return;
+    }
+
+    /* Back to the guest save if this browser still holds one. Logging out of an
+       account never touched it, so it is exactly as it was left. */
+    setMode(hasGuestSave() ? MODE_GUEST : MODE_ANONYMOUS);
   };
 
   // Callbacks for GameEngine to update React state
@@ -523,15 +583,15 @@ export const GameProvider = ({ children }) => {
 
     //Save the result to backend
     try {
-      await persistence.completeLevel({ levelId: level, score, stars });
-      await persistence.updateStats({ enemiesKilled, defendersDeployed, energyCollected });
+      await persistenceRef.current.completeLevel({ levelId: level, score, stars });
+      await persistenceRef.current.updateStats({ enemiesKilled, defendersDeployed, energyCollected });
 
       // The same operation the chest path uses; no backend change needed.
-      if (isNewDefender) await persistence.unlockDefender(wonDefender);
+      if (isNewDefender) await persistenceRef.current.unlockDefender(wonDefender);
 
       // Built once, above, so this loop and the local update cannot disagree.
       for (const id of specialUnlocks) {
-        await persistence.unlockSpecialAchievement(id);
+        await persistenceRef.current.unlockSpecialAchievement(id);
       }
 
       await fetchPlayerData();
@@ -581,14 +641,14 @@ export const GameProvider = ({ children }) => {
       });
 
       try {
-        await persistence.updateResources({
+        await persistenceRef.current.updateResources({
           gold: goldEarned, iron: ironEarned, grain: grainEarned,
           water: waterEarned, gem: gemEarned,
         });
 
-        await persistence.endlessScore(endlessWave);
+        await persistenceRef.current.endlessScore(endlessWave);
 
-        await persistence.updateStats({ enemiesKilled, defendersDeployed, energyCollected });
+        await persistenceRef.current.updateStats({ enemiesKilled, defendersDeployed, energyCollected });
       } catch (e) {
         console.error("Failed to bank an endless run:", e);
       }
@@ -644,14 +704,14 @@ export const GameProvider = ({ children }) => {
         });
 
         try {
-          await persistence.updateResources({
+          await persistenceRef.current.updateResources({
             gold: -goldPenalty,
             iron: -ironPenalty,
             grain: -grainPenalty,
             water: -waterPenalty,
             gem: -gemPenalty,
           });
-          await persistence.updateStats({ enemiesKilled, defendersDeployed, energyCollected });
+          await persistenceRef.current.updateStats({ enemiesKilled, defendersDeployed, energyCollected });
         } catch (e) {
           console.error("Failed to save loss penalties:", e);
         }
@@ -662,7 +722,25 @@ export const GameProvider = ({ children }) => {
 
   // Backend API integration points
   const fetchPlayerData = useCallback(async () => {
-    const data = await persistence.loadPlayer();
+    /*
+     * For a guest this is only ever the load that starts a session.
+     *
+     * Their slot is written FROM playerData by the effect above, so reading it
+     * back is never news to this tab - and after a write it is actively wrong.
+     * onWinCb ends with a refetch, to pick up the server's version of what it
+     * just saved; for a guest that refetch runs before React has committed the
+     * win, so it would read the PRE-win save and quietly roll the win back,
+     * into the slot as well as onto the screen. An account's server copy really
+     * is a second opinion, so it still replaces.
+     *
+     * The mode comes from a ref because this callback is memoised with [] deps:
+     * `mode` read from state would be frozen at the render that built it, which
+     * for a visitor who arrives anonymous and then chooses guest is 'anonymous'
+     * for the rest of the session.
+     */
+    if (modeRef.current === MODE_GUEST && playerDataRef.current) return;
+
+    const data = await persistenceRef.current.loadPlayer();
     // Nothing came back - offline, or a reply that was not a player. The copy
     // already in memory is better than defaults, so it is only the very first
     // load that falls back.
@@ -680,7 +758,21 @@ export const GameProvider = ({ children }) => {
      * both callers of this function ignore the promise it returns.
      */
     try {
-      const playerData = toPlayerData(data);
+      /*
+       * The two loadPlayer implementations do not return the same shape, and
+       * both say so where they are written: accountPersistence hands back the
+       * RAW backend entity, which still needs this transform; guestPersistence
+       * hands back a playerData that has already been through it. They are not
+       * unified there because toPlayerData lives in this file, and importing it
+       * into playerPersistence.js would re-create the cycle guestSave.js exists
+       * to avoid - a cycle that fails only on the deployed site.
+       *
+       * Transforming a guest's save a second time reads `data.gold` off a
+       * player whose gold is at `data.resources.gold`, so every resource comes
+       * out undefined - and the slot is written FROM playerData, so it would
+       * not stop at the screen.
+       */
+      const playerData = modeRef.current === MODE_GUEST ? data : toPlayerData(data);
 
       /*
        * Hand over anything the player's cleared levels earned but never gave
@@ -704,7 +796,7 @@ export const GameProvider = ({ children }) => {
       setPlayerData(playerData);
 
       // The player already has these on screen; a failed save retries next load.
-      for (const name of toPersist) await persistence.unlockDefender(name);
+      for (const name of toPersist) await persistenceRef.current.unlockDefender(name);
     } catch (e) {
       console.error("Fail to fetch data:", e);
       // Only fall back to defaults if there's no existing player data in memory
@@ -751,9 +843,13 @@ export const GameProvider = ({ children }) => {
    * Only in the lobby. Replacing playerData mid-level would move the ground
    * under a run in progress for a number nobody is looking at, and the lobby is
    * the only place these totals are shown anyway.
+   *
+   * Accounts only. A guest's slot is written FROM playerData by the effect
+   * above, so re-reading it can only hand this tab back what it already has -
+   * or, if the write has not committed yet, what it had a moment ago.
    */
   useEffect(() => {
-    if (!isAuthenticated || !shouldRefreshOn(gameState)) return undefined;
+    if (mode !== MODE_ACCOUNT || !shouldRefreshOn(gameState)) return undefined;
 
     const catchUp = () => { fetchPlayerData(); };
     const onMessage = (event) => {
@@ -771,7 +867,7 @@ export const GameProvider = ({ children }) => {
       channel?.removeEventListener?.("message", onMessage);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [isAuthenticated, gameState, fetchPlayerData]);
+  }, [mode, gameState, fetchPlayerData]);
 
   const savePlayerData = useCallback(async (_data) => {
     try {
@@ -785,8 +881,18 @@ export const GameProvider = ({ children }) => {
     playerDataRef.current = playerData;
   }, [playerData]);
 
+  /*
+   * Where a session's player comes from - the backend for an account, the
+   * browser slot for a guest, and the same call for both because
+   * fetchPlayerData follows the mode. Anonymous has nothing to load and never
+   * gets past the login form.
+   *
+   * This is also what makes the mode changing enough to start a session: both
+   * choosing guest and logging out of an account into one leave playerData null
+   * and rely on this to fill it.
+   */
   useEffect(() => {
-    if (isAuthenticated) {
+    if (mode !== MODE_ANONYMOUS) {
       fetchPlayerData();
     }
 
@@ -795,7 +901,7 @@ export const GameProvider = ({ children }) => {
         savePlayerData(playerDataRef.current);
       }
     };
-  }, [fetchPlayerData, savePlayerData, isAuthenticated]);
+  }, [fetchPlayerData, savePlayerData, mode]);
 
   // Resources management
   const updateResource = useCallback((resource, amount) => {
@@ -894,7 +1000,7 @@ export const GameProvider = ({ children }) => {
     // Persisted after the local change: a failed request must not silently undo
     // what the player already saw.
     try {
-      await persistence.updateResources({ gold: -ENERGY_PACK.gold, lobbyEnergy: granted });
+      await persistenceRef.current.updateResources({ gold: -ENERGY_PACK.gold, lobbyEnergy: granted });
     } catch (error) {
       console.error("Failed to persist an energy purchase:", error);
     }
@@ -944,7 +1050,7 @@ export const GameProvider = ({ children }) => {
 
       if (levelCost > 0) {
         try {
-          await persistence.updateResources({ lobbyEnergy: -levelCost });
+          await persistenceRef.current.updateResources({ lobbyEnergy: -levelCost });
         } catch (error) {
           console.error("Failed to sync energy with backend:", error);
         }
@@ -1026,7 +1132,7 @@ export const GameProvider = ({ children }) => {
           }, {});
           //call backend for each card type
           for (const [cardName, count] of Object.entries(piecesMap)) {
-            await persistence.addCardPieces(cardName, count);
+            await persistenceRef.current.addCardPieces(cardName, count);
           }
           await fetchPlayerData();
         } catch (error) {
@@ -1182,7 +1288,7 @@ export const GameProvider = ({ children }) => {
       // one computed here. The second copy assigned where the first
       // accumulated, so a chest carrying both `gold` and `all` credited the
       // player and told the server different numbers.
-      const recorded = await persistence.collectTreasure(chestId, resourceRewardsOf(chest));
+      const recorded = await persistenceRef.current.collectTreasure(chestId, resourceRewardsOf(chest));
 
       /*
        * The grants below are downstream of the chest being recorded, so they
@@ -1197,10 +1303,10 @@ export const GameProvider = ({ children }) => {
        */
       if (recorded) {
         // One POST per defender, so the backend contract stays one name per call.
-        for (const defenderName of unlocked) persistence.unlockDefender(defenderName);
+        for (const defenderName of unlocked) persistenceRef.current.unlockDefender(defenderName);
 
         for (const [cardName, pieces] of Object.entries(chestCardPieces(chest))) {
-          await persistence.addCardPieces(cardName, pieces);
+          await persistenceRef.current.addCardPieces(cardName, pieces);
         }
       }
     } catch (error) {
@@ -1254,13 +1360,15 @@ export const GameProvider = ({ children }) => {
     energyPack: ENERGY_PACK,
     handleLogout,
     fetchPlayerData,
+    mode,
+    startGuestSession,
     /* So a component that saves does not have to pick a mode of its own. */
-    persistence,
+    persistence: persistenceRef.current,
     feedback: feedbackRef.current,
   };
 
-  if (!isAuthenticated) {
-    return <LoginPage onLogin={handleLogin} />;
+  if (mode === MODE_ANONYMOUS) {
+    return <LoginPage onLogin={handleLogin} onPlayAsGuest={startGuestSession} />;
   }
 
   return (

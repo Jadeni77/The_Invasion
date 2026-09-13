@@ -27,6 +27,14 @@ import {
 export const MODE_GUEST = 'guest';
 export const MODE_ACCOUNT = 'account';
 
+/*
+ * Looking at the login form. There is no session yet, so nothing is ever saved
+ * in this mode - it falls through to the account persistence below because
+ * that is what it is about to become, and because a mode with no persistence
+ * at all would only give a missed guard somewhere to throw.
+ */
+export const MODE_ANONYMOUS = 'anonymous';
+
 /**
  * POST a body to the backend, reporting failure without raising it.
  *
