@@ -21,9 +21,18 @@ be a total of 20 challenging levels and an endless level.
 ## 🚀 Play the Game
 Live Demo: **[the-invasion.pages.dev](https://the-invasion.pages.dev)**
 
-The backend sleeps when nobody is playing, so the first login after a quiet
-spell waits up to a minute while it wakes. The login screen says so when it
-happens.
+You can play without an account - **Play as guest** on the login screen starts
+straight away, on a save kept in your browser. Signing up later moves that save
+into the new account; logging into an account you already have uses that
+account's progress and leaves the guest save where it is.
+
+Because a guest never calls the backend, they never wait for it. The backend
+sleeps when nobody is signed in, so the first *login* after a quiet spell waits
+up to a minute while it wakes - the login screen says so when it happens.
+
+Two limits worth knowing: a guest save does not resume itself - after a reload
+you click **Play as guest** again to get back to it - and two guest tabs open
+at once will diverge, with whichever one saves last winning.
 
 ## 🗂️ How the project fits together
 
