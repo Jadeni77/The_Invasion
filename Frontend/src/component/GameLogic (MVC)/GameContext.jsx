@@ -386,9 +386,22 @@ export const GameProvider = ({ children }) => {
    * Three states, not two. `anonymous` is looking at the login form; `guest` is
    * playing against the browser; `account` is playing against the backend. The
    * boolean this replaced could not express the middle one.
+   *
+   * A save in the browser counts as a session. Without that middle branch a
+   * guest has no auth token, so every reload sent them back to the login form -
+   * the wall guest mode exists to remove, put in front of the returning player
+   * rather than the new one. Nothing was lost, but "Play as guest" had to be
+   * pressed again to see it. The order matters: a token wins over a stale slot,
+   * so an account that once played as a guest on this browser is unaffected.
+   *
+   * Reaching the login form from here is the lobby's "Save your progress"
+   * button, which is handleLogout - it sends a guest to `anonymous` and leaves
+   * the slot alone, so signing up still carries the save over.
    */
   const [mode, setMode] = useState(() =>
-    SessionManager.isLoggedIn() ? MODE_ACCOUNT : MODE_ANONYMOUS,
+    SessionManager.isLoggedIn() ? MODE_ACCOUNT
+      : hasGuestSave() ? MODE_GUEST
+        : MODE_ANONYMOUS,
   );
 
   /*

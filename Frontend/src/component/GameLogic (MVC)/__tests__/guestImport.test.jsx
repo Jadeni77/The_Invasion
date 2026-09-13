@@ -34,9 +34,13 @@ const ACCOUNT = {
   collectedTreasures: [],
 };
 
+/* The context as the last render left it, so a guest already in their session
+   can take the route to the login form that the lobby offers them. */
+let api;
+
 function Probe() {
-  const { mode } = useGame();
-  return <span data-testid="mode">{mode}</span>;
+  api = useGame();
+  return <span data-testid="mode">{api.mode}</span>;
 }
 
 /**
@@ -73,6 +77,16 @@ function backend(importReply = () => Promise.resolve({ ok: true, json: async () 
  */
 async function signIn() {
   render(<GameProvider><Probe /></GameProvider>);
+
+  /*
+   * A browser holding a guest save now starts IN that guest session rather
+   * than at the login form, so signing up begins in the lobby. The button that
+   * gets there is "Save your progress", which is handleLogout - it leaves the
+   * slot exactly where it is, which is what there is to import a moment later.
+   */
+  if (!screen.queryByPlaceholderText(/email/i)) {
+    await act(async () => { api.handleLogout(); });
+  }
 
   fireEvent.change(screen.getByPlaceholderText(/email/i), {
     target: { value: 'new@example.com' },

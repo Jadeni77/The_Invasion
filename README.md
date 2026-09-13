@@ -33,9 +33,12 @@ Because a guest never calls the backend, they never wait for it. The backend
 sleeps when nobody is signed in, so the first *login* after a quiet spell waits
 up to a minute while it wakes - the login screen says so when it happens.
 
-Two limits worth knowing: a guest save does not resume itself - after a reload
-you click **Play as guest** again to get back to it - and two guest tabs open
-at once will diverge, with whichever one saves last winning.
+A guest save resumes itself: reload the page and you are back where you were,
+without clicking anything. **Save your progress** in the lobby is how you get
+to the login screen from there, and it leaves the save alone.
+
+One limit worth knowing: two guest tabs open at once will diverge, with
+whichever one saves last winning.
 
 ## 🗂️ How the project fits together
 

@@ -3,6 +3,7 @@
  * looking at a login form. A guest is a third - playing, with a real save,
  * against no backend at all.
  */
+import { StrictMode } from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { GameProvider, useGame } from '../GameContext.jsx';
@@ -30,6 +31,13 @@ function Probe() {
 }
 
 const renderGame = () => render(<GameProvider><Probe /></GameProvider>);
+
+/* main.jsx mounts the app inside StrictMode, so every effect in GameProvider
+   runs twice on mount in development. The guest load path was written for a
+   TRANSITION into guest mode, and starting there is the first time it runs on
+   the very first commit - so the double render is tested rather than assumed. */
+const renderGameStrictly = () =>
+  render(<StrictMode><GameProvider><Probe /></GameProvider></StrictMode>);
 
 /*
  * @testing-library/user-event is not a dependency of this project and nothing
@@ -95,11 +103,77 @@ describe('arriving with no account', () => {
   });
 });
 
-describe('returning as a guest', () => {
-  it('resumes the save already in the browser', async () => {
+/*
+ * A reload used to drop a guest on the login form.
+ *
+ * The mode started at `anonymous` for anyone without an auth token, and a guest
+ * has no token - so every reload showed the login screen to somebody whose save
+ * was sitting in the browser the whole time. Nothing was lost and "Play as
+ * guest" resumed it, but it is the wall guest mode exists to remove, put back
+ * in front of every returning guest.
+ */
+describe('coming back after a reload', () => {
+  it('resumes the guest session instead of asking again', async () => {
     writeGuestSave({ ...newGuestPlayer(), completedLevels: [1, 2, 3] });
 
     renderGame();
+
+    await waitFor(() => expect(screen.getByTestId('mode')).toHaveTextContent('guest'));
+    await waitFor(() => expect(screen.getByTestId('levels')).toHaveTextContent('[1,2,3]'));
+    expect(screen.queryByRole('button', { name: /play as guest/i })).not.toBeInTheDocument();
+  });
+
+  it('still shows the login screen to a browser with no save', () => {
+    renderGame();
+
+    expect(screen.getByRole('button', { name: /play as guest/i })).toBeInTheDocument();
+  });
+
+  it('leaves a signed-in account signed in, stale guest slot or not', async () => {
+    writeGuestSave({ ...newGuestPlayer(), completedLevels: [1, 2, 3] });
+    signedInAccount();
+
+    renderGame();
+
+    await waitFor(() => expect(screen.getByTestId('mode')).toHaveTextContent('account'));
+    expect(screen.getByTestId('levels')).toHaveTextContent('[7]');
+  });
+
+  /*
+   * The load is idempotent, which is what makes StrictMode's double mount safe
+   * to leave alone rather than guard against: each run recomputes the grant
+   * from the SLOT's lastEnergyRechargeTime rather than adding to what the last
+   * run produced, so five minutes away is worth five energy however many times
+   * the effect fires. A run that accumulated instead would hand a guest double
+   * energy on every reload in development and single energy in production.
+   */
+  it('grants the energy earned while away exactly once under StrictMode', async () => {
+    const away = { ...newGuestPlayer() };
+    away.resources = {
+      ...away.resources,
+      lobbyEnergy: 10,
+      lastEnergyRechargeTime: Date.now() - 5 * 60_000,
+    };
+    writeGuestSave(away);
+
+    renderGameStrictly();
+
+    await waitFor(() => expect(api?.playerData?.resources).toBeTruthy());
+    expect(api.playerData.resources.lobbyEnergy).toBe(15);
+    expect(readGuestSave().resources.lobbyEnergy).toBe(15);
+  });
+});
+
+describe('returning as a guest', () => {
+  /* The round trip a guest who changed their mind makes: the lobby's "Save
+     your progress" button is handleLogout, which shows the login form without
+     touching the slot, and "Play as guest" has to find that slot still there. */
+  it('resumes the save after a trip to the login screen and back', async () => {
+    writeGuestSave({ ...newGuestPlayer(), completedLevels: [1, 2, 3] });
+
+    renderGame();
+    await waitFor(() => expect(screen.getByTestId('mode')).toHaveTextContent('guest'));
+    await act(async () => { api.handleLogout(); });
     await clickPlayAsGuest();
 
     await waitFor(() => expect(screen.getByTestId('levels')).toHaveTextContent('[1,2,3]'));
