@@ -199,6 +199,27 @@ export function toPlayerData(data) {
   };
 }
 
+/**
+ * What a win pays.
+ *
+ * Module-level and exported so the numbers can be tested directly, and so the
+ * guest path and the account path cannot drift: this is now the only place the
+ * frontend decides what a level is worth.
+ *
+ * The gem bonus is a flat 1, matching PlayerService.completeLevel. It used to
+ * be Math.ceil(multiplier) here and 1 there, so a 3-star win on level 18-20
+ * showed 4 gems and settled back to 1 when the refetch landed.
+ */
+export function winRewards(score, stars) {
+  return {
+    gold: Math.floor(score * 0.2),
+    iron: Math.floor(score * 0.1),
+    grain: Math.floor(score * 0.2),
+    water: Math.floor(score * 0.2),
+    gem: stars === 3 ? 1 : 0,
+  };
+}
+
 export const GameProvider = ({ children }) => {
   const gameEngineRef = useRef(null); // Ref to hold the GameEngine instance
 
@@ -358,18 +379,13 @@ export const GameProvider = ({ children }) => {
     // Update player data based on win
     setPlayerData((prev) => {
       if (!prev) return prev;
-      const levelConfig = getLevelRewardMultiplier(level);
-      const goldEarned = Math.floor(score * 0.2);
-      const ironEarned = Math.floor(score * 0.1);
-      const grainEarned = Math.floor(score * 0.2);
-      const waterEarned = Math.floor(score * 0.2);
-      const gemBonus = stars === 3 ? Math.ceil(levelConfig) : 0;
+      const earned = winRewards(score, stars);
 
-      const newGold = prev.resources.gold + goldEarned;
-      const newIron = prev.resources.iron + ironEarned;
-      const newGrain = prev.resources.grain + grainEarned;
-      const newWater = prev.resources.water + waterEarned;
-      const newGem = prev.resources.gem + gemBonus;
+      const newGold = prev.resources.gold + earned.gold;
+      const newIron = prev.resources.iron + earned.iron;
+      const newGrain = prev.resources.grain + earned.grain;
+      const newWater = prev.resources.water + earned.water;
+      const newGem = prev.resources.gem + earned.gem;
 
       const newCompleteLevels = [...(prev.completedLevels || [])];
       if (!newCompleteLevels.includes(level)) {
@@ -602,6 +618,13 @@ export const GameProvider = ({ children }) => {
     [bankEndlessRun], // Everything else is handled by the state setters
   );
 
+  // Left in place per the guest-mode plan's task-1 brief, which took it as
+  // read that the endless path still calls this. It doesn't: endless scales
+  // rewards from GameLevelConfigs.js's own rewardMultiplier/waveRewardMultiplier
+  // fields instead, and onWinCb (its only caller) now gets gem/gold/iron/grain/
+  // water from winRewards. Deleting it wasn't this task's call to make, so it
+  // stays, unused, with lint quieted rather than the dead code removed.
+  // eslint-disable-next-line no-unused-vars
   const getLevelRewardMultiplier = (level) => {
     if (level === 999) return 1.0; // Endless has its own reward system
     if (level <= 3) return 1.0;
