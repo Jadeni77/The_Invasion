@@ -1160,13 +1160,26 @@ export const GameProvider = ({ children }) => {
       // one computed here. The second copy assigned where the first
       // accumulated, so a chest carrying both `gold` and `all` credited the
       // player and told the server different numbers.
-      await persistence.collectTreasure(chestId, resourceRewardsOf(chest));
+      const recorded = await persistence.collectTreasure(chestId, resourceRewardsOf(chest));
 
-      // One POST per defender, so the backend contract stays one name per call.
-      for (const defenderName of unlocked) persistence.unlockDefender(defenderName);
+      /*
+       * The grants below are downstream of the chest being recorded, so they
+       * only go out if it was. Marking the chest collected is the thing that
+       * stops it being opened again - bank the pieces without it and the
+       * player reloads to find the chest waiting, collects it again, and is
+       * paid again, repeatably.
+       *
+       * Gating on the result rather than on a thrown error, because a backend
+       * that answers 500 never threw: before persistence moved here, only a
+       * dropped connection skipped these loops and a rejected save did not.
+       */
+      if (recorded) {
+        // One POST per defender, so the backend contract stays one name per call.
+        for (const defenderName of unlocked) persistence.unlockDefender(defenderName);
 
-      for (const [cardName, pieces] of Object.entries(chestCardPieces(chest))) {
-        await persistence.addCardPieces(cardName, pieces);
+        for (const [cardName, pieces] of Object.entries(chestCardPieces(chest))) {
+          await persistence.addCardPieces(cardName, pieces);
+        }
       }
     } catch (error) {
       console.error("Failed to save collected treasure:", error);

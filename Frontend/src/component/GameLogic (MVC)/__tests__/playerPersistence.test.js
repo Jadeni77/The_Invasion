@@ -73,6 +73,22 @@ describe('a guest', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  /*
+   * A guest has to report a write as done, because callers gate on the answer.
+   * collectTreasure's dependent grants are skipped when the chest was not
+   * recorded; a guest resolving anything falsy here would silently stop
+   * banking their own card pieces while the resources landed.
+   */
+  it('reports every write as done, so callers that gate on the result proceed', async () => {
+    vi.stubGlobal('fetch', vi.fn());
+    const persistence = createPersistence('guest');
+
+    for (const [name, arg] of OPERATIONS) {
+      await expect(persistence[name](arg, 1), `${name} did not report success`)
+        .resolves.toBe(true);
+    }
+  });
+
   it('loads the player out of the slot', async () => {
     const saved = { ...newGuestPlayer(), completedLevels: [1, 2] };
     writeGuestSave(saved);
