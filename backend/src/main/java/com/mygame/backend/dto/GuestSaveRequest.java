@@ -55,6 +55,16 @@ import lombok.Data;
  * (`max(existing cardId) + 1`) assumes a dense id sequence starting at 1,
  * which nothing obliges a forged save to provide.
  *
+ * `cardUnlockProgress` is a field on Player with NO field here, and that is
+ * deliberate. The frontend has never tracked that counter, so a field for it
+ * was a field nothing could ever fill - and one a forged save could fill with
+ * anything. {@code importGuestSave} derives it from the roster that just
+ * arrived instead. Do not add it back: cross-validating a claimed progress
+ * against the cards would close the slower of two doors while the faster stays
+ * open by design, since a forger who can send a high counter can more simply
+ * send `cards: [{"name":"Fire Blast","level":5}]` and have that defender at
+ * max level immediately.
+ *
  * Card names are NOT checked against PlayerService.CARD_UNLOCK_ORDER. That
  * matches every other free-form id already accepted here without a
  * whitelist - collectedTreasures, claimedAchievements, specialAchievements -
@@ -90,12 +100,6 @@ public class GuestSaveRequest {
         Ice Bomb) could ever call for, and far below overflow. */
     public static final int MAX_CARD_PIECES = 999;
 
-    /** The number of defenders that unlock through progression rather than a
-        level win - mirrors PlayerService.CARD_UNLOCK_ORDER.size(), kept in
-        sync by hand since one is a DTO constant and the other a service
-        constant with nothing importable between them. */
-    public static final int MAX_CARD_UNLOCK_PROGRESS = 10;
-
     private Integer gold;
     private Integer iron;
     private Integer grain;
@@ -114,7 +118,6 @@ public class GuestSaveRequest {
     private List<String> claimedAchievements;
     private List<String> specialAchievements;
     private List<GuestCard> cards;
-    private Integer cardUnlockProgress;
 
     /**
      * A card the browser held on a guest's save.
@@ -175,20 +178,42 @@ public class GuestSaveRequest {
         return kept;
     }
 
-    /** Star counts, held between zero and three. */
+    /**
+     * Star counts, held between zero and three, and no longer than the campaign.
+     *
+     * The LENGTH matters as much as the values. levels() and completedLevels()
+     * dedupe against twenty-one possible numbers, so their length is bounded as
+     * a side effect; this one clamped each element and kept the list exactly as
+     * long as it arrived, so one authenticated POST could insert unbounded rows
+     * into level_stars. That is amplification rather than new capability - the
+     * same account holder could reach the same place by looping any other write
+     * in this API, and only their own account is affected - but clamping the
+     * absurd is what this class is for, and a levelStars of length 10,000 is
+     * absurd. Position is the level here, so anything past MAX_LEVEL is a score
+     * for a level that does not exist.
+     */
     public static List<Integer> stars(List<Integer> value) {
         List<Integer> kept = new ArrayList<>();
         if (value == null) return kept;
         for (Integer count : value) {
+            if (kept.size() >= MAX_LEVEL) break;
             int safe = count == null ? 0 : Math.max(0, Math.min(MAX_STARS, count));
             kept.add(safe);
         }
         return kept;
     }
 
-    /** A list of ids, never null. */
+    /**
+     * Comfortably more ids than the game has to hand out - twenty-four chests
+     * and the achievement lists together are well under this - and few enough
+     * that a forged list cannot fill a table.
+     */
+    public static final int MAX_IDS = 200;
+
+    /** A list of ids, never null, never longer than {@link #MAX_IDS}. */
     public static List<String> ids(List<String> value) {
-        return value == null ? new ArrayList<>() : new ArrayList<>(value);
+        if (value == null) return new ArrayList<>();
+        return new ArrayList<>(value.subList(0, Math.min(value.size(), MAX_IDS)));
     }
 
     /** A card's level, held between one (never zero - level 0 does not exist) and the upgrade cap. */
@@ -201,11 +226,5 @@ public class GuestSaveRequest {
     public static int cardPieces(Integer value) {
         if (value == null) return 0;
         return Math.max(0, Math.min(MAX_CARD_PIECES, value));
-    }
-
-    /** cardUnlockProgress, held between zero and the number of defenders that unlock this way. */
-    public static int cardUnlockProgress(Integer value, int fallback) {
-        if (value == null) return fallback;
-        return Math.max(0, Math.min(MAX_CARD_UNLOCK_PROGRESS, value));
     }
 }

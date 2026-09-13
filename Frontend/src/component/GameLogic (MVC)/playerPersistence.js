@@ -82,9 +82,10 @@ async function post(path, body) {
  *
  * `piecesNeeded` is deliberately not sent: the server recomputes it from the
  * card's name, so a forged save cannot claim a card upgrades for one piece.
- * `cardUnlockProgress` is the one DTO field with no counterpart here - the
- * frontend has never tracked it - so it is left out and the server keeps the
- * account's own value.
+ * `cardUnlockProgress` is not sent either, and no longer has a field on the DTO
+ * to be sent to: the frontend has never tracked that counter, so the field was
+ * one nothing here could ever fill and a forged save could fill with anything.
+ * PlayerService.importGuestSave derives it from the roster in `cards`.
  *
  * Fields the save happens not to hold are left undefined and drop out of the
  * JSON, which the server reads as "not given" and answers with the account's

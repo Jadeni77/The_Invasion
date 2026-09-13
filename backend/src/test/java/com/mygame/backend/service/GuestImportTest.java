@@ -159,9 +159,16 @@ class GuestImportTest {
      * vanished - the same "partial, plausible-looking data loss" the resource
      * nesting note was written to prevent, for a set of fields that ruling
      * never examined.
+     *
+     * cardUnlockProgress is DERIVED from the roster that arrived rather than
+     * read off the wire. The frontend has never tracked that counter, so a DTO
+     * field for it was a field nothing could ever fill - and one a forged save
+     * could fill with anything. Simply dropping the field would have been wrong
+     * too: the service would have fallen back to the new account's own value
+     * (1) while `cards` became the guest's whole roster.
      */
     @Test
-    void importsCardsAndCardUnlockProgress() {
+    void importsCardsAndDerivesCardUnlockProgress() {
         GuestSaveRequest save = save();
         GuestSaveRequest.GuestCard shooter = new GuestSaveRequest.GuestCard();
         shooter.setCardId(1);
@@ -174,7 +181,6 @@ class GuestImportTest {
         mortar.setLevel(2);
         mortar.setPieces(4);
         save.setCards(new ArrayList<>(List.of(shooter, mortar)));
-        save.setCardUnlockProgress(6);
         when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
         when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -192,7 +198,30 @@ class GuestImportTest {
         assertThat(cards.get(1).getName()).isEqualTo("Mortar");
         assertThat(cards.get(1).getCardId()).isEqualTo(2);
         assertThat(cards.get(1).getPiecesNeeded()).isEqualTo(15);
-        assertThat(result.get().getCardUnlockProgress()).isEqualTo(6);
+        /* One: CARD_UNLOCK_ORDER starts Shooter, E-Gen, and this roster has the
+           Shooter but not the E-Gen, so the run of held cards stops there.
+           Mortar is owned but sits further down the order and does not count. */
+        assertThat(result.get().getCardUnlockProgress()).isEqualTo(1);
+    }
+
+    /* The whole roster walks the order to the end rather than stopping short. */
+    @Test
+    void derivesAFullUnlockProgressFromAFullRoster() {
+        GuestSaveRequest save = save();
+        List<GuestSaveRequest.GuestCard> roster = new ArrayList<>();
+        for (String name : List.of("Shooter", "E-Gen", "Barricade", "Grenadier", "Healer",
+                                   "Mortar", "Frost Archer", "Ice Bomb", "Sniper", "Fire Blast")) {
+            GuestSaveRequest.GuestCard card = new GuestSaveRequest.GuestCard();
+            card.setName(name);
+            roster.add(card);
+        }
+        save.setCards(roster);
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", save);
+
+        assertThat(result.get().getCardUnlockProgress()).isEqualTo(10);
     }
 
     @Test
@@ -274,6 +303,121 @@ class GuestImportTest {
         Optional<Player> result = playerService.importGuestSave("new-session", save);
 
         assertThat(result.get().getCompletedLevels()).containsExactly(20);
+    }
+
+    /*
+     * Lengths, not only elements.
+     *
+     * levels() and completedLevels() dedupe against twenty-one possible values,
+     * so their length is bounded as a side effect. stars(), ids() and the cards
+     * loop each clamped an ELEMENT and left the list exactly as long as it
+     * arrived - so one authenticated POST could insert unbounded rows into
+     * level_stars, player_collected_treasures, claimed_achievements,
+     * special_achievements and player_cards.
+     *
+     * Amplification rather than new capability: the same account holder could
+     * loop collect-treasure to the same end, and only their own account is
+     * affected. But clamping the absurd is what this DTO is for, and a
+     * levelStars of length 10,000 is absurd - its sibling helper already
+     * handles exactly this.
+     */
+    @Test
+    void truncatesLevelStarsAtTheLastRealLevel() {
+        GuestSaveRequest absurd = save();
+        absurd.setLevelStars(new ArrayList<>(Collections.nCopies(10_000, 3)));
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", absurd);
+
+        assertThat(result.get().getLevelStars()).hasSize(GuestSaveRequest.MAX_LEVEL);
+    }
+
+    /* The boundary: a complete campaign is exactly MAX_LEVEL scores and keeps them all. */
+    @Test
+    void keepsAStarForEveryRealLevel() {
+        GuestSaveRequest save = save();
+        save.setLevelStars(new ArrayList<>(Collections.nCopies(GuestSaveRequest.MAX_LEVEL, 3)));
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", save);
+
+        assertThat(result.get().getLevelStars()).hasSize(GuestSaveRequest.MAX_LEVEL);
+    }
+
+    /** `count` distinct ids, so nothing is lost to deduplication that is not there. */
+    private static List<String> idsOfSize(int count) {
+        List<String> ids = new ArrayList<>();
+        for (int i = 0; i < count; i++) ids.add("id-" + i);
+        return ids;
+    }
+
+    @Test
+    void capsTheNumberOfIdsOneSaveCanCarry() {
+        GuestSaveRequest absurd = save();
+        absurd.setCollectedTreasures(idsOfSize(GuestSaveRequest.MAX_IDS + 5_000));
+        absurd.setClaimedAchievements(idsOfSize(GuestSaveRequest.MAX_IDS + 1));
+        absurd.setSpecialAchievements(idsOfSize(GuestSaveRequest.MAX_IDS + 1));
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", absurd);
+
+        assertThat(result.get().getCollectedTreasures()).hasSize(GuestSaveRequest.MAX_IDS);
+        assertThat(result.get().getClaimedAchievements()).hasSize(GuestSaveRequest.MAX_IDS);
+        assertThat(result.get().getSpecialAchievements()).hasSize(GuestSaveRequest.MAX_IDS);
+    }
+
+    @Test
+    void keepsAnIdListThatSitsExactlyOnTheCeiling() {
+        GuestSaveRequest save = save();
+        save.setCollectedTreasures(idsOfSize(GuestSaveRequest.MAX_IDS));
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", save);
+
+        assertThat(result.get().getCollectedTreasures()).hasSize(GuestSaveRequest.MAX_IDS);
+    }
+
+    /** `count` well-formed cards with distinct names. */
+    private static List<GuestSaveRequest.GuestCard> cardsOfSize(int count) {
+        List<GuestSaveRequest.GuestCard> cards = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            GuestSaveRequest.GuestCard card = new GuestSaveRequest.GuestCard();
+            card.setName("Card-" + i);
+            card.setLevel(1);
+            card.setPieces(0);
+            cards.add(card);
+        }
+        return cards;
+    }
+
+    /* Ten is the whole roster - PlayerService.CARD_UNLOCK_ORDER, which is every
+       defender the game has. No honest save can hold an eleventh. */
+    @Test
+    void capsTheNumberOfCardsAtTheSizeOfTheRoster() {
+        GuestSaveRequest absurd = save();
+        absurd.setCards(cardsOfSize(5_000));
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", absurd);
+
+        assertThat(result.get().getCards()).hasSize(10);
+    }
+
+    @Test
+    void keepsAFullRosterOfTen() {
+        GuestSaveRequest save = save();
+        save.setCards(cardsOfSize(10));
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Optional<Player> result = playerService.importGuestSave("new-session", save);
+
+        assertThat(result.get().getCards()).hasSize(10);
     }
 
     @Test

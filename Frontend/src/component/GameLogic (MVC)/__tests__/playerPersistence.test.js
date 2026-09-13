@@ -245,10 +245,13 @@ describe('the guest save on the wire', () => {
   });
 
   /*
-   * Every field GuestSaveRequest.java declares, minus the one the frontend has
-   * no source for: `cardUnlockProgress` is a backend-only counter - nothing in
-   * playerData has ever held it - so it is left out and the server keeps the
-   * account's own value.
+   * Every field GuestSaveRequest.java declares, exactly.
+   *
+   * `cardUnlockProgress` used to be the one exception - a DTO field with no
+   * counterpart in playerData, because the frontend has never tracked that
+   * counter. A field nothing on this side can fill is a field only a forged
+   * save can fill, so it was removed from the DTO; PlayerService.importGuestSave
+   * derives the counter from the roster in `cards` instead.
    *
    * Pinned as a set so that a field added to the DTO without a mapper change,
    * or a field the mapper invents, fails here rather than being noticed by a

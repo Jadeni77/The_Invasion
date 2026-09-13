@@ -50,7 +50,32 @@ public class PlayerService {
     return playerRepository.findBySessionId(sessionId)
             .map(this::upgradeEnergyRecharge)
             .map(this::applyEarnedRank)
+            .map(this::applyEndlessUnlock)
             .orElseGet(() -> createNewPlayer(sessionId));
+  }
+
+  /**
+   * Open endless for anyone who has already earned it.
+   *
+   * completeLevel writes 999 when level 10 is finished, which only ever helped
+   * FUTURE wins: every account that cleared level 10 before that line existed
+   * stayed locked out of the endless_explorer achievement (500 gold, 5 gems),
+   * and an account that finished all twenty levels and never replays level 10
+   * was excluded permanently, because nothing else writes the sentinel.
+   *
+   * Derived on the way out, beside applyEarnedRank and for the reason that one
+   * gives: every read comes through getOrCreatePlayer, so the account is put
+   * right the next time the player opens the game and no migration is needed.
+   */
+  private Player applyEndlessUnlock(Player player) {
+    if (player.getCompletedLevels() != null
+            && player.getUnlockedLevels() != null
+            && player.getCompletedLevels().contains(10)
+            && !player.getUnlockedLevels().contains(999)) {
+      player.getUnlockedLevels().add(999);
+      playerRepository.save(player);
+    }
+    return player;
   }
 
   /**
@@ -472,6 +497,11 @@ public class PlayerService {
       List<CardData> imported = new ArrayList<>();
       int nextCardId = 1;
       for (GuestSaveRequest.GuestCard card : save.getCards()) {
+        /* CARD_UNLOCK_ORDER is every defender the game has, so an honest save
+           cannot hold an eleventh card. Without this the loop clamped each
+           card's level and pieces and let the LIST be any length it liked, so
+           one authenticated POST could fill player_cards. */
+        if (imported.size() >= CARD_UNLOCK_ORDER.size()) break;
         if (card == null || card.getName() == null || card.getName().isBlank()) continue;
         imported.add(new CardData(
             nextCardId++,
@@ -484,8 +514,20 @@ public class PlayerService {
         player.setCards(imported);
       }
     }
-    player.setCardUnlockProgress(
-        GuestSaveRequest.cardUnlockProgress(save.getCardUnlockProgress(), player.getCardUnlockProgress()));
+    /* Derived from the roster that just arrived, not accepted from the wire:
+       the frontend has never tracked this counter, so a field for it was a
+       field nothing could ever fill - and one a forged save could fill with
+       anything. Dropping the field alone would have been wrong too, because
+       the fallback is the new account's own value (1) while `cards` becomes
+       the guest's whole roster, and the counter is what addCardPieces reads to
+       decide which defender unlocks next. */
+    int progress = 0;
+    while (progress < CARD_UNLOCK_ORDER.size()) {
+      final String next = CARD_UNLOCK_ORDER.get(progress);
+      if (player.getCards().stream().noneMatch(c -> next.equals(c.getName()))) break;
+      progress++;
+    }
+    player.setCardUnlockProgress(progress);
 
     player.setRank(PlayerRank.forCompletedLevels(player.getCompletedLevels()));
 
