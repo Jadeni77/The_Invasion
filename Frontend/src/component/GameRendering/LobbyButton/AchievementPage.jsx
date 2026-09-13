@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useGame, applyClaimedAchievement } from '../../GameLogic (MVC)/GameContext.jsx';
-import { SessionManager } from '../../GameLogic (MVC)/SessionManager.js';
+import { createPersistence, MODE_ACCOUNT } from '../../GameLogic (MVC)/playerPersistence.js';
 import '../../../style/AchievementPage.css';
 import GameBackdrop from "../TerrainBackdrop.jsx";
-import { apiUrl } from "../../../config/api.js";
+
+const persistence = createPersistence(MODE_ACCOUNT);
 
 const ACHIEVEMENTS = {
   progression: [
@@ -243,11 +244,7 @@ const AchievementPage = () => {
     if (claiming) return;
     setClaiming(achievement.id);
     try {
-      await fetch(apiUrl('/api/player/claim-achievement'), {
-        method: 'POST',
-        headers: SessionManager.authHeaders(),
-        body: JSON.stringify({ achievementId: achievement.id, rewards: achievement.rewards }),
-      });
+      await persistence.claimAchievement(achievement.id, achievement.rewards);
       // Computed locally, not read out of the reply: this was the one path that
       // could not work without a server, and a guest would have had every
       // resource replaced with undefined.

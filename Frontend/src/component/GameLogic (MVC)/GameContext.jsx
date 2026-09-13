@@ -20,13 +20,19 @@ import { loadSettings, subscribe } from "./Feedback/SettingsStore.js";
 import { SAMPLE_URLS, unknownSampleNames } from "./Feedback/UnitSamples.js";
 import { starsFor } from "./LevelStars.js";
 import { SOUND_KEYS } from "./Feedback/SoundGroups.js";
-import { apiUrl } from "../../config/api.js";
 import { MAX_DEFENDER_LEVEL } from "./DefenderClassUtils.js";
 import { defenderUnlockedBy, defendersEarnedBy } from "./LevelUnlocks.js";
 import { openPlayerChannel, shouldRefreshOn, PLAYER_CHANGED } from "./crossTabSync.js";
 import { getDefaultPlayerData } from "./guestSave.js";
+import { createPersistence, MODE_ACCOUNT } from "./playerPersistence.js";
 
 export const GameContext = createContext();
+
+/* Every save the game makes goes through here rather than through a fetch at
+   the call site - see playerPersistence.js for why. Fixed to the account mode
+   for now, so this refactor changes nothing; Task 6 makes it follow the
+   player's actual mode. */
+const persistence = createPersistence(MODE_ACCOUNT);
 
 export const useGame = () => {
   return useContext(GameContext);
@@ -509,28 +515,15 @@ export const GameProvider = ({ children }) => {
 
     //Save the result to backend
     try {
-      await fetch(apiUrl(`/api/player/complete-level`), {
-        method: "POST",
-        headers: SessionManager.authHeaders(),
-        body: JSON.stringify({ levelId: level, score: score, stars: stars }),
-      });
+      await persistence.completeLevel({ levelId: level, score, stars });
+      await persistence.updateStats({ enemiesKilled, defendersDeployed, energyCollected });
 
-      await fetch(apiUrl(`/api/player/update-stats`), {
-        method: "POST",
-        headers: SessionManager.authHeaders(),
-        body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
-      });
-
-      // The same helper the chest path uses; no backend change needed.
-      if (isNewDefender) await saveUnlockedDefender(wonDefender);
+      // The same operation the chest path uses; no backend change needed.
+      if (isNewDefender) await persistence.unlockDefender(wonDefender);
 
       // Built once, above, so this loop and the local update cannot disagree.
       for (const id of specialUnlocks) {
-        await fetch(apiUrl(`/api/player/unlock-special-achievement`), {
-          method: "POST",
-          headers: SessionManager.authHeaders(),
-          body: JSON.stringify({ achievementId: id }),
-        });
+        await persistence.unlockSpecialAchievement(id);
       }
 
       await fetchPlayerData();
@@ -580,28 +573,14 @@ export const GameProvider = ({ children }) => {
       });
 
       try {
-        await fetch(apiUrl(`/api/player/update-resources`), {
-          method: "POST",
-          headers: SessionManager.authHeaders(),
-          body: JSON.stringify({
-            resourcesChange: {
-              gold: goldEarned, iron: ironEarned, grain: grainEarned,
-              water: waterEarned, gem: gemEarned,
-            },
-          }),
+        await persistence.updateResources({
+          gold: goldEarned, iron: ironEarned, grain: grainEarned,
+          water: waterEarned, gem: gemEarned,
         });
 
-        await fetch(apiUrl(`/api/player/endless-score`), {
-          method: "POST",
-          headers: SessionManager.authHeaders(),
-          body: JSON.stringify({ waveReached: endlessWave }),
-        });
+        await persistence.endlessScore(endlessWave);
 
-        await fetch(apiUrl(`/api/player/update-stats`), {
-          method: "POST",
-          headers: SessionManager.authHeaders(),
-          body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
-        });
+        await persistence.updateStats({ enemiesKilled, defendersDeployed, energyCollected });
       } catch (e) {
         console.error("Failed to bank an endless run:", e);
       }
@@ -657,24 +636,14 @@ export const GameProvider = ({ children }) => {
         });
 
         try {
-          await fetch(apiUrl(`/api/player/update-resources`), {
-            method: "POST",
-            headers: SessionManager.authHeaders(),
-            body: JSON.stringify({
-              resourcesChange: {
-                gold: -goldPenalty,
-                iron: -ironPenalty,
-                grain: -grainPenalty,
-                water: -waterPenalty,
-                gem: -gemPenalty,
-              },
-            }),
+          await persistence.updateResources({
+            gold: -goldPenalty,
+            iron: -ironPenalty,
+            grain: -grainPenalty,
+            water: -waterPenalty,
+            gem: -gemPenalty,
           });
-          await fetch(apiUrl(`/api/player/update-stats`), {
-            method: "POST",
-            headers: SessionManager.authHeaders(),
-            body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
-          });
+          await persistence.updateStats({ enemiesKilled, defendersDeployed, energyCollected });
         } catch (e) {
           console.error("Failed to save loss penalties:", e);
         }
@@ -685,43 +654,40 @@ export const GameProvider = ({ children }) => {
 
   // Backend API integration points
   const fetchPlayerData = useCallback(async () => {
-    try {
-      const response = await fetch(apiUrl(`/api/player/me`), {
-        method: "GET",
-        headers: SessionManager.authHeaders(),
-      });
-      const data = await response.json();
-
-      const playerData = toPlayerData(data);
-
-      /*
-       * Hand over anything the player's cleared levels earned but never gave
-       * them. Defenders used to come from optional chests, so a save can hold
-       * levels 1-8 finished and none of the defenders those wins now grant -
-       * and the win handler only ever fires on a NEW win, so nothing else would
-       * ever settle it. Owned defenders are left alone, which makes this safe
-       * to run on every load rather than needing a one-time flag.
-       */
-      const earned = defendersEarnedBy(playerData.completedLevels);
-      const owed = earned.filter(
-        (name) => !playerData.cards.some((card) => card.name === name),
-      );
-      const toPersist = owed.filter((name) => !backGrantedRef.current.has(name));
-      for (const name of toPersist) backGrantedRef.current.add(name);
-      for (const name of owed) {
-        playerData.cards = withDefender(playerData.cards, name);
-      }
-
-      appliedFromServerRef.current = true;
-      setPlayerData(playerData);
-
-      // The player already has these on screen; a failed save retries next load.
-      for (const name of toPersist) await saveUnlockedDefender(name);
-    } catch (e) {
-      console.error("Fail to fetch data:", e);
-      // Only fall back to defaults if there's no existing player data in memory
+    const data = await persistence.loadPlayer();
+    // Nothing came back - offline, or a reply that was not a player. The copy
+    // already in memory is better than defaults, so it is only the very first
+    // load that falls back.
+    if (!data) {
       setPlayerData((prev) => prev ?? getDefaultPlayerData());
+      return;
     }
+
+    const playerData = toPlayerData(data);
+
+    /*
+     * Hand over anything the player's cleared levels earned but never gave
+     * them. Defenders used to come from optional chests, so a save can hold
+     * levels 1-8 finished and none of the defenders those wins now grant -
+     * and the win handler only ever fires on a NEW win, so nothing else would
+     * ever settle it. Owned defenders are left alone, which makes this safe
+     * to run on every load rather than needing a one-time flag.
+     */
+    const earned = defendersEarnedBy(playerData.completedLevels);
+    const owed = earned.filter(
+      (name) => !playerData.cards.some((card) => card.name === name),
+    );
+    const toPersist = owed.filter((name) => !backGrantedRef.current.has(name));
+    for (const name of toPersist) backGrantedRef.current.add(name);
+    for (const name of owed) {
+      playerData.cards = withDefender(playerData.cards, name);
+    }
+
+    appliedFromServerRef.current = true;
+    setPlayerData(playerData);
+
+    // The player already has these on screen; a failed save retries next load.
+    for (const name of toPersist) await persistence.unlockDefender(name);
   }, []);
 
   // Energy recharge system
@@ -906,13 +872,7 @@ export const GameProvider = ({ children }) => {
     // Persisted after the local change: a failed request must not silently undo
     // what the player already saw.
     try {
-      await fetch(apiUrl(`/api/player/update-resources`), {
-        method: "POST",
-        headers: SessionManager.authHeaders(),
-        body: JSON.stringify({
-          resourcesChange: { gold: -ENERGY_PACK.gold, lobbyEnergy: granted },
-        }),
-      });
+      await persistence.updateResources({ gold: -ENERGY_PACK.gold, lobbyEnergy: granted });
     } catch (error) {
       console.error("Failed to persist an energy purchase:", error);
     }
@@ -962,13 +922,7 @@ export const GameProvider = ({ children }) => {
 
       if (levelCost > 0) {
         try {
-          await fetch(apiUrl(`/api/player/update-resources`), {
-            method: "POST",
-            headers: SessionManager.authHeaders(),
-            body: JSON.stringify({
-              resourcesChange: { lobbyEnergy: -levelCost },
-            }),
-          });
+          await persistence.updateResources({ lobbyEnergy: -levelCost });
         } catch (error) {
           console.error("Failed to sync energy with backend:", error);
         }
@@ -1050,14 +1004,7 @@ export const GameProvider = ({ children }) => {
           }, {});
           //call backend for each card type
           for (const [cardName, count] of Object.entries(piecesMap)) {
-            await fetch(apiUrl(`/api/player/add-card-pieces`), {
-              method: "POST",
-              headers: SessionManager.authHeaders(),
-              body: JSON.stringify({
-                cardName: cardName,
-                pieces: count,
-              }),
-            });
+            await persistence.addCardPieces(cardName, count);
           }
           await fetchPlayerData();
         } catch (error) {
@@ -1213,48 +1160,18 @@ export const GameProvider = ({ children }) => {
       // one computed here. The second copy assigned where the first
       // accumulated, so a chest carrying both `gold` and `all` credited the
       // player and told the server different numbers.
-      await fetch(apiUrl(`/api/player/collect-treasure`), {
-        method: "POST",
-        headers: SessionManager.authHeaders(),
-        body: JSON.stringify({
-          chestId: chestId,
-          rewards: resourceRewardsOf(chest),
-        }),
-      });
+      await persistence.collectTreasure(chestId, resourceRewardsOf(chest));
 
       // One POST per defender, so the backend contract stays one name per call.
-      for (const defenderName of unlocked) saveUnlockedDefender(defenderName);
+      for (const defenderName of unlocked) persistence.unlockDefender(defenderName);
 
       for (const [cardName, pieces] of Object.entries(chestCardPieces(chest))) {
-        await fetch(apiUrl(`/api/player/add-card-pieces`), {
-          method: "POST",
-          headers: SessionManager.authHeaders(),
-          body: JSON.stringify({ cardName, pieces }),
-        });
+        await persistence.addCardPieces(cardName, pieces);
       }
     } catch (error) {
       console.error("Failed to save collected treasure:", error);
     }
   }, []);
-
-  /**
-   * Helper method to connect backend with the new card
-   * @param defenderName
-   * @returns {Promise<void>}
-   */
-  const saveUnlockedDefender = async (defenderName) => {
-    if (!defenderName) return;
-
-    try {
-      await fetch(apiUrl(`/api/player/unlock-defender`), {
-        method: "POST",
-        headers: SessionManager.authHeaders(),
-        body: JSON.stringify({ defenderName }),
-      });
-    } catch (error) {
-      console.error("Failed to save unlocked defender:", error);
-    }
-  };
 
   // Public API and context values
   const gameAPI = {
