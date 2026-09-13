@@ -205,6 +205,13 @@ public class PlayerService {
     if (levelId < 20 && !player.getUnlockedLevels().contains(levelId + 1)) {
       player.getUnlockedLevels().add(levelId + 1);
     }
+    /* Endless opens at ten completed levels - the same rule isEndlessUnlocked
+       applies on the frontend. Stored because the endless_explorer achievement
+       reads unlockedLevels.contains(999), and nothing here ever wrote it, so
+       that achievement was unclaimable on every real account. */
+    if (levelId == 10 && !player.getUnlockedLevels().contains(999)) {
+      player.getUnlockedLevels().add(999);
+    }
     //update star
     while (player.getLevelStars().size() <= levelId - 1) {
       player.getLevelStars().add(0);

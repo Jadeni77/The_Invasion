@@ -71,14 +71,14 @@ const routeStops = [
     isFinal: true,
   },
 
-  // Endless Mode Portal - Unlocked after completing level 20
+  // Endless Mode Portal - Unlocked after completing level 10
   {
     id: 999,
     y: 100,
     zone: "endless",
     name: "Endless Survival",
     isEndless: true,
-    requiresCompletion: 10, // Requires completing level 20
+    requiresCompletion: 10, // Requires completing level 10
     special: "portal", // Special visual indicator
   },
 ];
@@ -156,7 +156,16 @@ export const connectionsData = [
   connectionBetween(18, 19),
   connectionBetween(19, 20),
 
-  // Endless portal connection (appears after beating level 20)
+  /*
+   * This connector expresses route order - the portal's column comes right
+   * after level 20's, not the unlock rule. isEndlessUnlocked opens the
+   * portal at level 10, but every connector here joins consecutive columns;
+   * a bar from column 10 to the portal's column 21 would, since Lobby.jsx
+   * renders each connector as a literal straight bar, be drawn straight
+   * through the eight nodes in between (RouteGeometry.test.js exists to
+   * catch exactly that crossing). The portal sits at the end of the road
+   * and becomes enterable partway along it - those are different facts.
+   */
   connectionBetween(20, 999, { special: "rainbow" }),
 ];
 
@@ -314,7 +323,7 @@ export const endlessPortalConfig = {
 
   // Unlock requirements
   requirements: {
-    minLevel: 20, // Must complete level 20
+    minLevel: 10, // Must complete level 10 - same rule as isEndlessUnlocked
     alternativeUnlock: {
       totalStars: 50, // Or collect 50 stars from perfect level completions
       achievement: "veteran_defender", // Or unlock through achievement
@@ -447,26 +456,25 @@ export const mapAchievements = [
   },
 ];
 
-// Function to check if endless mode should be unlocked
+/**
+ * Whether endless mode is open to this player.
+ *
+ * Ten completed levels, not twenty. The comment here used to say twenty while
+ * the code said ten, and so did the locked-gate message, the map edge and the
+ * optimistic unlock - four statements of a rule the gate did not implement.
+ * Ten is the intended one: endless is a release valve partway through the
+ * campaign, not a reward for finishing it.
+ */
 export function isEndlessUnlocked(playerData) {
-  // Primary unlock: complete level 20
+  // Primary unlock: complete ten levels.
   if (playerData.completedLevels?.includes(10)) {
     return true;
   }
 
-  // Alternative unlock: collect enough stars
+  // Alternative unlock: enough stars, for a player who replayed rather than advanced.
   const totalStars =
     playerData.levelStars?.reduce((sum, stars) => sum + stars, 0) || 0;
-  if (totalStars >= 50) {
-    return true;
-  }
-
-  // Alternative unlock: specific achievement
-  if (playerData.achievements?.includes("veteran_defender")) {
-    return true;
-  }
-
-  return false;
+  return totalStars >= 50;
 }
 
 // Function to get level status

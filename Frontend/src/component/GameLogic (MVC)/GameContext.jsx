@@ -398,8 +398,8 @@ export const GameProvider = ({ children }) => {
         newUnlockedLevels.sort((a, b) => a - b);
       }
 
-      //unlock endless after level 20
-      if (level === 20 && !newUnlockedLevels.includes(999)) {
+      //unlock endless at ten completed levels - the same rule isEndlessUnlocked applies
+      if (level === 10 && !newUnlockedLevels.includes(999)) {
         newUnlockedLevels.push(999);
       }
 
@@ -914,7 +914,7 @@ export const GameProvider = ({ children }) => {
           setGateNotice({
             kind: "locked",
             title: "Endless Mode is locked",
-            message: "Complete Level 20 or collect 50 stars to unlock it.",
+            message: "Complete Level 10 or collect 50 stars to unlock it.",
           });
           return;
         }
