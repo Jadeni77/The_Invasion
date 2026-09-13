@@ -86,7 +86,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
-  localStorage.clear();
 });
 
 describe('a chest whose collection was not recorded', () => {

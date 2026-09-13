@@ -22,6 +22,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import AchievementPage from '../AchievementPage.jsx';
+import { createPersistence, MODE_ACCOUNT } from '../../../GameLogic (MVC)/playerPersistence.js';
 
 /* A player who has finished level 1 and not yet claimed what it pays. */
 const startingPlayer = () => ({
@@ -40,6 +41,11 @@ const CLAIM_LABEL = /Claim: 100 Gold/;
 
 let player;
 
+/* The persistence the context hands the page. Real, not a spy, so the page is
+   exercised against the module it will actually use; swapped per test to prove
+   the page follows the mode it is given. */
+let persistence;
+
 /* Partial mock via importOriginal, as SettingModal.test.jsx does - the page
    imports applyClaimedAchievement from the same module and needs the real one. */
 vi.mock('../../../GameLogic (MVC)/GameContext.jsx', async (importOriginal) => ({
@@ -51,12 +57,14 @@ vi.mock('../../../GameLogic (MVC)/GameContext.jsx', async (importOriginal) => ({
     setPlayerData: (updater) => {
       player = typeof updater === 'function' ? updater(player) : updater;
     },
+    persistence,
   }),
 }));
 
 beforeEach(() => {
   localStorage.setItem('auth_token', 'test-token');
   player = startingPlayer();
+  persistence = createPersistence(MODE_ACCOUNT);
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
@@ -107,5 +115,34 @@ describe('claiming an achievement with no backend to hear it', () => {
       achievementId: 'complete_level_1',
       rewards: { gold: 100 },
     });
+  });
+});
+
+/*
+ * The page saves through whatever the context handed it, and never picks a
+ * mode of its own.
+ *
+ * This is the half that a passing account-mode test cannot show. The page used
+ * to call createPersistence itself, which worked only because that second call
+ * site happened to name the same mode GameContext did - so when Task 6 flips
+ * GameContext to guest, a page still holding its own account instance would go
+ * on POSTing, the 401 would be swallowed, the reward would be credited locally,
+ * and nothing would look wrong while a guest quietly talked to the backend.
+ */
+describe('a guest claiming an achievement', () => {
+  it('is paid without a single request going out', async () => {
+    persistence = createPersistence('guest');
+    globalThis.fetch = vi.fn();
+    render(<AchievementPage />);
+
+    const button = await screen.findByRole('button', { name: CLAIM_LABEL });
+    await act(async () => { button.click(); });
+
+    await waitFor(() => expect(player.resources.gold).toBe(200));
+    expect(player.claimedAchievements).toContain('complete_level_1');
+    expect(
+      globalThis.fetch,
+      'the page reached the network for a guest, so it is not using the context mode',
+    ).not.toHaveBeenCalled();
   });
 });

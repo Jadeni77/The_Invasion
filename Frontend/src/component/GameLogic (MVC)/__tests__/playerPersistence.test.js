@@ -11,13 +11,36 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createPersistence } from '../playerPersistence.js';
 import { writeGuestSave, newGuestPlayer } from '../guestSave.js';
+import { apiUrl } from '../../../config/api.js';
 
+/** A fetch that succeeds at everything, installed as the global. */
+function stubFetch() {
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
+/** The body sent to `path`, parsed, or undefined if nothing was sent there. */
+function bodySentTo(fetchMock, path) {
+  const call = fetchMock.mock.calls.find(([url]) => String(url) === apiUrl(path));
+  return call ? JSON.parse(call[1].body) : undefined;
+}
+
+/*
+ * Every write the module offers. This list has to stay exhaustive: it is what
+ * proves a guest never reaches the network, so a write missing from here is a
+ * write nothing checks. addCardPieces was absent at first, which is exactly
+ * the omission the list exists to make impossible.
+ *
+ * The second argument the harness passes covers the two-argument operations.
+ */
 const OPERATIONS = [
   ['completeLevel', { levelId: 3, score: 100, stars: 2 }],
   ['updateStats', { enemiesKilled: 1, defendersDeployed: 1, energyCollected: 1 }],
   ['updateResources', { gold: 10 }],
   ['unlockDefender', 'Sniper'],
   ['unlockSpecialAchievement', 'untouchable'],
+  ['addCardPieces', 'Shooter'],
   ['collectTreasure', 'chest-1'],
   ['claimAchievement', 'endless_explorer'],
   ['endlessScore', 12],
@@ -57,6 +80,63 @@ describe('an account', () => {
 
     await expect(createPersistence('account').updateResources({ gold: 1 }))
       .resolves.not.toThrow();
+  });
+});
+
+/*
+ * The bodies nothing else pins.
+ *
+ * complete-level, collect-treasure, unlock-defender, endless-score,
+ * add-card-pieces and claim-achievement are all checked through GameContext by
+ * tests that parse the request they produce. These three were not checked
+ * anywhere, and they are the ones that reshape their argument on the way out -
+ * so a wrong shape here is invisible: the request still goes out, the server
+ * reads nothing it recognises and applies nothing, and every test still passes.
+ */
+describe('the shape the backend is expecting', () => {
+  /*
+   * The nested wrapper, rebuilt by hand in the module. Four call sites send a
+   * flat delta and rely on it being wrapped - a loss penalty, an energy
+   * purchase, the cost of starting a level, and an endless payout. Dropping
+   * `resourcesChange` would silently stop all four from paying or charging.
+   */
+  it('wraps a resource delta in resourcesChange', async () => {
+    const fetchMock = stubFetch();
+
+    await createPersistence('account').updateResources({ gold: -150, lobbyEnergy: 10 });
+
+    expect(bodySentTo(fetchMock, '/api/player/update-resources'))
+      .toEqual({ resourcesChange: { gold: -150, lobbyEnergy: 10 } });
+  });
+
+  it('sends the three stat counters flat, not wrapped', async () => {
+    const fetchMock = stubFetch();
+
+    await createPersistence('account')
+      .updateStats({ enemiesKilled: 7, defendersDeployed: 3, energyCollected: 12 });
+
+    expect(bodySentTo(fetchMock, '/api/player/update-stats'))
+      .toEqual({ enemiesKilled: 7, defendersDeployed: 3, energyCollected: 12 });
+  });
+
+  /* Counters the caller left out are zero, not absent - the server adds what
+     it is given, and `undefined` would drop out of the JSON entirely. */
+  it('fills in a counter the caller omitted', async () => {
+    const fetchMock = stubFetch();
+
+    await createPersistence('account').updateStats({ enemiesKilled: 4 });
+
+    expect(bodySentTo(fetchMock, '/api/player/update-stats'))
+      .toEqual({ enemiesKilled: 4, defendersDeployed: 0, energyCollected: 0 });
+  });
+
+  it('names a special achievement as achievementId', async () => {
+    const fetchMock = stubFetch();
+
+    await createPersistence('account').unlockSpecialAchievement('untouchable');
+
+    expect(bodySentTo(fetchMock, '/api/player/unlock-special-achievement'))
+      .toEqual({ achievementId: 'untouchable' });
   });
 });
 

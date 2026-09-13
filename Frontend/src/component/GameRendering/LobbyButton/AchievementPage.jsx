@@ -1,10 +1,7 @@
 import { useState } from 'react';
 import { useGame, applyClaimedAchievement } from '../../GameLogic (MVC)/GameContext.jsx';
-import { createPersistence, MODE_ACCOUNT } from '../../GameLogic (MVC)/playerPersistence.js';
 import '../../../style/AchievementPage.css';
 import GameBackdrop from "../TerrainBackdrop.jsx";
-
-const persistence = createPersistence(MODE_ACCOUNT);
 
 const ACHIEVEMENTS = {
   progression: [
@@ -236,7 +233,9 @@ const formatRewards = (rewards) => {
 };
 
 const AchievementPage = () => {
-  const { closeAchievements, playerData, setPlayerData } = useGame();
+  /* Taken from the context rather than built here: GameContext picks the mode
+     once, so this page cannot end up talking to a backend a guest never should. */
+  const { closeAchievements, playerData, setPlayerData, persistence } = useGame();
   const [selectedCategory, setSelectedCategory] = useState('progression');
   const [claiming, setClaiming] = useState(null);
 

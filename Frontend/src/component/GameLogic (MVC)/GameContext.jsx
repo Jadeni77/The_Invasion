@@ -28,10 +28,18 @@ import { createPersistence, MODE_ACCOUNT } from "./playerPersistence.js";
 
 export const GameContext = createContext();
 
-/* Every save the game makes goes through here rather than through a fetch at
-   the call site - see playerPersistence.js for why. Fixed to the account mode
-   for now, so this refactor changes nothing; Task 6 makes it follow the
-   player's actual mode. */
+/*
+ * Every save the game makes goes through here rather than through a fetch at
+ * the call site - see playerPersistence.js for why. Fixed to the account mode
+ * for now, so this refactor changes nothing; Task 6 makes it follow the
+ * player's actual mode.
+ *
+ * THE ONLY PLACE THE MODE IS CHOSEN. It is handed to components through
+ * `gameAPI.persistence` rather than each one calling createPersistence itself,
+ * because a second call site is a second thing Task 6 has to remember to flip -
+ * and the one it forgot would leave a guest quietly POSTing to a backend they
+ * are supposed to never touch, swallowing the 401 and looking fine.
+ */
 const persistence = createPersistence(MODE_ACCOUNT);
 
 export const useGame = () => {
@@ -663,31 +671,45 @@ export const GameProvider = ({ children }) => {
       return;
     }
 
-    const playerData = toPlayerData(data);
-
     /*
-     * Hand over anything the player's cleared levels earned but never gave
-     * them. Defenders used to come from optional chests, so a save can hold
-     * levels 1-8 finished and none of the defenders those wins now grant -
-     * and the win handler only ever fires on a NEW win, so nothing else would
-     * ever settle it. Owned defenders are left alone, which makes this safe
-     * to run on every load rather than needing a one-time flag.
+     * A reply that parsed but is not shaped like a player still has to land
+     * somewhere. toPlayerData guards `cards` and `levelStars` with bare
+     * truthiness, so a truthy non-array - `cards: {}` from a future backend, a
+     * proxy's error envelope - reaches .map/.reduce and throws. Unhandled,
+     * that leaves first load sitting at playerData === null forever, because
+     * both callers of this function ignore the promise it returns.
      */
-    const earned = defendersEarnedBy(playerData.completedLevels);
-    const owed = earned.filter(
-      (name) => !playerData.cards.some((card) => card.name === name),
-    );
-    const toPersist = owed.filter((name) => !backGrantedRef.current.has(name));
-    for (const name of toPersist) backGrantedRef.current.add(name);
-    for (const name of owed) {
-      playerData.cards = withDefender(playerData.cards, name);
+    try {
+      const playerData = toPlayerData(data);
+
+      /*
+       * Hand over anything the player's cleared levels earned but never gave
+       * them. Defenders used to come from optional chests, so a save can hold
+       * levels 1-8 finished and none of the defenders those wins now grant -
+       * and the win handler only ever fires on a NEW win, so nothing else would
+       * ever settle it. Owned defenders are left alone, which makes this safe
+       * to run on every load rather than needing a one-time flag.
+       */
+      const earned = defendersEarnedBy(playerData.completedLevels);
+      const owed = earned.filter(
+        (name) => !playerData.cards.some((card) => card.name === name),
+      );
+      const toPersist = owed.filter((name) => !backGrantedRef.current.has(name));
+      for (const name of toPersist) backGrantedRef.current.add(name);
+      for (const name of owed) {
+        playerData.cards = withDefender(playerData.cards, name);
+      }
+
+      appliedFromServerRef.current = true;
+      setPlayerData(playerData);
+
+      // The player already has these on screen; a failed save retries next load.
+      for (const name of toPersist) await persistence.unlockDefender(name);
+    } catch (e) {
+      console.error("Fail to fetch data:", e);
+      // Only fall back to defaults if there's no existing player data in memory
+      setPlayerData((prev) => prev ?? getDefaultPlayerData());
     }
-
-    appliedFromServerRef.current = true;
-    setPlayerData(playerData);
-
-    // The player already has these on screen; a failed save retries next load.
-    for (const name of toPersist) await persistence.unlockDefender(name);
   }, []);
 
   // Energy recharge system
@@ -1232,6 +1254,8 @@ export const GameProvider = ({ children }) => {
     energyPack: ENERGY_PACK,
     handleLogout,
     fetchPlayerData,
+    /* So a component that saves does not have to pick a mode of its own. */
+    persistence,
     feedback: feedbackRef.current,
   };
 
