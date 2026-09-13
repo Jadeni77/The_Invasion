@@ -1,5 +1,6 @@
 package com.mygame.backend.service;
 
+import com.mygame.backend.dto.GuestSaveRequest;
 import com.mygame.backend.entity.CardData;
 import com.mygame.backend.entity.Player;
 import com.mygame.backend.repository.PlayerRepository;
@@ -15,6 +16,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Business Logic
@@ -400,6 +402,51 @@ public class PlayerService {
     return playerRepository.save(pending);
   }
 
+  /**
+   * Move a browser-held save into a freshly registered account.
+   *
+   * Empty when the account has been played. `completedLevels` being empty is
+   * the server's only way to tell a new account from one with progress worth
+   * keeping - and rule two of the design is that logging into an existing
+   * account uses that account's data, not the browser's.
+   */
+  public Optional<Player> importGuestSave(String sessionId, GuestSaveRequest save) {
+    Player player = getOrCreatePlayer(sessionId);
 
+    if (player.getCompletedLevels() != null && !player.getCompletedLevels().isEmpty()) {
+      return Optional.empty();
+    }
+
+    player.setGold(GuestSaveRequest.resource(save.getGold(), player.getGold()));
+    player.setIron(GuestSaveRequest.resource(save.getIron(), player.getIron()));
+    player.setGrain(GuestSaveRequest.resource(save.getGrain(), player.getGrain()));
+    player.setWater(GuestSaveRequest.resource(save.getWater(), player.getWater()));
+    player.setGem(GuestSaveRequest.resource(save.getGem(), player.getGem()));
+
+    /* Capped at the account's own maximum, so a forged save cannot hand
+       somebody an energy bar larger than the game can draw. */
+    player.setLobbyEnergy(Math.min(
+        player.getMaxLobbyEnergy(),
+        GuestSaveRequest.resource(save.getLobbyEnergy(), player.getLobbyEnergy())));
+
+    player.setEndlessHighScore(GuestSaveRequest.resource(save.getEndlessHighScore(), 0));
+    player.setTotalEnemiesKilled(GuestSaveRequest.resource(save.getTotalEnemiesKilled(), 0));
+    player.setTotalDefendersDeployed(GuestSaveRequest.resource(save.getTotalDefendersDeployed(), 0));
+    player.setTotalEnergyCollected(GuestSaveRequest.resource(save.getTotalEnergyCollected(), 0));
+
+    List<Integer> unlocked = GuestSaveRequest.levels(save.getUnlockedLevels());
+    if (!unlocked.contains(1)) unlocked.add(1); // Level 1 is always open.
+    player.setUnlockedLevels(unlocked);
+
+    player.setCompletedLevels(GuestSaveRequest.completedLevels(save.getCompletedLevels()));
+    player.setLevelStars(GuestSaveRequest.stars(save.getLevelStars()));
+    player.setCollectedTreasures(GuestSaveRequest.ids(save.getCollectedTreasures()));
+    player.setClaimedAchievements(GuestSaveRequest.ids(save.getClaimedAchievements()));
+    player.setSpecialAchievements(GuestSaveRequest.ids(save.getSpecialAchievements()));
+
+    player.setRank(PlayerRank.forCompletedLevels(player.getCompletedLevels()));
+
+    return Optional.of(playerRepository.save(player));
+  }
 
 }
