@@ -24,6 +24,7 @@ import { apiUrl } from "../../config/api.js";
 import { MAX_DEFENDER_LEVEL } from "./DefenderClassUtils.js";
 import { defenderUnlockedBy, defendersEarnedBy } from "./LevelUnlocks.js";
 import { openPlayerChannel, shouldRefreshOn, PLAYER_CHANGED } from "./crossTabSync.js";
+import { getDefaultPlayerData } from "./guestSave.js";
 
 export const GameContext = createContext();
 
@@ -722,51 +723,6 @@ export const GameProvider = ({ children }) => {
       setPlayerData((prev) => prev ?? getDefaultPlayerData());
     }
   }, []);
-
-  const getDefaultPlayerData = () => {
-    return {
-      id: "default-player",
-      sessionId: "default",
-      name: "Garden Defender",
-      rank: "Novice Gardener",
-      resources: {
-        gold: 100,
-        lobbyEnergy: 50, // Current energy
-        maxLobbyEnergy: 100, // Maximum energy capacity
-        energyRechargeRate: 1, // Energy per minute
-        lastEnergyRechargeTime: Date.now(), // Last recharge timestamp
-        workers: 4,
-        iron: 10,
-        grain: 30,
-        water: 40,
-        gem: 5,
-      },
-      cards: [
-        {
-          id: 1,
-          name: "Shooter",
-          level: 1,
-          pieces: 0,
-          piecesNeeded: 10,
-          upgradeCost: { gold: 100, iron: 5, water: 3 },
-          cost: 20,
-        },
-      ],
-      unlockedLevels: [1],
-      completedLevels: [],
-      levelStars: Array(20).fill(0),
-      collectedTreasures: [],
-      revealedSecrets: [],
-      endlessHighScore: 0,
-      endlessStats: { totalWaves: 0, totalRuns: 0 },
-      totalStars: 0,
-      totalEnemiesKilled: 0,
-      totalDefendersDeployed: 0,
-      totalEnergyCollected: 0,
-      claimedAchievements: [],
-      specialAchievements: [],
-    };
-  };
 
   // Energy recharge system
   useEffect(() => {
