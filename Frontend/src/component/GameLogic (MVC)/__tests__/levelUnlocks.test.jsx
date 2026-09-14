@@ -12,7 +12,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act, waitFor } from '@testing-library/react';
-import { GameProvider, useGame, withDefender } from '../GameContext.jsx';
+import { GameProvider, useGame, withDefender, toPlayerData } from '../GameContext.jsx';
 import { LEVEL_UNLOCKS, STARTING_DEFENDER, defenderUnlockedBy, defendersEarnedBy } from '../LevelUnlocks.js';
 import { defenderUnitClasses } from '../DefenderClassUtils.js';
 import { apiUrl } from '../../../config/api.js';
@@ -300,5 +300,37 @@ describe('building a card', () => {
     expect(added.level).toBe(1);
     expect(added.pieces).toBe(0);
     expect(added.piecesNeeded).toBeGreaterThan(0);
+  });
+
+  /*
+   * The deploy cost, which this used to leave out.
+   *
+   * The card was only ever provisional: toPlayerData filled `cost` in, and for
+   * an account the refetch at the end of onWinCb runs it moments later. A guest
+   * has no refetch - fetchPlayerData returns early for them - so the cost-less
+   * card is the one that reaches the slot, and it stays there. GameEngine's
+   * `inGameEnergy < cardData.cost` is false against undefined, so the
+   * affordability gate lets the deploy through and then charges for it: in-game
+   * energy goes negative. The cooldown reads `(card.cost ?? 25)`, so a Mortar
+   * recharged five times too fast as well.
+   */
+  it('carries the deploy cost the affordability gate reads', () => {
+    const [, added] = withDefender(cards, 'Mortar');
+    expect(added.cost).toBe(120);
+  });
+
+  /*
+   * The drift guard. withDefender and toPlayerData both build a card, and they
+   * have now drifted twice - `upgradeCost` against the wire contract's
+   * derived-field list, and `cost` above. Comparing the key sets is what stops
+   * the third time.
+   */
+  it('builds the card shape toPlayerData builds', () => {
+    const [built] = withDefender([], 'Mortar');
+    const [transformed] = toPlayerData({
+      cards: [{ cardId: 1, name: 'Mortar', level: 1, pieces: 0, piecesNeeded: 15 }],
+    }).cards;
+
+    expect(Object.keys(built).sort()).toEqual(Object.keys(transformed).sort());
   });
 });

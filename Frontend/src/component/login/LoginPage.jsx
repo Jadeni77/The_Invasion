@@ -7,7 +7,7 @@ const MODE_FORGOT_REQUEST = "forgot-request";  // ask for email
 const MODE_FORGOT_RESET = "forgot-reset";      // submit code + new password
 const MODE_VERIFY_EMAIL = "verify-email";      // confirm a new account's address
 
-export default function LoginPage( { onLogin }) {
+export default function LoginPage( { onLogin, onPlayAsGuest }) {
     const [mode, setMode] = useState(MODE_LOGIN);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -273,6 +273,26 @@ export default function LoginPage( { onLogin }) {
                         Back to login
                     </p>
                 )}
+
+                {(mode === MODE_LOGIN || mode === MODE_REGISTER) && onPlayAsGuest && (
+                    <>
+                        {/* A visitor should be able to see the game before
+                            deciding whether it is worth an email address - and
+                            a guest never wakes the backend, so this is also the
+                            only entry that never waits on a cold start. */}
+                        <button
+                            type="button"
+                            onClick={onPlayAsGuest}
+                            style={styles.secondaryButton}
+                        >
+                            Play as guest
+                        </button>
+                        <p style={styles.guestNote}>
+                            Your progress is saved in this browser. Sign up any
+                            time to keep it and play on another device.
+                        </p>
+                    </>
+                )}
             </form>
         </div>
     );
@@ -299,6 +319,25 @@ const styles = {
         padding: "10px", borderRadius: "8px", border: "none",
         background: "#4CAF50", color: "#fff", fontSize: "16px",
         cursor: "pointer", fontWeight: "bold",
+    },
+    /* The same shape as the submit button, outlined instead of filled: this is
+       the second way in, not the main one.
+
+       It used to copy `input`'s border and background literally, so the
+       feature's front door rendered as a third text field beneath email and
+       password - while the comment here claimed an outline "the rest of the
+       form uses for things that are not the main action", which no other
+       button in this form has. That outline WAS the input style. Transparent
+       and a brighter edge is what makes it read as a control you press. */
+    secondaryButton: {
+        padding: "10px", borderRadius: "8px",
+        border: "1px solid rgba(255,255,255,0.55)",
+        background: "transparent", color: "#fff", fontSize: "16px",
+        cursor: "pointer", fontWeight: "bold",
+    },
+    guestNote: {
+        color: "rgba(255,255,255,0.6)", fontSize: "12px",
+        textAlign: "center", margin: 0,
     },
     error: { color: "#ff6b6b", fontSize: "13px", margin: 0, textAlign: "center" },
     info: { color: "#7fffa4", fontSize: "13px", margin: 0, textAlign: "center" },

@@ -31,3 +31,9 @@ backend/data/
 
 # Claude Code local memory
 .claude/
+
+# Design docs, implementation plans and playtest reports - the working notes
+# behind a change rather than the change itself. Kept on disk, out of the
+# repository. docs/deployment.md and docs/starter.md stay tracked: those are
+# instructions somebody cloning this needs, not process leftovers.
+docs/superpowers/

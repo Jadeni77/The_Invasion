@@ -8,7 +8,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-import { chestsData, chestDefenders, resourceRewardsOf, chestCardPieces } from "../GameRendering/MapLayout.jsx";
+import { chestsData, chestDefenders, resourceRewardsOf, chestCardPieces, isEndlessUnlocked } from "../GameRendering/MapLayout.jsx";
 import { SessionManager } from "./SessionManager.js";
 import LoginPage from "../login/LoginPage.jsx";
 import { FeedbackBus } from "./Feedback/FeedbackBus.js";
@@ -20,10 +20,28 @@ import { loadSettings, subscribe } from "./Feedback/SettingsStore.js";
 import { SAMPLE_URLS, unknownSampleNames } from "./Feedback/UnitSamples.js";
 import { starsFor } from "./LevelStars.js";
 import { SOUND_KEYS } from "./Feedback/SoundGroups.js";
-import { apiUrl } from "../../config/api.js";
 import { MAX_DEFENDER_LEVEL } from "./DefenderClassUtils.js";
 import { defenderUnlockedBy, defendersEarnedBy } from "./LevelUnlocks.js";
-import { openPlayerChannel, shouldRefreshOn, PLAYER_CHANGED } from "./crossTabSync.js";
+import {
+  openPlayerChannel,
+  shouldRefreshOn,
+  PLAYER_CHANGED,
+  GUEST_SAVE_CHANGED,
+} from "./crossTabSync.js";
+import {
+  getDefaultPlayerData,
+  writeGuestSave,
+  readGuestSave,
+  clearGuestSave,
+  hasGuestSave,
+  rankForCompletedLevels,
+} from "./guestSave.js";
+import {
+  createPersistence,
+  MODE_ACCOUNT,
+  MODE_GUEST,
+  MODE_ANONYMOUS,
+} from "./playerPersistence.js";
 
 export const GameContext = createContext();
 
@@ -106,6 +124,16 @@ const getPiecesNeeded = (defenderName) => {
  *
  * The id is computed from the list being built rather than from the player's
  * saved cards, so two defenders granted in the same update cannot collide.
+ *
+ * The card is FINISHED here, not provisional. `cost` used to be left out on the
+ * grounds that toPlayerData would fill it in - true for an account, whose
+ * refetch at the end of onWinCb re-transforms the whole roster moments later,
+ * and false for a guest, whose refetch returns early by design. So the
+ * cost-less card was what the persist effect wrote to a guest's slot, and it
+ * stayed there: `inGameEnergy < cardData.cost` is false against undefined, so
+ * the deploy gate passed, the real cost was charged anyway, and in-game energy
+ * went negative. Keep this object's keys matching toPlayerData's card - there
+ * is a test on exactly that.
  */
 export const withDefender = (cards, defenderName) => {
   if (!defenderName) return cards;
@@ -118,6 +146,7 @@ export const withDefender = (cards, defenderName) => {
     pieces: 0,
     piecesNeeded: getPiecesNeeded(defenderName),
     upgradeCost: getUpgradeCost(defenderName, 1),
+    cost: getCardCost(defenderName),
   }];
 };
 
@@ -199,6 +228,70 @@ export function toPlayerData(data) {
   };
 }
 
+/**
+ * What a win pays.
+ *
+ * Module-level and exported so the numbers can be tested directly, and so the
+ * guest path and the account path cannot drift: this is now the only place the
+ * frontend decides what a level is worth.
+ *
+ * The gem bonus is a flat 1, matching PlayerService.completeLevel. It used to
+ * be Math.ceil(multiplier) here and 1 there, so a 3-star win on level 18-20
+ * showed 4 gems and settled back to 1 when the refetch landed.
+ */
+export function winRewards(score, stars) {
+  return {
+    gold: Math.floor(score * 0.2),
+    iron: Math.floor(score * 0.1),
+    grain: Math.floor(score * 0.2),
+    water: Math.floor(score * 0.2),
+    gem: stars === 3 ? 1 : 0,
+  };
+}
+
+/**
+ * Accumulate the lifetime counters a run produced.
+ *
+ * These used to live only on the server: the frontend posted a delta and read
+ * the totals back on the next refetch, so nothing here ever held them. A guest
+ * has no server to read back from, and the achievements that watch these
+ * counters would have sat at zero forever.
+ */
+export function applyStats(playerData, { enemiesKilled = 0, defendersDeployed = 0, energyCollected = 0 }) {
+  return {
+    ...playerData,
+    totalEnemiesKilled: (playerData.totalEnemiesKilled || 0) + enemiesKilled,
+    totalDefendersDeployed: (playerData.totalDefendersDeployed || 0) + defendersDeployed,
+    totalEnergyCollected: (playerData.totalEnergyCollected || 0) + energyCollected,
+  };
+}
+
+/** Record a special achievement, once. */
+export function applySpecialAchievement(playerData, achievementId) {
+  const held = playerData.specialAchievements || [];
+  if (held.includes(achievementId)) return playerData;
+  return { ...playerData, specialAchievements: [...held, achievementId] };
+}
+
+/**
+ * Pay out a claimed achievement from local state.
+ *
+ * The claim handler used to read `updated.gold` and friends out of the HTTP
+ * response, which is the one path in the game that could not work offline at
+ * all - a guest would have had every resource replaced with undefined.
+ */
+export function applyClaimedAchievement(playerData, achievementId, rewards = {}) {
+  const claimed = playerData.claimedAchievements || [];
+  if (claimed.includes(achievementId)) return playerData;
+
+  const resources = { ...playerData.resources };
+  for (const [name, amount] of Object.entries(rewards)) {
+    resources[name] = (resources[name] || 0) + amount;
+  }
+
+  return { ...playerData, resources, claimedAchievements: [...claimed, achievementId] };
+}
+
 export const GameProvider = ({ children }) => {
   const gameEngineRef = useRef(null); // Ref to hold the GameEngine instance
 
@@ -269,6 +362,12 @@ export const GameProvider = ({ children }) => {
      mistaken for a local change and echoed back to the tab that sent it. */
   const appliedFromServerRef = useRef(false);
 
+  /* Another guest tab announced a save while this one was out of the lobby,
+     where it is not safe to act on. Held rather than dropped, and read by the
+     guest catch-up effect the next time that tab is in the lobby - see there
+     for why the message is honoured late instead of thrown away. */
+  const pendingGuestCatchUpRef = useRef(false);
+
   /* Defenders already back-granted this session. fetchPlayerData runs on mount
      and again after every win, so without this the same catch-up POST goes out
      on each one until the server's copy catches up. */
@@ -295,6 +394,83 @@ export const GameProvider = ({ children }) => {
   const [gateNotice, setGateNotice] = useState(null);
 
   /*
+   * Three states, not two. `anonymous` is looking at the login form; `guest` is
+   * playing against the browser; `account` is playing against the backend. The
+   * boolean this replaced could not express the middle one.
+   *
+   * A save in the browser counts as a session. Without that middle branch a
+   * guest has no auth token, so every reload sent them back to the login form -
+   * the wall guest mode exists to remove, put in front of the returning player
+   * rather than the new one. Nothing was lost, but "Play as guest" had to be
+   * pressed again to see it. The order matters: a token wins over a stale slot,
+   * so an account that once played as a guest on this browser is unaffected.
+   *
+   * Reaching the login form from here is the lobby's "Save your progress"
+   * button, which is handleLogout - it sends a guest to `anonymous` and leaves
+   * the slot alone, so signing up still carries the save over.
+   */
+  const [mode, setMode] = useState(() =>
+    SessionManager.isLoggedIn() ? MODE_ACCOUNT
+      : hasGuestSave() ? MODE_GUEST
+        : MODE_ANONYMOUS,
+  );
+
+  /*
+   * The session's persistence, and the mode the long-lived callbacks read.
+   *
+   * THE ONLY PLACE THE MODE IS CHOSEN. It reaches components through
+   * `gameAPI.persistence` rather than each one calling createPersistence
+   * itself, because a second call site is a second thing to remember to flip -
+   * and the one that was forgotten would leave a guest quietly POSTing to a
+   * backend they are supposed to never touch, swallowing the 401 and looking
+   * fine.
+   *
+   * Refs, because onWinCb, fetchPlayerData and their neighbours are memoised
+   * with [] deps: a `mode` read straight from state is frozen at the render
+   * that first built them, which for a visitor who arrives anonymous and then
+   * chooses guest would be 'anonymous' for the rest of the session.
+   *
+   * Derived during render rather than in an effect, because `gameAPI` is built
+   * on this render and a ref written in an effect is one render behind - for
+   * that one render a guest would be handed the account persistence.
+   * createPersistence returns one of two module singletons, so repeating it for
+   * an unchanged mode costs nothing and cannot produce a different answer.
+   */
+  const modeRef = useRef(mode);
+  const persistenceRef = useRef(null);
+  if (persistenceRef.current === null || modeRef.current !== mode) {
+    modeRef.current = mode;
+    persistenceRef.current = createPersistence(mode);
+  }
+
+  /*
+   * A guest's save, written where the broadcast is announced and for the same
+   * reason: playerData changing is the one fact every write path produces, and
+   * a save bolted onto each is a save eventually forgotten on the next one.
+   *
+   * Gated on the mode so an account session never writes to the guest slot -
+   * logging out has to find that slot exactly as the guest left it.
+   *
+   * THE ONLY WRITER OF THE SLOT. The catch-up below reads it and hands what it
+   * finds to setPlayerData, which comes back here to be written - so there is
+   * still one line in the codebase that puts a guest's progress in storage, and
+   * one place to look when it holds the wrong thing.
+   *
+   * Declared ABOVE the broadcast rather than below it, which it used to be:
+   * React flushes a commit's effects in declaration order, so this way the slot
+   * already holds what the announcement is about by the time the announcement
+   * goes out. The old order was not broken - postMessage is specified to
+   * deliver in a later task, so the write landed first anyway - so this is
+   * hardening, not a bug fix: the dependency is now structural instead of
+   * resting on that guarantee. The guest catch-up effect further down leans on
+   * this declaration order too, and says so.
+   */
+  useEffect(() => {
+    if (mode !== MODE_GUEST || !playerData) return;
+    writeGuestSave(playerData);
+  }, [mode, playerData]);
+
+  /*
    * Tell the other tabs that this player moved.
    *
    * Announced here rather than at each of the fourteen calls that write to the
@@ -307,30 +483,104 @@ export const GameProvider = ({ children }) => {
       appliedFromServerRef.current = false;
       return;
     }
-    playerChannelRef.current?.postMessage?.({ type: PLAYER_CHANGED });
-  }, [playerData]);
+    /*
+     * One channel, one message per mode, because the two modes answer an
+     * announcement in incompatible ways: an account tab refetches
+     * /api/player/me, and a guest tab re-reads the browser slot. Sharing
+     * PLAYER_CHANGED made a guest's once-a-minute energy tick drive a sibling
+     * ACCOUNT tab's refetch once a minute - an odd footnote under "a guest
+     * never calls the backend" - so each mode speaks only its own name and
+     * hears only its own name. See crossTabSync.js.
+     *
+     * Anonymous announces nothing: there is no session yet to have moved.
+     *
+     * Below the appliedFromServerRef check rather than above it, so a load does
+     * not leave that flag set for a later session in another mode to mistake
+     * for a refetch of its own and swallow a real broadcast.
+     */
+    if (mode === MODE_ACCOUNT) {
+      playerChannelRef.current?.postMessage?.({ type: PLAYER_CHANGED });
+    } else if (mode === MODE_GUEST) {
+      playerChannelRef.current?.postMessage?.({ type: GUEST_SAVE_CHANGED });
+    }
+  }, [mode, playerData]);
 
-  //authentication
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    SessionManager.isLoggedIn(),
-  );
-
-  const handleLogin = (token, player) => {
+  /**
+   * Take an account session, carrying any guest progress into it.
+   *
+   * The import is attempted on every login rather than only on registration,
+   * because registration cannot carry it: /api/auth/register issues no token,
+   * so there is nothing to authenticate an upload with until the address has
+   * been verified and a login has happened. The server decides whether to
+   * accept it - only a pristine account does - which is also what makes
+   * logging into an account you have played leave that account alone.
+   */
+  const handleLogin = async (token, player) => {
     SessionManager.setToken(token);
     SessionManager.setUser(player);
+    setMode(MODE_ACCOUNT);
+
+    const pending = readGuestSave();
+    if (pending) {
+      /* The account persistence, named rather than read off persistenceRef:
+         that ref is derived from the `mode` state, and the setMode above does
+         not apply until the next render - so here it still reflects the mode
+         being left. Today that is `anonymous`, which falls through to this same
+         instance, but a `guest` one imports nothing at all and the difference
+         between working and working by coincidence is one render. */
+      const accepted = await createPersistence(MODE_ACCOUNT).importGuestSave(pending);
+      /* Only on success. A refusal or a dead backend keeps the save on the
+         device, so the next login tries again rather than losing it. */
+      if (accepted) clearGuestSave();
+    }
+
     // Through the same transform as a refetch. Storing the raw entity here gave
     // a freshly logged-in player a different shape from a returning one - no
     // `resources`, no `name` - and the lobby sat on its loading screen until a
     // refetch happened to fix it.
     setPlayerData(toPlayerData(player));
-    setIsAuthenticated(true);
+
+    /* The import changed the server's copy, so the entity we were handed at
+       login is already stale. Refetching is how the player sees what moved. */
+    if (pending) await fetchPlayerData();
   };
+
+  /*
+   * Play without an account. The load itself is left to the effect that watches
+   * the mode, so there is one place a session's player is fetched from rather
+   * than two that have to keep agreeing.
+   */
+  const startGuestSession = useCallback(() => {
+    /* Only from the login form. This is on gameAPI, so anything holding the
+       context can call it - and from an account session it would flip the mode
+       to guest while playerData still held the account's player. The persist
+       effect watches the mode as well as the player, so it would fire and
+       write that account straight over the guest slot, and fetchPlayerData's
+       guest guard means the real save is never read back to notice. */
+    if (modeRef.current !== MODE_ANONYMOUS) return;
+    setMode(MODE_GUEST);
+  }, []);
 
   const handleLogout = () => {
     backGrantedRef.current.clear();
     SessionManager.clearSession();
     setPlayerData(null);
-    setIsAuthenticated(false);
+
+    /*
+     * A guest pressing the same button has no account to leave, so it means
+     * "show me the login screen". Sending them back to `guest` would clear
+     * playerData without changing the mode, and nothing would reload it - the
+     * lobby would sit on its loading screen forever. Their save is untouched,
+     * and "Play as guest" resumes it.
+     */
+    if (mode === MODE_GUEST) {
+      setMode(MODE_ANONYMOUS);
+      return;
+    }
+
+    /* Back to the guest save if this browser still holds one. Logging out of an
+       account never touched it, so it is exactly as it was left. */
+    setMode(hasGuestSave() ? MODE_GUEST : MODE_ANONYMOUS);
   };
 
   // Callbacks for GameEngine to update React state
@@ -355,21 +605,24 @@ export const GameProvider = ({ children }) => {
        well it was played. */
     const stars = starsFor({ baseDamageTaken });
 
+    // Built once, here, so the try block below can reuse it rather than
+    // recomputing - and so the local special-achievement update below and the
+    // POST loop that follows can never disagree about which ids were earned.
+    const specialUnlocks = [];
+    if (defendersLost === 0) specialUnlocks.push('perfect_defense');
+    if (baseDamageTaken === 0) specialUnlocks.push('untouchable');
+    if (timeElapsed < 120000 && level !== 999) specialUnlocks.push('speed_demon');
+
     // Update player data based on win
     setPlayerData((prev) => {
       if (!prev) return prev;
-      const levelConfig = getLevelRewardMultiplier(level);
-      const goldEarned = Math.floor(score * 0.2);
-      const ironEarned = Math.floor(score * 0.1);
-      const grainEarned = Math.floor(score * 0.2);
-      const waterEarned = Math.floor(score * 0.2);
-      const gemBonus = stars === 3 ? Math.ceil(levelConfig) : 0;
+      const earned = winRewards(score, stars);
 
-      const newGold = prev.resources.gold + goldEarned;
-      const newIron = prev.resources.iron + ironEarned;
-      const newGrain = prev.resources.grain + grainEarned;
-      const newWater = prev.resources.water + waterEarned;
-      const newGem = prev.resources.gem + gemBonus;
+      const newGold = prev.resources.gold + earned.gold;
+      const newIron = prev.resources.iron + earned.iron;
+      const newGrain = prev.resources.grain + earned.grain;
+      const newWater = prev.resources.water + earned.water;
+      const newGem = prev.resources.gem + earned.gem;
 
       const newCompleteLevels = [...(prev.completedLevels || [])];
       if (!newCompleteLevels.includes(level)) {
@@ -382,8 +635,8 @@ export const GameProvider = ({ children }) => {
         newUnlockedLevels.sort((a, b) => a - b);
       }
 
-      //unlock endless after level 20
-      if (level === 20 && !newUnlockedLevels.includes(999)) {
+      //unlock endless at ten completed levels - the same rule isEndlessUnlocked applies
+      if (level === 10 && !newUnlockedLevels.includes(999)) {
         newUnlockedLevels.push(999);
       }
 
@@ -415,6 +668,29 @@ export const GameProvider = ({ children }) => {
       };
     });
 
+    // These used to be server-only: read back on the next refetch rather than
+    // held here. A guest has no refetch to read them back from.
+    setPlayerData((prev) => {
+      if (!prev) return prev;
+      let next = applyStats(prev, { enemiesKilled, defendersDeployed, energyCollected });
+      for (const id of specialUnlocks) next = applySpecialAchievement(next, id);
+
+      /*
+       * The rank, for the same reason. The backend re-derives it on every read
+       * of /api/player/me (applyEarnedRank), but guestPersistence.loadPlayer
+       * derives it once at load and a guest's fetchPlayerData short-circuits
+       * after that - so a guest's title was frozen for the whole session and a
+       * win on level 1, 5, 10, 15 or 20 showed the old one until they reloaded.
+       *
+       * Not branched on the mode: rankForCompletedLevels is the port of
+       * PlayerRank.forCompletedLevels and guestSave.test.js pins the two to the
+       * same thresholds, so for an account this is the answer the refetch a few
+       * lines below is about to bring back anyway, just sooner. `prev` here is
+       * the result of the updater above, so the level just won is counted.
+       */
+      return { ...next, rank: rankForCompletedLevels(next.completedLevels) };
+    });
+
     /*
      * Tell the player, on the same notice a chest uses. `playerDataRef` still
      * holds the save as it was before this win, which is what makes "did they
@@ -432,31 +708,15 @@ export const GameProvider = ({ children }) => {
 
     //Save the result to backend
     try {
-      await fetch(apiUrl(`/api/player/complete-level`), {
-        method: "POST",
-        headers: SessionManager.authHeaders(),
-        body: JSON.stringify({ levelId: level, score: score, stars: stars }),
-      });
+      await persistenceRef.current.completeLevel({ levelId: level, score, stars });
+      await persistenceRef.current.updateStats({ enemiesKilled, defendersDeployed, energyCollected });
 
-      await fetch(apiUrl(`/api/player/update-stats`), {
-        method: "POST",
-        headers: SessionManager.authHeaders(),
-        body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
-      });
+      // The same operation the chest path uses; no backend change needed.
+      if (isNewDefender) await persistenceRef.current.unlockDefender(wonDefender);
 
-      // The same helper the chest path uses; no backend change needed.
-      if (isNewDefender) await saveUnlockedDefender(wonDefender);
-
-      const specialUnlocks = [];
-      if (defendersLost === 0) specialUnlocks.push('perfect_defense');
-      if (baseDamageTaken === 0) specialUnlocks.push('untouchable');
-      if (timeElapsed < 120000 && level !== 999) specialUnlocks.push('speed_demon');
+      // Built once, above, so this loop and the local update cannot disagree.
       for (const id of specialUnlocks) {
-        await fetch(apiUrl(`/api/player/unlock-special-achievement`), {
-          method: "POST",
-          headers: SessionManager.authHeaders(),
-          body: JSON.stringify({ achievementId: id }),
-        });
+        await persistenceRef.current.unlockSpecialAchievement(id);
       }
 
       await fetchPlayerData();
@@ -483,48 +743,37 @@ export const GameProvider = ({ children }) => {
 
       setPlayerData((prev) => {
         if (!prev) return prev;
+        // Stat counters were server-only before this task; folded in here so
+        // an endless run banks them the same way a level win does.
+        const next = applyStats(prev, { enemiesKilled, defendersDeployed, energyCollected });
         return {
-          ...prev,
+          ...next,
           resources: {
-            ...prev.resources,
-            gold: prev.resources.gold + goldEarned,
-            iron: prev.resources.iron + ironEarned,
-            grain: prev.resources.grain + grainEarned,
-            water: prev.resources.water + waterEarned,
-            gem: prev.resources.gem + gemEarned,
+            ...next.resources,
+            gold: next.resources.gold + goldEarned,
+            iron: next.resources.iron + ironEarned,
+            grain: next.resources.grain + grainEarned,
+            water: next.resources.water + waterEarned,
+            gem: next.resources.gem + gemEarned,
           },
-          endlessHighScore: Math.max(prev.endlessHighScore || 0, endlessWave),
+          endlessHighScore: Math.max(next.endlessHighScore || 0, endlessWave),
           endlessStats: {
-            ...prev.endlessStats,
-            totalWaves: (prev.endlessStats?.totalWaves || 0) + endlessWave,
-            totalRuns: (prev.endlessStats?.totalRuns || 0) + 1,
+            ...next.endlessStats,
+            totalWaves: (next.endlessStats?.totalWaves || 0) + endlessWave,
+            totalRuns: (next.endlessStats?.totalRuns || 0) + 1,
           },
         };
       });
 
       try {
-        await fetch(apiUrl(`/api/player/update-resources`), {
-          method: "POST",
-          headers: SessionManager.authHeaders(),
-          body: JSON.stringify({
-            resourcesChange: {
-              gold: goldEarned, iron: ironEarned, grain: grainEarned,
-              water: waterEarned, gem: gemEarned,
-            },
-          }),
+        await persistenceRef.current.updateResources({
+          gold: goldEarned, iron: ironEarned, grain: grainEarned,
+          water: waterEarned, gem: gemEarned,
         });
 
-        await fetch(apiUrl(`/api/player/endless-score`), {
-          method: "POST",
-          headers: SessionManager.authHeaders(),
-          body: JSON.stringify({ waveReached: endlessWave }),
-        });
+        await persistenceRef.current.endlessScore(endlessWave);
 
-        await fetch(apiUrl(`/api/player/update-stats`), {
-          method: "POST",
-          headers: SessionManager.authHeaders(),
-          body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
-        });
+        await persistenceRef.current.updateStats({ enemiesKilled, defendersDeployed, energyCollected });
       } catch (e) {
         console.error("Failed to bank an endless run:", e);
       }
@@ -562,10 +811,14 @@ export const GameProvider = ({ children }) => {
           const newWater = Math.max(0, prev.resources.water - waterPenalty);
           const newGem = Math.max(0, prev.resources.gem - gemPenalty);
 
+          // Stat counters were server-only before this task; a loss still
+          // reports kills/deploys/energy for the run, so it still needs them.
+          const next = applyStats(prev, { enemiesKilled, defendersDeployed, energyCollected });
+
           return {
-            ...prev,
+            ...next,
             resources: {
-              ...prev.resources,
+              ...next.resources,
               gold: newGold,
               iron: newIron,
               grain: newGrain,
@@ -576,24 +829,14 @@ export const GameProvider = ({ children }) => {
         });
 
         try {
-          await fetch(apiUrl(`/api/player/update-resources`), {
-            method: "POST",
-            headers: SessionManager.authHeaders(),
-            body: JSON.stringify({
-              resourcesChange: {
-                gold: -goldPenalty,
-                iron: -ironPenalty,
-                grain: -grainPenalty,
-                water: -waterPenalty,
-                gem: -gemPenalty,
-              },
-            }),
+          await persistenceRef.current.updateResources({
+            gold: -goldPenalty,
+            iron: -ironPenalty,
+            grain: -grainPenalty,
+            water: -waterPenalty,
+            gem: -gemPenalty,
           });
-          await fetch(apiUrl(`/api/player/update-stats`), {
-            method: "POST",
-            headers: SessionManager.authHeaders(),
-            body: JSON.stringify({ enemiesKilled, defendersDeployed, energyCollected }),
-          });
+          await persistenceRef.current.updateStats({ enemiesKilled, defendersDeployed, energyCollected });
         } catch (e) {
           console.error("Failed to save loss penalties:", e);
         }
@@ -602,26 +845,59 @@ export const GameProvider = ({ children }) => {
     [bankEndlessRun], // Everything else is handled by the state setters
   );
 
-  const getLevelRewardMultiplier = (level) => {
-    if (level === 999) return 1.0; // Endless has its own reward system
-    if (level <= 3) return 1.0;
-    if (level <= 7) return 1.5;
-    if (level <= 12) return 2.0;
-    if (level <= 17) return 3.0;
-    if (level <= 20) return 4.0;
-    return 1.0;
-  };
-
   // Backend API integration points
   const fetchPlayerData = useCallback(async () => {
-    try {
-      const response = await fetch(apiUrl(`/api/player/me`), {
-        method: "GET",
-        headers: SessionManager.authHeaders(),
-      });
-      const data = await response.json();
+    /*
+     * For a guest this is only ever the load that starts a session.
+     *
+     * Their slot is written FROM playerData by the effect above, so reading it
+     * back is never news to this tab - and after a write it is actively wrong.
+     * onWinCb ends with a refetch, to pick up the server's version of what it
+     * just saved; for a guest that refetch runs before React has committed the
+     * win, so it would read the PRE-win save and quietly roll the win back,
+     * into the slot as well as onto the screen. An account's server copy really
+     * is a second opinion, so it still replaces.
+     *
+     * The mode comes from a ref because this callback is memoised with [] deps:
+     * `mode` read from state would be frozen at the render that built it, which
+     * for a visitor who arrives anonymous and then chooses guest is 'anonymous'
+     * for the rest of the session.
+     */
+    if (modeRef.current === MODE_GUEST && playerDataRef.current) return;
 
-      const playerData = toPlayerData(data);
+    const data = await persistenceRef.current.loadPlayer();
+    // Nothing came back - offline, or a reply that was not a player. The copy
+    // already in memory is better than defaults, so it is only the very first
+    // load that falls back.
+    if (!data) {
+      setPlayerData((prev) => prev ?? getDefaultPlayerData());
+      return;
+    }
+
+    /*
+     * A reply that parsed but is not shaped like a player still has to land
+     * somewhere. toPlayerData guards `cards` and `levelStars` with bare
+     * truthiness, so a truthy non-array - `cards: {}` from a future backend, a
+     * proxy's error envelope - reaches .map/.reduce and throws. Unhandled,
+     * that leaves first load sitting at playerData === null forever, because
+     * both callers of this function ignore the promise it returns.
+     */
+    try {
+      /*
+       * The two loadPlayer implementations do not return the same shape, and
+       * both say so where they are written: accountPersistence hands back the
+       * RAW backend entity, which still needs this transform; guestPersistence
+       * hands back a playerData that has already been through it. They are not
+       * unified there because toPlayerData lives in this file, and importing it
+       * into playerPersistence.js would re-create the cycle guestSave.js exists
+       * to avoid - a cycle that fails only on the deployed site.
+       *
+       * Transforming a guest's save a second time reads `data.gold` off a
+       * player whose gold is at `data.resources.gold`, so every resource comes
+       * out undefined - and the slot is written FROM playerData, so it would
+       * not stop at the screen.
+       */
+      const playerData = modeRef.current === MODE_GUEST ? data : toPlayerData(data);
 
       /*
        * Hand over anything the player's cleared levels earned but never gave
@@ -645,58 +921,13 @@ export const GameProvider = ({ children }) => {
       setPlayerData(playerData);
 
       // The player already has these on screen; a failed save retries next load.
-      for (const name of toPersist) await saveUnlockedDefender(name);
+      for (const name of toPersist) await persistenceRef.current.unlockDefender(name);
     } catch (e) {
       console.error("Fail to fetch data:", e);
       // Only fall back to defaults if there's no existing player data in memory
       setPlayerData((prev) => prev ?? getDefaultPlayerData());
     }
   }, []);
-
-  const getDefaultPlayerData = () => {
-    return {
-      id: "default-player",
-      sessionId: "default",
-      name: "Garden Defender",
-      rank: "Novice Gardener",
-      resources: {
-        gold: 100,
-        lobbyEnergy: 50, // Current energy
-        maxLobbyEnergy: 100, // Maximum energy capacity
-        energyRechargeRate: 1, // Energy per minute
-        lastEnergyRechargeTime: Date.now(), // Last recharge timestamp
-        workers: 4,
-        iron: 10,
-        grain: 30,
-        water: 40,
-        gem: 5,
-      },
-      cards: [
-        {
-          id: 1,
-          name: "Shooter",
-          level: 1,
-          pieces: 0,
-          piecesNeeded: 10,
-          upgradeCost: { gold: 100, iron: 5, water: 3 },
-          cost: 20,
-        },
-      ],
-      unlockedLevels: [1],
-      completedLevels: [],
-      levelStars: Array(20).fill(0),
-      collectedTreasures: [],
-      revealedSecrets: [],
-      endlessHighScore: 0,
-      endlessStats: { totalWaves: 0, totalRuns: 0 },
-      totalStars: 0,
-      totalEnemiesKilled: 0,
-      totalDefendersDeployed: 0,
-      totalEnergyCollected: 0,
-      claimedAchievements: [],
-      specialAchievements: [],
-    };
-  };
 
   // Energy recharge system
   useEffect(() => {
@@ -737,9 +968,13 @@ export const GameProvider = ({ children }) => {
    * Only in the lobby. Replacing playerData mid-level would move the ground
    * under a run in progress for a number nobody is looking at, and the lobby is
    * the only place these totals are shown anyway.
+   *
+   * Accounts only. What a guest reads instead is the slot, in the effect below,
+   * because a guest has no server copy to be the second opinion - and
+   * fetchPlayerData is a deliberate no-op for them.
    */
   useEffect(() => {
-    if (!isAuthenticated || !shouldRefreshOn(gameState)) return undefined;
+    if (mode !== MODE_ACCOUNT || !shouldRefreshOn(gameState)) return undefined;
 
     const catchUp = () => { fetchPlayerData(); };
     const onMessage = (event) => {
@@ -757,7 +992,103 @@ export const GameProvider = ({ children }) => {
       channel?.removeEventListener?.("message", onMessage);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [isAuthenticated, gameState, fetchPlayerData]);
+  }, [mode, gameState, fetchPlayerData]);
+
+  /**
+   * The guest's version of that catch-up: re-read the slot the other tab wrote.
+   *
+   * NOT routed through fetchPlayerData. That function returns early for a guest
+   * who already has a player, and the early return is load-bearing - it is what
+   * stopped the refetch at the end of onWinCb reading the pre-win save back
+   * over a win the player had already been shown. Reading the slot here instead
+   * keeps that guard exactly as it is.
+   *
+   * Not through guestPersistence.loadPlayer either, which answers an empty slot
+   * with a brand new guest: signing up in the other tab MOVES the save into the
+   * new account and empties the slot, and the honest answer to that is to leave
+   * this tab playing what it already holds rather than to replace a session
+   * with an empty one.
+   */
+  const catchUpFromGuestSlot = useCallback(() => {
+    const saved = readGuestSave();
+    if (!saved) return;
+
+    /*
+     * The loop-breaker, set the way fetchPlayerData sets it. The broadcast
+     * effect checks and clears this, so adopting the other tab's save is not
+     * announced back to it - without that, the other tab re-reads, re-announces
+     * and the two trade messages for as long as both are open.
+     */
+    appliedFromServerRef.current = true;
+    setPlayerData(saved);
+  }, []);
+
+  /*
+   * Two guest tabs, kept from diverging.
+   *
+   * They share one slot and each held its own playerData, so a level won in one
+   * was overwritten by the other's next save - last writer wins, and the win
+   * was gone. This does not make them transactional: whoever writes last is
+   * still the answer. It makes the other tab find out in the lobby, instead of
+   * writing an hour-old copy over the top later.
+   *
+   * The lobby guard is the same one the account path uses, and matters more
+   * here: re-reading the slot mid-level is precisely the mistake that rolled a
+   * guest's win back out of their save. So the LISTENER is registered wherever
+   * a guest is, and only the READ waits for the lobby - a message arriving over
+   * a level or a modal is held on pendingGuestCatchUpRef and honoured the next
+   * time this effect runs in the lobby. Dropping it instead left a tab coming
+   * back from a level holding a copy older than the slot, and its next change
+   * wrote that copy over the top: the same loss this mechanism exists to stop,
+   * a few minutes later.
+   *
+   * Every read is still PROMPTED by another tab's write. Nothing re-reads
+   * because a modal closed or a tab was looked at again - an unprompted read
+   * can only replace this tab's copy with an older one (a write that failed on
+   * a full quota is exactly what it would find), and closeUpgradeModal alone
+   * would fire one on every modal close. That is also why there is no
+   * visibilitychange twin: a hidden tab still receives BroadcastChannel
+   * messages, so focus catches nothing the message did not.
+   *
+   * Honouring a message late is safe because of DECLARATION ORDER: the persist
+   * effect - the slot's only writer, far above - is declared before this one,
+   * so in any commit that both moves playerData and lands in the lobby, the
+   * slot has already been written by the time the read below runs. What that
+   * read finds is therefore never older than what this tab holds, which is what
+   * keeps it from being the win-rollback bug in another hat. Do not move this
+   * effect above the persist effect.
+   */
+  useEffect(() => {
+    if (mode !== MODE_GUEST) {
+      /* A save this tab was waiting to read is not the next session's business:
+         signing up MOVES the slot into the account and empties it. */
+      pendingGuestCatchUpRef.current = false;
+      return undefined;
+    }
+
+    const inLobby = shouldRefreshOn(gameState);
+
+    const onMessage = (event) => {
+      if (event?.data?.type !== GUEST_SAVE_CHANGED) return;
+      if (inLobby) catchUpFromGuestSlot();
+      else pendingGuestCatchUpRef.current = true;
+    };
+
+    /* Null where the browser has no BroadcastChannel - older Safari, jsdom
+       without a polyfill. A guest plays on there, just without hearing the
+       other tab, which is the behaviour that shipped before this. */
+    const channel = playerChannelRef.current || null;
+    channel?.addEventListener?.("message", onMessage);
+
+    /* The held message, cashed in. Behind the ref rather than run on every
+       arrival in the lobby, which would be the unprompted read above. */
+    if (inLobby && pendingGuestCatchUpRef.current) {
+      pendingGuestCatchUpRef.current = false;
+      catchUpFromGuestSlot();
+    }
+
+    return () => channel?.removeEventListener?.("message", onMessage);
+  }, [mode, gameState, catchUpFromGuestSlot]);
 
   const savePlayerData = useCallback(async (_data) => {
     try {
@@ -771,8 +1102,18 @@ export const GameProvider = ({ children }) => {
     playerDataRef.current = playerData;
   }, [playerData]);
 
+  /*
+   * Where a session's player comes from - the backend for an account, the
+   * browser slot for a guest, and the same call for both because
+   * fetchPlayerData follows the mode. Anonymous has nothing to load and never
+   * gets past the login form.
+   *
+   * This is also what makes the mode changing enough to start a session: both
+   * choosing guest and logging out of an account into one leave playerData null
+   * and rely on this to fill it.
+   */
   useEffect(() => {
-    if (isAuthenticated) {
+    if (mode !== MODE_ANONYMOUS) {
       fetchPlayerData();
     }
 
@@ -781,7 +1122,7 @@ export const GameProvider = ({ children }) => {
         savePlayerData(playerDataRef.current);
       }
     };
-  }, [fetchPlayerData, savePlayerData, isAuthenticated]);
+  }, [fetchPlayerData, savePlayerData, mode]);
 
   // Resources management
   const updateResource = useCallback((resource, amount) => {
@@ -880,13 +1221,7 @@ export const GameProvider = ({ children }) => {
     // Persisted after the local change: a failed request must not silently undo
     // what the player already saw.
     try {
-      await fetch(apiUrl(`/api/player/update-resources`), {
-        method: "POST",
-        headers: SessionManager.authHeaders(),
-        body: JSON.stringify({
-          resourcesChange: { gold: -ENERGY_PACK.gold, lobbyEnergy: granted },
-        }),
-      });
+      await persistenceRef.current.updateResources({ gold: -ENERGY_PACK.gold, lobbyEnergy: granted });
     } catch (error) {
       console.error("Failed to persist an energy purchase:", error);
     }
@@ -901,14 +1236,20 @@ export const GameProvider = ({ children }) => {
       }
 
       if (levelId === 999) {
-        const isUnlocked =
-          playerData.completedLevels?.includes(10) ||
-          playerData.totalStars >= 50;
-        if (!isUnlocked) {
+        /*
+         * The same function the map node asks, not a restatement of the rule.
+         * This used to read the STORED totalStars while getLevelStatus(999)
+         * delegates to isEndlessUnlocked, which recomputes the sum from
+         * levelStars - and nothing keeps the stored copy in step, since
+         * applyStats and applyClaimedAchievement both return a new player
+         * without touching it. Two numbers, one rule: when they disagreed the
+         * portal lit up on the map and then refused entry when it was pressed.
+         */
+        if (!isEndlessUnlocked(playerData)) {
           setGateNotice({
             kind: "locked",
             title: "Endless Mode is locked",
-            message: "Complete Level 20 or collect 50 stars to unlock it.",
+            message: "Complete Level 10 or collect 50 stars to unlock it.",
           });
           return;
         }
@@ -936,13 +1277,7 @@ export const GameProvider = ({ children }) => {
 
       if (levelCost > 0) {
         try {
-          await fetch(apiUrl(`/api/player/update-resources`), {
-            method: "POST",
-            headers: SessionManager.authHeaders(),
-            body: JSON.stringify({
-              resourcesChange: { lobbyEnergy: -levelCost },
-            }),
-          });
+          await persistenceRef.current.updateResources({ lobbyEnergy: -levelCost });
         } catch (error) {
           console.error("Failed to sync energy with backend:", error);
         }
@@ -1024,14 +1359,7 @@ export const GameProvider = ({ children }) => {
           }, {});
           //call backend for each card type
           for (const [cardName, count] of Object.entries(piecesMap)) {
-            await fetch(apiUrl(`/api/player/add-card-pieces`), {
-              method: "POST",
-              headers: SessionManager.authHeaders(),
-              body: JSON.stringify({
-                cardName: cardName,
-                pieces: count,
-              }),
-            });
+            await persistenceRef.current.addCardPieces(cardName, count);
           }
           await fetchPlayerData();
         } catch (error) {
@@ -1187,48 +1515,31 @@ export const GameProvider = ({ children }) => {
       // one computed here. The second copy assigned where the first
       // accumulated, so a chest carrying both `gold` and `all` credited the
       // player and told the server different numbers.
-      await fetch(apiUrl(`/api/player/collect-treasure`), {
-        method: "POST",
-        headers: SessionManager.authHeaders(),
-        body: JSON.stringify({
-          chestId: chestId,
-          rewards: resourceRewardsOf(chest),
-        }),
-      });
+      const recorded = await persistenceRef.current.collectTreasure(chestId, resourceRewardsOf(chest));
 
-      // One POST per defender, so the backend contract stays one name per call.
-      for (const defenderName of unlocked) saveUnlockedDefender(defenderName);
+      /*
+       * The grants below are downstream of the chest being recorded, so they
+       * only go out if it was. Marking the chest collected is the thing that
+       * stops it being opened again - bank the pieces without it and the
+       * player reloads to find the chest waiting, collects it again, and is
+       * paid again, repeatably.
+       *
+       * Gating on the result rather than on a thrown error, because a backend
+       * that answers 500 never threw: before persistence moved here, only a
+       * dropped connection skipped these loops and a rejected save did not.
+       */
+      if (recorded) {
+        // One POST per defender, so the backend contract stays one name per call.
+        for (const defenderName of unlocked) persistenceRef.current.unlockDefender(defenderName);
 
-      for (const [cardName, pieces] of Object.entries(chestCardPieces(chest))) {
-        await fetch(apiUrl(`/api/player/add-card-pieces`), {
-          method: "POST",
-          headers: SessionManager.authHeaders(),
-          body: JSON.stringify({ cardName, pieces }),
-        });
+        for (const [cardName, pieces] of Object.entries(chestCardPieces(chest))) {
+          await persistenceRef.current.addCardPieces(cardName, pieces);
+        }
       }
     } catch (error) {
       console.error("Failed to save collected treasure:", error);
     }
   }, []);
-
-  /**
-   * Helper method to connect backend with the new card
-   * @param defenderName
-   * @returns {Promise<void>}
-   */
-  const saveUnlockedDefender = async (defenderName) => {
-    if (!defenderName) return;
-
-    try {
-      await fetch(apiUrl(`/api/player/unlock-defender`), {
-        method: "POST",
-        headers: SessionManager.authHeaders(),
-        body: JSON.stringify({ defenderName }),
-      });
-    } catch (error) {
-      console.error("Failed to save unlocked defender:", error);
-    }
-  };
 
   // Public API and context values
   const gameAPI = {
@@ -1276,11 +1587,15 @@ export const GameProvider = ({ children }) => {
     energyPack: ENERGY_PACK,
     handleLogout,
     fetchPlayerData,
+    mode,
+    startGuestSession,
+    /* So a component that saves does not have to pick a mode of its own. */
+    persistence: persistenceRef.current,
     feedback: feedbackRef.current,
   };
 
-  if (!isAuthenticated) {
-    return <LoginPage onLogin={handleLogin} />;
+  if (mode === MODE_ANONYMOUS) {
+    return <LoginPage onLogin={handleLogin} onPlayAsGuest={startGuestSession} />;
   }
 
   return (

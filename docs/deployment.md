@@ -21,6 +21,13 @@ next request waits for it. The application itself starts in about **2 seconds**
 Spring Boot booting. The login screen says so rather than showing a spinner that
 looks broken.
 
+Guest play does not touch the backend at all, so a first-time visitor never
+meets this. It is the first login after an idle spell that pays the wait. A
+paid Render instance removes the spin-down entirely; the free tier's 750
+instance-hours a month against a ~730-hour month means keeping one awake with
+a keepalive ping consumes the whole allowance, so that workaround buys less
+than it looks like it does.
+
 **Order matters.** The database exists before the backend, because the backend
 needs its URL. The backend exists before the frontend build, because the build
 bakes the API address in. And the backend's allowed origin can only be set once

@@ -21,9 +21,28 @@ be a total of 20 challenging levels and an endless level.
 ## 🚀 Play the Game
 Live Demo: **[the-invasion.pages.dev](https://the-invasion.pages.dev)**
 
-The backend sleeps when nobody is playing, so the first login after a quiet
-spell waits up to a minute while it wakes. The login screen says so when it
-happens.
+You can play without an account - **Play as guest** on the login screen starts
+straight away, on a save kept in your browser. Signing up later moves that save
+into the new account; logging into an account you already have uses that
+account's progress and leaves the guest save where it is. Signing up *moves*
+the save rather than copying it, so logging straight back out afterwards starts
+a fresh guest game - your progress is not gone, it is in the account you just
+made.
+
+Because a guest never calls the backend, they never wait for it. The backend
+sleeps when nobody is signed in, so the first *login* after a quiet spell waits
+up to a minute while it wakes - the login screen says so when it happens.
+
+A guest save resumes itself: reload the page and you are back where you were,
+without clicking anything. **Save your progress** in the lobby is how you get
+to the login screen from there, and it leaves the save alone.
+
+Two guest tabs keep each other up to date: save in one and the other picks it
+up - straight away if it is sitting in the lobby, otherwise as soon as it comes
+back there, rather than writing its older copy over the top later. Nothing is
+re-read mid-level, where it would move the ground under a run in progress. It
+is a catch-up, not a merge - if both tabs play at once, whichever saved last is
+still the one that counts.
 
 ## 🗂️ How the project fits together
 

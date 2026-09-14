@@ -1,8 +1,10 @@
 package com.mygame.backend.controller;
 
+import com.mygame.backend.dto.GuestSaveRequest;
 import com.mygame.backend.entity.Player;
 import com.mygame.backend.service.PlayerService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -100,5 +102,18 @@ public class PlayerController {
   public ResponseEntity<Player> unlockSpecialAchievement(@AuthenticationPrincipal Player player, @RequestBody Map<String, Object> request) {
     String achievementId = (String) request.get("achievementId");
     return ResponseEntity.ok(playerService.unlockSpecialAchievement(player.getSessionId(), achievementId));
+  }
+
+  /**
+   * Take the guest save this browser was holding into the account that just
+   * signed up. 409 when the account has already been played - the client keeps
+   * its slot and shows the account's own progress instead.
+   */
+  @PostMapping("/import")
+  public ResponseEntity<Player> importGuestSave(@AuthenticationPrincipal Player player,
+                                                @RequestBody GuestSaveRequest save) {
+    return playerService.importGuestSave(player.getSessionId(), save)
+        .map(ResponseEntity::ok)
+        .orElseGet(() -> ResponseEntity.status(HttpStatus.CONFLICT).build());
   }
 }

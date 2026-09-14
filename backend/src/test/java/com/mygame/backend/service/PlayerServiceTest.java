@@ -107,6 +107,41 @@ class PlayerServiceTest {
         assertThat(result.getLobbyEnergy()).isEqualTo(100); // capped at max
     }
 
+    /*
+     * Writing 999 when level 10 is completed only ever helped FUTURE wins.
+     * Every account that had already cleared level 10 before that line existed
+     * stayed locked out of endless_explorer's 500 gold and 5 gems, and an
+     * account that finished all twenty levels and never replays level 10 was
+     * excluded permanently - there is no other path that writes the sentinel.
+     *
+     * Back-filled on the way out, beside applyEarnedRank and for the same
+     * reason it gives: every read comes through here, so the account is fixed
+     * the next time the player opens the game rather than by a migration.
+     */
+    @Test
+    void backFillsTheEndlessUnlockForAnAccountThatAlreadyClearedLevelTen() {
+        testPlayer.setCompletedLevels(new ArrayList<>(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)));
+        testPlayer.setUnlockedLevels(new ArrayList<>(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)));
+        when(playerRepository.findBySessionId("test-session")).thenReturn(Optional.of(testPlayer));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Player result = playerService.getOrCreatePlayer("test-session");
+
+        assertThat(result.getUnlockedLevels()).contains(999);
+    }
+
+    @Test
+    void doesNotBackFillTheEndlessUnlockForAnAccountNineLevelsIn() {
+        testPlayer.setCompletedLevels(new ArrayList<>(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9)));
+        testPlayer.setUnlockedLevels(new ArrayList<>(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)));
+        when(playerRepository.findBySessionId("test-session")).thenReturn(Optional.of(testPlayer));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Player result = playerService.getOrCreatePlayer("test-session");
+
+        assertThat(result.getUnlockedLevels()).doesNotContain(999);
+    }
+
     // --- completeLevel ---
 
     @Test
@@ -185,6 +220,48 @@ class PlayerServiceTest {
         int initialGem = testPlayer.getGem();
         Player result = playerService.completeLevel("test-session", 1, 100, 2);
         assertThat(result.getGem()).isEqualTo(initialGem);
+    }
+
+    /*
+     * The only reader of unlockedLevels.includes(999) is the endless_explorer
+     * achievement. The backend never stored 999, so toPlayerData read it back
+     * absent on every load and that achievement - 500 gold and 5 gems - could
+     * not be claimed on any real account. The mode worked; the trophy did not.
+     */
+    @Test
+    void completingTenLevelsMarksEndlessUnlocked() {
+        testPlayer.setCompletedLevels(new ArrayList<>(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9)));
+        testPlayer.setUnlockedLevels(new ArrayList<>(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)));
+        when(playerRepository.findBySessionId("test-session")).thenReturn(Optional.of(testPlayer));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Player result = playerService.completeLevel("test-session", 10, 500, 3);
+
+        assertThat(result.getUnlockedLevels()).contains(999);
+    }
+
+    @Test
+    void completingNineLevelsDoesNotMarkEndlessUnlocked() {
+        testPlayer.setCompletedLevels(new ArrayList<>(List.of(1, 2, 3, 4, 5, 6, 7, 8)));
+        testPlayer.setUnlockedLevels(new ArrayList<>(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9)));
+        when(playerRepository.findBySessionId("test-session")).thenReturn(Optional.of(testPlayer));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Player result = playerService.completeLevel("test-session", 9, 500, 3);
+
+        assertThat(result.getUnlockedLevels()).doesNotContain(999);
+    }
+
+    /* A regression test, because the frontend just changed to match this. */
+    @Test
+    void threeStarsPaysExactlyOneGem() {
+        testPlayer.setGem(5);
+        when(playerRepository.findBySessionId("test-session")).thenReturn(Optional.of(testPlayer));
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+
+        Player result = playerService.completeLevel("test-session", 20, 1000, 3);
+
+        assertThat(result.getGem()).isEqualTo(6);
     }
 
     // --- addCardPieces ---
