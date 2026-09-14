@@ -12,6 +12,7 @@ import {
 import EnergyBar from "./EnergyBar"; // Correct path
 import UpgradeModal from "./LobbyButton/UpgradeModal.jsx"; // Correct path
 import SettingModal from "./LobbyButton/SettingModal.jsx";
+import AccountButton from "./LobbyButton/AccountButton.jsx";
 import {
   levelsMapData,
   connectionsData,
@@ -58,6 +59,7 @@ const Lobby = () => {
     openCollection,
     openSettings,
     handleLogout,
+    mode,
     collectTreasure,
     chestReward,
     setChestReward,
@@ -408,10 +410,7 @@ const Lobby = () => {
  * destructive one (log out, ending the session) sitting immediately left of
  * the benign one.
  */}
-              <button className="menu-button settings" onClick={handleLogout}>
-                <i className="icon-logout" />
-                <span>Logout</span>
-              </button>
+              <AccountButton mode={mode} onClick={handleLogout} />
               <button className="menu-button open-settings" onClick={openSettings}>
                 <i className="icon-gear" />
                 <span>Settings</span>

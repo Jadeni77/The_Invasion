@@ -194,4 +194,26 @@ class PlayerControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.endlessHighScore").value(25));
     }
+
+    @Test
+    void importReturnsConflictWhenTheAccountHasBeenPlayed() throws Exception {
+        when(playerService.importGuestSave(anyString(), any())).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/player/import")
+                .with(authenticatedPlayer())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"gold\":100}"))
+            .andExpect(status().isConflict());
+    }
+
+    @Test
+    void importReturnsThePlayerOnSuccess() throws Exception {
+        when(playerService.importGuestSave(anyString(), any())).thenReturn(Optional.of(testPlayer));
+
+        mockMvc.perform(post("/api/player/import")
+                .with(authenticatedPlayer())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"gold\":100}"))
+            .andExpect(status().isOk());
+    }
 }

@@ -1,5 +1,6 @@
 package com.mygame.backend.service;
 
+import com.mygame.backend.dto.GuestSaveRequest;
 import com.mygame.backend.entity.CardData;
 import com.mygame.backend.entity.Player;
 import com.mygame.backend.repository.PlayerRepository;
@@ -15,6 +16,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Business Logic
@@ -48,6 +50,7 @@ public class PlayerService {
     return playerRepository.findBySessionId(sessionId)
             .map(this::upgradeEnergyRecharge)
             .map(this::applyEarnedRank)
+            .map(this::applyEndlessUnlock)
             .orElseGet(() -> createNewPlayer(sessionId));
   }
 
@@ -63,6 +66,30 @@ public class PlayerService {
     String earned = PlayerRank.forCompletedLevels(player.getCompletedLevels());
     if (!earned.equals(player.getRank())) {
       player.setRank(earned);
+      playerRepository.save(player);
+    }
+    return player;
+  }
+
+  /**
+   * Open endless for anyone who has already earned it.
+   *
+   * completeLevel writes 999 when level 10 is finished, which only ever helped
+   * FUTURE wins: every account that cleared level 10 before that line existed
+   * stayed locked out of the endless_explorer achievement (500 gold, 5 gems),
+   * and an account that finished all twenty levels and never replays level 10
+   * was excluded permanently, because nothing else writes the sentinel.
+   *
+   * Derived on the way out, beside applyEarnedRank and for the reason that one
+   * gives: every read comes through getOrCreatePlayer, so the account is put
+   * right the next time the player opens the game and no migration is needed.
+   */
+  private Player applyEndlessUnlock(Player player) {
+    if (player.getCompletedLevels() != null
+            && player.getUnlockedLevels() != null
+            && player.getCompletedLevels().contains(10)
+            && !player.getUnlockedLevels().contains(999)) {
+      player.getUnlockedLevels().add(999);
       playerRepository.save(player);
     }
     return player;
@@ -163,6 +190,20 @@ public class PlayerService {
     player.setCardUnlockProgress(unlockProgress + 1);
   }
 
+  //key = name of the card, value = pieces needed per upgrade
+  private static final Map<String, Integer> PIECES_NEEDED_BY_CARD = Map.of(
+          "Shooter", 10,
+          "E-Gen", 10,
+          "Barricade", 10,
+          "Grenadier", 10,
+          "Healer", 10,
+          "Mortar", 15,
+          "Frost Archer", 25,
+          "Ice Bomb", 25,
+          "Sniper", 25,
+          "Fire Blast", 25
+  );
+
   /**
    * Return a new card data instance with the given name of the card
    * @param id the card id
@@ -170,20 +211,18 @@ public class PlayerService {
    * @return a new card instance
    */
   private CardData createCardData(int id, String name) {
-    //key = name of the card, value = pieces need for upgrade
-    Map<String, Integer> piecesNeeded = Map.of(
-            "Shooter", 10,
-            "E-Gen", 10,
-            "Barricade", 10,
-            "Grenadier", 10,
-            "Healer", 10,
-            "Mortar", 15,
-            "Frost Archer", 25,
-            "Ice Bomb", 25,
-            "Sniper", 25,
-            "Fire Blast", 25
-    );
-    return new CardData(id, name, 1, 0, piecesNeeded.getOrDefault(name, 10));
+    return new CardData(id, name, 1, 0, piecesNeededFor(name));
+  }
+
+  /**
+   * Pieces required to upgrade a card of this name, once.
+   *
+   * Pulled out of createCardData so importGuestSave can reuse the same
+   * lookup instead of trusting a guest save's own piecesNeeded - a forged
+   * save claiming a card needs only one piece would otherwise sail through.
+   */
+  private int piecesNeededFor(String name) {
+    return PIECES_NEEDED_BY_CARD.getOrDefault(name, 10);
   }
 
   //TODO: Amount gain in UI does not match actual in Lobby
@@ -204,6 +243,13 @@ public class PlayerService {
     //unlock next level
     if (levelId < 20 && !player.getUnlockedLevels().contains(levelId + 1)) {
       player.getUnlockedLevels().add(levelId + 1);
+    }
+    /* Endless opens at ten completed levels - the same rule isEndlessUnlocked
+       applies on the frontend. Stored because the endless_explorer achievement
+       reads unlockedLevels.contains(999), and nothing here ever wrote it, so
+       that achievement was unclaimable on every real account. */
+    if (levelId == 10 && !player.getUnlockedLevels().contains(999)) {
+      player.getUnlockedLevels().add(999);
     }
     //update star
     while (player.getLevelStars().size() <= levelId - 1) {
@@ -393,6 +439,99 @@ public class PlayerService {
     return playerRepository.save(pending);
   }
 
+  /**
+   * Move a browser-held save into a freshly registered account.
+   *
+   * Empty when the account has been played. `completedLevels` being empty is
+   * the server's only way to tell a new account from one with progress worth
+   * keeping - and rule two of the design is that logging into an existing
+   * account uses that account's data, not the browser's.
+   */
+  public Optional<Player> importGuestSave(String sessionId, GuestSaveRequest save) {
+    Player player = getOrCreatePlayer(sessionId);
 
+    if (player.getCompletedLevels() != null && !player.getCompletedLevels().isEmpty()) {
+      return Optional.empty();
+    }
+
+    player.setGold(GuestSaveRequest.resource(save.getGold(), player.getGold()));
+    player.setIron(GuestSaveRequest.resource(save.getIron(), player.getIron()));
+    player.setGrain(GuestSaveRequest.resource(save.getGrain(), player.getGrain()));
+    player.setWater(GuestSaveRequest.resource(save.getWater(), player.getWater()));
+    player.setGem(GuestSaveRequest.resource(save.getGem(), player.getGem()));
+
+    /* Capped at the account's own maximum, so a forged save cannot hand
+       somebody an energy bar larger than the game can draw. */
+    player.setLobbyEnergy(Math.min(
+        player.getMaxLobbyEnergy(),
+        GuestSaveRequest.resource(save.getLobbyEnergy(), player.getLobbyEnergy())));
+
+    /* Fall back to the account's own count, not zero. "Pristine" only requires
+       completedLevels to be empty - an account that failed every attempt at
+       level 1 has real kills and deployments on record and is still pristine,
+       and a guest save that simply omits these fields must not erase them. */
+    player.setEndlessHighScore(GuestSaveRequest.resource(save.getEndlessHighScore(), player.getEndlessHighScore()));
+    player.setTotalEnemiesKilled(GuestSaveRequest.resource(save.getTotalEnemiesKilled(), player.getTotalEnemiesKilled()));
+    player.setTotalDefendersDeployed(GuestSaveRequest.resource(save.getTotalDefendersDeployed(), player.getTotalDefendersDeployed()));
+    player.setTotalEnergyCollected(GuestSaveRequest.resource(save.getTotalEnergyCollected(), player.getTotalEnergyCollected()));
+
+    List<Integer> unlocked = GuestSaveRequest.levels(save.getUnlockedLevels());
+    if (!unlocked.contains(1)) unlocked.add(1); // Level 1 is always open.
+    player.setUnlockedLevels(unlocked);
+
+    player.setCompletedLevels(GuestSaveRequest.completedLevels(save.getCompletedLevels()));
+    player.setLevelStars(GuestSaveRequest.stars(save.getLevelStars()));
+    player.setCollectedTreasures(GuestSaveRequest.ids(save.getCollectedTreasures()));
+    player.setClaimedAchievements(GuestSaveRequest.ids(save.getClaimedAchievements()));
+    player.setSpecialAchievements(GuestSaveRequest.ids(save.getSpecialAchievements()));
+
+    /* A guest genuinely accumulates cards and pieces toward upgrading them -
+       both are dropped on the floor if this method does not touch them, and
+       fetchPlayerData's defendersEarnedBy() back-grant partially hides the
+       loss by re-deriving *ownership* from completedLevels, so the roster
+       looks fine while every upgrade level and piece count is quietly gone.
+       Only replace the starter card if the save actually yields a well-formed
+       one - a null, empty, or all-malformed `cards` list must not leave a
+       fresh account with zero defenders to place. */
+    if (save.getCards() != null) {
+      List<CardData> imported = new ArrayList<>();
+      int nextCardId = 1;
+      for (GuestSaveRequest.GuestCard card : save.getCards()) {
+        /* CARD_UNLOCK_ORDER is every defender the game has, so an honest save
+           cannot hold an eleventh card. Without this the loop clamped each
+           card's level and pieces and let the LIST be any length it liked, so
+           one authenticated POST could fill player_cards. */
+        if (imported.size() >= CARD_UNLOCK_ORDER.size()) break;
+        if (card == null || card.getName() == null || card.getName().isBlank()) continue;
+        imported.add(new CardData(
+            nextCardId++,
+            card.getName(),
+            GuestSaveRequest.cardLevel(card.getLevel()),
+            GuestSaveRequest.cardPieces(card.getPieces()),
+            piecesNeededFor(card.getName())));
+      }
+      if (!imported.isEmpty()) {
+        player.setCards(imported);
+      }
+    }
+    /* Derived from the roster that just arrived, not accepted from the wire:
+       the frontend has never tracked this counter, so a field for it was a
+       field nothing could ever fill - and one a forged save could fill with
+       anything. Dropping the field alone would have been wrong too, because
+       the fallback is the new account's own value (1) while `cards` becomes
+       the guest's whole roster, and the counter is what addCardPieces reads to
+       decide which defender unlocks next. */
+    int progress = 0;
+    while (progress < CARD_UNLOCK_ORDER.size()) {
+      final String next = CARD_UNLOCK_ORDER.get(progress);
+      if (player.getCards().stream().noneMatch(c -> next.equals(c.getName()))) break;
+      progress++;
+    }
+    player.setCardUnlockProgress(progress);
+
+    player.setRank(PlayerRank.forCompletedLevels(player.getCompletedLevels()));
+
+    return Optional.of(playerRepository.save(player));
+  }
 
 }

@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { useGame } from '../../GameLogic (MVC)/GameContext.jsx';
-import { SessionManager } from '../../GameLogic (MVC)/SessionManager.js';
+import { useGame, applyClaimedAchievement } from '../../GameLogic (MVC)/GameContext.jsx';
 import '../../../style/AchievementPage.css';
 import GameBackdrop from "../TerrainBackdrop.jsx";
-import { apiUrl } from "../../../config/api.js";
 
 const ACHIEVEMENTS = {
   progression: [
@@ -235,7 +233,9 @@ const formatRewards = (rewards) => {
 };
 
 const AchievementPage = () => {
-  const { closeAchievements, playerData, setPlayerData } = useGame();
+  /* Taken from the context rather than built here: GameContext picks the mode
+     once, so this page cannot end up talking to a backend a guest never should. */
+  const { closeAchievements, playerData, setPlayerData, persistence } = useGame();
   const [selectedCategory, setSelectedCategory] = useState('progression');
   const [claiming, setClaiming] = useState(null);
 
@@ -243,24 +243,11 @@ const AchievementPage = () => {
     if (claiming) return;
     setClaiming(achievement.id);
     try {
-      const res = await fetch(apiUrl('/api/player/claim-achievement'), {
-        method: 'POST',
-        headers: SessionManager.authHeaders(),
-        body: JSON.stringify({ achievementId: achievement.id, rewards: achievement.rewards }),
-      });
-      const updated = await res.json();
-      setPlayerData((prev) => ({
-        ...prev,
-        claimedAchievements: [...(prev.claimedAchievements || []), achievement.id],
-        resources: {
-          ...prev.resources,
-          gold:  updated.gold,
-          iron:  updated.iron,
-          grain: updated.grain,
-          water: updated.water,
-          gem:   updated.gem,
-        },
-      }));
+      await persistence.claimAchievement(achievement.id, achievement.rewards);
+      // Computed locally, not read out of the reply: this was the one path that
+      // could not work without a server, and a guest would have had every
+      // resource replaced with undefined.
+      setPlayerData((prev) => applyClaimedAchievement(prev, achievement.id, achievement.rewards));
     } catch (e) {
       console.error('Failed to claim achievement:', e);
     } finally {
