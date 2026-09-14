@@ -16,6 +16,9 @@ import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /*
@@ -102,6 +105,114 @@ class GuestImportTest {
         when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
 
         assertThat(playerService.importGuestSave("new-session", save())).isEmpty();
+    }
+
+    /*
+     * Every other record of play, one test each.
+     *
+     * completedLevels alone used to decide this, and an account can carry any
+     * of these with that list still empty - see
+     * refusesAnAccountWithEveryLevelUnlockedButNothingCompleted below for the
+     * shape that was found in production.
+     *
+     * The assertion is that nothing was WRITTEN, not only that the result is
+     * empty: the overwrite is the harm, and save() is where it happens. The
+     * stub is lenient deliberately - without it a guard that wrongly accepts
+     * fails on an NPE from an unstubbed save() rather than on the assertion
+     * that describes the bug, and under strict stubbing a stub used only while
+     * the guard is broken would fail the run once it is fixed.
+     */
+    private void assertImportRefused() {
+        lenient().when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+        when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
+
+        assertThat(playerService.importGuestSave("new-session", save())).isEmpty();
+        verify(playerRepository, never()).save(any(Player.class));
+    }
+
+    /*
+     * The reported bug, in the shape it was found in.
+     *
+     * test@example.com is seeded with all twenty levels unlocked, ten cards at
+     * level 5 and 9999 of every resource - and nothing ever wrote its
+     * completedLevels. A guard that asks only about that list read the account
+     * as brand new, accepted a guest save over it and lost the lot. Unlocked
+     * levels are earned one at a time by finishing the one before, so anything
+     * past level 1 is proof on its own.
+     */
+    @Test
+    void refusesAnAccountWithEveryLevelUnlockedButNothingCompleted() {
+        List<Integer> everyLevel = new ArrayList<>();
+        for (int level = 1; level <= 20; level++) everyLevel.add(level);
+        everyLevel.add(999); // endless
+        fresh.setUnlockedLevels(everyLevel);
+        fresh.setCompletedLevels(new ArrayList<>());
+
+        assertImportRefused();
+    }
+
+    /* A score on the board for level 3. Stars are only ever awarded by winning. */
+    @Test
+    void refusesAnAccountWithAStarOnTheBoard() {
+        List<Integer> stars = new ArrayList<>(Collections.nCopies(20, 0));
+        stars.set(2, 1);
+        fresh.setLevelStars(stars);
+
+        assertImportRefused();
+    }
+
+    @Test
+    void refusesAnAccountThatHasOpenedAChest() {
+        fresh.setCollectedTreasures(new ArrayList<>(List.of("chest-1")));
+
+        assertImportRefused();
+    }
+
+    @Test
+    void refusesAnAccountThatHasClaimedAnAchievement() {
+        fresh.setClaimedAchievements(new ArrayList<>(List.of("first_win")));
+
+        assertImportRefused();
+    }
+
+    @Test
+    void refusesAnAccountThatHasEarnedASpecialAchievement() {
+        fresh.setSpecialAchievements(new ArrayList<>(List.of("untouchable")));
+
+        assertImportRefused();
+    }
+
+    /* Endless is reached by finishing ten levels, so a wave count cannot exist
+       on an account nobody has played - however empty completedLevels looks. */
+    @Test
+    void refusesAnAccountWithAnEndlessHighScore() {
+        fresh.setEndlessHighScore(14);
+
+        assertImportRefused();
+    }
+
+    /*
+     * And the other half of the guard: the feature still has to work.
+     *
+     * Built by createPlayerWithEmail rather than by hand, so the account under
+     * test is the one registration actually produces - twenty zeroed stars and
+     * a starter Shooter included. A hand-written fixture would drift from that
+     * and could pass while real signups were being refused.
+     */
+    @Test
+    void stillAcceptsAnAccountExactlyAsRegistrationLeavesIt() {
+        when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
+        Player justRegistered =
+                playerService.createPlayerWithEmail("newcomer@example.com", "hash", "Newcomer");
+        when(playerRepository.findBySessionId(justRegistered.getSessionId()))
+                .thenReturn(Optional.of(justRegistered));
+
+        Optional<Player> result =
+                playerService.importGuestSave(justRegistered.getSessionId(), save());
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getCompletedLevels()).containsExactly(1, 2, 3);
+        assertThat(result.get().getGold()).isEqualTo(5000);
     }
 
     @Test
@@ -252,12 +363,22 @@ class GuestImportTest {
         assertThat(result.get().getCards()).extracting(CardData::getName).containsExactly("Shooter");
     }
 
+    /*
+     * The lifetime totals, which are not evidence of play: an account that
+     * failed every attempt at level 1 has real kills and deployments on record
+     * and is still pristine, and a save that omits them must not zero them.
+     *
+     * endlessHighScore used to be checked here too. It is now one of
+     * hasBeenPlayed's signals - endless opens at ten completed levels, so a
+     * wave count cannot exist on an account nobody has played - which means an
+     * account holding one is refused outright rather than reaching the
+     * fallback. See refusesAnAccountWithAnEndlessHighScore.
+     */
     @Test
     void fallsBackToTheAccountsStatsWhenTheSaveOmitsThem() {
         fresh.setTotalEnemiesKilled(42);
         fresh.setTotalDefendersDeployed(11);
         fresh.setTotalEnergyCollected(500);
-        fresh.setEndlessHighScore(7);
         when(playerRepository.findBySessionId("new-session")).thenReturn(Optional.of(fresh));
         when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -266,7 +387,7 @@ class GuestImportTest {
         assertThat(result.get().getTotalEnemiesKilled()).isEqualTo(42);
         assertThat(result.get().getTotalDefendersDeployed()).isEqualTo(11);
         assertThat(result.get().getTotalEnergyCollected()).isEqualTo(500);
-        assertThat(result.get().getEndlessHighScore()).isEqualTo(7);
+        assertThat(result.get().getEndlessHighScore()).isEqualTo(0);
     }
 
     @Test
