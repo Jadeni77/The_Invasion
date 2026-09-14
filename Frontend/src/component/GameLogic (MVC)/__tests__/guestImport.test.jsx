@@ -74,18 +74,31 @@ function backend(importReply = () => Promise.resolve({ ok: true, json: async () 
  *
  * @testing-library/user-event is not a dependency of this project, so the
  * clicks go through fireEvent.
+ *
+ * @param start where this browser opens - 'guest session' when it holds a save,
+ *   'login form' when it does not. Declared by the caller and then ASSERTED,
+ *   rather than decided from whichever screen turned up: a regression that
+ *   dropped a returning guest back on the login form would be absorbed by a
+ *   helper that just looked for the email field, and every test in this file
+ *   would still pass while the thing they set up had stopped happening.
  */
-async function signIn() {
+async function signIn(start = 'guest session') {
   render(<GameProvider><Probe /></GameProvider>);
 
-  /*
-   * A browser holding a guest save now starts IN that guest session rather
-   * than at the login form, so signing up begins in the lobby. The button that
-   * gets there is "Save your progress", which is handleLogout - it leaves the
-   * slot exactly where it is, which is what there is to import a moment later.
-   */
-  if (!screen.queryByPlaceholderText(/email/i)) {
+  if (start === 'guest session') {
+    await waitFor(() => expect(screen.getByTestId('mode')).toHaveTextContent('guest'));
+    /*
+     * A browser holding a guest save starts IN that session, so signing up
+     * begins in the lobby. The button that reaches the login form from there is
+     * "Save your progress", which is handleLogout - it leaves the slot exactly
+     * where it is, which is what there is to import a moment later.
+     */
     await act(async () => { api.handleLogout(); });
+  } else {
+    /* No save, so GameProvider renders LoginPage INSTEAD of its children and
+       the probe does not exist - the front door as a first-time visitor sees
+       it. */
+    expect(screen.queryByTestId('mode'), 'nothing to resume, so no session').toBeNull();
   }
 
   fireEvent.change(screen.getByPlaceholderText(/email/i), {
@@ -163,7 +176,7 @@ describe('logging in with no guest progress', () => {
   it('does not call import at all', async () => {
     const fetchMock = backend();
 
-    await signIn();
+    await signIn('login form');
 
     await waitFor(() => expect(screen.getByTestId('mode')).toHaveTextContent('account'));
     expect(fetchMock.mock.calls.some(([url]) => String(url) === IMPORT_URL)).toBe(false);
