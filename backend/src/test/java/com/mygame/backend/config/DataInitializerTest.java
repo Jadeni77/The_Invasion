@@ -1,5 +1,6 @@
 package com.mygame.backend.config;
 
+import com.mygame.backend.dto.GuestSaveRequest;
 import com.mygame.backend.entity.CardData;
 import com.mygame.backend.entity.Player;
 import com.mygame.backend.repository.PlayerRepository;
@@ -170,6 +171,63 @@ class DataInitializerTest {
         assertThat(after.getGold()).isEqualTo(9999);
         assertThat(after.getCards()).hasSize(10);
         assertThat(after.getUnlockedLevels()).contains(20, 999);
+    }
+
+    /**
+     * Maxed, and in a state a player could have got to.
+     *
+     * Every level was unlocked here and none was marked complete, which nobody
+     * can reach by playing - level 20 opens by finishing level 19 - and the
+     * game reads that emptiness as meaning something. importGuestSave read it
+     * as "never played" and overwrote the whole account with a guest's starting
+     * save. Same rule as the start-of-game account above, for the opposite end
+     * of the campaign: an account in an impossible state is a bug waiting for
+     * the next piece of code that trusts it.
+     */
+    @Test
+    void seedsTheMaxedAccountAsACampaignSomebodyFinished() throws Exception {
+        boot();
+
+        Player maxed = players.findByEmail(DataInitializer.MAXED_EMAIL).orElseThrow();
+
+        assertThat(maxed.getCompletedLevels())
+                .as("every level unlocked is every level finished")
+                .containsExactlyElementsOf(maxed.getUnlockedLevels().stream()
+                        .filter(level -> level != 999).toList());
+        assertThat(maxed.getLevelStars()).as("three stars on all twenty")
+                .hasSize(20).containsOnly(3);
+    }
+
+    /**
+     * The reported bug, end to end: a guest save arriving at a maxed account.
+     *
+     * Play as guest, then log in to test@example.com, and all twenty levels,
+     * ten level-5 cards and 9999 of every resource were gone. Two things had to
+     * be wrong for that and both are fixed here - importGuestSave asked only
+     * whether completedLevels was empty (it now asks about every record of
+     * play, see PlayerService.hasBeenPlayed), and this account was seeded
+     * without one. Asserting the OUTCOME rather than either mechanism is
+     * deliberate: it stays green while either fix stands, and goes red if both
+     * are lost.
+     */
+    @Test
+    void refusesAGuestSaveOverTheMaxedAccount() throws Exception {
+        boot();
+
+        GuestSaveRequest guest = new GuestSaveRequest();
+        guest.setGold(5);
+        guest.setUnlockedLevels(new ArrayList<>(List.of(1, 2)));
+        guest.setCompletedLevels(new ArrayList<>(List.of(1)));
+
+        assertThat(playerService.importGuestSave(DataInitializer.MAXED_SESSION, guest))
+                .as("a maxed account is not new enough to receive a guest save")
+                .isEmpty();
+
+        Player after = players.findByEmail(DataInitializer.MAXED_EMAIL).orElseThrow();
+        assertThat(after.getGold()).as("its own progress, untouched").isEqualTo(9999);
+        assertThat(after.getCards()).hasSize(10);
+        assertThat(after.getUnlockedLevels()).contains(20, 999);
+        assertThat(after.getCompletedLevels()).hasSize(20);
     }
 
     /**
