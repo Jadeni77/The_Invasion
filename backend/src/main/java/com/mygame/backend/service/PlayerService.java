@@ -462,18 +462,28 @@ public class PlayerService {
    * and treasures, achievements and an endless wave count are each written by
    * their own endpoint.
    *
+   * A card carrying PROGRESS is among them, and it is the one that catches a
+   * player the others miss: attempt level 1, bank the pieces the run drops,
+   * lose, repeat. Nothing is completed, nothing unlocks, no star is awarded -
+   * and those pieces are progress an import would write over. The question is
+   * whether a card shows progress, never WHICH cards the account holds: "more
+   * than the starter set" would need a name-by-name comparison that goes wrong
+   * the moment the starter set changes, whereas every route into a roster hands
+   * a card over unplayed - createNewPlayer, createPlayerWithEmail and
+   * createCardData all build one at level 1 with no pieces - so a level above 1
+   * or a single banked piece can only have been earned by playing. Add, rename
+   * or reorder starter cards freely; this keeps answering the same question.
+   * cardUnlockProgress stays out, being written at creation and derived here
+   * from the roster anyway.
+   *
    * Resources are deliberately NOT among them. Energy recharges on its own, and
    * gold, iron, grain, water and gem all start above zero - so "more than it
    * started with" means keeping a copy of the starting table in step with
    * registration forever, and would still call an account played for doing
-   * nothing but sitting there while its energy refilled.
-   *
-   * Cards are not either. A new account is handed a starter Shooter, so "more
-   * than the starter set" needs a name-by-name comparison that goes wrong the
-   * moment the starter set changes, and cardUnlockProgress is likewise written
-   * at creation. Every route by which a card is earned - finishing a level,
-   * opening a chest, claiming an achievement - already trips one of the signals
-   * above.
+   * nothing but sitting there while its energy refilled. With cards included
+   * the realistic routes are covered without it: energy cannot be spent on a
+   * level without that level producing a completion, a star, or - when it is
+   * lost - banked pieces.
    */
   private boolean hasBeenPlayed(Player player) {
     if (hasAny(player.getCompletedLevels())) return true;
@@ -494,7 +504,21 @@ public class PlayerService {
     if (hasAny(player.getClaimedAchievements())) return true;
     if (hasAny(player.getSpecialAchievements())) return true;
 
+    /* CardData holds boxed Integers, so a row written before a field existed
+       can arrive null; a null level or piece count is no evidence either way. */
+    if (hasAny(player.getCards()) && player.getCards().stream().anyMatch(PlayerService::showsProgress)) {
+      return true;
+    }
+
     return player.getEndlessHighScore() != null && player.getEndlessHighScore() > 0;
+  }
+
+  /** A card that has been upgraded, or holds pieces toward its next upgrade. */
+  private static boolean showsProgress(CardData card) {
+    if (card == null) return false;
+    boolean upgraded = card.getLevel() != null && card.getLevel() > 1;
+    boolean holdingPieces = card.getPieces() != null && card.getPieces() > 0;
+    return upgraded || holdingPieces;
   }
 
   /**

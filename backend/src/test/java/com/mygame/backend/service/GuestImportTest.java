@@ -192,18 +192,57 @@ class GuestImportTest {
     }
 
     /*
+     * A card holding progress, which is the one way to have played that leaves
+     * every other signal clean.
+     *
+     * Attempt level 1, bank the pieces that run drops, lose, repeat. Nothing is
+     * completed, nothing is unlocked past level 1, no star, no treasure, no
+     * achievement, no endless score - and the pieces are real progress that an
+     * import would write over. The signal asks whether a card shows progress,
+     * never which cards an account holds: a starter Shooter and a Shooter with
+     * seven pieces on it are the same card by name and different by this test,
+     * so changing the starter set cannot drift it.
+     */
+    @Test
+    void refusesAnAccountWithPiecesBankedOnLostAttempts() {
+        fresh.setCards(new ArrayList<>(List.of(new CardData(1, "Shooter", 1, 7, 10))));
+
+        assertImportRefused();
+    }
+
+    /* The same signal at the other end: the reported account's ten level-5 cards. */
+    @Test
+    void refusesAnAccountWithAnUpgradedCard() {
+        fresh.setCards(new ArrayList<>(List.of(new CardData(1, "Shooter", 3, 0, 10))));
+
+        assertImportRefused();
+    }
+
+    /*
      * And the other half of the guard: the feature still has to work.
      *
      * Built by createPlayerWithEmail rather than by hand, so the account under
      * test is the one registration actually produces - twenty zeroed stars and
      * a starter Shooter included. A hand-written fixture would drift from that
      * and could pass while real signups were being refused.
+     *
+     * It also states the invariant the card signal rests on: starter cards
+     * arrive unplayed, at level 1 with no pieces. Seed one with progress on it
+     * and hasBeenPlayed would refuse every account the moment it was created,
+     * so that is asserted here rather than assumed - this test is where such a
+     * change should be reported.
      */
     @Test
     void stillAcceptsAnAccountExactlyAsRegistrationLeavesIt() {
         when(playerRepository.save(any(Player.class))).thenAnswer(i -> i.getArgument(0));
         Player justRegistered =
                 playerService.createPlayerWithEmail("newcomer@example.com", "hash", "Newcomer");
+        assertThat(justRegistered.getCards())
+                .as("starter cards arrive unplayed, which is what makes the card signal safe")
+                .allSatisfy(card -> {
+                    assertThat(card.getLevel()).isEqualTo(1);
+                    assertThat(card.getPieces()).isEqualTo(0);
+                });
         when(playerRepository.findBySessionId(justRegistered.getSessionId()))
                 .thenReturn(Optional.of(justRegistered));
 
