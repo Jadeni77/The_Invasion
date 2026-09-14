@@ -439,18 +439,100 @@ public class PlayerService {
     return playerRepository.save(pending);
   }
 
+  /** Nothing recorded here - null and empty say the same thing. */
+  private static boolean hasAny(List<?> recorded) {
+    return recorded != null && !recorded.isEmpty();
+  }
+
+  /**
+   * Whether this account shows any evidence of having been played.
+   *
+   * `completedLevels` alone used to answer this, and it was wrong. The seeded
+   * test@example.com account has all twenty levels unlocked, ten cards at level
+   * 5 and 9999 of every resource, and nothing ever wrote its completedLevels -
+   * so the guard read a fully maxed account as brand new, let the import
+   * through and playerRepository.save() overwrote the row with a guest's
+   * starting save. Real accounts reach the same shape more narrowly: registered
+   * and played a little - a chest opened, energy bought - but no level yet
+   * finished.
+   *
+   * So every INDEPENDENT record of play is asked, and any one of them is enough
+   * to refuse. They cannot all be missing on an account somebody has touched:
+   * levels past 1 are earned one at a time, stars are only awarded for winning,
+   * and treasures, achievements and an endless wave count are each written by
+   * their own endpoint.
+   *
+   * A card carrying PROGRESS is among them, and it is the one that catches a
+   * player the others miss: attempt level 1, bank the pieces the run drops,
+   * lose, repeat. Nothing is completed, nothing unlocks, no star is awarded -
+   * and those pieces are progress an import would write over. The question is
+   * whether a card shows progress, never WHICH cards the account holds: "more
+   * than the starter set" would need a name-by-name comparison that goes wrong
+   * the moment the starter set changes, whereas every route into a roster hands
+   * a card over unplayed - createNewPlayer, createPlayerWithEmail and
+   * createCardData all build one at level 1 with no pieces - so a level above 1
+   * or a single banked piece can only have been earned by playing. Add, rename
+   * or reorder starter cards freely; this keeps answering the same question.
+   * cardUnlockProgress stays out, being written at creation and derived here
+   * from the roster anyway.
+   *
+   * Resources are deliberately NOT among them. Energy recharges on its own, and
+   * gold, iron, grain, water and gem all start above zero - so "more than it
+   * started with" means keeping a copy of the starting table in step with
+   * registration forever, and would still call an account played for doing
+   * nothing but sitting there while its energy refilled. With cards included
+   * the realistic routes are covered without it: energy cannot be spent on a
+   * level without that level producing a completion, a star, or - when it is
+   * lost - banked pieces.
+   */
+  private boolean hasBeenPlayed(Player player) {
+    if (hasAny(player.getCompletedLevels())) return true;
+
+    /* Level 1 is open from creation, so holding only that proves nothing.
+       Anything else - including the 999 endless sentinel - was earned. */
+    List<Integer> unlocked = player.getUnlockedLevels();
+    boolean onlyLevelOne = !hasAny(unlocked)
+            || (unlocked.size() == 1 && Integer.valueOf(1).equals(unlocked.get(0)));
+    if (!onlyLevelOne) return true;
+
+    /* A fresh account carries twenty zeroes rather than an empty list, so it is
+       a non-zero score that means something here, not the presence of the list. */
+    List<Integer> stars = player.getLevelStars();
+    if (stars != null && stars.stream().anyMatch(star -> star != null && star > 0)) return true;
+
+    if (hasAny(player.getCollectedTreasures())) return true;
+    if (hasAny(player.getClaimedAchievements())) return true;
+    if (hasAny(player.getSpecialAchievements())) return true;
+
+    /* CardData holds boxed Integers, so a row written before a field existed
+       can arrive null; a null level or piece count is no evidence either way. */
+    if (hasAny(player.getCards()) && player.getCards().stream().anyMatch(PlayerService::showsProgress)) {
+      return true;
+    }
+
+    return player.getEndlessHighScore() != null && player.getEndlessHighScore() > 0;
+  }
+
+  /** A card that has been upgraded, or holds pieces toward its next upgrade. */
+  private static boolean showsProgress(CardData card) {
+    if (card == null) return false;
+    boolean upgraded = card.getLevel() != null && card.getLevel() > 1;
+    boolean holdingPieces = card.getPieces() != null && card.getPieces() > 0;
+    return upgraded || holdingPieces;
+  }
+
   /**
    * Move a browser-held save into a freshly registered account.
    *
-   * Empty when the account has been played. `completedLevels` being empty is
-   * the server's only way to tell a new account from one with progress worth
-   * keeping - and rule two of the design is that logging into an existing
+   * Empty when the account has been played - see hasBeenPlayed, which is the
+   * server's only way to tell a new account from one with progress worth
+   * keeping, and rule two of the design is that logging into an existing
    * account uses that account's data, not the browser's.
    */
   public Optional<Player> importGuestSave(String sessionId, GuestSaveRequest save) {
     Player player = getOrCreatePlayer(sessionId);
 
-    if (player.getCompletedLevels() != null && !player.getCompletedLevels().isEmpty()) {
+    if (hasBeenPlayed(player)) {
       return Optional.empty();
     }
 
@@ -466,10 +548,12 @@ public class PlayerService {
         player.getMaxLobbyEnergy(),
         GuestSaveRequest.resource(save.getLobbyEnergy(), player.getLobbyEnergy())));
 
-    /* Fall back to the account's own count, not zero. "Pristine" only requires
-       completedLevels to be empty - an account that failed every attempt at
-       level 1 has real kills and deployments on record and is still pristine,
-       and a guest save that simply omits these fields must not erase them. */
+    /* Fall back to the account's own count, not zero. The lifetime totals are
+       not among hasBeenPlayed's signals - an account that failed every attempt
+       at level 1 has real kills and deployments on record and is still
+       pristine - so a guest save that simply omits these fields must not erase
+       them. endlessHighScore IS a signal, so the account's own is always 0 by
+       the time this line runs; it falls back the same way for consistency. */
     player.setEndlessHighScore(GuestSaveRequest.resource(save.getEndlessHighScore(), player.getEndlessHighScore()));
     player.setTotalEnemiesKilled(GuestSaveRequest.resource(save.getTotalEnemiesKilled(), player.getTotalEnemiesKilled()));
     player.setTotalDefendersDeployed(GuestSaveRequest.resource(save.getTotalDefendersDeployed(), player.getTotalDefendersDeployed()));

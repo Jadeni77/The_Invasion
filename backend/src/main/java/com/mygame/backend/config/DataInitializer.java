@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -103,7 +104,21 @@ public class DataInitializer {
     player.setCards(allCards);
     player.setCardUnlockProgress(allCards.size());
 
+    /* Finished, not merely opened. Every level was unlocked here and none was
+       ever marked complete, which is a state no real player can be in - you
+       reach level 20 by finishing level 19 - and the game reads that emptiness
+       as meaning something. PlayerService.importGuestSave asked whether
+       completedLevels was empty to decide whether an account was new enough to
+       receive a guest save, judged this maxed account brand new, and overwrote
+       it with a guest's starting save. That guard now asks about far more than
+       this list, but an account in an impossible state will keep finding the
+       next thing that reads it - the same reasoning as seedFreshAccount below,
+       which builds its account by the method registration uses precisely so it
+       cannot drift out of reach. */
     List<Integer> allLevels = IntStream.rangeClosed(1, 20).boxed().collect(Collectors.toList());
+    player.setCompletedLevels(new ArrayList<>(allLevels));
+    player.setLevelStars(new ArrayList<>(Collections.nCopies(20, 3)));
+
     allLevels.add(999); // endless
     player.setUnlockedLevels(allLevels);
 
