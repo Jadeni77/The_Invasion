@@ -22,7 +22,12 @@ import { starsFor } from "./LevelStars.js";
 import { SOUND_KEYS } from "./Feedback/SoundGroups.js";
 import { MAX_DEFENDER_LEVEL } from "./DefenderClassUtils.js";
 import { defenderUnlockedBy, defendersEarnedBy } from "./LevelUnlocks.js";
-import { openPlayerChannel, shouldRefreshOn, PLAYER_CHANGED } from "./crossTabSync.js";
+import {
+  openPlayerChannel,
+  shouldRefreshOn,
+  PLAYER_CHANGED,
+  GUEST_SAVE_CHANGED,
+} from "./crossTabSync.js";
 import {
   getDefaultPlayerData,
   writeGuestSave,
@@ -433,6 +438,30 @@ export const GameProvider = ({ children }) => {
   }
 
   /*
+   * A guest's save, written where the broadcast is announced and for the same
+   * reason: playerData changing is the one fact every write path produces, and
+   * a save bolted onto each is a save eventually forgotten on the next one.
+   *
+   * Gated on the mode so an account session never writes to the guest slot -
+   * logging out has to find that slot exactly as the guest left it.
+   *
+   * THE ONLY WRITER OF THE SLOT. The catch-up below reads it and hands what it
+   * finds to setPlayerData, which comes back here to be written - so there is
+   * still one line in the codebase that puts a guest's progress in storage, and
+   * one place to look when it holds the wrong thing.
+   *
+   * Declared ABOVE the broadcast rather than below it, which it used to be:
+   * React flushes a commit's effects in declaration order, so this way the slot
+   * already holds what the announcement is about by the time the announcement
+   * goes out. The old order got away with it because postMessage delivers on a
+   * later task, which is a race the ordering no longer depends on.
+   */
+  useEffect(() => {
+    if (mode !== MODE_GUEST || !playerData) return;
+    writeGuestSave(playerData);
+  }, [mode, playerData]);
+
+  /*
    * Tell the other tabs that this player moved.
    *
    * Announced here rather than at each of the fourteen calls that write to the
@@ -446,30 +475,25 @@ export const GameProvider = ({ children }) => {
       return;
     }
     /*
-     * Accounts only, like both neighbouring effects. A guest's once-a-minute
-     * energy tick is a playerData change like any other, so it announced
-     * itself - and a sibling ACCOUNT tab in the same browser then refetched
-     * /api/player/me once a minute because a guest tab happened to be open.
+     * One channel, one message per mode, because the two modes answer an
+     * announcement in incompatible ways: an account tab refetches
+     * /api/player/me, and a guest tab re-reads the browser slot. Sharing
+     * PLAYER_CHANGED made a guest's once-a-minute energy tick drive a sibling
+     * ACCOUNT tab's refetch once a minute - an odd footnote under "a guest
+     * never calls the backend" - so each mode speaks only its own name and
+     * hears only its own name. See crossTabSync.js.
      *
-     * Below the appliedFromServerRef check rather than above it, so a guest's
-     * one load does not leave that flag set for a later account session to
-     * mistake for a refetch of its own and swallow a real broadcast.
+     * Anonymous announces nothing: there is no session yet to have moved.
+     *
+     * Below the appliedFromServerRef check rather than above it, so a load does
+     * not leave that flag set for a later session in another mode to mistake
+     * for a refetch of its own and swallow a real broadcast.
      */
-    if (mode !== MODE_ACCOUNT) return;
-    playerChannelRef.current?.postMessage?.({ type: PLAYER_CHANGED });
-  }, [mode, playerData]);
-
-  /*
-   * A guest's save, written where the broadcast is announced and for the same
-   * reason: playerData changing is the one fact every write path produces, and
-   * a save bolted onto each is a save eventually forgotten on the next one.
-   *
-   * Gated on the mode so an account session never writes to the guest slot -
-   * logging out has to find that slot exactly as the guest left it.
-   */
-  useEffect(() => {
-    if (mode !== MODE_GUEST || !playerData) return;
-    writeGuestSave(playerData);
+    if (mode === MODE_ACCOUNT) {
+      playerChannelRef.current?.postMessage?.({ type: PLAYER_CHANGED });
+    } else if (mode === MODE_GUEST) {
+      playerChannelRef.current?.postMessage?.({ type: GUEST_SAVE_CHANGED });
+    }
   }, [mode, playerData]);
 
   /**
@@ -936,9 +960,9 @@ export const GameProvider = ({ children }) => {
    * under a run in progress for a number nobody is looking at, and the lobby is
    * the only place these totals are shown anyway.
    *
-   * Accounts only. A guest's slot is written FROM playerData by the effect
-   * above, so re-reading it can only hand this tab back what it already has -
-   * or, if the write has not committed yet, what it had a moment ago.
+   * Accounts only. What a guest reads instead is the slot, in the effect below,
+   * because a guest has no server copy to be the second opinion - and
+   * fetchPlayerData is a deliberate no-op for them.
    */
   useEffect(() => {
     if (mode !== MODE_ACCOUNT || !shouldRefreshOn(gameState)) return undefined;
@@ -960,6 +984,71 @@ export const GameProvider = ({ children }) => {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [mode, gameState, fetchPlayerData]);
+
+  /**
+   * The guest's version of that catch-up: re-read the slot the other tab wrote.
+   *
+   * NOT routed through fetchPlayerData. That function returns early for a guest
+   * who already has a player, and the early return is load-bearing - it is what
+   * stopped the refetch at the end of onWinCb reading the pre-win save back
+   * over a win the player had already been shown. Reading the slot here instead
+   * keeps that guard exactly as it is.
+   *
+   * Not through guestPersistence.loadPlayer either, which answers an empty slot
+   * with a brand new guest: signing up in the other tab MOVES the save into the
+   * new account and empties the slot, and the honest answer to that is to leave
+   * this tab playing what it already holds rather than to replace a session
+   * with an empty one.
+   */
+  const catchUpFromGuestSlot = useCallback(() => {
+    const saved = readGuestSave();
+    if (!saved) return;
+
+    /*
+     * The loop-breaker, set the way fetchPlayerData sets it. The broadcast
+     * effect checks and clears this, so adopting the other tab's save is not
+     * announced back to it - without that, the other tab re-reads, re-announces
+     * and the two trade messages for as long as both are open.
+     */
+    appliedFromServerRef.current = true;
+    setPlayerData(saved);
+  }, []);
+
+  /*
+   * Two guest tabs, kept from diverging.
+   *
+   * They share one slot and each held its own playerData, so a level won in one
+   * was overwritten by the other's next save - last writer wins, and the win
+   * was gone. This does not make them transactional: whoever writes last is
+   * still the answer. It makes the other tab find out in the lobby, instead of
+   * writing an hour-old copy over the top later.
+   *
+   * The lobby guard is the same one the account path uses, and matters more
+   * here: re-reading the slot mid-level is precisely the mistake that rolled a
+   * guest's win back out of their save.
+   *
+   * No visibilitychange twin. A hidden tab still receives BroadcastChannel
+   * messages, so focus catches nothing the message did not; and a re-read
+   * nobody asked for can only replace this tab's copy with an older one - if a
+   * write failed on a full quota, for instance, that is exactly what it would
+   * find. This reads the slot when another tab says it wrote, and otherwise
+   * leaves it alone.
+   */
+  useEffect(() => {
+    if (mode !== MODE_GUEST || !shouldRefreshOn(gameState)) return undefined;
+
+    const onMessage = (event) => {
+      if (event?.data?.type === GUEST_SAVE_CHANGED) catchUpFromGuestSlot();
+    };
+
+    /* Null where the browser has no BroadcastChannel - older Safari, jsdom
+       without a polyfill. A guest plays on there, just without hearing the
+       other tab, which is the behaviour that shipped before this. */
+    const channel = playerChannelRef.current || null;
+    channel?.addEventListener?.("message", onMessage);
+
+    return () => channel?.removeEventListener?.("message", onMessage);
+  }, [mode, gameState, catchUpFromGuestSlot]);
 
   const savePlayerData = useCallback(async (_data) => {
     try {

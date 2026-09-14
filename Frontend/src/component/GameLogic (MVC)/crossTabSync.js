@@ -19,12 +19,34 @@
  *
  *   Never refetch during a level. Replacing playerData mid-game would move the
  *   ground under a run in progress, for a number nobody is looking at.
+ *
+ * A GUEST changes the first paragraph and neither rule. There is no server to
+ * apply deltas, only a browser slot both tabs overwrite whole - so two guest
+ * tabs really can lose progress rather than just display it wrongly, which is
+ * what makes the freshness worth having for them at all. What they catch up
+ * FROM is that slot; see GUEST_SAVE_CHANGED below for why it is a separate
+ * message. It is still not a merge: whoever wrote last is the answer, and the
+ * other tab now finds that out in the lobby rather than an hour later.
  */
 
 /** The name both tabs have to agree on to hear each other. */
 export const CHANNEL_NAME = "the-invasion-player";
 
 export const PLAYER_CHANGED = "player-changed";
+
+/*
+ * The same fact for a guest, deliberately NOT the same message.
+ *
+ * The two modes answer an announcement in completely different ways: an
+ * account tab refetches /api/player/me, and a guest tab re-reads the browser
+ * slot. One shared event type puts each mode on the receiving end of the
+ * other's traffic - and the direction that bit was a guest's once-a-minute
+ * energy tick making a sibling ACCOUNT tab in the same browser refetch the
+ * player every minute, an odd footnote under "a guest never calls the backend".
+ *
+ * Two names on one channel, so a tab can ignore what is not addressed to it.
+ */
+export const GUEST_SAVE_CHANGED = "guest-save-changed";
 
 /**
  * A channel to the other tabs, or null where the browser has none.
