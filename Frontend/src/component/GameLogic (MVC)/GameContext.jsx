@@ -362,6 +362,12 @@ export const GameProvider = ({ children }) => {
      mistaken for a local change and echoed back to the tab that sent it. */
   const appliedFromServerRef = useRef(false);
 
+  /* Another guest tab announced a save while this one was out of the lobby,
+     where it is not safe to act on. Held rather than dropped, and read by the
+     guest catch-up effect the next time that tab is in the lobby - see there
+     for why the message is honoured late instead of thrown away. */
+  const pendingGuestCatchUpRef = useRef(false);
+
   /* Defenders already back-granted this session. fetchPlayerData runs on mount
      and again after every win, so without this the same catch-up POST goes out
      on each one until the server's copy catches up. */
@@ -453,8 +459,11 @@ export const GameProvider = ({ children }) => {
    * Declared ABOVE the broadcast rather than below it, which it used to be:
    * React flushes a commit's effects in declaration order, so this way the slot
    * already holds what the announcement is about by the time the announcement
-   * goes out. The old order got away with it because postMessage delivers on a
-   * later task, which is a race the ordering no longer depends on.
+   * goes out. The old order was not broken - postMessage is specified to
+   * deliver in a later task, so the write landed first anyway - so this is
+   * hardening, not a bug fix: the dependency is now structural instead of
+   * resting on that guarantee. The guest catch-up effect further down leans on
+   * this declaration order too, and says so.
    */
   useEffect(() => {
     if (mode !== MODE_GUEST || !playerData) return;
@@ -1025,20 +1034,44 @@ export const GameProvider = ({ children }) => {
    *
    * The lobby guard is the same one the account path uses, and matters more
    * here: re-reading the slot mid-level is precisely the mistake that rolled a
-   * guest's win back out of their save.
+   * guest's win back out of their save. So the LISTENER is registered wherever
+   * a guest is, and only the READ waits for the lobby - a message arriving over
+   * a level or a modal is held on pendingGuestCatchUpRef and honoured the next
+   * time this effect runs in the lobby. Dropping it instead left a tab coming
+   * back from a level holding a copy older than the slot, and its next change
+   * wrote that copy over the top: the same loss this mechanism exists to stop,
+   * a few minutes later.
    *
-   * No visibilitychange twin. A hidden tab still receives BroadcastChannel
-   * messages, so focus catches nothing the message did not; and a re-read
-   * nobody asked for can only replace this tab's copy with an older one - if a
-   * write failed on a full quota, for instance, that is exactly what it would
-   * find. This reads the slot when another tab says it wrote, and otherwise
-   * leaves it alone.
+   * Every read is still PROMPTED by another tab's write. Nothing re-reads
+   * because a modal closed or a tab was looked at again - an unprompted read
+   * can only replace this tab's copy with an older one (a write that failed on
+   * a full quota is exactly what it would find), and closeUpgradeModal alone
+   * would fire one on every modal close. That is also why there is no
+   * visibilitychange twin: a hidden tab still receives BroadcastChannel
+   * messages, so focus catches nothing the message did not.
+   *
+   * Honouring a message late is safe because of DECLARATION ORDER: the persist
+   * effect - the slot's only writer, far above - is declared before this one,
+   * so in any commit that both moves playerData and lands in the lobby, the
+   * slot has already been written by the time the read below runs. What that
+   * read finds is therefore never older than what this tab holds, which is what
+   * keeps it from being the win-rollback bug in another hat. Do not move this
+   * effect above the persist effect.
    */
   useEffect(() => {
-    if (mode !== MODE_GUEST || !shouldRefreshOn(gameState)) return undefined;
+    if (mode !== MODE_GUEST) {
+      /* A save this tab was waiting to read is not the next session's business:
+         signing up MOVES the slot into the account and empties it. */
+      pendingGuestCatchUpRef.current = false;
+      return undefined;
+    }
+
+    const inLobby = shouldRefreshOn(gameState);
 
     const onMessage = (event) => {
-      if (event?.data?.type === GUEST_SAVE_CHANGED) catchUpFromGuestSlot();
+      if (event?.data?.type !== GUEST_SAVE_CHANGED) return;
+      if (inLobby) catchUpFromGuestSlot();
+      else pendingGuestCatchUpRef.current = true;
     };
 
     /* Null where the browser has no BroadcastChannel - older Safari, jsdom
@@ -1046,6 +1079,13 @@ export const GameProvider = ({ children }) => {
        other tab, which is the behaviour that shipped before this. */
     const channel = playerChannelRef.current || null;
     channel?.addEventListener?.("message", onMessage);
+
+    /* The held message, cashed in. Behind the ref rather than run on every
+       arrival in the lobby, which would be the unprompted read above. */
+    if (inLobby && pendingGuestCatchUpRef.current) {
+      pendingGuestCatchUpRef.current = false;
+      catchUpFromGuestSlot();
+    }
 
     return () => channel?.removeEventListener?.("message", onMessage);
   }, [mode, gameState, catchUpFromGuestSlot]);

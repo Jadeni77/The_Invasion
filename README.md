@@ -38,9 +38,11 @@ without clicking anything. **Save your progress** in the lobby is how you get
 to the login screen from there, and it leaves the save alone.
 
 Two guest tabs keep each other up to date: save in one and the other picks it
-up when it is next in the lobby, rather than writing its older copy over the
-top later. It is a catch-up, not a merge - if both tabs play at once, whichever
-saved last is still the one that counts.
+up - straight away if it is sitting in the lobby, otherwise as soon as it comes
+back there, rather than writing its older copy over the top later. Nothing is
+re-read mid-level, where it would move the ground under a run in progress. It
+is a catch-up, not a merge - if both tabs play at once, whichever saved last is
+still the one that counts.
 
 ## 🗂️ How the project fits together
 

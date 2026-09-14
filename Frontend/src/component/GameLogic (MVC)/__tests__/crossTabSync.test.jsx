@@ -274,6 +274,57 @@ describe('two guest tabs', () => {
   });
 
   /*
+   * The other half of that guard, and the data loss it used to hide: the
+   * message was not deferred, it was DROPPED. A tab in a level or a modal when
+   * the other saved came back to the lobby holding an older copy, and its next
+   * change wrote that copy over the slot - the exact loss this mechanism
+   * exists to stop, arriving a few minutes late.
+   *
+   * Held while the modal is up, read on the way back to the lobby.
+   */
+  it('takes up what it missed once it is back in the lobby', async () => {
+    await mountGuest();
+    await act(async () => { api.openUpgradeModal(); });
+
+    await anotherGuestTabSaved(wonThreeLevels());
+    expect(api.playerData.completedLevels, 'not while the modal is up').toEqual([]);
+
+    await act(async () => {
+      api.closeUpgradeModal();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    await waitFor(() => expect(api.playerData.completedLevels).toEqual([1, 2, 3]));
+    expect(api.playerData.resources.gold).toBe(940);
+  });
+
+  /*
+   * And the line that deferral must not cross. Reading the slot on every
+   * arrival in the lobby would be simpler and is wrong: closeUpgradeModal is a
+   * lobby arrival, so it would fire on every modal close, and a read nobody
+   * asked for can only replace this tab's copy with an older one - a write that
+   * failed on a full quota is precisely what it would find. Every read is
+   * prompted by another tab SAYING it wrote.
+   */
+  it('does not read the slot just because a modal closed', async () => {
+    await mountGuest();
+    await act(async () => { api.openUpgradeModal(); });
+    /* A slot that changed under this tab with no announcement, the way a
+       half-finished write or another program's tidy-up would leave it. */
+    writeGuestSave(wonThreeLevels());
+
+    await act(async () => {
+      api.closeUpgradeModal();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(
+      api.playerData.completedLevels,
+      'nothing announced, so nothing to catch up with',
+    ).toEqual([]);
+  });
+
+  /*
    * Trap 3. The catch-up calls setPlayerData, which is a playerData change like
    * any other - so without the loop-breaker this tab announces its adoption,
    * the other tab re-reads and announces back, and the two trade messages for
